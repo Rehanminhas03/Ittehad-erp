@@ -1,0 +1,1 @@
+export { ReceiveGoods } from './ReceiveGoods';

@@ -1,0 +1,1 @@
+export { EntityDetailView } from './EntityDetailView';

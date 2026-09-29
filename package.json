@@ -1,0 +1,15 @@
+{
+  "name": "dealership-dms",
+  "private": true,
+  "type": "module",
+  "description": "Dealership DMS: one command runs backend + frontend locally (no Docker)",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/dev.mjs",
+    "db:start": "node scripts/ensure-db.mjs",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "start": "npm --prefix backend start"
+  }
+}

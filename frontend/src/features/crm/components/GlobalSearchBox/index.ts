@@ -1,0 +1,1 @@
+export { GlobalSearchBox } from './GlobalSearchBox';

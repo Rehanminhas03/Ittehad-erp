@@ -1,0 +1,1 @@
+export { entityRoutes } from './entityRoutes';

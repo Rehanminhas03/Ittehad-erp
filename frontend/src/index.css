@@ -1,0 +1,111 @@
+@import 'tailwindcss';
+
+/* Short screens (e.g. a 1366x768 laptop once the browser bars take their space, or an iPhone SE): pages that must fit
+   without scrolling tighten their spacing with short:… */
+@custom-variant short (@media (max-height: 760px));
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Source Serif 4', ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+  --color-brand-50: #eff5ff;
+  --color-brand-100: #dbe8fe;
+  --color-brand-200: #bfd7fe;
+  --color-brand-300: #93bbfd;
+  --color-brand-400: #609afa;
+  --color-brand-500: #3b6fd8;
+  --color-brand-600: #2a57b8;
+  --color-brand-700: #234894;
+  --color-brand-800: #1f3c78;
+  --color-brand-900: #1c3364;
+}
+
+@layer base {
+  html {
+    @apply bg-slate-100 text-slate-800 antialiased;
+  }
+  body {
+    @apply min-h-screen;
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+}
+
+/* Phones and tablets: form text at 16px or more, otherwise iOS zooms the page in when a field is tapped. */
+@media (max-width: 767px), (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@layer utilities {
+  /*
+   * The standard raised surface used by Section, cards, tables and menus: frosted glass that stays
+   * mostly white, so tables and forms remain easy to read over the backdrop.
+   */
+  .surface {
+    @apply rounded-2xl;
+    background: rgb(255 255 255 / 0.74);
+    border: 1px solid rgb(255 255 255 / 0.85);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      0 12px 32px -18px rgb(30 58 138 / 0.25),
+      0 1px 3px rgb(15 23 42 / 0.04);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  /*
+   * Glass ("liquid glass") surfaces: translucent, blurred and saturated, with a bright top edge and
+   * a soft sheen. They need colour behind them to read, e.g. the login page backdrop.
+   */
+  .glass {
+    background: linear-gradient(145deg, rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.28));
+    border: 1px solid rgb(255 255 255 / 0.7);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      inset 0 -1px 0 rgb(255 255 255 / 0.25),
+      0 24px 60px -24px rgb(30 58 138 / 0.28),
+      0 2px 6px rgb(15 23 42 / 0.04);
+    backdrop-filter: blur(28px) saturate(170%);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+  }
+  .glass-soft {
+    background: rgb(255 255 255 / 0.4);
+    border: 1px solid rgb(255 255 255 / 0.65);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 4px 14px -6px rgb(30 58 138 / 0.18);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+  }
+  .glass-input {
+    background: rgb(255 255 255 / 0.45);
+    border: 1px solid rgb(255 255 255 / 0.75);
+    box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .glass-input:focus {
+    background: rgb(255 255 255 / 0.75);
+  }
+  /* Glossy blue call-to-action: gradient body, bright top highlight, soft coloured glow. */
+  .glass-button {
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.28), rgb(255 255 255 / 0) 55%),
+      linear-gradient(135deg, var(--color-brand-400), var(--color-brand-600) 55%, var(--color-brand-800));
+    border: 1px solid rgb(255 255 255 / 0.35);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.45),
+      0 12px 28px -10px rgb(42 87 184 / 0.65);
+  }
+  .glass-button:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.5),
+      0 16px 34px -10px rgb(42 87 184 / 0.75);
+  }
+}
