@@ -1,0 +1,1932 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["accounts", "audit", "core", "parts", "sales", "service"]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Account {
+  id           BigInt        @id @default(autoincrement())
+  dealershipId BigInt        @map("dealership_id")
+  code         String
+  name         String
+  type         String
+  role         String?
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById  BigInt?       @map("created_by_id")
+  updatedById  BigInt?       @map("updated_by_id")
+  createdBy    User?         @relation("account_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "account_created_by_id_user_id_fk")
+  dealership   Dealership    @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "account_dealership_id_dealership_id_fk")
+  updatedBy    User?         @relation("account_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "account_updated_by_id_user_id_fk")
+  journalLines JournalLine[]
+
+  @@unique([dealershipId, code], map: "account_dealershipId_code_unique")
+  @@unique([dealershipId, role], map: "account_role_uq", where: raw("(role IS NOT NULL)"))
+  @@index([createdById], map: "account_created_by_id_index")
+  @@index([dealershipId], map: "account_dealership_id_index")
+  @@index([updatedById], map: "account_updated_by_id_index")
+  @@map("account")
+  @@schema("accounts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Invoice {
+  id                 BigInt              @id @default(autoincrement())
+  dealershipId       BigInt              @map("dealership_id")
+  branchId           BigInt?             @map("branch_id")
+  legalEntityId      BigInt?             @map("legal_entity_id")
+  accountingEntityId BigInt?             @map("accounting_entity_id")
+  invoiceNo          String              @unique(map: "invoice_invoiceNo_unique") @map("invoice_no")
+  kind               String
+  customerId         BigInt              @map("customer_id")
+  sourceType         String              @map("source_type")
+  sourceId           BigInt              @map("source_id")
+  sourceNo           String?             @map("source_no")
+  invoiceDate        DateTime            @map("invoice_date") @db.Date
+  dueDate            DateTime            @map("due_date") @db.Date
+  subtotal           Decimal             @db.Decimal(14, 2)
+  taxAmount          Decimal             @map("tax_amount") @db.Decimal(14, 2)
+  totalAmount        Decimal             @map("total_amount") @db.Decimal(14, 2)
+  amountPaid         Decimal             @default(0) @map("amount_paid") @db.Decimal(14, 2)
+  notes              String?
+  journalEntryId     BigInt?             @map("journal_entry_id")
+  status             String              @default("draft")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById        BigInt?             @map("created_by_id")
+  updatedById        BigInt?             @map("updated_by_id")
+  accountingEntity   AccountingEntity?   @relation(fields: [accountingEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_accounting_entity_id_accounting_entity_id_fk")
+  branch             Branch?             @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "invoice_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy          User?               @relation("invoice_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_created_by_id_user_id_fk")
+  customer           Customer            @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_customer_id_customer_id_fk")
+  dealership         Dealership          @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_dealership_id_dealership_id_fk")
+  journalEntry       JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_journal_entry_id_journal_entry_id_fk")
+  legalEntity        LegalEntity?        @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_legal_entity_id_legal_entity_id_fk")
+  updatedBy          User?               @relation("invoice_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_updated_by_id_user_id_fk")
+  invoiceLines       InvoiceLine[]
+  paymentAllocations PaymentAllocation[]
+
+  @@unique([sourceType, sourceId], map: "invoice_source_live_uq", where: raw("(status <> ALL (ARRAY['void'::text, 'cancelled'::text]))"))
+  @@index([accountingEntityId], map: "invoice_accounting_entity_id_index")
+  @@index([branchId], map: "invoice_branch_id_index")
+  @@index([createdById], map: "invoice_created_by_id_index")
+  @@index([customerId], map: "invoice_customer_id_index")
+  @@index([dealershipId, status], map: "invoice_dealership_id_status_index")
+  @@index([dueDate], map: "invoice_due_date_index")
+  @@index([journalEntryId], map: "invoice_journal_entry_id_index")
+  @@index([legalEntityId], map: "invoice_legal_entity_id_index")
+  @@index([updatedById], map: "invoice_updated_by_id_index")
+  @@map("invoice")
+  @@schema("accounts")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model InvoiceLine {
+  id           BigInt     @id @default(autoincrement())
+  dealershipId BigInt     @map("dealership_id")
+  invoiceId    BigInt     @map("invoice_id")
+  kind         String
+  description  String
+  partNo       String?    @map("part_no")
+  quantity     Decimal    @db.Decimal(12, 2)
+  unitPrice    Decimal    @map("unit_price") @db.Decimal(14, 2)
+  amount       Decimal    @db.Decimal(14, 2)
+  taxRate      Decimal    @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount    Decimal    @map("tax_amount") @db.Decimal(14, 2)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_line_dealership_id_dealership_id_fk")
+  invoice      Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "invoice_line_invoice_id_invoice_id_fk")
+
+  @@index([dealershipId], map: "invoice_line_dealership_id_index")
+  @@index([invoiceId], map: "invoice_line_invoice_id_index")
+  @@map("invoice_line")
+  @@schema("accounts")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model JournalEntry {
+  id                 BigInt            @id @default(autoincrement())
+  dealershipId       BigInt            @map("dealership_id")
+  branchId           BigInt?           @map("branch_id")
+  legalEntityId      BigInt?           @map("legal_entity_id")
+  accountingEntityId BigInt?           @map("accounting_entity_id")
+  entryNo            String            @unique(map: "journal_entry_entryNo_unique") @map("entry_no")
+  entryDate          DateTime          @map("entry_date") @db.Date
+  source             String
+  sourceType         String?           @map("source_type")
+  sourceId           BigInt?           @map("source_id")
+  memo               String
+  totalAmount        Decimal           @map("total_amount") @db.Decimal(14, 2)
+  reversalOfId       BigInt?           @unique(map: "journal_entry_reversal_uq", where: raw("(reversal_of_id IS NOT NULL)")) @map("reversal_of_id")
+  postedById         BigInt            @map("posted_by_id")
+  postedAt           DateTime          @default(now()) @map("posted_at") @db.Timestamptz(6)
+  invoices           Invoice[]
+  accountingEntity   AccountingEntity? @relation(fields: [accountingEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_entry_accounting_entity_id_accounting_entity_id_fk")
+  branch             Branch?           @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "journal_entry_branch_id_dealership_id_branch_id_dealership_id_f")
+  dealership         Dealership        @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_entry_dealership_id_dealership_id_fk")
+  legalEntity        LegalEntity?      @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_entry_legal_entity_id_legal_entity_id_fk")
+  user               User              @relation(fields: [postedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_entry_posted_by_id_user_id_fk")
+  journalLines       JournalLine[]
+  payments           Payment[]
+
+  @@index([accountingEntityId], map: "journal_entry_accounting_entity_id_index")
+  @@index([branchId], map: "journal_entry_branch_id_index")
+  @@index([dealershipId, entryDate], map: "journal_entry_dealership_id_entry_date_index")
+  @@index([legalEntityId], map: "journal_entry_legal_entity_id_index")
+  @@index([postedById], map: "journal_entry_posted_by_id_index")
+  @@index([sourceType, sourceId], map: "journal_entry_source_type_source_id_index")
+  @@map("journal_entry")
+  @@schema("accounts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model JournalLine {
+  id             BigInt       @id @default(autoincrement())
+  dealershipId   BigInt       @map("dealership_id")
+  journalEntryId BigInt       @map("journal_entry_id")
+  accountId      BigInt       @map("account_id")
+  debit          Decimal      @default(0) @db.Decimal(14, 2)
+  credit         Decimal      @default(0) @db.Decimal(14, 2)
+  customerId     BigInt?      @map("customer_id")
+  supplierId     BigInt?      @map("supplier_id")
+  description    String?
+  account        Account      @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_line_account_id_account_id_fk")
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_line_customer_id_customer_id_fk")
+  dealership     Dealership   @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_line_dealership_id_dealership_id_fk")
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_line_journal_entry_id_journal_entry_id_fk")
+  supplier       Supplier?    @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "journal_line_supplier_id_supplier_id_fk")
+
+  @@index([accountId], map: "journal_line_account_id_index")
+  @@index([customerId], map: "journal_line_customer_id_index")
+  @@index([dealershipId], map: "journal_line_dealership_id_index")
+  @@index([journalEntryId], map: "journal_line_journal_entry_id_index")
+  @@index([supplierId], map: "journal_line_supplier_id_index")
+  @@map("journal_line")
+  @@schema("accounts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Payment {
+  id                 BigInt              @id @default(autoincrement())
+  dealershipId       BigInt              @map("dealership_id")
+  branchId           BigInt?             @map("branch_id")
+  paymentNo          String              @unique(map: "payment_paymentNo_unique") @map("payment_no")
+  direction          String
+  customerId         BigInt?             @map("customer_id")
+  supplierId         BigInt?             @map("supplier_id")
+  method             String
+  reference          String?
+  paymentDate        DateTime            @map("payment_date") @db.Date
+  amount             Decimal             @db.Decimal(14, 2)
+  notes              String?
+  journalEntryId     BigInt?             @map("journal_entry_id")
+  status             String              @default("posted")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById        BigInt?             @map("created_by_id")
+  updatedById        BigInt?             @map("updated_by_id")
+  branch             Branch?             @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "payment_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy          User?               @relation("payment_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_created_by_id_user_id_fk")
+  customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_customer_id_customer_id_fk")
+  dealership         Dealership          @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_dealership_id_dealership_id_fk")
+  journalEntry       JournalEntry?       @relation(fields: [journalEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_journal_entry_id_journal_entry_id_fk")
+  supplier           Supplier?           @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_supplier_id_supplier_id_fk")
+  updatedBy          User?               @relation("payment_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_updated_by_id_user_id_fk")
+  paymentAllocations PaymentAllocation[]
+
+  @@index([branchId], map: "payment_branch_id_index")
+  @@index([createdById], map: "payment_created_by_id_index")
+  @@index([customerId], map: "payment_customer_id_index")
+  @@index([dealershipId, paymentDate], map: "payment_dealership_id_payment_date_index")
+  @@index([journalEntryId], map: "payment_journal_entry_id_index")
+  @@index([supplierId], map: "payment_supplier_id_index")
+  @@index([updatedById], map: "payment_updated_by_id_index")
+  @@map("payment")
+  @@schema("accounts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PaymentAllocation {
+  id           BigInt     @id @default(autoincrement())
+  dealershipId BigInt     @map("dealership_id")
+  paymentId    BigInt     @map("payment_id")
+  invoiceId    BigInt     @map("invoice_id")
+  amount       Decimal    @db.Decimal(14, 2)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_allocation_dealership_id_dealership_id_fk")
+  invoice      Invoice    @relation(fields: [invoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_allocation_invoice_id_invoice_id_fk")
+  payment      Payment    @relation(fields: [paymentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_allocation_payment_id_payment_id_fk")
+
+  @@unique([paymentId, invoiceId], map: "payment_allocation_paymentId_invoiceId_unique")
+  @@index([dealershipId], map: "payment_allocation_dealership_id_index")
+  @@index([invoiceId], map: "payment_allocation_invoice_id_index")
+  @@index([paymentId], map: "payment_allocation_payment_id_index")
+  @@map("payment_allocation")
+  @@schema("accounts")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AuditLog {
+  id           BigInt      @id @default(autoincrement())
+  occurredAt   DateTime    @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  actorId      BigInt?     @map("actor_id")
+  dealershipId BigInt?     @map("dealership_id")
+  branchId     BigInt?     @map("branch_id")
+  entityType   String      @map("entity_type")
+  entityId     String      @map("entity_id")
+  action       String
+  changes      Json?
+  requestId    String?     @map("request_id")
+  ip           String?
+  user         User?       @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "audit_log_actor_id_user_id_fk")
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "audit_log_dealership_id_dealership_id_fk")
+
+  @@index([actorId], map: "audit_log_actor_id_index")
+  @@index([branchId], map: "audit_log_branch_id_index")
+  @@index([dealershipId, occurredAt], map: "audit_log_dealership_id_occurred_at_index")
+  @@index([entityType, entityId], map: "audit_log_entity_type_entity_id_index")
+  @@index([occurredAt], map: "audit_log_occurred_at_index")
+  @@map("audit_log")
+  @@schema("audit")
+}
+
+model AccountingEntity {
+  id             BigInt          @id @default(autoincrement())
+  name           String
+  legalEntityId  BigInt?         @map("legal_entity_id")
+  baseCurrency   String          @default("PKR") @map("base_currency")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  invoices       Invoice[]
+  journalEntries JournalEntry[]
+  legalEntity    LegalEntity?    @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounting_entity_legal_entity_id_legal_entity_id_fk")
+  dealerships    Dealership[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+
+  @@index([legalEntityId], map: "accounting_entity_legal_entity_id_index")
+  @@map("accounting_entity")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Branch {
+  id                                                         BigInt                 @id @default(autoincrement())
+  dealershipId                                               BigInt                 @map("dealership_id")
+  code                                                       String
+  name                                                       String
+  city                                                       String?
+  address                                                    String?
+  phone                                                      String?
+  isActive                                                   Boolean                @default(true) @map("is_active")
+  createdAt                                                  DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                                  DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById                                                BigInt?                @map("created_by_id")
+  updatedById                                                BigInt?                @map("updated_by_id")
+  invoices                                                   Invoice[]
+  journalEntries                                             JournalEntry[]
+  payments                                                   Payment[]
+  createdBy                                                  User?                  @relation("branch_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "branch_created_by_id_user_id_fk")
+  dealership                                                 Dealership             @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "branch_dealership_id_dealership_id_fk")
+  updatedBy                                                  User?                  @relation("branch_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "branch_updated_by_id_user_id_fk")
+  userRoles                                                  UserRole[]
+  goodsReceipts                                              GoodsReceipt[]
+  inventoryTransactions                                      InventoryTransaction[]
+  partsRequests                                              PartsRequest[]
+  purchaseOrders                                             PurchaseOrder[]
+  stockAdjustments                                           StockAdjustment[]
+  stockItems                                                 StockItem[]
+  stockTransferStockTransferBranchIdDealershipIdTobranches   StockTransfer[]        @relation("stock_transfer_branch_id_dealership_idTobranch")
+  stockTransferStockTransferToBranchIdDealershipIdTobranches StockTransfer[]        @relation("stock_transfer_to_branch_id_dealership_idTobranch")
+  deliveries                                                 Delivery[]
+  leads                                                      Lead[]
+  ppfForms                                                   PpfForm[]
+  quotations                                                 Quotation[]
+  salesOrders                                                SalesOrder[]
+  estimates                                                  Estimate[]
+  inspections                                                Inspection[]
+  jobCards                                                   JobCard[]
+  visits                                                     Visit[]
+
+  @@unique([dealershipId, code], map: "branch_dealershipId_code_unique")
+  @@unique([id, dealershipId], map: "branch_id_dealership_uq")
+  @@index([createdById], map: "branch_created_by_id_index")
+  @@index([dealershipId], map: "branch_dealership_id_index")
+  @@index([updatedById], map: "branch_updated_by_id_index")
+  @@map("branch")
+  @@schema("core")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Customer {
+  id                BigInt             @id @default(autoincrement())
+  dealershipId      BigInt             @map("dealership_id")
+  kind              String             @default("individual")
+  fullName          String             @map("full_name")
+  mobile            String
+  mobileNormalized  String             @map("mobile_normalized")
+  altPhone          String?            @map("alt_phone")
+  email             String?
+  cnic              String?
+  ntn               String?
+  address           String?
+  city              String?
+  notes             String?
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById       BigInt?            @map("created_by_id")
+  updatedById       BigInt?            @map("updated_by_id")
+  invoices          Invoice[]
+  journalLines      JournalLine[]
+  payments          Payment[]
+  createdBy         User?              @relation("customer_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customer_created_by_id_user_id_fk")
+  dealership        Dealership         @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customer_dealership_id_dealership_id_fk")
+  updatedBy         User?              @relation("customer_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customer_updated_by_id_user_id_fk")
+  vehicleOwnerships VehicleOwnership[]
+  deliveries        Delivery[]
+  leads             Lead[]
+  salesOrders       SalesOrder[]
+  estimates         Estimate[]
+  visits            Visit[]
+
+  @@unique([dealershipId, cnic], map: "customer_dealership_cnic_uq", where: raw("(cnic IS NOT NULL)"))
+  @@unique([dealershipId, mobileNormalized], map: "customer_dealership_mobile_uq")
+  @@index([createdById], map: "customer_created_by_id_index")
+  @@index([dealershipId], map: "customer_dealership_id_index")
+  @@index([mobileNormalized(ops: raw("gin_trgm_ops"))], map: "customer_mobile_trgm", type: Gin)
+  @@index([fullName(ops: raw("gin_trgm_ops"))], map: "customer_name_trgm", type: Gin)
+  @@index([updatedById], map: "customer_updated_by_id_index")
+  @@map("customer")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Dealership {
+  id                    BigInt                 @id @default(autoincrement())
+  code                  String                 @unique(map: "dealership_code_unique")
+  name                  String
+  brand                 String
+  city                  String?
+  address               String?
+  phone                 String?
+  legalEntityId         BigInt?                @map("legal_entity_id")
+  accountingEntityId    BigInt?                @map("accounting_entity_id")
+  isActive              Boolean                @default(true) @map("is_active")
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById           BigInt?                @map("created_by_id")
+  updatedById           BigInt?                @map("updated_by_id")
+  accounts              Account[]
+  invoices              Invoice[]
+  invoiceLines          InvoiceLine[]
+  journalEntries        JournalEntry[]
+  journalLines          JournalLine[]
+  payments              Payment[]
+  paymentAllocations    PaymentAllocation[]
+  auditLogs             AuditLog[]
+  branches              Branch[]
+  customers             Customer[]
+  accountingEntity      AccountingEntity?      @relation(fields: [accountingEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dealership_accounting_entity_id_accounting_entity_id_fk")
+  createdBy             User?                  @relation("dealership_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dealership_created_by_id_user_id_fk")
+  legalEntity           LegalEntity?           @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dealership_legal_entity_id_legal_entity_id_fk")
+  updatedBy             User?                  @relation("dealership_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dealership_updated_by_id_user_id_fk")
+  documentSequences     DocumentSequence[]
+  domainEvents          DomainEvent[]
+  notifications         Notification[]
+  userRoles             UserRole[]
+  vehicles              Vehicle[]
+  vehicleDealerships    VehicleDealership[]
+  vehicleOwnerships     VehicleOwnership[]
+  workflowTransitions   WorkflowTransition[]
+  goodsReceipts         GoodsReceipt[]
+  goodsReceiptLines     GoodsReceiptLine[]
+  inventoryTransactions InventoryTransaction[]
+  partsRequests         PartsRequest[]
+  partsRequestLines     PartsRequestLine[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseOrderLines    PurchaseOrderLine[]
+  stockAdjustments      StockAdjustment[]
+  stockAdjustmentLines  StockAdjustmentLine[]
+  stockItems            StockItem[]
+  stockTransfers        StockTransfer[]
+  stockTransferLines    StockTransferLine[]
+  suppliers             Supplier[]
+  deliveries            Delivery[]
+  documentTemplates     DocumentTemplate[]
+  leads                 Lead[]
+  leadFollowUps         LeadFollowUp[]
+  ppfForms              PpfForm[]
+  quotations            Quotation[]
+  salesOrders           SalesOrder[]
+  vehicleVariants       VehicleVariant[]
+  estimates             Estimate[]
+  estimateLines         EstimateLine[]
+  inspections           Inspection[]
+  inspectionItems       InspectionItem[]
+  jobCards              JobCard[]
+  jobCardLines          JobCardLine[]
+  visits                Visit[]
+
+  @@index([accountingEntityId], map: "dealership_accounting_entity_id_index")
+  @@index([createdById], map: "dealership_created_by_id_index")
+  @@index([legalEntityId], map: "dealership_legal_entity_id_index")
+  @@index([updatedById], map: "dealership_updated_by_id_index")
+  @@map("dealership")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model DocumentSequence {
+  dealershipId BigInt     @map("dealership_id")
+  docType      String     @map("doc_type")
+  year         Int
+  lastNo       Int        @map("last_no")
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "document_sequence_dealership_id_dealership_id_fk")
+
+  @@id([dealershipId, docType, year], map: "document_sequence_dealership_id_doc_type_year_pk")
+  @@map("document_sequence")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model DomainEvent {
+  id            BigInt     @id @default(autoincrement())
+  dealershipId  BigInt     @map("dealership_id")
+  type          String
+  aggregateType String     @map("aggregate_type")
+  aggregateId   BigInt     @map("aggregate_id")
+  payload       Json
+  actorId       BigInt?    @map("actor_id")
+  occurredAt    DateTime   @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  user          User?      @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "domain_event_actor_id_user_id_fk")
+  dealership    Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "domain_event_dealership_id_dealership_id_fk")
+
+  @@index([actorId], map: "domain_event_actor_id_index")
+  @@index([aggregateType, aggregateId], map: "domain_event_aggregate_type_aggregate_id_index")
+  @@index([dealershipId, occurredAt], map: "domain_event_dealership_id_occurred_at_index")
+  @@index([type, occurredAt], map: "domain_event_type_occurred_at_index")
+  @@map("domain_event")
+  @@schema("core")
+}
+
+model LegalEntity {
+  id                 BigInt             @id @default(autoincrement())
+  name               String
+  registrationNo     String?            @map("registration_no")
+  taxNo              String?            @map("tax_no")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  invoices           Invoice[]
+  journalEntries     JournalEntry[]
+  accountingEntities AccountingEntity[]
+  dealerships        Dealership[]
+  purchaseOrders     PurchaseOrder[]
+  salesOrders        SalesOrder[]
+
+  @@map("legal_entity")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Notification {
+  id           BigInt      @id @default(autoincrement())
+  userId       BigInt      @map("user_id")
+  dealershipId BigInt?     @map("dealership_id")
+  entityType   String      @map("entity_type")
+  entityId     String      @map("entity_id")
+  action       String
+  title        String
+  detail       String?
+  href         String?
+  actorId      BigInt?     @map("actor_id")
+  actorName    String?     @map("actor_name")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt       DateTime?   @map("read_at") @db.Timestamptz(6)
+  actor        User?       @relation("notification_actor_idTouser", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "notification_actor_id_user_id_fk")
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "notification_dealership_id_dealership_id_fk")
+  user         User        @relation("notification_user_idTouser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "notification_user_id_user_id_fk")
+
+  @@index([actorId], map: "notification_actor_id_index")
+  @@index([dealershipId], map: "notification_dealership_id_index")
+  @@index([userId], map: "notification_unread_idx", where: raw("(read_at IS NULL)"))
+  @@index([userId, createdAt], map: "notification_user_id_created_at_index")
+  @@map("notification")
+  @@schema("core")
+}
+
+model Permission {
+  id              BigInt           @id @default(autoincrement())
+  code            String           @unique(map: "permission_code_unique")
+  module          String
+  description     String
+  rolePermissions RolePermission[]
+
+  @@index([module], map: "permission_module_index")
+  @@map("permission")
+  @@schema("core")
+}
+
+model RefreshToken {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  tokenHash String    @unique(map: "refresh_token_tokenHash_unique") @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  userAgent String?   @map("user_agent")
+  ip        String?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "refresh_token_user_id_user_id_fk")
+
+  @@index([userId], map: "refresh_token_user_id_index")
+  @@map("refresh_token")
+  @@schema("core")
+}
+
+model Role {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @unique(map: "role_name_unique")
+  description     String?
+  isSystem        Boolean          @default(false) @map("is_system")
+  delegatedBy     String?          @map("delegated_by")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     BigInt?          @map("created_by_id")
+  updatedById     BigInt?          @map("updated_by_id")
+  createdBy       User?            @relation("role_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "role_created_by_id_user_id_fk")
+  updatedBy       User?            @relation("role_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "role_updated_by_id_user_id_fk")
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@index([createdById], map: "role_created_by_id_index")
+  @@index([updatedById], map: "role_updated_by_id_index")
+  @@map("role")
+  @@schema("core")
+}
+
+model RolePermission {
+  roleId       BigInt     @map("role_id")
+  permissionId BigInt     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_permission_permission_id_permission_id_fk")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_permission_role_id_role_id_fk")
+
+  @@id([roleId, permissionId], map: "role_permission_role_id_permission_id_pk")
+  @@index([permissionId], map: "role_permission_permission_id_index")
+  @@map("role_permission")
+  @@schema("core")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model User {
+  id                                                             BigInt                   @id @default(autoincrement())
+  email                                                          String
+  fullName                                                       String                   @map("full_name")
+  phone                                                          String?
+  passwordHash                                                   String                   @map("password_hash")
+  isActive                                                       Boolean                  @default(true) @map("is_active")
+  tokenVersion                                                   Int                      @default(0) @map("token_version")
+  lastLoginAt                                                    DateTime?                @map("last_login_at") @db.Timestamptz(6)
+  createdAt                                                      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                                      DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  accountAccountCreatedByIdTousers                               Account[]                @relation("account_created_by_idTouser")
+  accountAccountUpdatedByIdTousers                               Account[]                @relation("account_updated_by_idTouser")
+  invoiceInvoiceCreatedByIdTousers                               Invoice[]                @relation("invoice_created_by_idTouser")
+  invoiceInvoiceUpdatedByIdTousers                               Invoice[]                @relation("invoice_updated_by_idTouser")
+  journalEntries                                                 JournalEntry[]
+  paymentPaymentCreatedByIdTousers                               Payment[]                @relation("payment_created_by_idTouser")
+  paymentPaymentUpdatedByIdTousers                               Payment[]                @relation("payment_updated_by_idTouser")
+  auditLogs                                                      AuditLog[]
+  branchBranchCreatedByIdTousers                                 Branch[]                 @relation("branch_created_by_idTouser")
+  branchBranchUpdatedByIdTousers                                 Branch[]                 @relation("branch_updated_by_idTouser")
+  customerCustomerCreatedByIdTousers                             Customer[]               @relation("customer_created_by_idTouser")
+  customerCustomerUpdatedByIdTousers                             Customer[]               @relation("customer_updated_by_idTouser")
+  dealershipDealershipCreatedByIdTousers                         Dealership[]             @relation("dealership_created_by_idTouser")
+  dealershipDealershipUpdatedByIdTousers                         Dealership[]             @relation("dealership_updated_by_idTouser")
+  domainEvents                                                   DomainEvent[]
+  notificationNotificationActorIdTousers                         Notification[]           @relation("notification_actor_idTouser")
+  notificationNotificationUserIdTousers                          Notification[]           @relation("notification_user_idTouser")
+  refreshTokens                                                  RefreshToken[]
+  roleRoleCreatedByIdTousers                                     Role[]                   @relation("role_created_by_idTouser")
+  roleRoleUpdatedByIdTousers                                     Role[]                   @relation("role_updated_by_idTouser")
+  userRoleUserRoleCreatedByIdTousers                             UserRole[]               @relation("user_role_created_by_idTouser")
+  userRoleUserRoleUserIdTousers                                  UserRole[]               @relation("user_role_user_idTouser")
+  vehicleVehicleCreatedByIdTousers                               Vehicle[]                @relation("vehicle_created_by_idTouser")
+  vehicleVehicleUpdatedByIdTousers                               Vehicle[]                @relation("vehicle_updated_by_idTouser")
+  vehicleDealerships                                             VehicleDealership[]
+  vehicleModelVehicleModelCreatedByIdTousers                     VehicleModel[]           @relation("vehicle_model_created_by_idTouser")
+  vehicleModelVehicleModelUpdatedByIdTousers                     VehicleModel[]           @relation("vehicle_model_updated_by_idTouser")
+  vehicleOwnershipVehicleOwnershipCreatedByIdTousers             VehicleOwnership[]       @relation("vehicle_ownership_created_by_idTouser")
+  vehicleOwnershipVehicleOwnershipEndedByIdTousers               VehicleOwnership[]       @relation("vehicle_ownership_ended_by_idTouser")
+  workflowTransitions                                            WorkflowTransition[]
+  goodsReceipts                                                  GoodsReceipt[]
+  inventoryTransactions                                          InventoryTransaction[]
+  partPartCreatedByIdTousers                                     Part[]                   @relation("part_created_by_idTouser")
+  partPartUpdatedByIdTousers                                     Part[]                   @relation("part_updated_by_idTouser")
+  partsRequestPartsRequestCreatedByIdTousers                     PartsRequest[]           @relation("parts_request_created_by_idTouser")
+  partsRequestPartsRequestRequestedByIdTousers                   PartsRequest[]           @relation("parts_request_requested_by_idTouser")
+  partsRequestPartsRequestUpdatedByIdTousers                     PartsRequest[]           @relation("parts_request_updated_by_idTouser")
+  purchaseOrderPurchaseOrderCreatedByIdTousers                   PurchaseOrder[]          @relation("purchase_order_created_by_idTouser")
+  purchaseOrderPurchaseOrderUpdatedByIdTousers                   PurchaseOrder[]          @relation("purchase_order_updated_by_idTouser")
+  stockAdjustmentStockAdjustmentCreatedByIdTousers               StockAdjustment[]        @relation("stock_adjustment_created_by_idTouser")
+  stockAdjustmentStockAdjustmentUpdatedByIdTousers               StockAdjustment[]        @relation("stock_adjustment_updated_by_idTouser")
+  stockTransferStockTransferCreatedByIdTousers                   StockTransfer[]          @relation("stock_transfer_created_by_idTouser")
+  stockTransferStockTransferUpdatedByIdTousers                   StockTransfer[]          @relation("stock_transfer_updated_by_idTouser")
+  supplierSupplierCreatedByIdTousers                             Supplier[]               @relation("supplier_created_by_idTouser")
+  supplierSupplierUpdatedByIdTousers                             Supplier[]               @relation("supplier_updated_by_idTouser")
+  deliveryDeliveryCreatedByIdTousers                             Delivery[]               @relation("delivery_created_by_idTouser")
+  deliveryDeliveryDeliveredByIdTousers                           Delivery[]               @relation("delivery_delivered_by_idTouser")
+  deliveryDeliverySalespersonIdTousers                           Delivery[]               @relation("delivery_salesperson_idTouser")
+  deliveryDeliveryUpdatedByIdTousers                             Delivery[]               @relation("delivery_updated_by_idTouser")
+  documentTemplateDocumentTemplateCreatedByIdTousers             DocumentTemplate[]       @relation("document_template_created_by_idTouser")
+  documentTemplateDocumentTemplateUpdatedByIdTousers             DocumentTemplate[]       @relation("document_template_updated_by_idTouser")
+  leadLeadConvertedByIdTousers                                   Lead[]                   @relation("lead_converted_by_idTouser")
+  leadLeadCreatedByIdTousers                                     Lead[]                   @relation("lead_created_by_idTouser")
+  leadLeadEscalatedByIdTousers                                   Lead[]                   @relation("lead_escalated_by_idTouser")
+  leadLeadOwnerIdTousers                                         Lead[]                   @relation("lead_owner_idTouser")
+  leadLeadUpdatedByIdTousers                                     Lead[]                   @relation("lead_updated_by_idTouser")
+  leadFollowUps                                                  LeadFollowUp[]
+  ppfFormPpfFormCreatedByIdTousers                               PpfForm[]                @relation("ppf_form_created_by_idTouser")
+  ppfFormPpfFormOwnerIdTousers                                   PpfForm[]                @relation("ppf_form_owner_idTouser")
+  ppfFormPpfFormUpdatedByIdTousers                               PpfForm[]                @relation("ppf_form_updated_by_idTouser")
+  quotationQuotationCreatedByIdTousers                           Quotation[]              @relation("quotation_created_by_idTouser")
+  quotationQuotationOwnerIdTousers                               Quotation[]              @relation("quotation_owner_idTouser")
+  quotationQuotationUpdatedByIdTousers                           Quotation[]              @relation("quotation_updated_by_idTouser")
+  salesOrderSalesOrderCreatedByIdTousers                         SalesOrder[]             @relation("sales_order_created_by_idTouser")
+  salesOrderSalesOrderSalespersonIdTousers                       SalesOrder[]             @relation("sales_order_salesperson_idTouser")
+  salesOrderSalesOrderUpdatedByIdTousers                         SalesOrder[]             @relation("sales_order_updated_by_idTouser")
+  vehicleVariantVehicleVariantCreatedByIdTousers                 VehicleVariant[]         @relation("vehicle_variant_created_by_idTouser")
+  vehicleVariantVehicleVariantUpdatedByIdTousers                 VehicleVariant[]         @relation("vehicle_variant_updated_by_idTouser")
+  estimateEstimateAdvisorIdTousers                               Estimate[]               @relation("estimate_advisor_idTouser")
+  estimateEstimateCreatedByIdTousers                             Estimate[]               @relation("estimate_created_by_idTouser")
+  estimateEstimateUpdatedByIdTousers                             Estimate[]               @relation("estimate_updated_by_idTouser")
+  inspectionInspectionCreatedByIdTousers                         Inspection[]             @relation("inspection_created_by_idTouser")
+  inspectionInspectionInspectorIdTousers                         Inspection[]             @relation("inspection_inspector_idTouser")
+  inspectionInspectionUpdatedByIdTousers                         Inspection[]             @relation("inspection_updated_by_idTouser")
+  inspectionTemplateItemInspectionTemplateItemCreatedByIdTousers InspectionTemplateItem[] @relation("inspection_template_item_created_by_idTouser")
+  inspectionTemplateItemInspectionTemplateItemUpdatedByIdTousers InspectionTemplateItem[] @relation("inspection_template_item_updated_by_idTouser")
+  jobCardJobCardAdvisorIdTousers                                 JobCard[]                @relation("job_card_advisor_idTouser")
+  jobCardJobCardCreatedByIdTousers                               JobCard[]                @relation("job_card_created_by_idTouser")
+  jobCardJobCardTechnicianIdTousers                              JobCard[]                @relation("job_card_technician_idTouser")
+  jobCardJobCardUpdatedByIdTousers                               JobCard[]                @relation("job_card_updated_by_idTouser")
+  jobCardLines                                                   JobCardLine[]
+  scheduleItemScheduleItemCreatedByIdTousers                     ScheduleItem[]           @relation("schedule_item_created_by_idTouser")
+  scheduleItemScheduleItemUpdatedByIdTousers                     ScheduleItem[]           @relation("schedule_item_updated_by_idTouser")
+  visitVisitAdvisorIdTousers                                     Visit[]                  @relation("visit_advisor_idTouser")
+  visitVisitCreatedByIdTousers                                   Visit[]                  @relation("visit_created_by_idTouser")
+  visitVisitUpdatedByIdTousers                                   Visit[]                  @relation("visit_updated_by_idTouser")
+
+  @@map("user")
+  @@schema("core")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model UserRole {
+  id           BigInt      @id @default(autoincrement())
+  userId       BigInt      @map("user_id")
+  roleId       BigInt      @map("role_id")
+  dealershipId BigInt?     @map("dealership_id")
+  branchId     BigInt?     @map("branch_id")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt?     @map("created_by_id")
+  branch       Branch?     @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "user_role_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy    User?       @relation("user_role_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "user_role_created_by_id_user_id_fk")
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "user_role_dealership_id_dealership_id_fk")
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_role_role_id_role_id_fk")
+  user         User        @relation("user_role_user_idTouser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_role_user_id_user_id_fk")
+
+  @@index([branchId], map: "user_role_branch_id_index")
+  @@index([createdById], map: "user_role_created_by_id_index")
+  @@index([dealershipId], map: "user_role_dealership_id_index")
+  @@index([roleId], map: "user_role_role_id_index")
+  @@index([userId], map: "user_role_user_id_index")
+  @@map("user_role")
+  @@schema("core")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Vehicle {
+  id                   BigInt              @id @default(autoincrement())
+  vin                  String?             @unique(map: "vehicle_vin_uq", where: raw("(vin IS NOT NULL)"))
+  engineNo             String?             @unique(map: "vehicle_engine_uq", where: raw("(engine_no IS NOT NULL)")) @map("engine_no")
+  registrationNo       String?             @unique(map: "vehicle_registration_uq", where: raw("(registration_no IS NOT NULL)")) @map("registration_no")
+  modelId              BigInt              @map("model_id")
+  variant              String?
+  modelYear            Int?                @map("model_year")
+  color                String?
+  notes                String?
+  status               String              @default("available")
+  activatedOn          DateTime?           @map("activated_on") @db.Date
+  warrantyEndsOn       DateTime?           @map("warranty_ends_on") @db.Date
+  activationOdometerKm Int?                @map("activation_odometer_km")
+  soldByDealershipId   BigInt?             @map("sold_by_dealership_id")
+  serviceVisitCount    Int                 @default(0) @map("service_visit_count")
+  lastServiceOn        DateTime?           @map("last_service_on") @db.Date
+  lastOdometerKm       Int?                @map("last_odometer_km")
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          BigInt?             @map("created_by_id")
+  updatedById          BigInt?             @map("updated_by_id")
+  createdBy            User?               @relation("vehicle_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_created_by_id_user_id_fk")
+  vehicleModel         VehicleModel        @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_model_id_vehicle_model_id_fk")
+  dealership           Dealership?         @relation(fields: [soldByDealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_sold_by_dealership_id_dealership_id_fk")
+  updatedBy            User?               @relation("vehicle_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_updated_by_id_user_id_fk")
+  vehicleDealerships   VehicleDealership[]
+  vehicleOwnerships    VehicleOwnership[]
+  deliveries           Delivery[]
+  salesOrder           SalesOrder?
+  jobCards             JobCard[]
+  vehicleSchedules     VehicleSchedule[]
+  visit                Visit?
+
+  @@index([createdById], map: "vehicle_created_by_id_index")
+  @@index([engineNo(ops: raw("gin_trgm_ops"))], map: "vehicle_engine_trgm", type: Gin)
+  @@index([modelId], map: "vehicle_model_id_index")
+  @@index([registrationNo(ops: raw("gin_trgm_ops"))], map: "vehicle_registration_trgm", type: Gin)
+  @@index([soldByDealershipId], map: "vehicle_sold_by_dealership_id_index")
+  @@index([status], map: "vehicle_status_index")
+  @@index([updatedById], map: "vehicle_updated_by_id_index")
+  @@index([vin(ops: raw("gin_trgm_ops"))], map: "vehicle_vin_trgm", type: Gin)
+  @@map("vehicle")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VehicleDealership {
+  id           BigInt     @id @default(autoincrement())
+  vehicleId    BigInt     @map("vehicle_id")
+  dealershipId BigInt     @map("dealership_id")
+  source       String     @default("manual")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt?    @map("created_by_id")
+  user         User?      @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_dealership_created_by_id_user_id_fk")
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_dealership_dealership_id_dealership_id_fk")
+  vehicle      Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_dealership_vehicle_id_vehicle_id_fk")
+
+  @@unique([vehicleId, dealershipId], map: "vehicle_dealership_vehicleId_dealershipId_unique")
+  @@index([createdById], map: "vehicle_dealership_created_by_id_index")
+  @@index([dealershipId], map: "vehicle_dealership_dealership_id_index")
+  @@map("vehicle_dealership")
+  @@schema("core")
+}
+
+model VehicleModel {
+  id              BigInt           @id @default(autoincrement())
+  brand           String
+  name            String
+  bodyType        String?          @map("body_type")
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     BigInt?          @map("created_by_id")
+  updatedById     BigInt?          @map("updated_by_id")
+  vehicles        Vehicle[]
+  createdBy       User?            @relation("vehicle_model_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_model_created_by_id_user_id_fk")
+  updatedBy       User?            @relation("vehicle_model_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_model_updated_by_id_user_id_fk")
+  leads           Lead[]
+  quotations      Quotation[]
+  salesOrders     SalesOrder[]
+  vehicleVariants VehicleVariant[]
+  scheduleItems   ScheduleItem[]
+
+  @@unique([brand, name], map: "vehicle_model_brand_name_unique")
+  @@index([createdById], map: "vehicle_model_created_by_id_index")
+  @@index([updatedById], map: "vehicle_model_updated_by_id_index")
+  @@map("vehicle_model")
+  @@schema("core")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VehicleOwnership {
+  id           BigInt     @id @default(autoincrement())
+  dealershipId BigInt     @map("dealership_id")
+  vehicleId    BigInt     @map("vehicle_id")
+  customerId   BigInt     @map("customer_id")
+  startDate    DateTime   @map("start_date") @db.Date
+  endDate      DateTime?  @map("end_date") @db.Date
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt?    @map("created_by_id")
+  endedAt      DateTime?  @map("ended_at") @db.Timestamptz(6)
+  endedById    BigInt?    @map("ended_by_id")
+  createdBy    User?      @relation("vehicle_ownership_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_ownership_created_by_id_user_id_fk")
+  customer     Customer   @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_ownership_customer_id_customer_id_fk")
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_ownership_dealership_id_dealership_id_fk")
+  endedBy      User?      @relation("vehicle_ownership_ended_by_idTouser", fields: [endedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_ownership_ended_by_id_user_id_fk")
+  vehicle      Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_ownership_vehicle_id_vehicle_id_fk")
+
+  @@unique([vehicleId, dealershipId], map: "vehicle_ownership_current_uq", where: raw("(end_date IS NULL)"))
+  @@index([createdById], map: "vehicle_ownership_created_by_id_index")
+  @@index([customerId], map: "vehicle_ownership_customer_id_index")
+  @@index([dealershipId], map: "vehicle_ownership_dealership_id_index")
+  @@index([endedById], map: "vehicle_ownership_ended_by_id_index")
+  @@index([vehicleId], map: "vehicle_ownership_vehicle_id_index")
+  @@map("vehicle_ownership")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model WorkflowTransition {
+  id           BigInt     @id @default(autoincrement())
+  entityType   String     @map("entity_type")
+  entityId     BigInt     @map("entity_id")
+  dealershipId BigInt     @map("dealership_id")
+  action       String
+  fromState    String     @map("from_state")
+  toState      String     @map("to_state")
+  comment      String?
+  actorId      BigInt     @map("actor_id")
+  occurredAt   DateTime   @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  user         User       @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "workflow_transition_actor_id_user_id_fk")
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "workflow_transition_dealership_id_dealership_id_fk")
+
+  @@index([actorId], map: "workflow_transition_actor_id_index")
+  @@index([dealershipId], map: "workflow_transition_dealership_id_index")
+  @@index([entityType, entityId], map: "workflow_transition_entity_type_entity_id_index")
+  @@map("workflow_transition")
+  @@schema("core")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model GoodsReceipt {
+  id                BigInt             @id @default(autoincrement())
+  dealershipId      BigInt             @map("dealership_id")
+  branchId          BigInt             @map("branch_id")
+  grnNo             String             @unique(map: "goods_receipt_grnNo_unique") @map("grn_no")
+  purchaseOrderId   BigInt             @map("purchase_order_id")
+  supplierId        BigInt             @map("supplier_id")
+  supplierInvoiceNo String?            @map("supplier_invoice_no")
+  receivedDate      DateTime           @map("received_date") @db.Date
+  totalCost         Decimal            @map("total_cost") @db.Decimal(14, 2)
+  notes             String?
+  receivedById      BigInt             @map("received_by_id")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  branch            Branch             @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_branch_id_dealership_id_branch_id_dealership_id_f")
+  dealership        Dealership         @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_dealership_id_dealership_id_fk")
+  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_purchase_order_id_purchase_order_id_fk")
+  user              User               @relation(fields: [receivedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_received_by_id_user_id_fk")
+  supplier          Supplier           @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_supplier_id_supplier_id_fk")
+  goodsReceiptLines GoodsReceiptLine[]
+
+  @@index([branchId], map: "goods_receipt_branch_id_index")
+  @@index([dealershipId, receivedDate], map: "goods_receipt_dealership_id_received_date_index")
+  @@index([purchaseOrderId], map: "goods_receipt_purchase_order_id_index")
+  @@index([receivedById], map: "goods_receipt_received_by_id_index")
+  @@index([supplierId], map: "goods_receipt_supplier_id_index")
+  @@map("goods_receipt")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model GoodsReceiptLine {
+  id                  BigInt            @id @default(autoincrement())
+  dealershipId        BigInt            @map("dealership_id")
+  goodsReceiptId      BigInt            @map("goods_receipt_id")
+  purchaseOrderLineId BigInt            @map("purchase_order_line_id")
+  partId              BigInt            @map("part_id")
+  quantity            Decimal           @db.Decimal(12, 2)
+  unitCost            Decimal           @map("unit_cost") @db.Decimal(14, 2)
+  amount              Decimal           @db.Decimal(14, 2)
+  dealership          Dealership        @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_dealership_id_dealership_id_fk")
+  goodsReceipt        GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_goods_receipt_id_goods_receipt_id_fk")
+  part                Part              @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_part_id_part_id_fk")
+  purchaseOrderLine   PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_purchase_order_line_id_purchase_order_line_i")
+
+  @@index([dealershipId], map: "goods_receipt_line_dealership_id_index")
+  @@index([goodsReceiptId], map: "goods_receipt_line_goods_receipt_id_index")
+  @@index([partId], map: "goods_receipt_line_part_id_index")
+  @@index([purchaseOrderLineId], map: "goods_receipt_line_purchase_order_line_id_index")
+  @@map("goods_receipt_line")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model InventoryTransaction {
+  id               BigInt     @id @default(autoincrement())
+  dealershipId     BigInt     @map("dealership_id")
+  branchId         BigInt     @map("branch_id")
+  partId           BigInt     @map("part_id")
+  type             String
+  quantity         Decimal    @db.Decimal(12, 2)
+  unitCost         Decimal    @map("unit_cost") @db.Decimal(14, 2)
+  value            Decimal    @db.Decimal(14, 2)
+  balanceAfter     Decimal    @map("balance_after") @db.Decimal(12, 2)
+  averageCostAfter Decimal    @map("average_cost_after") @db.Decimal(14, 2)
+  referenceType    String     @map("reference_type")
+  referenceId      BigInt     @map("reference_id")
+  referenceNo      String?    @map("reference_no")
+  notes            String?
+  actorId          BigInt     @map("actor_id")
+  occurredAt       DateTime   @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  user             User       @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_transaction_actor_id_user_id_fk")
+  branch           Branch     @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "inventory_transaction_branch_id_dealership_id_branch_id_dealers")
+  dealership       Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_transaction_dealership_id_dealership_id_fk")
+  part             Part       @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_transaction_part_id_part_id_fk")
+
+  @@index([actorId], map: "inventory_transaction_actor_id_index")
+  @@index([branchId, partId, occurredAt], map: "inventory_transaction_branch_id_part_id_occurred_at_index")
+  @@index([dealershipId, occurredAt], map: "inventory_transaction_dealership_id_occurred_at_index")
+  @@index([partId], map: "inventory_transaction_part_id_index")
+  @@index([referenceType, referenceId], map: "inventory_transaction_reference_type_reference_id_index")
+  @@map("inventory_transaction")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Part {
+  id                    BigInt                 @id @default(autoincrement())
+  partNo                String                 @unique(map: "part_no_uq") @map("part_no")
+  description           String
+  brand                 String?
+  category              String?
+  uom                   String                 @default("each")
+  sellingPrice          Decimal                @default(0) @map("selling_price") @db.Decimal(14, 2)
+  isActive              Boolean                @default(true) @map("is_active")
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById           BigInt?                @map("created_by_id")
+  updatedById           BigInt?                @map("updated_by_id")
+  goodsReceiptLines     GoodsReceiptLine[]
+  inventoryTransactions InventoryTransaction[]
+  createdBy             User?                  @relation("part_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "part_created_by_id_user_id_fk")
+  updatedBy             User?                  @relation("part_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "part_updated_by_id_user_id_fk")
+  partsRequestLines     PartsRequestLine[]
+  purchaseOrderLines    PurchaseOrderLine[]
+  stockAdjustmentLines  StockAdjustmentLine[]
+  stockItems            StockItem[]
+  stockTransferLines    StockTransferLine[]
+
+  @@index([createdById], map: "part_created_by_id_index")
+  @@index([description(ops: raw("gin_trgm_ops"))], map: "part_description_trgm", type: Gin)
+  @@index([partNo(ops: raw("gin_trgm_ops"))], map: "part_no_trgm", type: Gin)
+  @@index([updatedById], map: "part_updated_by_id_index")
+  @@map("part")
+  @@schema("parts")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PartsRequest {
+  id                BigInt             @id @default(autoincrement())
+  dealershipId      BigInt             @map("dealership_id")
+  branchId          BigInt             @map("branch_id")
+  requestNo         String             @unique(map: "parts_request_requestNo_unique") @map("request_no")
+  jobCardId         BigInt             @map("job_card_id")
+  requestedById     BigInt             @map("requested_by_id")
+  notes             String?
+  status            String             @default("open")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById       BigInt?            @map("created_by_id")
+  updatedById       BigInt?            @map("updated_by_id")
+  branch            Branch             @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_branch_id_dealership_id_branch_id_dealership_id_f")
+  createdBy         User?              @relation("parts_request_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_created_by_id_user_id_fk")
+  dealership        Dealership         @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_dealership_id_dealership_id_fk")
+  jobCard           JobCard            @relation(fields: [jobCardId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_job_card_id_job_card_id_fk")
+  requestedBy       User               @relation("parts_request_requested_by_idTouser", fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_requested_by_id_user_id_fk")
+  updatedBy         User?              @relation("parts_request_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_updated_by_id_user_id_fk")
+  partsRequestLines PartsRequestLine[]
+
+  @@index([branchId], map: "parts_request_branch_id_index")
+  @@index([createdById], map: "parts_request_created_by_id_index")
+  @@index([dealershipId, status], map: "parts_request_dealership_id_status_index")
+  @@index([jobCardId], map: "parts_request_job_card_id_index")
+  @@index([requestedById], map: "parts_request_requested_by_id_index")
+  @@index([updatedById], map: "parts_request_updated_by_id_index")
+  @@map("parts_request")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PartsRequestLine {
+  id             BigInt       @id @default(autoincrement())
+  dealershipId   BigInt       @map("dealership_id")
+  partsRequestId BigInt       @map("parts_request_id")
+  partId         BigInt       @map("part_id")
+  partNo         String       @map("part_no")
+  description    String
+  quantity       Decimal      @db.Decimal(12, 2)
+  issuedQty      Decimal      @default(0) @map("issued_qty") @db.Decimal(12, 2)
+  returnedQty    Decimal      @default(0) @map("returned_qty") @db.Decimal(12, 2)
+  jobCardLineId  BigInt?      @map("job_card_line_id")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealership     Dealership   @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_line_dealership_id_dealership_id_fk")
+  part           Part         @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_line_part_id_part_id_fk")
+  partsRequest   PartsRequest @relation(fields: [partsRequestId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "parts_request_line_parts_request_id_parts_request_id_fk")
+
+  @@unique([partsRequestId, partId], map: "parts_request_line_partsRequestId_partId_unique")
+  @@index([dealershipId], map: "parts_request_line_dealership_id_index")
+  @@index([jobCardLineId], map: "parts_request_line_job_card_line_id_index")
+  @@index([partId], map: "parts_request_line_part_id_index")
+  @@index([partsRequestId], map: "parts_request_line_parts_request_id_index")
+  @@map("parts_request_line")
+  @@schema("parts")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PurchaseOrder {
+  id                 BigInt              @id @default(autoincrement())
+  dealershipId       BigInt              @map("dealership_id")
+  branchId           BigInt              @map("branch_id")
+  legalEntityId      BigInt?             @map("legal_entity_id")
+  accountingEntityId BigInt?             @map("accounting_entity_id")
+  poNo               String              @unique(map: "purchase_order_poNo_unique") @map("po_no")
+  supplierId         BigInt              @map("supplier_id")
+  orderDate          DateTime            @map("order_date") @db.Date
+  expectedDate       DateTime?           @map("expected_date") @db.Date
+  totalAmount        Decimal             @default(0) @map("total_amount") @db.Decimal(14, 2)
+  notes              String?
+  status             String              @default("draft")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById        BigInt?             @map("created_by_id")
+  updatedById        BigInt?             @map("updated_by_id")
+  goodsReceipts      GoodsReceipt[]
+  accountingEntity   AccountingEntity?   @relation(fields: [accountingEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_accounting_entity_id_accounting_entity_id_fk")
+  branch             Branch              @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_branch_id_dealership_id_branch_id_dealership_id_")
+  createdBy          User?               @relation("purchase_order_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_created_by_id_user_id_fk")
+  dealership         Dealership          @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_dealership_id_dealership_id_fk")
+  legalEntity        LegalEntity?        @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_legal_entity_id_legal_entity_id_fk")
+  supplier           Supplier            @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_supplier_id_supplier_id_fk")
+  updatedBy          User?               @relation("purchase_order_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_updated_by_id_user_id_fk")
+  purchaseOrderLines PurchaseOrderLine[]
+
+  @@index([accountingEntityId], map: "purchase_order_accounting_entity_id_index")
+  @@index([branchId], map: "purchase_order_branch_id_index")
+  @@index([createdById], map: "purchase_order_created_by_id_index")
+  @@index([dealershipId, status], map: "purchase_order_dealership_id_status_index")
+  @@index([legalEntityId], map: "purchase_order_legal_entity_id_index")
+  @@index([supplierId], map: "purchase_order_supplier_id_index")
+  @@index([updatedById], map: "purchase_order_updated_by_id_index")
+  @@map("purchase_order")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PurchaseOrderLine {
+  id                BigInt             @id @default(autoincrement())
+  dealershipId      BigInt             @map("dealership_id")
+  purchaseOrderId   BigInt             @map("purchase_order_id")
+  partId            BigInt             @map("part_id")
+  partNo            String             @map("part_no")
+  description       String
+  quantity          Decimal            @db.Decimal(12, 2)
+  unitPrice         Decimal            @map("unit_price") @db.Decimal(14, 2)
+  amount            Decimal            @db.Decimal(14, 2)
+  receivedQty       Decimal            @default(0) @map("received_qty") @db.Decimal(12, 2)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  goodsReceiptLines GoodsReceiptLine[]
+  dealership        Dealership         @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_line_dealership_id_dealership_id_fk")
+  part              Part               @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_line_part_id_part_id_fk")
+  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_order_line_purchase_order_id_purchase_order_id_fk")
+
+  @@unique([purchaseOrderId, partId], map: "purchase_order_line_purchaseOrderId_partId_unique")
+  @@index([dealershipId], map: "purchase_order_line_dealership_id_index")
+  @@index([partId], map: "purchase_order_line_part_id_index")
+  @@index([purchaseOrderId], map: "purchase_order_line_purchase_order_id_index")
+  @@map("purchase_order_line")
+  @@schema("parts")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StockAdjustment {
+  id                   BigInt                @id @default(autoincrement())
+  dealershipId         BigInt                @map("dealership_id")
+  branchId             BigInt                @map("branch_id")
+  adjustmentNo         String                @unique(map: "stock_adjustment_adjustmentNo_unique") @map("adjustment_no")
+  reason               String
+  notes                String?
+  postedAt             DateTime?             @map("posted_at") @db.Timestamptz(6)
+  status               String                @default("draft")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          BigInt?               @map("created_by_id")
+  updatedById          BigInt?               @map("updated_by_id")
+  branch               Branch                @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "stock_adjustment_branch_id_dealership_id_branch_id_dealership_i")
+  createdBy            User?                 @relation("stock_adjustment_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_adjustment_created_by_id_user_id_fk")
+  dealership           Dealership            @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_adjustment_dealership_id_dealership_id_fk")
+  updatedBy            User?                 @relation("stock_adjustment_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_adjustment_updated_by_id_user_id_fk")
+  stockAdjustmentLines StockAdjustmentLine[]
+
+  @@index([branchId], map: "stock_adjustment_branch_id_index")
+  @@index([createdById], map: "stock_adjustment_created_by_id_index")
+  @@index([dealershipId, status], map: "stock_adjustment_dealership_id_status_index")
+  @@index([updatedById], map: "stock_adjustment_updated_by_id_index")
+  @@map("stock_adjustment")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StockAdjustmentLine {
+  id                BigInt          @id @default(autoincrement())
+  dealershipId      BigInt          @map("dealership_id")
+  stockAdjustmentId BigInt          @map("stock_adjustment_id")
+  partId            BigInt          @map("part_id")
+  partNo            String          @map("part_no")
+  description       String
+  quantity          Decimal         @db.Decimal(12, 2)
+  unitCost          Decimal?        @map("unit_cost") @db.Decimal(14, 2)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealership        Dealership      @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_adjustment_line_dealership_id_dealership_id_fk")
+  part              Part            @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_adjustment_line_part_id_part_id_fk")
+  stockAdjustment   StockAdjustment @relation(fields: [stockAdjustmentId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stock_adjustment_line_stock_adjustment_id_stock_adjustment_id_f")
+
+  @@unique([stockAdjustmentId, partId], map: "stock_adjustment_line_stockAdjustmentId_partId_unique")
+  @@index([dealershipId], map: "stock_adjustment_line_dealership_id_index")
+  @@index([partId], map: "stock_adjustment_line_part_id_index")
+  @@index([stockAdjustmentId], map: "stock_adjustment_line_stock_adjustment_id_index")
+  @@map("stock_adjustment_line")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StockItem {
+  id             BigInt     @id @default(autoincrement())
+  dealershipId   BigInt     @map("dealership_id")
+  branchId       BigInt     @map("branch_id")
+  partId         BigInt     @map("part_id")
+  quantityOnHand Decimal    @default(0) @map("quantity_on_hand") @db.Decimal(12, 2)
+  averageCost    Decimal    @default(0) @map("average_cost") @db.Decimal(14, 2)
+  binLocation    String?    @map("bin_location")
+  reorderLevel   Decimal    @default(0) @map("reorder_level") @db.Decimal(12, 2)
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branch         Branch     @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "stock_item_branch_id_dealership_id_branch_id_dealership_id_fk")
+  dealership     Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_item_dealership_id_dealership_id_fk")
+  part           Part       @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_item_part_id_part_id_fk")
+
+  @@unique([branchId, partId], map: "stock_item_branchId_partId_unique")
+  @@index([branchId], map: "stock_item_branch_id_index")
+  @@index([dealershipId], map: "stock_item_dealership_id_index")
+  @@index([partId], map: "stock_item_part_id_index")
+  @@map("stock_item")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StockTransfer {
+  id                 BigInt              @id @default(autoincrement())
+  dealershipId       BigInt              @map("dealership_id")
+  branchId           BigInt              @map("branch_id")
+  toBranchId         BigInt              @map("to_branch_id")
+  transferNo         String              @unique(map: "stock_transfer_transferNo_unique") @map("transfer_no")
+  notes              String?
+  dispatchedAt       DateTime?           @map("dispatched_at") @db.Timestamptz(6)
+  receivedAt         DateTime?           @map("received_at") @db.Timestamptz(6)
+  status             String              @default("draft")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById        BigInt?             @map("created_by_id")
+  updatedById        BigInt?             @map("updated_by_id")
+  branch             Branch              @relation("stock_transfer_branch_id_dealership_idTobranch", fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "stock_transfer_branch_id_dealership_id_branch_id_dealership_id_")
+  createdBy          User?               @relation("stock_transfer_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_transfer_created_by_id_user_id_fk")
+  dealership         Dealership          @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_transfer_dealership_id_dealership_id_fk")
+  toBranch           Branch              @relation("stock_transfer_to_branch_id_dealership_idTobranch", fields: [toBranchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "stock_transfer_to_branch_id_dealership_id_branch_id_dealership_")
+  updatedBy          User?               @relation("stock_transfer_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_transfer_updated_by_id_user_id_fk")
+  stockTransferLines StockTransferLine[]
+
+  @@index([branchId], map: "stock_transfer_branch_id_index")
+  @@index([createdById], map: "stock_transfer_created_by_id_index")
+  @@index([dealershipId, status], map: "stock_transfer_dealership_id_status_index")
+  @@index([toBranchId], map: "stock_transfer_to_branch_id_index")
+  @@index([updatedById], map: "stock_transfer_updated_by_id_index")
+  @@map("stock_transfer")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StockTransferLine {
+  id              BigInt        @id @default(autoincrement())
+  dealershipId    BigInt        @map("dealership_id")
+  stockTransferId BigInt        @map("stock_transfer_id")
+  partId          BigInt        @map("part_id")
+  partNo          String        @map("part_no")
+  description     String
+  quantity        Decimal       @db.Decimal(12, 2)
+  unitCost        Decimal?      @map("unit_cost") @db.Decimal(14, 2)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealership      Dealership    @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_transfer_line_dealership_id_dealership_id_fk")
+  part            Part          @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "stock_transfer_line_part_id_part_id_fk")
+  stockTransfer   StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stock_transfer_line_stock_transfer_id_stock_transfer_id_fk")
+
+  @@unique([stockTransferId, partId], map: "stock_transfer_line_stockTransferId_partId_unique")
+  @@index([dealershipId], map: "stock_transfer_line_dealership_id_index")
+  @@index([partId], map: "stock_transfer_line_part_id_index")
+  @@index([stockTransferId], map: "stock_transfer_line_stock_transfer_id_index")
+  @@map("stock_transfer_line")
+  @@schema("parts")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Supplier {
+  id               BigInt          @id @default(autoincrement())
+  dealershipId     BigInt          @map("dealership_id")
+  code             String
+  name             String
+  phone            String?
+  email            String?
+  ntn              String?
+  address          String?
+  paymentTermsDays Int             @default(30) @map("payment_terms_days")
+  isActive         Boolean         @default(true) @map("is_active")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById      BigInt?         @map("created_by_id")
+  updatedById      BigInt?         @map("updated_by_id")
+  journalLines     JournalLine[]
+  payments         Payment[]
+  goodsReceipts    GoodsReceipt[]
+  purchaseOrders   PurchaseOrder[]
+  createdBy        User?           @relation("supplier_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_created_by_id_user_id_fk")
+  dealership       Dealership      @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_dealership_id_dealership_id_fk")
+  updatedBy        User?           @relation("supplier_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_updated_by_id_user_id_fk")
+
+  @@unique([dealershipId, code], map: "supplier_dealershipId_code_unique")
+  @@index([createdById], map: "supplier_created_by_id_index")
+  @@index([dealershipId], map: "supplier_dealership_id_index")
+  @@index([name(ops: raw("gin_trgm_ops"))], map: "supplier_name_trgm", type: Gin)
+  @@index([updatedById], map: "supplier_updated_by_id_index")
+  @@map("supplier")
+  @@schema("parts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Delivery {
+  id                     BigInt     @id @default(autoincrement())
+  dealershipId           BigInt     @map("dealership_id")
+  branchId               BigInt?    @map("branch_id")
+  deliveryNo             String     @unique(map: "delivery_deliveryNo_unique") @map("delivery_no")
+  salesOrderId           BigInt     @unique(map: "delivery_order_live_uq", where: raw("(status <> 'cancelled'::text)")) @map("sales_order_id")
+  vehicleId              BigInt     @map("vehicle_id")
+  customerId             BigInt     @map("customer_id")
+  salespersonId          BigInt     @map("salesperson_id")
+  scheduledDate          DateTime   @map("scheduled_date") @db.Date
+  deliveredOn            DateTime?  @map("delivered_on") @db.Date
+  deliveredAt            DateTime?  @map("delivered_at") @db.Timestamptz(6)
+  deliveredById          BigInt?    @map("delivered_by_id")
+  odometerKm             Int?       @map("odometer_km")
+  documentsHandedOvers   String[]   @default([]) @map("documents_handed_over")
+  accessoriesHandedOvers String[]   @default([]) @map("accessories_handed_over")
+  customerAcknowledged   Boolean    @default(false) @map("customer_acknowledged")
+  customerAcknowledgedAt DateTime?  @map("customer_acknowledged_at") @db.Timestamptz(6)
+  notes                  String?
+  status                 String     @default("scheduled")
+  createdAt              DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById            BigInt?    @map("created_by_id")
+  updatedById            BigInt?    @map("updated_by_id")
+  branch                 Branch?    @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "delivery_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy              User?      @relation("delivery_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_created_by_id_user_id_fk")
+  customer               Customer   @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_customer_id_customer_id_fk")
+  dealership             Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_dealership_id_dealership_id_fk")
+  deliveredBy            User?      @relation("delivery_delivered_by_idTouser", fields: [deliveredById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_delivered_by_id_user_id_fk")
+  salesOrder             SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_sales_order_id_sales_order_id_fk")
+  salesperson            User       @relation("delivery_salesperson_idTouser", fields: [salespersonId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_salesperson_id_user_id_fk")
+  updatedBy              User?      @relation("delivery_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_updated_by_id_user_id_fk")
+  vehicle                Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_vehicle_id_vehicle_id_fk")
+
+  @@index([branchId], map: "delivery_branch_id_index")
+  @@index([createdById], map: "delivery_created_by_id_index")
+  @@index([customerId], map: "delivery_customer_id_index")
+  @@index([dealershipId, status], map: "delivery_dealership_id_status_index")
+  @@index([deliveredById], map: "delivery_delivered_by_id_index")
+  @@index([salespersonId], map: "delivery_salesperson_id_index")
+  @@index([scheduledDate], map: "delivery_scheduled_date_index")
+  @@index([updatedById], map: "delivery_updated_by_id_index")
+  @@index([vehicleId], map: "delivery_vehicle_id_index")
+  @@map("delivery")
+  @@schema("sales")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model DocumentTemplate {
+  id                  BigInt     @id @default(autoincrement())
+  dealershipId        BigInt     @map("dealership_id")
+  kind                String
+  companyName         String     @map("company_name")
+  refPrefix           String?    @map("ref_prefix")
+  tagline             String?
+  address             String?
+  phone               String?
+  email               String?
+  deliveryNotes       String[]   @default([]) @map("delivery_notes")
+  deliveryStation     String?    @map("delivery_station")
+  defaultPaymentMode  String?    @map("default_payment_mode")
+  defaultValidityDays Int        @default(7) @map("default_validity_days")
+  defaultDeliveryDays Int?       @map("default_delivery_days")
+  highlightLine       String?    @map("highlight_line")
+  standardEquipment   String?    @map("standard_equipment")
+  terms               String[]   @default([])
+  closingLines        String[]   @default([]) @map("closing_lines")
+  signOffs            String[]   @default([]) @map("sign_off")
+  title               String?
+  fieldLabels         Json       @default("{}") @map("field_labels")
+  hiddenFields        String[]   @default([]) @map("hidden_fields")
+  customFields        String[]   @default([]) @map("custom_fields")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById         BigInt?    @map("created_by_id")
+  updatedById         BigInt?    @map("updated_by_id")
+  createdBy           User?      @relation("document_template_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "document_template_created_by_id_user_id_fk")
+  dealership          Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "document_template_dealership_id_dealership_id_fk")
+  updatedBy           User?      @relation("document_template_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "document_template_updated_by_id_user_id_fk")
+
+  @@unique([dealershipId, kind], map: "document_template_dealership_id_kind_index")
+  @@index([createdById], map: "document_template_created_by_id_index")
+  @@index([updatedById], map: "document_template_updated_by_id_index")
+  @@map("document_template")
+  @@schema("sales")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Lead {
+  id                       BigInt         @id @default(autoincrement())
+  dealershipId             BigInt         @map("dealership_id")
+  branchId                 BigInt?        @map("branch_id")
+  ownerId                  BigInt         @map("owner_id")
+  customerId               BigInt?        @map("customer_id")
+  prospectName             String         @map("prospect_name")
+  prospectMobile           String         @map("prospect_mobile")
+  prospectMobileNormalized String         @map("prospect_mobile_normalized")
+  email                    String?
+  source                   String         @default("walk_in")
+  interestedModelId        BigInt?        @map("interested_model_id")
+  variant                  String?
+  preferredColor           String?        @map("preferred_color")
+  expectedCloseDate        DateTime?      @map("expected_close_date") @db.Date
+  notes                    String?
+  paymentInstrument        String?        @map("payment_instrument")
+  paymentInstrumentRef     String?        @map("payment_instrument_ref")
+  paymentInstrumentBank    String?        @map("payment_instrument_bank")
+  paymentAmount            Decimal?       @map("payment_amount") @db.Decimal(14, 2)
+  followUpCount            Int            @default(0) @map("follow_up_count")
+  lastFollowUpAt           DateTime?      @map("last_follow_up_at") @db.Timestamptz(6)
+  escalatedAt              DateTime?      @map("escalated_at") @db.Timestamptz(6)
+  escalatedById            BigInt?        @map("escalated_by_id")
+  escalationNote           String?        @map("escalation_note")
+  convertedAt              DateTime?      @map("converted_at") @db.Timestamptz(6)
+  convertedById            BigInt?        @map("converted_by_id")
+  status                   String         @default("new")
+  salesOrderId             BigInt?        @map("sales_order_id")
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById              BigInt?        @map("created_by_id")
+  updatedById              BigInt?        @map("updated_by_id")
+  branch                   Branch?        @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "lead_branch_id_dealership_id_branch_id_dealership_id_fk")
+  convertedBy              User?          @relation("lead_converted_by_idTouser", fields: [convertedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_converted_by_id_user_id_fk")
+  createdBy                User?          @relation("lead_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_created_by_id_user_id_fk")
+  customer                 Customer?      @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_customer_id_customer_id_fk")
+  dealership               Dealership     @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_dealership_id_dealership_id_fk")
+  escalatedBy              User?          @relation("lead_escalated_by_idTouser", fields: [escalatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_escalated_by_id_user_id_fk")
+  vehicleModel             VehicleModel?  @relation(fields: [interestedModelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_interested_model_id_vehicle_model_id_fk")
+  owner                    User           @relation("lead_owner_idTouser", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_owner_id_user_id_fk")
+  updatedBy                User?          @relation("lead_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_updated_by_id_user_id_fk")
+  leadFollowUps            LeadFollowUp[]
+  ppfForms                 PpfForm[]
+  quotations               Quotation[]
+  salesOrders              SalesOrder[]
+
+  @@unique([dealershipId, prospectMobileNormalized], map: "lead_active_mobile_uq", where: raw("(status = ANY (ARRAY['new'::text, 'follow_up'::text, 'visited'::text, 'converted'::text, 'processing'::text]))"))
+  @@index([branchId], map: "lead_branch_id_index")
+  @@index([convertedById], map: "lead_converted_by_id_index")
+  @@index([createdById], map: "lead_created_by_id_index")
+  @@index([customerId], map: "lead_customer_id_index")
+  @@index([dealershipId, prospectMobileNormalized], map: "lead_dealership_id_prospect_mobile_normalized_index")
+  @@index([dealershipId, status], map: "lead_dealership_id_status_index")
+  @@index([dealershipId, updatedAt], map: "lead_dealership_id_updated_at_index")
+  @@index([escalatedById], map: "lead_escalated_by_id_index")
+  @@index([interestedModelId], map: "lead_interested_model_id_index")
+  @@index([prospectName(ops: raw("gin_trgm_ops"))], map: "lead_name_trgm", type: Gin)
+  @@index([ownerId], map: "lead_owner_id_index")
+  @@index([salesOrderId], map: "lead_sales_order_id_index")
+  @@index([updatedById], map: "lead_updated_by_id_index")
+  @@map("lead")
+  @@schema("sales")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LeadFollowUp {
+  id           BigInt     @id @default(autoincrement())
+  dealershipId BigInt     @map("dealership_id")
+  leadId       BigInt     @map("lead_id")
+  outcome      String
+  remarks      String?
+  createdById  BigInt     @map("created_by_id")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User       @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_follow_up_created_by_id_user_id_fk")
+  dealership   Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lead_follow_up_dealership_id_dealership_id_fk")
+  lead         Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "lead_follow_up_lead_id_lead_id_fk")
+
+  @@index([createdById], map: "lead_follow_up_created_by_id_index")
+  @@index([dealershipId], map: "lead_follow_up_dealership_id_index")
+  @@index([leadId], map: "lead_follow_up_lead_id_index")
+  @@map("lead_follow_up")
+  @@schema("sales")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PpfForm {
+  id               BigInt     @id @default(autoincrement())
+  dealershipId     BigInt     @map("dealership_id")
+  branchId         BigInt?    @map("branch_id")
+  formNo           String     @unique(map: "ppf_form_formNo_unique") @map("form_no")
+  leadId           BigInt     @map("lead_id")
+  ownerId          BigInt     @map("owner_id")
+  pboNo            String?    @map("pbo_no")
+  chassisNo        String?    @map("chassis_no")
+  engineNo         String?    @map("engine_no")
+  coverage         String
+  coverageDetails  String?    @map("coverage_details")
+  filmBrand        String?    @map("film_brand")
+  finish           String     @default("gloss")
+  warrantyYears    Int?       @map("warranty_years")
+  amount           Decimal    @db.Decimal(14, 2)
+  discount         Decimal    @default(0) @db.Decimal(14, 2)
+  totalAmount      Decimal    @map("total_amount") @db.Decimal(14, 2)
+  advancePaid      Decimal    @default(0) @map("advance_paid") @db.Decimal(14, 2)
+  installationDate DateTime?  @map("installation_date") @db.Date
+  notes            String?
+  extraFields      Json       @default("{}") @map("extra_fields")
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById      BigInt?    @map("created_by_id")
+  updatedById      BigInt?    @map("updated_by_id")
+  branch           Branch?    @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy        User?      @relation("ppf_form_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_created_by_id_user_id_fk")
+  dealership       Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_dealership_id_dealership_id_fk")
+  lead             Lead       @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_lead_id_lead_id_fk")
+  owner            User       @relation("ppf_form_owner_idTouser", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_owner_id_user_id_fk")
+  updatedBy        User?      @relation("ppf_form_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_updated_by_id_user_id_fk")
+
+  @@index([branchId], map: "ppf_form_branch_id_index")
+  @@index([createdById], map: "ppf_form_created_by_id_index")
+  @@index([dealershipId, createdAt], map: "ppf_form_dealership_id_created_at_index")
+  @@index([leadId], map: "ppf_form_lead_id_index")
+  @@index([ownerId], map: "ppf_form_owner_id_index")
+  @@index([updatedById], map: "ppf_form_updated_by_id_index")
+  @@map("ppf_form")
+  @@schema("sales")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Quotation {
+  id                     BigInt       @id @default(autoincrement())
+  dealershipId           BigInt       @map("dealership_id")
+  branchId               BigInt?      @map("branch_id")
+  quotationNo            String       @unique(map: "quotation_quotationNo_unique") @map("quotation_no")
+  leadId                 BigInt       @map("lead_id")
+  ownerId                BigInt       @map("owner_id")
+  modelId                BigInt       @map("model_id")
+  variantCode            String?      @map("variant_code")
+  billTo                 String?      @map("bill_to")
+  variant                String?
+  color                  String?
+  quantity               Int          @default(1)
+  unitPrice              Decimal      @map("unit_price") @db.Decimal(14, 2)
+  discount               Decimal      @default(0) @db.Decimal(14, 2)
+  freightInsurance       Decimal      @default(0) @map("freight_insurance") @db.Decimal(14, 2)
+  withholdingTax         Decimal      @default(0) @map("withholding_tax") @db.Decimal(14, 2)
+  withholdingTaxNonFiler Decimal?     @map("withholding_tax_non_filer") @db.Decimal(14, 2)
+  totalAmount            Decimal      @map("total_amount") @db.Decimal(14, 2)
+  bookingAmount          Decimal?     @map("booking_amount") @db.Decimal(14, 2)
+  validUntil             DateTime     @map("valid_until") @db.Date
+  deliveryDays           Int?         @map("delivery_days")
+  paymentMode            String?      @map("payment_mode")
+  notes                  String?
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById            BigInt?      @map("created_by_id")
+  updatedById            BigInt?      @map("updated_by_id")
+  branch                 Branch?      @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "quotation_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy              User?        @relation("quotation_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_created_by_id_user_id_fk")
+  dealership             Dealership   @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_dealership_id_dealership_id_fk")
+  lead                   Lead         @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_lead_id_lead_id_fk")
+  vehicleModel           VehicleModel @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_model_id_vehicle_model_id_fk")
+  owner                  User         @relation("quotation_owner_idTouser", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_owner_id_user_id_fk")
+  updatedBy              User?        @relation("quotation_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_updated_by_id_user_id_fk")
+
+  @@index([branchId], map: "quotation_branch_id_index")
+  @@index([createdById], map: "quotation_created_by_id_index")
+  @@index([dealershipId, createdAt], map: "quotation_dealership_id_created_at_index")
+  @@index([leadId], map: "quotation_lead_id_index")
+  @@index([modelId], map: "quotation_model_id_index")
+  @@index([ownerId], map: "quotation_owner_id_index")
+  @@index([updatedById], map: "quotation_updated_by_id_index")
+  @@map("quotation")
+  @@schema("sales")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SalesOrder {
+  id                   BigInt            @id @default(autoincrement())
+  dealershipId         BigInt            @map("dealership_id")
+  branchId             BigInt?           @map("branch_id")
+  legalEntityId        BigInt?           @map("legal_entity_id")
+  accountingEntityId   BigInt?           @map("accounting_entity_id")
+  orderNo              String            @unique(map: "sales_order_orderNo_unique") @map("order_no")
+  orderType            String            @default("pbo") @map("order_type")
+  leadId               BigInt?           @map("lead_id")
+  customerId           BigInt            @map("customer_id")
+  salespersonId        BigInt            @map("salesperson_id")
+  modelId              BigInt            @map("model_id")
+  variant              String?
+  color                String?
+  unitPrice            Decimal           @default(0) @map("unit_price") @db.Decimal(14, 2)
+  discount             Decimal           @default(0) @db.Decimal(14, 2)
+  totalAmount          Decimal           @default(0) @map("total_amount") @db.Decimal(14, 2)
+  bookingAmount        Decimal           @default(0) @map("booking_amount") @db.Decimal(14, 2)
+  expectedDeliveryDate DateTime?         @map("expected_delivery_date") @db.Date
+  vehicleId            BigInt?           @unique(map: "sales_order_vehicle_live_uq", where: raw("((vehicle_id IS NOT NULL) AND (status <> 'cancelled'::text))")) @map("vehicle_id")
+  financingRef         String?           @map("financing_ref")
+  paymentReference     String?           @map("payment_reference")
+  notes                String?
+  status               String            @default("draft")
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          BigInt?           @map("created_by_id")
+  updatedById          BigInt?           @map("updated_by_id")
+  delivery             Delivery?
+  accountingEntity     AccountingEntity? @relation(fields: [accountingEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_accounting_entity_id_accounting_entity_id_fk")
+  branch               Branch?           @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy            User?             @relation("sales_order_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_created_by_id_user_id_fk")
+  customer             Customer          @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_customer_id_customer_id_fk")
+  dealership           Dealership        @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_dealership_id_dealership_id_fk")
+  lead                 Lead?             @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_lead_id_lead_id_fk")
+  legalEntity          LegalEntity?      @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_legal_entity_id_legal_entity_id_fk")
+  vehicleModel         VehicleModel      @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_model_id_vehicle_model_id_fk")
+  salesperson          User              @relation("sales_order_salesperson_idTouser", fields: [salespersonId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_salesperson_id_user_id_fk")
+  updatedBy            User?             @relation("sales_order_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_updated_by_id_user_id_fk")
+  vehicle              Vehicle?          @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_vehicle_id_vehicle_id_fk")
+
+  @@index([accountingEntityId], map: "sales_order_accounting_entity_id_index")
+  @@index([branchId], map: "sales_order_branch_id_index")
+  @@index([createdById], map: "sales_order_created_by_id_index")
+  @@index([customerId], map: "sales_order_customer_id_index")
+  @@index([dealershipId, status], map: "sales_order_dealership_id_status_index")
+  @@index([leadId], map: "sales_order_lead_id_index")
+  @@index([legalEntityId], map: "sales_order_legal_entity_id_index")
+  @@index([modelId], map: "sales_order_model_id_index")
+  @@index([salespersonId], map: "sales_order_salesperson_id_index")
+  @@index([updatedById], map: "sales_order_updated_by_id_index")
+  @@index([vehicleId], map: "sales_order_vehicle_id_index")
+  @@map("sales_order")
+  @@schema("sales")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VehicleVariant {
+  id           BigInt        @id @default(autoincrement())
+  dealershipId BigInt        @map("dealership_id")
+  modelId      BigInt?       @map("model_id")
+  code         String
+  description  String
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById  BigInt?       @map("created_by_id")
+  updatedById  BigInt?       @map("updated_by_id")
+  createdBy    User?         @relation("vehicle_variant_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_variant_created_by_id_user_id_fk")
+  dealership   Dealership    @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_variant_dealership_id_dealership_id_fk")
+  vehicleModel VehicleModel? @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_variant_model_id_vehicle_model_id_fk")
+  updatedBy    User?         @relation("vehicle_variant_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_variant_updated_by_id_user_id_fk")
+
+  @@unique([dealershipId, code], map: "vehicle_variant_dealership_id_code_index")
+  @@index([createdById], map: "vehicle_variant_created_by_id_index")
+  @@index([modelId], map: "vehicle_variant_model_id_index")
+  @@index([updatedById], map: "vehicle_variant_updated_by_id_index")
+  @@map("vehicle_variant")
+  @@schema("sales")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Estimate {
+  id            BigInt         @id @default(autoincrement())
+  dealershipId  BigInt         @map("dealership_id")
+  branchId      BigInt?        @map("branch_id")
+  estimateNo    String         @unique(map: "estimate_estimateNo_unique") @map("estimate_no")
+  jobCardId     BigInt         @map("job_card_id")
+  customerId    BigInt         @map("customer_id")
+  advisorId     BigInt         @map("advisor_id")
+  totalAmount   Decimal        @default(0) @map("total_amount") @db.Decimal(14, 2)
+  validUntil    DateTime?      @map("valid_until") @db.Date
+  notes         String?
+  status        String         @default("draft")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById   BigInt?        @map("created_by_id")
+  updatedById   BigInt?        @map("updated_by_id")
+  advisor       User           @relation("estimate_advisor_idTouser", fields: [advisorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_advisor_id_user_id_fk")
+  branch        Branch?        @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "estimate_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy     User?          @relation("estimate_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_created_by_id_user_id_fk")
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_customer_id_customer_id_fk")
+  dealership    Dealership     @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_dealership_id_dealership_id_fk")
+  jobCard       JobCard        @relation(fields: [jobCardId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_job_card_id_job_card_id_fk")
+  updatedBy     User?          @relation("estimate_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_updated_by_id_user_id_fk")
+  estimateLines EstimateLine[]
+
+  @@index([advisorId], map: "estimate_advisor_id_index")
+  @@index([branchId], map: "estimate_branch_id_index")
+  @@index([createdById], map: "estimate_created_by_id_index")
+  @@index([customerId], map: "estimate_customer_id_index")
+  @@index([dealershipId, status], map: "estimate_dealership_id_status_index")
+  @@index([jobCardId], map: "estimate_job_card_id_index")
+  @@index([updatedById], map: "estimate_updated_by_id_index")
+  @@map("estimate")
+  @@schema("service")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model EstimateLine {
+  id               BigInt          @id @default(autoincrement())
+  dealershipId     BigInt          @map("dealership_id")
+  estimateId       BigInt          @map("estimate_id")
+  kind             String
+  description      String
+  partNo           String?         @map("part_no")
+  quantity         Decimal         @db.Decimal(10, 2)
+  unitPrice        Decimal         @map("unit_price") @db.Decimal(14, 2)
+  amount           Decimal         @db.Decimal(14, 2)
+  inspectionItemId BigInt?         @map("inspection_item_id")
+  sortOrder        Int             @default(0) @map("sort_order")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealership       Dealership      @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_line_dealership_id_dealership_id_fk")
+  estimate         Estimate        @relation(fields: [estimateId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "estimate_line_estimate_id_estimate_id_fk")
+  inspectionItem   InspectionItem? @relation(fields: [inspectionItemId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_line_inspection_item_id_inspection_item_id_fk")
+
+  @@index([dealershipId], map: "estimate_line_dealership_id_index")
+  @@index([estimateId], map: "estimate_line_estimate_id_index")
+  @@index([inspectionItemId], map: "estimate_line_inspection_item_id_index")
+  @@map("estimate_line")
+  @@schema("service")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Inspection {
+  id              BigInt           @id @default(autoincrement())
+  dealershipId    BigInt           @map("dealership_id")
+  branchId        BigInt?          @map("branch_id")
+  jobCardId       BigInt           @unique(map: "inspection_jobCardId_unique") @map("job_card_id")
+  inspectorId     BigInt           @map("inspector_id")
+  notes           String?
+  completedAt     DateTime?        @map("completed_at") @db.Timestamptz(6)
+  status          String           @default("in_progress")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     BigInt?          @map("created_by_id")
+  updatedById     BigInt?          @map("updated_by_id")
+  branch          Branch?          @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "inspection_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy       User?            @relation("inspection_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_created_by_id_user_id_fk")
+  dealership      Dealership       @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_dealership_id_dealership_id_fk")
+  inspector       User             @relation("inspection_inspector_idTouser", fields: [inspectorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_inspector_id_user_id_fk")
+  jobCard         JobCard          @relation(fields: [jobCardId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_job_card_id_job_card_id_fk")
+  updatedBy       User?            @relation("inspection_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_updated_by_id_user_id_fk")
+  inspectionItems InspectionItem[]
+
+  @@index([branchId], map: "inspection_branch_id_index")
+  @@index([createdById], map: "inspection_created_by_id_index")
+  @@index([dealershipId], map: "inspection_dealership_id_index")
+  @@index([inspectorId], map: "inspection_inspector_id_index")
+  @@index([updatedById], map: "inspection_updated_by_id_index")
+  @@map("inspection")
+  @@schema("service")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model InspectionItem {
+  id            BigInt         @id @default(autoincrement())
+  dealershipId  BigInt         @map("dealership_id")
+  inspectionId  BigInt         @map("inspection_id")
+  area          String
+  item          String
+  condition     String         @default("not_checked")
+  notes         String?
+  sortOrder     Int            @default(0) @map("sort_order")
+  estimateLines EstimateLine[]
+  dealership    Dealership     @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_item_dealership_id_dealership_id_fk")
+  inspection    Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "inspection_item_inspection_id_inspection_id_fk")
+
+  @@index([dealershipId], map: "inspection_item_dealership_id_index")
+  @@index([inspectionId], map: "inspection_item_inspection_id_index")
+  @@map("inspection_item")
+  @@schema("service")
+}
+
+model InspectionTemplateItem {
+  id          BigInt   @id @default(autoincrement())
+  area        String
+  item        String
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById BigInt?  @map("created_by_id")
+  updatedById BigInt?  @map("updated_by_id")
+  createdBy   User?    @relation("inspection_template_item_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_template_item_created_by_id_user_id_fk")
+  updatedBy   User?    @relation("inspection_template_item_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inspection_template_item_updated_by_id_user_id_fk")
+
+  @@unique([area, item], map: "inspection_template_item_area_item_unique")
+  @@index([createdById], map: "inspection_template_item_created_by_id_index")
+  @@index([updatedById], map: "inspection_template_item_updated_by_id_index")
+  @@map("inspection_template_item")
+  @@schema("service")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model JobCard {
+  id            BigInt         @id @default(autoincrement())
+  dealershipId  BigInt         @map("dealership_id")
+  branchId      BigInt?        @map("branch_id")
+  jobCardNo     String         @unique(map: "job_card_jobCardNo_unique") @map("job_card_no")
+  visitId       BigInt         @unique(map: "job_card_visitId_unique") @map("visit_id")
+  vehicleId     BigInt         @map("vehicle_id")
+  advisorId     BigInt         @map("advisor_id")
+  technicianId  BigInt?        @map("technician_id")
+  notes         String?
+  startedAt     DateTime?      @map("started_at") @db.Timestamptz(6)
+  completedAt   DateTime?      @map("completed_at") @db.Timestamptz(6)
+  status        String         @default("open")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById   BigInt?        @map("created_by_id")
+  updatedById   BigInt?        @map("updated_by_id")
+  partsRequests PartsRequest[]
+  estimates     Estimate[]
+  inspection    Inspection?
+  advisor       User           @relation("job_card_advisor_idTouser", fields: [advisorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_advisor_id_user_id_fk")
+  branch        Branch?        @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "job_card_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy     User?          @relation("job_card_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_created_by_id_user_id_fk")
+  dealership    Dealership     @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_dealership_id_dealership_id_fk")
+  technician    User?          @relation("job_card_technician_idTouser", fields: [technicianId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_technician_id_user_id_fk")
+  updatedBy     User?          @relation("job_card_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_updated_by_id_user_id_fk")
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_vehicle_id_vehicle_id_fk")
+  visit         Visit          @relation(fields: [visitId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_visit_id_visit_id_fk")
+  jobCardLines  JobCardLine[]
+
+  @@index([advisorId], map: "job_card_advisor_id_index")
+  @@index([branchId], map: "job_card_branch_id_index")
+  @@index([createdById], map: "job_card_created_by_id_index")
+  @@index([dealershipId, status], map: "job_card_dealership_id_status_index")
+  @@index([technicianId], map: "job_card_technician_id_index")
+  @@index([updatedById], map: "job_card_updated_by_id_index")
+  @@index([vehicleId], map: "job_card_vehicle_id_index")
+  @@map("job_card")
+  @@schema("service")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model JobCardLine {
+  id             BigInt     @id @default(autoincrement())
+  dealershipId   BigInt     @map("dealership_id")
+  jobCardId      BigInt     @map("job_card_id")
+  kind           String
+  description    String
+  partNo         String?    @map("part_no")
+  quantity       Decimal    @db.Decimal(10, 2)
+  unitPrice      Decimal    @map("unit_price") @db.Decimal(14, 2)
+  amount         Decimal    @db.Decimal(14, 2)
+  billable       Boolean    @default(true)
+  source         String     @default("manual")
+  estimateLineId BigInt?    @map("estimate_line_id")
+  status         String     @default("pending")
+  doneById       BigInt?    @map("done_by_id")
+  doneAt         DateTime?  @map("done_at") @db.Timestamptz(6)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealership     Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_line_dealership_id_dealership_id_fk")
+  user           User?      @relation(fields: [doneById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "job_card_line_done_by_id_user_id_fk")
+  jobCard        JobCard    @relation(fields: [jobCardId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "job_card_line_job_card_id_job_card_id_fk")
+
+  @@index([dealershipId], map: "job_card_line_dealership_id_index")
+  @@index([doneById], map: "job_card_line_done_by_id_index")
+  @@index([estimateLineId], map: "job_card_line_estimate_line_id_index")
+  @@index([jobCardId], map: "job_card_line_job_card_id_index")
+  @@map("job_card_line")
+  @@schema("service")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ScheduleItem {
+  id               BigInt            @id @default(autoincrement())
+  modelId          BigInt            @map("model_id")
+  sequence         Int
+  name             String
+  dueKm            Int               @map("due_km")
+  dueMonths        Int               @map("due_months")
+  isFree           Boolean           @default(false) @map("is_free")
+  labourHours      Decimal           @default(1) @map("labour_hours") @db.Decimal(10, 2)
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById      BigInt?           @map("created_by_id")
+  updatedById      BigInt?           @map("updated_by_id")
+  createdBy        User?             @relation("schedule_item_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "schedule_item_created_by_id_user_id_fk")
+  vehicleModel     VehicleModel      @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "schedule_item_model_id_vehicle_model_id_fk")
+  updatedBy        User?             @relation("schedule_item_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "schedule_item_updated_by_id_user_id_fk")
+  vehicleSchedules VehicleSchedule[]
+
+  @@unique([modelId, sequence], map: "schedule_item_modelId_sequence_unique")
+  @@index([createdById], map: "schedule_item_created_by_id_index")
+  @@index([modelId], map: "schedule_item_model_id_index")
+  @@index([updatedById], map: "schedule_item_updated_by_id_index")
+  @@map("schedule_item")
+  @@schema("service")
+}
+
+model VehicleSchedule {
+  id             BigInt        @id @default(autoincrement())
+  vehicleId      BigInt        @map("vehicle_id")
+  scheduleItemId BigInt?       @map("schedule_item_id")
+  sequence       Int
+  name           String
+  dueKm          Int           @map("due_km")
+  dueDate        DateTime      @map("due_date") @db.Date
+  isFree         Boolean       @map("is_free")
+  labourHours    Decimal       @map("labour_hours") @db.Decimal(10, 2)
+  status         String        @default("due")
+  visitId        BigInt?       @map("visit_id")
+  completedOn    DateTime?     @map("completed_on") @db.Date
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  scheduleItem   ScheduleItem? @relation(fields: [scheduleItemId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_schedule_schedule_item_id_schedule_item_id_fk")
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vehicle_schedule_vehicle_id_vehicle_id_fk")
+  visit          Visit?
+
+  @@unique([vehicleId, sequence], map: "vehicle_schedule_vehicleId_sequence_unique")
+  @@index([dueDate], map: "vehicle_schedule_due_date_index")
+  @@index([scheduleItemId], map: "vehicle_schedule_schedule_item_id_index")
+  @@index([visitId], map: "vehicle_schedule_visit_id_index")
+  @@map("vehicle_schedule")
+  @@schema("service")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Visit {
+  id              BigInt           @id @default(autoincrement())
+  dealershipId    BigInt           @map("dealership_id")
+  branchId        BigInt?          @map("branch_id")
+  visitNo         String           @unique(map: "visit_visitNo_unique") @map("visit_no")
+  vehicleId       BigInt           @unique(map: "visit_vehicle_live_uq", where: raw("(status = ANY (ARRAY['open'::text, 'in_progress'::text, 'ready'::text]))")) @map("vehicle_id")
+  customerId      BigInt           @map("customer_id")
+  advisorId       BigInt           @map("advisor_id")
+  visitType       String           @map("visit_type")
+  serviceNumber   Int?             @map("service_number")
+  scheduleEntryId BigInt?          @unique(map: "visit_schedule_entry_uq", where: raw("((schedule_entry_id IS NOT NULL) AND (status <> 'cancelled'::text))")) @map("schedule_entry_id")
+  visitSequence   Int              @map("visit_sequence")
+  odometerKm      Int              @map("odometer_km")
+  arrivedAt       DateTime         @default(now()) @map("arrived_at") @db.Timestamptz(6)
+  promisedAt      DateTime?        @map("promised_at") @db.Timestamptz(6)
+  complaints      String?
+  warrantyValid   Boolean          @map("warranty_valid")
+  freeService     Boolean          @map("free_service")
+  deliveredAt     DateTime?        @map("delivered_at") @db.Timestamptz(6)
+  status          String           @default("open")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     BigInt?          @map("created_by_id")
+  updatedById     BigInt?          @map("updated_by_id")
+  jobCard         JobCard?
+  advisor         User             @relation("visit_advisor_idTouser", fields: [advisorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "visit_advisor_id_user_id_fk")
+  branch          Branch?          @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "visit_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy       User?            @relation("visit_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "visit_created_by_id_user_id_fk")
+  customer        Customer         @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "visit_customer_id_customer_id_fk")
+  dealership      Dealership       @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "visit_dealership_id_dealership_id_fk")
+  vehicleSchedule VehicleSchedule? @relation(fields: [scheduleEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "visit_schedule_entry_id_vehicle_schedule_id_fk")
+  updatedBy       User?            @relation("visit_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "visit_updated_by_id_user_id_fk")
+  vehicle         Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "visit_vehicle_id_vehicle_id_fk")
+
+  @@index([advisorId], map: "visit_advisor_id_index")
+  @@index([arrivedAt], map: "visit_arrived_at_index")
+  @@index([branchId], map: "visit_branch_id_index")
+  @@index([createdById], map: "visit_created_by_id_index")
+  @@index([customerId], map: "visit_customer_id_index")
+  @@index([dealershipId, status], map: "visit_dealership_id_status_index")
+  @@index([scheduleEntryId], map: "visit_schedule_entry_id_index")
+  @@index([updatedById], map: "visit_updated_by_id_index")
+  @@index([vehicleId], map: "visit_vehicle_id_index")
+  @@map("visit")
+  @@schema("service")
+}

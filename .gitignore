@@ -7,3 +7,6 @@ coverage/
 !backend/.env.example
 .DS_Store
 *.tsbuildinfo
+
+# Prisma Client (generated from prisma/schema.prisma by `prisma generate`)
+backend/src/generated/
