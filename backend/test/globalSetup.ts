@@ -6,6 +6,8 @@ export default async function setup() {
   process.env.DOTENV_PATH = '.env.test';
   const { dropAll, migrateDatabase } = await import('../src/db/setup');
   const url = process.env.MIGRATION_DATABASE_URL!;
+  // The tests wipe their database: never let them reach the dev or a live (e.g. Neon) database.
+  if (!new URL(url).pathname.endsWith('_test')) throw new Error(`Refusing to run tests against ${new URL(url).host}${new URL(url).pathname}: not a *_test database`);
   await dropAll(url);
   await migrateDatabase(url);
   // Applying again to an up-to-date database must be a no-op (as on every later deploy).

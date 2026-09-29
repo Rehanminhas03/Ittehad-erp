@@ -529,7 +529,17 @@ How it's built:
 | `npm run db:seed` | Idempotent seed: dealerships, a main branch each, and the users above. |
 | `npm run db:fresh` | `db:reset` followed by `db:seed`. |
 
-A database created before Prisma (by the old schema push) already has the baseline. Mark it applied once with `npx prisma migrate resolve --applied 0_init`, then run `npm run db:migrate`.
+An existing local database that already has this schema (built before the Prisma baseline) must be marked once with `npx prisma migrate resolve --applied 0_init`, then run `npm run db:migrate`.
+
+### Hosted PostgreSQL (Neon)
+
+The backend works against any PostgreSQL 16+, local or hosted. For testing it currently uses a Neon database (`backend/.env`; the local URLs are kept there as comments, so switch back by swapping the comments):
+
+- `DATABASE_URL`: the **`dms_app`** role through Neon's **pooler** host (`…-pooler…`), `sslmode=verify-full&channel_binding=require`. The app must not use the owner role, or RLS would not apply.
+- `MIGRATION_DATABASE_URL`: the owner (`neondb_owner`) through the **direct** host, `sslmode=require&connect_timeout=60` (Prisma Migrate needs a direct connection and can be slow to connect).
+- One-time preparation of a new Neon database (done for the current one): as the owner, `create role dms_app login password '<strong password>'`, `grant connect on database neondb to dms_app`, and `alter database neondb set timezone to 'Asia/Karachi'` (the app's "today" is Pakistan time). Then `npm run db:migrate` and `npm run db:seed`.
+- Tests always use the local `dms_test` (`backend/.env.test`) and refuse to run against any database whose name does not end in `_test`.
+- Speed depends on the distance to the Neon region: every request makes several round trips to the database.
 
 > Prisma does not model RLS policies or triggers, so they live in the migration SQL. `test/schema.test.ts` fails if a table has no RLS, or if an FK or tenant column has no index.
 

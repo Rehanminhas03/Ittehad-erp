@@ -260,7 +260,7 @@ try {
         });
       }
     }
-  });
+  }, 10 * 60_000); // one transaction, hundreds of statements: minutes against a remote database (Neon)
   console.log('Seed complete. Admin login: admin@dms.local / Admin@12345');
   await disconnect();
   process.exit(0);

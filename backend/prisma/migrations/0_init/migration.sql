@@ -1,4 +1,4 @@
--- Baseline: the database as built by the Drizzle version (2026-09-29), dumped with pg_dump.
+-- Baseline: the complete database schema as of 2026-09-29.
 -- Tables, indexes (incl. partial and trigram), constraints, row-level security policies, the RLS
 -- helper functions, append-only and journal-balance triggers, and the grants for the app role
 -- (dms_app, created once per server by `npm run setup`). Existing databases: mark as applied with

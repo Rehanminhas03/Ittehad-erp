@@ -82,9 +82,12 @@ export interface TenantContext {
   dealershipIds: number[] | 'all';
 }
 
-/** One transaction on a client (runtime or owner), e.g. for scripts and public routes. */
-export function transaction<T>(client: Db, fn: (tx: Tx) => Promise<T>): Promise<T> {
-  return client.$transaction((tx) => fn(tx as Tx), TX_OPTIONS);
+/**
+ * One transaction on a client (runtime or owner), e.g. for scripts and public routes. `timeoutMs`
+ * raises the limit for long scripts (the seed against a remote database such as Neon).
+ */
+export function transaction<T>(client: Db, fn: (tx: Tx) => Promise<T>, timeoutMs = TX_OPTIONS.timeout): Promise<T> {
+  return client.$transaction((tx) => fn(tx as Tx), { ...TX_OPTIONS, timeout: timeoutMs });
 }
 
 /**

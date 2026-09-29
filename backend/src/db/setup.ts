@@ -47,14 +47,21 @@ end
 $$`,
 ];
 
-/** Runs the Prisma CLI (prisma.config.ts) against `url`. */
-function prismaCli(args: string[], url: string): string {
-  const run = spawnSync(process.execPath, [path.resolve('node_modules/prisma/build/index.js'), ...args], {
-    env: { ...process.env, MIGRATION_DATABASE_URL: url },
-    encoding: 'utf8',
-  });
-  if (run.status !== 0) throw new Error(`prisma ${args.join(' ')} failed:\n${run.stdout}\n${run.stderr}`);
-  return run.stdout;
+/**
+ * Runs the Prisma CLI (prisma.config.ts) against `url`. "Can't reach database server" (P1001) is
+ * retried: a remote database (e.g. Neon) can take a while to wake up or to accept the connection.
+ */
+function prismaCli(args: string[], url: string, attempts = 4): string {
+  for (let i = 1; ; i++) {
+    const run = spawnSync(process.execPath, [path.resolve('node_modules/prisma/build/index.js'), ...args], {
+      env: { ...process.env, MIGRATION_DATABASE_URL: url },
+      encoding: 'utf8',
+    });
+    if (run.status === 0) return run.stdout;
+    const output = `${run.stdout}\n${run.stderr}`;
+    if (i >= attempts || !output.includes('P1001')) throw new Error(`prisma ${args.join(' ')} failed:\n${output}`);
+    console.warn(`prisma ${args.join(' ')}: database not reachable, retrying (${i}/${attempts - 1})`);
+  }
 }
 
 async function withOwner<T>(url: string, fn: (db: ReturnType<typeof createDb>['db']) => Promise<T>): Promise<T> {
