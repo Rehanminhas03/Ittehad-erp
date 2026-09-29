@@ -64,22 +64,23 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   {
     name: 'Assistant Manager',
     delegatedBy: SALES_TEAM,
-    description: "Oversees every lead of the dealership; logs leads for a salesperson or themselves and converts their own; converts other salespeople's leads only when sent to them as a duplicate customer; reopens exhausted leads.",
+    description: "Oversees every lead of the dealership; logs leads for a salesperson or themselves and converts their own; converts other salespeople's leads only when sent to them as a duplicate customer; reopens exhausted leads; follows orders: marks an approved order's car in transit and schedules the delivery once the car is received.",
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'sales.leads.view_all', 'sales.leads.convert_escalated',
       'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen',
+      'sales.orders.view_all', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule',
       'sales.quotations.view_all', 'sales.quotations.create', 'sales.quotations.update', 'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update',
       'sales.templates.manage', 'sales.variants.view',
     ],
   },
   {
     name: 'Sales Manager',
-    description: 'Department head: everything the Assistant Manager sees, the team report and track record, all orders and stock; logs and converts own leads (with quotations and PPF vouchers); reopens exhausted leads; approves orders (draft or submitted); hires, resets and deactivates sales staff.',
+    description: 'Department head: everything the Assistant Manager sees, the team report and track record, all orders and stock; logs and converts own leads (with quotations and PPF vouchers); reopens exhausted leads; approves orders (draft or submitted), marks their car in transit and schedules the delivery once the car is received; hires, resets and deactivates sales staff.',
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'core.roles.view',
       'core.users.view', 'core.users.create', 'core.users.update', 'core.users.assign_roles', 'sales.team.manage',
       'core.activity.view_team',
-      'sales.leads.view_all', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen', 'sales.orders.view_all', 'sales.orders.approve', 'sales.deliveries.view_all', 'sales.stock.view',
+      'sales.leads.view_all', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen', 'sales.orders.view_all', 'sales.orders.approve', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
       'sales.quotations.view_all', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.templates.manage', 'sales.variants.view',
       'sales.reports.view',
@@ -88,17 +89,17 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   {
     name: 'Sales Admin',
     delegatedBy: SALES_TEAM,
-    description: 'Sees leads once converted and raises the sales order (PBO / CBO); enters the vehicle chassis / engine number.',
+    description: 'Sees leads once converted and raises the sales order (PBO / CBO); enters the vehicle chassis / engine number; marks an approved order\'s car in transit and schedules the delivery once the car is received.',
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'master.customers.view',
       'sales.leads.view_converted', 'sales.leads.update_converted', 'sales.orders.view_all', 'sales.orders.create', 'sales.orders.update',
-      'sales.orders.submit', 'sales.orders.cancel', 'sales.stock.view', 'sales.quotations.view_all', 'sales.ppf.view_all', 'sales.variants.view',
+      'sales.orders.submit', 'sales.orders.cancel', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view', 'sales.quotations.view_all', 'sales.ppf.view_all', 'sales.variants.view',
     ],
   },
   {
     name: 'Delivery Team',
     delegatedBy: SALES_TEAM,
-    description: 'Open stock: registers incoming vehicles (straight onto a waiting order), allocates them to booked orders, moves them through logistics, hands them over once the order is approved. No access to leads.',
+    description: 'Open stock: registers incoming vehicles (straight onto a waiting order), allocates them to booked orders, moves them through logistics (marks the car received when it arrives), sees and schedules deliveries, hands the car over once the order is approved. No access to leads.',
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.models.view',
       'sales.stock.view', 'sales.stock.manage', 'sales.orders.view_all', 'sales.orders.allocate',

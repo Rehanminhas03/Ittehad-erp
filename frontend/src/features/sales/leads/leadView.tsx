@@ -31,10 +31,24 @@ import {
   useGetLeadHistoryQuery,
   useGetLeadQuery,
   useGetLeadWorkflowQuery,
+  useListLeadFollowUpsQuery,
   useListLeadsQuery,
+  useListPpfFormsQuery,
+  useListQuotationsQuery,
   useTransitionLeadMutation,
   useUpdateLeadMutation,
 } from '../salesApi';
+
+/**
+ * The lead page's follow-ups and documents, requested while the lead loads (same args as
+ * LeadFollowUps / LeadDocumentsPanel). Documents only for users who can see some; the server scopes them.
+ */
+function usePrefetchLeadSections(id: number) {
+  const perm = usePermission();
+  useListLeadFollowUpsQuery({ id });
+  useListQuotationsQuery({ leadId: id, pageSize: 20 }, { skip: !perm.can([P.quotationsViewAll, P.quotationsViewOwn]) });
+  useListPpfFormsQuery({ leadId: id, pageSize: 20 }, { skip: !perm.can([P.ppfViewAll, P.ppfViewOwn]) });
+}
 
 /** Who works leads before conversion (not the Sales Admin, who sees them only once converted). */
 const WORKS_LEADS = [P.leadsViewAll, P.leadsViewOwn];
@@ -176,6 +190,7 @@ export const leadView: EntityViewConfig<Lead> = {
         <LeadFollowUps lead={l} />
       </>
     ),
+    usePrefetch: usePrefetchLeadSections,
   },
   form: {
     fields: [

@@ -80,6 +80,37 @@ describe('notifications', () => {
     expect((await list(manager)).body.total).toBe(0);
   });
 
+  it('reaches only the portals the change belongs to', async () => {
+    const d = await createDealership('HYD');
+    const model = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
+    const [sales1, sales2, cro, am, manager, admin, delivery] = [
+      await staff('Salesperson', d.id),
+      await staff('Salesperson', d.id),
+      await staff('CRO', d.id),
+      await staff('Assistant Manager', d.id),
+      await staff('Sales Manager', d.id),
+      await staff('Sales Admin', d.id),
+      await staff('Delivery Team', d.id),
+    ];
+    const titles = async (who: Login) => ((await api.get('/api/notifications').set(bearer(who.token))).body.items as { title: string }[]).map((n) => n.title);
+
+    // A salesperson's new lead: the lead overseers, not the other salespeople, the Admin (before
+    // conversion) or the Delivery Team.
+    await api
+      .post('/api/sales/leads')
+      .set(bearer(sales1.token))
+      .send({ dealershipId: d.id, prospectName: 'Ayesha Khan', prospectMobile: '03001234567', interestedModelId: model!.id, variant: '2.0 GLS' })
+      .expect(201);
+    expect(await titles(am)).toEqual(['New lead added']);
+    expect(await titles(manager)).toEqual(['New lead added']);
+    for (const who of [sales2, cro, admin, delivery]) expect(await titles(who)).toEqual([]);
+
+    // Variant codes: those who manage them.
+    await api.post('/api/sales/variants').set(bearer(am.token)).send({ dealershipId: d.id, code: 'CODE10', description: 'Variant' }).expect(201);
+    expect(await titles(manager)).toEqual(['New variant code added', 'New lead added']);
+    for (const who of [sales1, delivery]) expect((await titles(who)).includes('New variant code added')).toBe(false);
+  });
+
   it('one notification per action (the most meaningful), paged 10 at a time; sign-ins are not broadcast', async () => {
     const d = await createDealership('HYD');
     const am = await staff('Assistant Manager', d.id);

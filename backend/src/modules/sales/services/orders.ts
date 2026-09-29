@@ -181,7 +181,7 @@ async function assertNoScheduledDelivery(ctx: EntityCtx, orderId: number, messag
 }
 
 /** Vehicle status change, audited against the dealership driving it (the sales order's). */
-async function setVehicleStatus(ctx: EntityCtx, vehicleId: number, status: (typeof VEHICLE_STATUSES)[number], dealershipId: number) {
+export async function setVehicleStatus(ctx: EntityCtx, vehicleId: number, status: (typeof VEHICLE_STATUSES)[number], dealershipId: number) {
   await ctx.tx.vehicle.updateMany({ where: { id: vehicleId }, data: { status, updatedById: ctx.access.userId } });
   await ctx.audit({ entityType: 'master.vehicle', entityId: vehicleId, action: 'status.update', dealershipId, branchId: null, changes: { status } });
 }
@@ -237,16 +237,26 @@ export async function releaseVehicle(ctx: EntityCtx, orderId: number) {
 /**
  * Advances the allocated vehicle through the logistics pipeline one step at a time
  * (booked → in_transit → received → ready_for_delivery), or pauses / resumes it via hold.
+ * "In transit" (dispatched from the plant) comes after the Manager's approval and may also be set by
+ * the Sales Admin / Assistant Manager / Manager (dispatch); every other step is the Delivery Team's
+ * (allocate) — "received" only once the car is actually at the dealership.
  */
 export async function advanceVehicleStatus(ctx: EntityCtx, orderId: number, input: z.output<typeof AdvanceVehicleStatusBody>) {
   const o = await orders.findVisible(ctx, orderId, { lock: true });
-  if (!orders.canOnRow(ctx.access, o, P.ordersAllocate)) throw forbidden();
+  const target = input.status;
+  const logistics = orders.canOnRow(ctx.access, o, P.ordersAllocate);
+  const dispatch = target === 'in_transit' && orders.canOnRow(ctx.access, o, P.ordersDispatch);
+  if (!logistics && !dispatch) throw forbidden();
   if (!isLive(o.status)) throw conflict(`The order is ${o.status as string}`);
   if (!o.vehicleId) throw conflict('Allocate a vehicle to the order first');
   const [v] = await query<{ status: string }>(ctx.tx, sql`select ${vehicle.status} as "status" from ${vehicle} where ${vehicle.id} = ${o.vehicleId as number} for update`);
   if (!v) throw notFound('Vehicle');
+  // Dispatch alone is the one step booked → in transit (resuming a car on hold is the Delivery Team's).
+  if (!logistics && v.status !== 'booked') throw forbidden();
+  if (target === 'in_transit' && v.status === 'booked' && o.status !== 'approved') {
+    throw conflict("The Manager has to approve the order before the car is marked in transit");
+  }
 
-  const target = input.status;
   const ladder = [...VEHICLE_PIPELINE] as string[];
   const from = v.status;
   const allowed = target === 'hold' ? from !== 'hold' : from === 'hold' ? ladder.includes(target) : ladder.indexOf(target) === ladder.indexOf(from) + 1;

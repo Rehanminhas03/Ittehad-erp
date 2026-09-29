@@ -24397,7 +24397,7 @@
       "patch": {
         "operationId": "advanceVehicleStatus",
         "summary": "Advance the allocated vehicle through logistics (in_transit / received / ready_for_delivery), or hold it",
-        "description": "Requires: sales.orders.allocate",
+        "description": "Requires: sales.orders.allocate | sales.orders.dispatch",
         "tags": [
           "SalesOrder"
         ],

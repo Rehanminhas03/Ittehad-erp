@@ -109,6 +109,9 @@ describe('service schedule from vehicle activation', () => {
     await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(seller.token)).send({ action: 'submit' }).expect(200);
     await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(approver.token)).send({ action: 'approve' }).expect(200);
     await api.put(`/api/sales/orders/${o.body.id}/allocation`).set(bearer(approver.token)).send({ vehicleId: v!.id }).expect(200);
+    for (const status of ['in_transit', 'received']) {
+      await api.patch(`/api/sales/orders/${o.body.id}/vehicle-status`).set(bearer(approver.token)).send({ status }).expect(200);
+    }
     const dl = await api.post(`/api/sales/orders/${o.body.id}/deliveries`).set(bearer(approver.token)).send({ scheduledDate: today() });
     await api.post(`/api/sales/deliveries/${dl.body.id}/complete`).set(bearer(approver.token)).send({ odometerKm: 7, customerAcknowledged: true }).expect(200);
 

@@ -13,6 +13,7 @@ import { deliveries, deliveryEntity, orders } from '../entities';
 import { delivery } from '../models';
 import { pakistanToday } from '../../../lib/dates';
 import { SalesPerm as P } from '../permissions';
+import { setVehicleStatus } from './orders';
 import type { CompleteDeliveryBody, ScheduleDeliveryBody } from '../schemas';
 
 // Pakistan calendar day: a car delivered at 1 AM is delivered today, not yesterday.
@@ -24,6 +25,11 @@ export async function scheduleDelivery(ctx: EntityCtx, orderId: number, input: z
   if (!ctx.access.canIn(P.deliveriesSchedule, { dealershipId: o.dealershipId as number, branchId })) throw forbidden();
   if (o.status !== 'approved') throw conflict('Only approved orders can be scheduled for delivery');
   if (!o.vehicleId) throw conflict('Enter the vehicle (chassis / engine number) on the order first');
+  // Scheduled once the car is at the dealership (the Delivery Team marked it received).
+  const car = await ctx.tx.vehicle.findFirst({ where: { id: o.vehicleId as number }, select: { status: true } });
+  if (car?.status !== 'received' && car?.status !== 'ready_for_delivery') {
+    throw conflict('Schedule the delivery once the Delivery Team has marked the car received');
+  }
   if (input.scheduledDate < today()) throw validationError([{ in: 'body', path: 'scheduledDate', message: 'Choose today or a later date' }]);
 
   const existing = await ctx.tx.delivery.findFirst({ where: { salesOrderId: orderId, status: { not: 'cancelled' } }, select: { id: true } });
@@ -52,6 +58,8 @@ export async function scheduleDelivery(ctx: EntityCtx, orderId: number, input: z
     branchId: row.branchId,
     changes: { salesOrderId: orderId, scheduledDate: input.scheduledDate },
   });
+  // A scheduled car is ready for delivery: the Delivery Team hands it over on the day.
+  if (car.status === 'received') await setVehicleStatus(ctx, o.vehicleId as number, 'ready_for_delivery', o.dealershipId as number);
   return deliveries.get(ctx, row.id);
 }
 

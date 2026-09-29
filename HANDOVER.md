@@ -53,8 +53,11 @@ does today and what is still open (section 10). Then wait for my next request.
   optionally a branch) and PostgreSQL Row-Level Security keeps dealerships apart.
 - Modules in the code: core (users, roles, dealerships, activity), master (customers, vehicles,
   models), **sales**, service, parts, accounts, reports.
-- **Current phase: Sales only.** Service, Parts and Accounts are hidden in the UI through
-  `frontend/src/shared/config/modules.ts` (their code and API still exist). Work on them comes later.
+- **Current phase: Sales only.** Service, Parts and Accounts are hidden in the UI
+  (`frontend/src/shared/config/modules.ts`) and their API routes are not served (`backend/src/config/modules.ts`);
+  their code and tables still exist (tests still cover them). Work on them comes later. **Do not read or change
+  `modules/service`, `modules/parts`, `modules/accounts` (backend) or `features/service|parts|accounts`
+  (frontend) unless the owner asks**: it saves time and tokens.
 
 ## 3. Stack
 

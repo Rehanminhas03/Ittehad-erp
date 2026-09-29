@@ -1,7 +1,7 @@
 /**
  * Notifications: every change a person makes (a new lead, a quotation, a car added to stock, an
- * approval request, a delivery, a new user…) becomes a notification for everyone else at that
- * dealership, e.g. "New lead added — by Sales 1".
+ * approval request, a delivery, a new user…) becomes a notification for the others at that dealership
+ * whose portal it belongs to (see audienceOf), e.g. "New lead added — by Sales 1".
  *
  * Built from the audit entries of one request (the same ones behind the Activity log), in the same
  * transaction, then pushed live over the socket once the change is saved (apiRouter). One request
@@ -149,9 +149,81 @@ async function templateTitle(ex: Executor, id: string) {
 }
 
 /**
+ * Who a change concerns: holders of `codes` (they see every such record), plus the record's own
+ * person (`ownerId`, e.g. the lead's salesperson) through `ownerCodes`. Each code counts only where
+ * it is held (that dealership, or group-wide). null: everyone at the dealership (other modules).
+ */
+interface Audience {
+  codes: string[];
+  ownerCodes?: string[];
+  ownerId?: number | null;
+  /** Where the notification leads when that differs (a car on an order: the order). */
+  href?: string;
+  /** Where it leads for the owner who reaches it only as the owner (a salesperson: their lead). */
+  ownerHref?: string;
+}
+
+/** The order's salesperson follows it on their lead (salespeople have no order screens). */
+const SALESPERSON = ['sales.orders.view_own', 'sales.leads.view_own'];
+const leadHref = (leadId: number | null | undefined) => (leadId ? `/sales/leads/${leadId}` : undefined);
+
+const CONVERTED_LEAD = ['converted', 'processing', 'completed'];
+
+async function audienceOf(ex: Executor, e: AuditEntry): Promise<Audience | null> {
+  const id = Number(e.entityId);
+  const one = async <T>(q: ReturnType<typeof sql>) => (await query<T>(ex, q))[0];
+  switch (e.entityType) {
+    case 'sales.lead': {
+      const l = await one<{ ownerId: number | null; status: string }>(sql`select owner_id as "ownerId", status from sales.lead where id = ${id}`);
+      const codes = ['sales.leads.view_all', ...(l && CONVERTED_LEAD.includes(l.status) ? ['sales.leads.view_converted'] : [])];
+      return { codes, ownerCodes: ['sales.leads.view_own'], ownerId: l?.ownerId };
+    }
+    case 'sales.order': {
+      const o = await one<{ ownerId: number | null; leadId: number | null }>(sql`select salesperson_id as "ownerId", lead_id as "leadId" from sales.sales_order where id = ${id}`);
+      return { codes: ['sales.orders.view_all'], ownerCodes: SALESPERSON, ownerId: o?.ownerId, ownerHref: leadHref(o?.leadId) };
+    }
+    case 'sales.delivery': {
+      const d = await one<{ ownerId: number | null; leadId: number | null }>(
+        sql`select d.salesperson_id as "ownerId", o.lead_id as "leadId" from sales.delivery d join sales.sales_order o on o.id = d.sales_order_id where d.id = ${id}`,
+      );
+      return { codes: ['sales.deliveries.view_all'], ownerCodes: ['sales.deliveries.view_own', ...SALESPERSON], ownerId: d?.ownerId, ownerHref: leadHref(d?.leadId) };
+    }
+    case 'master.vehicle': {
+      // A car's stage: for the people of the order holding it (and whoever sees the open stock).
+      const o = await one<{ id: number; ownerId: number | null; leadId: number | null }>(
+        sql`select id, salesperson_id as "ownerId", lead_id as "leadId" from sales.sales_order where vehicle_id = ${id} and status <> 'cancelled' order by id desc limit 1`,
+      );
+      return o
+        ? { codes: ['sales.orders.view_all', 'sales.stock.view'], ownerCodes: SALESPERSON, ownerId: o.ownerId, href: `/sales/orders/${o.id}`, ownerHref: leadHref(o.leadId) }
+        : { codes: ['sales.stock.view'] };
+    }
+    case 'sales.stock_vehicle':
+      return { codes: ['sales.stock.view'] };
+    case 'sales.quotation': {
+      const q = await one<{ ownerId: number | null }>(sql`select owner_id as "ownerId" from sales.quotation where id = ${id}`);
+      return { codes: ['sales.quotations.view_all'], ownerCodes: ['sales.quotations.view_own'], ownerId: q?.ownerId };
+    }
+    case 'sales.ppf_form': {
+      const p = await one<{ ownerId: number | null }>(sql`select owner_id as "ownerId" from sales.ppf_form where id = ${id}`);
+      return { codes: ['sales.ppf.view_all'], ownerCodes: ['sales.ppf.view_own'], ownerId: p?.ownerId };
+    }
+    case 'sales.vehicle_variant':
+    case 'sales.document_template':
+      return { codes: ['sales.templates.manage'] };
+    case 'core.user':
+      return { codes: ['core.users.view'] };
+    case 'master.customer':
+      return { codes: ['master.customers.view'] };
+    default:
+      return null;
+  }
+}
+
+/**
  * Saves the notification for one request's changes (inside its transaction) and returns the rows,
- * to be pushed live once committed. Recipients: every active user at the dealership (and the
- * group-wide users), except the person who made the change.
+ * to be pushed live once committed. Recipients: the active users at the dealership (and the
+ * group-wide users) whose portal the change belongs to (audienceOf: e.g. a lead reaches whoever
+ * sees all leads and its own salesperson, not the Delivery Team), except the person who made it.
  */
 export async function createNotifications(ex: Executor, actorId: number | null, entries: AuditEntry[]): Promise<Row[]> {
   const described = entries.map((entry) => ({ entry, spec: describeChange(entry) })).filter((x): x is { entry: AuditEntry; spec: Spec } => !!x.spec);
@@ -167,12 +239,26 @@ export async function createNotifications(ex: Executor, actorId: number | null, 
   const scope = dealershipId
     ? sql`ur.dealership_id = ${dealershipId}`
     : sql`ur.dealership_id in (select dealership_id from core.user_role where user_id = ${actorId} and dealership_id is not null)`;
-  const recipients = await query<{ id: number }>(ex, sql`
-    select distinct u.id::int as id
-      from core."user" u
-      join core.user_role ur on ur.user_id = u.id
-     where u.is_active and u.id <> ${actorId} and (ur.dealership_id is null or ${scope})`);
+  const audience = await audienceOf(ex, best.entry);
+  // A permission counts only where it is held (the same role assignment as the scope). seesAll: through
+  // `codes` (not only as the record's owner).
+  const recipients = audience
+    ? await query<{ id: number; seesAll: boolean }>(ex, sql`
+        select u.id::int as id, bool_or(p.code = any(${audience.codes})) as "seesAll"
+          from core."user" u
+          join core.user_role ur on ur.user_id = u.id
+          join core.role_permission rp on rp.role_id = ur.role_id
+          join core.permission p on p.id = rp.permission_id
+         where u.is_active and u.id <> ${actorId} and (ur.dealership_id is null or ${scope})
+         group by u.id
+        having bool_or(p.code = any(${audience.codes}) or (u.id = ${audience.ownerId ?? 0} and p.code = any(${audience.ownerCodes ?? []})))`)
+    : await query<{ id: number; seesAll: boolean }>(ex, sql`
+        select distinct u.id::int as id, true as "seesAll"
+          from core."user" u
+          join core.user_role ur on ur.user_id = u.id
+         where u.is_active and u.id <> ${actorId} and (ur.dealership_id is null or ${scope})`);
   if (!recipients.length) return [];
+  const href = audience?.href ?? best.spec.href ?? null;
   const actor = await ex.user.findFirst({ where: { id: actorId }, select: { fullName: true } });
 
   return ex.notification.createManyAndReturn({
@@ -184,7 +270,7 @@ export async function createNotifications(ex: Executor, actorId: number | null, 
       action: best.entry.action,
       title,
       detail,
-      href: best.spec.href ?? null,
+      href: r.seesAll ? href : (audience?.ownerHref ?? href),
       actorId,
       actorName: actor?.fullName ?? null,
     })),

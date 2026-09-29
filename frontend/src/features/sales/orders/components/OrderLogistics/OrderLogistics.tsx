@@ -24,12 +24,81 @@ const LIVE = ['draft', 'submitted', 'approved'];
  * the arriving car for this order), move it through logistics one step at a time (booked → in
  * transit → received → ready for delivery), put it on hold, or release it back to stock. The car is
  * handed over ("Mark as delivered") once it is ready for delivery and the Manager has approved the order.
+ * "In transit" follows the Manager's approval; the Sales Admin / Assistant Manager / Manager may set it
+ * too (dispatch) and see the car's progress, the rest is the Delivery Team's.
  */
 export function OrderLogistics({ order }: { order: SalesOrder }) {
   const perm = usePermission();
-  const toast = useToast();
   const canAllocate = LIVE.includes(order.status) && perm.canIn(P.ordersAllocate, order.dealershipId, order.branchId);
-  const { data: options, isFetching } = useListAllocatableVehiclesQuery({ id: order.id }, { skip: !canAllocate || !!order.vehicleId });
+  const canDispatch = order.status === 'approved' && perm.canIn(P.ordersDispatch, order.dealershipId, order.branchId);
+  if (canAllocate) return <DeliveryTeamLogistics order={order} />;
+  if (canDispatch) return <DispatchLogistics order={order} />;
+  return null;
+}
+
+function Pipeline({ status }: { status: string | null | undefined }) {
+  const step = status ? VEHICLE_PIPELINE.indexOf(status as (typeof VEHICLE_PIPELINE)[number]) : -1;
+  return (
+    <ol className="flex flex-wrap items-center gap-2" aria-label="Vehicle progress">
+      {VEHICLE_PIPELINE.map((p, i) => (
+        <li key={p} className="flex items-center gap-2">
+          <span
+            className={
+              i <= step ? 'rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700' : 'rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500'
+            }
+          >
+            {labelOf(p)}
+          </span>
+          {i < VEHICLE_PIPELINE.length - 1 && <span className="text-slate-300">→</span>}
+        </li>
+      ))}
+      {status === 'hold' && <StatusBadge status="hold" label="On hold" />}
+    </ol>
+  );
+}
+
+/** Sales Admin / Assistant Manager / Manager: the car's progress, and "Mark in transit" once the plant dispatches it. */
+function DispatchLogistics({ order }: { order: SalesOrder }) {
+  const toast = useToast();
+  const [advance, { isLoading }] = useAdvanceVehicleStatusMutation();
+  return (
+    <Section title="Logistics">
+      {order.vehicleId ? (
+        <div className="space-y-4 text-sm">
+          <Pipeline status={order.vehicleStatus} />
+          {order.vehicleStatus === 'booked' ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                size="sm"
+                loading={isLoading}
+                onClick={async () => {
+                  try {
+                    await advance({ id: order.id, advanceVehicleStatusRequest: { status: 'in_transit' } }).unwrap();
+                    toast.success('Vehicle marked in transit');
+                  } catch (e) {
+                    toast.error(e);
+                  }
+                }}
+              >
+                Mark in transit
+              </Button>
+              <span className="text-slate-500">When the plant / head office has dispatched the car.</span>
+            </div>
+          ) : (
+            order.vehicleStatus === 'in_transit' && <p className="text-slate-500">The Delivery Team marks the car received when it arrives.</p>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-600">The Delivery Team allocates the car to this order; it can then be marked in transit.</p>
+      )}
+    </Section>
+  );
+}
+
+function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
+  const perm = usePermission();
+  const toast = useToast();
+  const { data: options, isFetching } = useListAllocatableVehiclesQuery({ id: order.id }, { skip: !!order.vehicleId });
   const [allocate, { isLoading: allocating }] = useAllocateVehicleMutation();
   const [release, { isLoading: releasing }] = useReleaseVehicleMutation();
   const [advance, { isLoading: advancing }] = useAdvanceVehicleStatusMutation();
@@ -38,10 +107,11 @@ export function OrderLogistics({ order }: { order: SalesOrder }) {
   const [deliver, { isLoading: delivering }] = useDeliverOrderMutation();
   const [handingOver, setHandingOver] = useState(false);
 
-  if (!canAllocate) return null;
   const status = order.vehicleStatus;
   const step = status ? VEHICLE_PIPELINE.indexOf(status as (typeof VEHICLE_PIPELINE)[number]) : -1;
-  const next = step >= 0 && step < VEHICLE_PIPELINE.length - 1 ? VEHICLE_PIPELINE[step + 1] : null;
+  // In transit comes after the Manager's approval.
+  const nextStep = step >= 0 && step < VEHICLE_PIPELINE.length - 1 ? VEHICLE_PIPELINE[step + 1] : null;
+  const next = nextStep === 'in_transit' && order.status !== 'approved' ? null : nextStep;
 
   const run = async (target: string) => {
     try {
@@ -60,28 +130,12 @@ export function OrderLogistics({ order }: { order: SalesOrder }) {
     <Section title="Logistics">
       {order.status !== 'approved' && (
         <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Booked, waiting for the Manager's approval. You can already allocate and track the car; it is handed over after approval.
+          Booked, waiting for the Manager's approval. You can already allocate the car; it goes in transit and is handed over after approval.
         </p>
       )}
       {order.vehicleId ? (
         <div className="space-y-4 text-sm">
-          <ol className="flex flex-wrap items-center gap-2" aria-label="Vehicle progress">
-            {VEHICLE_PIPELINE.map((p, i) => (
-              <li key={p} className="flex items-center gap-2">
-                <span
-                  className={
-                    i <= step
-                      ? 'rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700'
-                      : 'rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500'
-                  }
-                >
-                  {labelOf(p)}
-                </span>
-                {i < VEHICLE_PIPELINE.length - 1 && <span className="text-slate-300">→</span>}
-              </li>
-            ))}
-            {status === 'hold' && <StatusBadge status="hold" label="On hold" />}
-          </ol>
+          <Pipeline status={status} />
           {/* Ready: hand the car over (after the Manager's approval). */}
           {status === 'ready_for_delivery' &&
             (order.status === 'approved' ? (

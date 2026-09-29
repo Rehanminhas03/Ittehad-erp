@@ -127,14 +127,19 @@ export class EntityService {
     }
     const dir = raw(sortSpec.startsWith('-') ? 'desc' : 'asc');
 
-    // Sequential: a transaction is one connection, which runs one query at a time anyway.
-    const page = await query<{ id: number }>(
+    // The page and the total in one round trip (the window count is taken before LIMIT). Only a page
+    // past the end has no row to carry it, so count separately then.
+    const page = await query<{ id: number; total: number }>(
       ctx.tx,
-      sql`select ${this.col('id')} as id from ${config.table} where ${where}
+      sql`select ${this.col('id')} as id, count(*) over ()::int as total from ${config.table} where ${where}
            order by ${this.col(sortKey)} ${dir}, ${this.col('id')} ${dir}
            limit ${q.pageSize} offset ${offsetOf(q)}`,
     );
-    const [{ total } = { total: 0 }] = await query<{ total: number }>(ctx.tx, sql`select count(*)::int as total from ${config.table} where ${where}`);
+    const total = page.length
+      ? page[0]!.total
+      : offsetOf(q) === 0
+        ? 0
+        : ((await query<{ total: number }>(ctx.tx, sql`select count(*)::int as total from ${config.table} where ${where}`))[0]?.total ?? 0);
     const items = await this.rowsById(ctx.tx, page.map((r) => r.id));
     return { items: await this.present(ctx, items), total, page: q.page, pageSize: q.pageSize };
   }

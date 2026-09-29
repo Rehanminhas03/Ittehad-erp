@@ -332,7 +332,7 @@ const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
     path: '/:id/vehicle-status',
     operationId: 'advanceVehicleStatus',
     summary: 'Advance the allocated vehicle through logistics (in_transit / received / ready_for_delivery), or hold it',
-    permission: P.ordersAllocate,
+    permission: [P.ordersAllocate, P.ordersDispatch],
     params: IdParam,
     body: AdvanceVehicleStatusBody,
     response: OrderRead,

@@ -40,6 +40,7 @@ export const SalesPerm = definePermissions('sales', {
   ordersApprove: ['sales.orders.approve', 'Approve or return sales orders'],
   ordersCancel: ['sales.orders.cancel', 'Cancel sales orders'],
   ordersAllocate: ['sales.orders.allocate', 'Allocate stock vehicles and move them through logistics'],
+  ordersDispatch: ['sales.orders.dispatch', 'Mark the car of an approved order in transit (dispatched from the plant / head office)'],
 
   stockView: ['sales.stock.view', 'View the dealership open stock (undelivered vehicles)'],
   stockManage: ['sales.stock.manage', 'Register incoming stock vehicles and correct their details'],

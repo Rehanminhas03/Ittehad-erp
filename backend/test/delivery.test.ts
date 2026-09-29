@@ -50,6 +50,13 @@ async function receive(s: Setup, vin: string, modelId = s.modelId) {
 
 /** A lead converted by the salesperson, ordered by the Admin and approved by the Manager (no vehicle yet). */
 async function approvedOrder(s: Setup, mobile = '0300-5556667') {
+  const o = await bookedOrder(s, mobile);
+  await api.post(`/api/sales/orders/${o.orderId}/transitions`).set(bearer(s.manager.token)).send({ action: 'approve' }).expect(200);
+  return o;
+}
+
+/** As approvedOrder, but only submitted: booked, waiting for the Manager's approval. */
+async function bookedOrder(s: Setup, mobile = '0300-5556667') {
   const l = await api.post('/api/sales/leads').set(bearer(s.sales1.token)).send({ dealershipId: s.d.id, prospectName: 'Ayesha Khan', prospectMobile: mobile, interestedModelId: s.modelId, variant: '2.0 GLS' });
   await api
     .post(`/api/sales/leads/${l.body.id}/convert`)
@@ -58,9 +65,61 @@ async function approvedOrder(s: Setup, mobile = '0300-5556667') {
     .expect(200);
   const o = await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000' });
   await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(s.admin.token)).send({ action: 'submit' }).expect(200);
-  await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(s.manager.token)).send({ action: 'approve' }).expect(200);
   return { leadId: l.body.id as number, orderId: o.body.id as number };
 }
+
+describe('Delivery workflow: approved → in transit → received → scheduled → delivered', () => {
+  it('in transit after approval (Sales Admin / AM / Manager too), received by the Delivery Team only, delivery scheduled once received', async () => {
+    const s = await setup();
+    const v = await receive(s, 'WFLOWVIN001');
+    const { leadId, orderId } = await bookedOrder(s);
+    await api.put(`/api/sales/orders/${orderId}/allocation`).set(bearer(s.delivery.token)).send({ vehicleId: v }).expect(200);
+    const move = (who: Login, status: string) => api.patch(`/api/sales/orders/${orderId}/vehicle-status`).set(bearer(who.token)).send({ status });
+
+    // Not before the Manager's approval, not even by the Delivery Team.
+    for (const who of [s.admin, s.delivery]) {
+      const early = await move(who, 'in_transit');
+      expect(early.status).toBe(409);
+      expect(early.body.error.message).toContain('approve');
+    }
+    await api.post(`/api/sales/orders/${orderId}/transitions`).set(bearer(s.manager.token)).send({ action: 'approve' }).expect(200);
+
+    // The Assistant Manager follows orders now; the salesperson cannot move the car.
+    expect((await api.get(`/api/sales/orders/${orderId}`).set(bearer(s.am.token))).status).toBe(200);
+    expect((await move(s.sales1, 'in_transit')).status).toBe(403);
+    const dispatched = await move(s.admin, 'in_transit');
+    expect(dispatched.status, JSON.stringify(dispatched.body)).toBe(200);
+    expect(dispatched.body.vehicleStatus).toBe('in_transit');
+    // Everyone linked to the car is told: the salesperson on their lead (no order screens), the
+    // Delivery Team on the order.
+    const latest = async (who: Login) => (await api.get('/api/notifications').set(bearer(who.token))).body.items[0];
+    expect(await latest(s.sales1)).toMatchObject({ title: 'Car in transit', href: `/sales/leads/${leadId}` });
+    expect(await latest(s.delivery)).toMatchObject({ title: 'Car in transit', href: `/sales/orders/${orderId}` });
+
+    // Received: the Delivery Team only. Scheduling waits for it.
+    for (const who of [s.admin, s.am, s.manager]) expect((await move(who, 'received')).status).toBe(403);
+    const schedule = (who: Login) => api.post(`/api/sales/orders/${orderId}/deliveries`).set(bearer(who.token)).send({ scheduledDate: pakistanToday() });
+    const tooEarly = await schedule(s.am);
+    expect(tooEarly.status).toBe(409);
+    expect(tooEarly.body.error.message).toContain('received');
+    expect((await move(s.delivery, 'received')).body.vehicleStatus).toBe('received');
+
+    // The Assistant Manager schedules; the car is then ready for delivery and the Delivery Team sees the date.
+    const d = await schedule(s.am);
+    expect(d.status, JSON.stringify(d.body)).toBe(201);
+    expect((await api.get(`/api/sales/orders/${orderId}`).set(bearer(s.manager.token))).body.vehicleStatus).toBe('ready_for_delivery');
+    const listed = await api.get('/api/sales/deliveries?pageSize=50').set(bearer(s.delivery.token));
+    expect(listed.body.items.find((x: { id: number }) => x.id === d.body.id)).toMatchObject({ status: 'scheduled', scheduledDate: pakistanToday() });
+
+    // Delivered: the Delivery Team.
+    const done = await api
+      .post(`/api/sales/deliveries/${d.body.id}/complete`)
+      .set(bearer(s.delivery.token))
+      .send({ odometerKm: 5, documentsHandedOver: ['invoice'], accessoriesHandedOver: [], customerAcknowledged: true });
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect(done.body.status).toBe('delivered');
+  });
+});
 
 describe('open stock', () => {
   it('the Delivery Team registers incoming vehicles; chassis numbers are unique across the group', async () => {
@@ -170,9 +229,11 @@ describe('Delivery Team: allocation, logistics and hand-over', () => {
     expect((await api.post(`/api/sales/orders/${orderId}/transitions`).set(bearer(s.delivery.token)).send({ action: 'cancel', comment: 'x' })).status).toBe(403);
     expect((await api.get(`/api/sales/orders/${orderId}`).set(bearer(jet.delivery.token))).status).toBe(404);
     expect((await api.put(`/api/sales/orders/${orderId}/vehicle`).set(bearer(jet.delivery.token)).send({ vin: 'X12345' })).status).toBe(404);
-    // Sales roles do not move stock.
-    for (const who of [s.admin, s.manager, s.sales1]) {
-      expect((await api.patch(`/api/sales/orders/${orderId}/vehicle-status`).set(bearer(who.token)).send({ status: 'in_transit' })).status).toBe(403);
+    // Sales roles do not move stock: the salesperson not at all; the Admin and Manager only mark an
+    // approved order's car in transit (the rest is the Delivery Team's).
+    expect((await api.patch(`/api/sales/orders/${orderId}/vehicle-status`).set(bearer(s.sales1.token)).send({ status: 'in_transit' })).status).toBe(403);
+    for (const who of [s.admin, s.manager]) {
+      expect((await api.patch(`/api/sales/orders/${orderId}/vehicle-status`).set(bearer(who.token)).send({ status: 'received' })).status).toBe(403);
     }
   });
 });

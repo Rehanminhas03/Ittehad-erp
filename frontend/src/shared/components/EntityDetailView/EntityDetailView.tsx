@@ -11,6 +11,10 @@ export function EntityDetailView<T extends { id: number }>({ config }: { config:
   const id = Number(useParams().id);
   const perm = usePermission();
   const { data: row, isLoading, isError, error, refetch } = config.api.useGet({ id });
+  // Loaded together with the record (cached for the sections below) rather than one after the other.
+  config.api.useHistory?.({ id });
+  config.workflow?.useDefinition(undefined);
+  config.detail.usePrefetch?.(id);
 
   if (isLoading) return <PageSpinner />;
   if (isError || !row) return <ErrorState message={apiErrorMessage(error)} onRetry={refetch} />;

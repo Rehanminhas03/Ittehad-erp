@@ -34,6 +34,7 @@ export const P = {
   ordersUpdateOwn: 'sales.orders.update_own',
   ordersApprove: 'sales.orders.approve',
   ordersAllocate: 'sales.orders.allocate',
+  ordersDispatch: 'sales.orders.dispatch',
   deliveriesViewAll: 'sales.deliveries.view_all',
   deliveriesViewOwn: 'sales.deliveries.view_own',
   deliveriesSchedule: 'sales.deliveries.schedule',

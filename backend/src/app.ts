@@ -8,7 +8,7 @@ import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './http/errorHandler';
 import { buildOpenApiDocument } from './http/openapi';
 import { logger } from './lib/logger';
-import { allRouters } from './modules';
+import { servedRouters } from './modules';
 
 export function createApp() {
   const app = express();
@@ -36,7 +36,8 @@ export function createApp() {
     res.json(openapi);
   });
 
-  for (const r of allRouters) app.use(r.mountPath, r.router);
+  // The OpenAPI document above still describes every module (the frontend client is generated from it).
+  for (const r of servedRouters) app.use(r.mountPath, r.router);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

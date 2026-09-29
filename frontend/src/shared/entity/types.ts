@@ -181,6 +181,11 @@ export interface EntityViewConfig<T extends { id: number }> {
     fields: DisplayField<T>[];
     /** Extra sections below the fields (e.g. related records). */
     sections?: (row: T) => ReactNode;
+    /**
+     * A hook, called with the record id while the record itself loads: starts the sections' requests
+     * at the same time (same query args, so the sections read them from the cache) instead of after.
+     */
+    usePrefetch?: (id: number) => void;
   };
   form?: {
     fields: FormField[];

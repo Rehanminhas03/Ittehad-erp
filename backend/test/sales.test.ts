@@ -101,8 +101,14 @@ async function approvedOrder(s: Setup, mobile = '0300-5556667', vin = 'KMHJ381AP
   return { leadId, orderId: o.id as number };
 }
 
+/** The Delivery Team received the order's car at the dealership (a delivery is scheduled only then). */
+async function carArrived(orderId: number) {
+  await owner.raw(`update core.vehicle set status = 'received' where id = (select vehicle_id from sales.sales_order where id = $1)`, [orderId]);
+}
+
 async function deliver(s: Setup, orderId: number) {
   const today = pakistanToday();
+  await carArrived(orderId);
   const d = await api.post(`/api/sales/orders/${orderId}/deliveries`).set(bearer(s.desk.token)).send({ scheduledDate: today });
   expect(d.status, JSON.stringify(d.body)).toBe(201);
   await api.post(`/api/sales/deliveries/${d.body.id}/complete`).set(bearer(s.desk.token)).send({ odometerKm: 5, customerAcknowledged: true }).expect(200);
@@ -443,6 +449,7 @@ describe('delivery (hand-over)', () => {
     const s = await setup();
     const { leadId, orderId } = await approvedOrder(s);
     const today = pakistanToday();
+    await carArrived(orderId);
     const d = await api.post(`/api/sales/orders/${orderId}/deliveries`).set(bearer(s.desk.token)).send({ scheduledDate: today });
     const complete = (body: Record<string, unknown>) => api.post(`/api/sales/deliveries/${d.body.id}/complete`).set(bearer(s.desk.token)).send(body);
     expect((await complete({ odometerKm: 3, customerAcknowledged: false })).status).toBe(422);
@@ -515,11 +522,13 @@ describe('access matrix', () => {
     expect((await api.post('/api/sales/leads').set(bearer(s.admin.token)).send(walkIn(s.d.id, '0300-2999999'))).status).toBe(403);
     expect((await api.post('/api/sales/leads').set(bearer(s.am.token)).send(walkIn(s.d.id, '0300-2999998'))).status).toBe(201);
     expect((await api.post('/api/sales/leads').set(bearer(s.manager.token)).send(walkIn(s.d.id, '0300-2999997'))).status).toBe(201);
-    // Orders: the Admin creates; the Manager sees all; Salesperson, CRO and AM have no order screens.
+    // Orders: the Admin creates; the Manager and the Assistant Manager see all (to follow the car and
+    // schedule the delivery); Salesperson and CRO have no order screens.
     const orderList = (who: Login) => api.get('/api/sales/orders').set(bearer(who.token));
     expect((await orderList(s.admin)).body.total).toBe(1);
     expect((await orderList(s.manager)).body.total).toBe(1);
-    for (const who of [s.sales1, s.cro, s.am]) expect((await orderList(who)).status).toBe(403);
+    expect((await orderList(s.am)).body.total).toBe(1);
+    for (const who of [s.sales1, s.cro]) expect((await orderList(who)).status).toBe(403);
     const direct = { dealershipId: s.d.id, customerId: o.customerId, modelId: s.modelId, unitPrice: '100' };
     for (const who of [s.manager, s.am, s.sales1, s.cro]) {
       expect((await api.post('/api/sales/orders').set(bearer(who.token)).send(direct)).status).toBe(403);
