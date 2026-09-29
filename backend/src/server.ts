@@ -1,6 +1,6 @@
 import { createApp } from './app';
 import { env } from './config/env';
-import { pool } from './db/client';
+import { disconnectDb } from './db/client';
 import { closeRealtime, attachRealtime } from './lib/realtime';
 import { logger } from './lib/logger';
 
@@ -14,7 +14,7 @@ function shutdown(signal: string) {
   logger.info(`${signal} received, shutting down`);
   closeRealtime();
   server.close(() => {
-    void pool.end().then(() => process.exit(0));
+    void disconnectDb().then(() => process.exit(0));
   });
   setTimeout(() => process.exit(1), 10_000).unref();
 }

@@ -1,11 +1,10 @@
-import { type SQL, and, asc, count, desc, eq, getTableColumns, ilike, or, sql } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { type Access, type ScopeTarget, scopeWhere, viewWhere } from '../auth/access';
-import type { Executor } from '../db/client';
+import { type Executor, query } from '../db/client';
+import { delegateOf, pickColumns } from '../db/delegate';
+import { type SQL, and, eq, ilike, or, raw, sql } from '../db/sql';
 import { conflict, forbidden, notFound, validationError } from '../lib/errors';
 import { type Page, type PageQuery, offsetOf } from '../lib/pagination';
 import { diffChanges } from '../modules/core/audit';
-import { workflowTransition } from '../modules/core/models';
 import type { EntityConfig, EntityCtx, Row, WorkflowTransitionDef } from './types';
 
 export const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -13,12 +12,17 @@ export const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 /**
  * Generic, config-driven data access with authorization. Used by the generated entity routers
  * and directly by module services that need custom endpoints over the same rules.
+ *
+ * Rows are read and written through the model's Prisma delegate; the dynamic parts (the caller's
+ * view scope, search and list filters) are SQL conditions run through Prisma ($queryRaw) to find
+ * the matching ids.
  */
 export class EntityService {
-  readonly cols: Record<string, AnyPgColumn>;
+  readonly cols: Record<string, SQL>;
 
   constructor(readonly config: EntityConfig) {
-    this.cols = getTableColumns(config.table) as Record<string, AnyPgColumn>;
+    const known = config.table.$meta.columns;
+    this.cols = Object.fromEntries(Object.keys(known).map((k) => [k, (config.table as unknown as Record<string, SQL>)[k]!]));
     const need = [
       'id',
       config.tenant?.dealershipKey,
@@ -37,8 +41,12 @@ export class EntityService {
     }
   }
 
-  private col(key: string): AnyPgColumn {
+  private col(key: string): SQL {
     return this.cols[key]!;
+  }
+
+  private delegate(ex: Executor) {
+    return delegateOf(ex, this.config.table);
   }
 
   /** Server-side read scope: tenant + own/all + RLS underneath. */
@@ -89,57 +97,67 @@ export class EntityService {
     return decorated.map((r) => ({ ...r, availableActions: this.availableActions(ctx.access, r).map((t) => t.action) }));
   }
 
+  /** Rows by id, in the given order (one Prisma query). */
+  private async rowsById(ex: Executor, ids: number[]): Promise<Row[]> {
+    if (!ids.length) return [];
+    const rows = await this.delegate(ex).findMany({ where: { id: { in: ids } } });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return ids.map((id) => byId.get(id)).filter((r): r is Row => !!r);
+  }
+
   async list(ctx: EntityCtx, q: PageQuery, filters: Record<string, unknown> = {}, extra?: SQL): Promise<Page<Row>> {
     const { config } = this;
-    const conds: SQL[] = [this.viewCondition(ctx.access)];
+    const conds: (SQL | undefined)[] = [this.viewCondition(ctx.access)];
     if (extra) conds.push(extra);
     const term = q.q && config.normalizeSearch ? config.normalizeSearch(q.q) : q.q;
     if (term && config.search?.length) {
       const pattern = `%${escapeLike(term)}%`;
-      conds.push(or(...config.search.map((k) => ilike(this.col(k), pattern)))!);
+      conds.push(or(...config.search.map((k) => ilike(this.col(k), pattern))));
     }
     for (const [param, value] of Object.entries(filters)) {
       const f = config.filters?.[param];
       if (f && value !== undefined) conds.push(f.where ? f.where(value) : eq(this.col(f.key), value));
     }
-    const where = and(...conds);
+    const where = and(...conds) ?? sql`true`;
 
     const sortSpec = q.sort ?? config.sort.default;
     const sortKey = sortSpec.replace(/^-/, '');
     if (!config.sort.keys.includes(sortKey)) {
       throw validationError([{ in: 'query', path: 'sort', message: `Sortable by: ${config.sort.keys.join(', ')}` }]);
     }
-    const dir = sortSpec.startsWith('-') ? desc : asc;
+    const dir = raw(sortSpec.startsWith('-') ? 'desc' : 'asc');
 
     // Sequential: a transaction is one connection, which runs one query at a time anyway.
-    const items = await ctx.tx
-      .select()
-      .from(config.table)
-      .where(where)
-      .orderBy(dir(this.col(sortKey)), dir(this.col('id')))
-      .limit(q.pageSize)
-      .offset(offsetOf(q));
-    const [{ total } = { total: 0 }] = await ctx.tx.select({ total: count() }).from(config.table).where(where);
-    return { items: await this.present(ctx, items as Row[]), total, page: q.page, pageSize: q.pageSize };
+    const page = await query<{ id: number }>(
+      ctx.tx,
+      sql`select ${this.col('id')} as id from ${config.table} where ${where}
+           order by ${this.col(sortKey)} ${dir}, ${this.col('id')} ${dir}
+           limit ${q.pageSize} offset ${offsetOf(q)}`,
+    );
+    const [{ total } = { total: 0 }] = await query<{ total: number }>(ctx.tx, sql`select count(*)::int as total from ${config.table} where ${where}`);
+    const items = await this.rowsById(ctx.tx, page.map((r) => r.id));
+    return { items: await this.present(ctx, items), total, page: q.page, pageSize: q.pageSize };
   }
 
   /** Loads a row the caller can see, or throws 404 (never reveals existence of out-of-scope rows). */
   async findVisible(ctx: EntityCtx, id: number, opts: { lock?: boolean; ex?: Executor } = {}): Promise<Row> {
-    const base = (opts.ex ?? ctx.tx)
-      .select()
-      .from(this.config.table)
-      .where(and(eq(this.col('id'), id), this.viewCondition(ctx.access)));
-    const [row] = opts.lock ? await base.for('update') : await base;
+    const ex = opts.ex ?? ctx.tx;
+    const [hit] = await query<{ id: number }>(
+      ex,
+      sql`select ${this.col('id')} as id from ${this.config.table}
+           where ${this.col('id')} = ${id} and ${this.viewCondition(ctx.access)}${opts.lock ? sql` for update` : sql``}`,
+    );
+    const row = hit ? await this.delegate(ex).findUnique({ where: { id } }) : null;
     if (!row) throw notFound(this.config.names.singular);
-    return row as Row;
+    return row;
   }
 
   /** Server-internal lookup without the caller's view scope (RLS still applies). */
   async findById(ctx: EntityCtx, id: number, opts: { lock?: boolean } = {}): Promise<Row> {
-    const base = ctx.tx.select().from(this.config.table).where(eq(this.col('id'), id));
-    const [row] = opts.lock ? await base.for('update') : await base;
+    if (opts.lock) await query(ctx.tx, sql`select 1 from ${this.config.table} where ${this.col('id')} = ${id} for update`);
+    const row = await this.delegate(ctx.tx).findUnique({ where: { id } });
     if (!row) throw notFound(this.config.names.singular);
-    return row as Row;
+    return row;
   }
 
   async get(ctx: EntityCtx, id: number): Promise<Row> {
@@ -166,16 +184,16 @@ export class EntityService {
       data.updatedById = ctx.access.userId;
     }
 
-    const [row] = (await ctx.tx.insert(config.table).values(data).returning()) as Row[];
+    const row = await this.delegate(ctx.tx).create({ data: pickColumns(config.table, data) });
     await ctx.audit({
       entityType: config.entityType,
-      entityId: row!.id,
+      entityId: row.id,
       action: 'create',
-      ...this.auditTenant(row!),
+      ...this.auditTenant(row),
       changes: input,
     });
-    await config.hooks?.afterCreate?.(ctx, row!);
-    return (await this.present(ctx, [row!]))[0]!;
+    await config.hooks?.afterCreate?.(ctx, row);
+    return (await this.present(ctx, [row]))[0]!;
   }
 
   async update(ctx: EntityCtx, id: number, input: Record<string, unknown>): Promise<Row> {
@@ -207,11 +225,11 @@ export class EntityService {
     if (Object.keys(changes).length === 0) return (await this.present(ctx, [before]))[0]!;
     if (config.tracked !== false) patch.updatedById = ctx.access.userId;
 
-    const [row] = (await ctx.tx.update(config.table).set(patch).where(eq(this.col('id'), id)).returning()) as Row[];
-    if (!config.linkedScope) auditTenant = this.auditTenant(row!);
+    const row = await this.delegate(ctx.tx).update({ where: { id }, data: pickColumns(config.table, patch) });
+    if (!config.linkedScope) auditTenant = this.auditTenant(row);
     await ctx.audit({ entityType: config.entityType, entityId: id, action: 'update', ...auditTenant, changes });
-    await config.hooks?.afterUpdate?.(ctx, row!, before);
-    return (await this.present(ctx, [row!]))[0]!;
+    await config.hooks?.afterUpdate?.(ctx, row, before);
+    return (await this.present(ctx, [row]))[0]!;
   }
 
   async remove(ctx: EntityCtx, id: number): Promise<void> {
@@ -219,7 +237,7 @@ export class EntityService {
     const row = await this.findVisible(ctx, id, { lock: true });
     if (!this.canOnRow(ctx.access, row, config.permissions.delete)) throw forbidden();
     await config.hooks?.beforeDelete?.(ctx, row);
-    await ctx.tx.delete(config.table).where(eq(this.col('id'), id));
+    await this.delegate(ctx.tx).delete({ where: { id } });
     await ctx.audit({ entityType: config.entityType, entityId: id, action: 'delete', ...this.auditTenant(row), changes: row });
   }
 
@@ -246,19 +264,21 @@ export class EntityService {
 
     const patch: Record<string, unknown> = { [wf.stateKey]: t.to };
     if (config.tracked !== false) patch.updatedById = ctx.access.userId;
-    const [updated] = (await ctx.tx.update(config.table).set(patch).where(eq(this.col('id'), id)).returning()) as Row[];
+    const updated = await this.delegate(ctx.tx).update({ where: { id }, data: patch });
 
-    const tenant = this.auditTenant(updated!);
+    const tenant = this.auditTenant(updated);
     if (tenant.dealershipId != null) {
-      await ctx.tx.insert(workflowTransition).values({
-        entityType: config.entityType,
-        entityId: id,
-        dealershipId: tenant.dealershipId,
-        action: t.action,
-        fromState: state,
-        toState: t.to,
-        comment: comment?.trim() || null,
-        actorId: ctx.access.userId,
+      await ctx.tx.workflowTransition.create({
+        data: {
+          entityType: config.entityType,
+          entityId: id,
+          dealershipId: tenant.dealershipId,
+          action: t.action,
+          fromState: state,
+          toState: t.to,
+          comment: comment?.trim() || null,
+          actorId: ctx.access.userId,
+        },
       });
     }
     await ctx.audit({
@@ -268,8 +288,8 @@ export class EntityService {
       ...tenant,
       changes: { [wf.stateKey]: { from: state, to: t.to }, comment: comment?.trim() || undefined },
     });
-    if (!t.effect) return (await this.present(ctx, [updated!]))[0]!;
-    await t.effect(ctx, updated!);
+    if (!t.effect) return (await this.present(ctx, [updated]))[0]!;
+    await t.effect(ctx, updated);
     // Effects may write back to the row (e.g. the journal entry an invoice posted).
     return (await this.present(ctx, [await this.findById(ctx, id)]))[0]!;
   }

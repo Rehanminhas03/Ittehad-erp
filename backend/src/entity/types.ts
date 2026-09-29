@@ -1,13 +1,13 @@
-import type { SQL } from 'drizzle-orm';
-import type { AnyPgColumn, PgTable } from 'drizzle-orm/pg-core';
+import type { SQL } from '../db/sql';
+import type { AnyTable } from '../db/tableIdentifiers';
 import type { Access } from '../auth/access';
 import type { ZodObject, ZodType } from 'zod';
 import type { RouteCtx } from '../http/apiRouter';
 
-// Drizzle's table generics are too deep to thread through a generic engine; the engine works on
-// column-keyed records and each config supplies precise zod schemas for the API surface.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyTable = PgTable & Record<string, any>;
+// The engine works on column-keyed records (Prisma model fields); each config supplies precise zod
+// schemas for the API surface. `table` is the generated identifier of the model (tables.generated.ts):
+// its Prisma delegate for reads/writes, its columns for filter conditions.
+export type { AnyTable };
 export type Row = Record<string, unknown> & { id: number };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type EntityCtx = RouteCtx<any, any, any>;
@@ -115,4 +115,3 @@ export interface EntityConfig {
   tracked?: boolean;
 }
 
-export type { AnyPgColumn };

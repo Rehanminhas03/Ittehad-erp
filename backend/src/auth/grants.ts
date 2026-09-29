@@ -1,6 +1,4 @@
-import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { permission, rolePermission, user, userRole } from '../modules/core/models';
 import { Access, type Grant } from './access';
 
 /**
@@ -9,24 +7,25 @@ import { Access, type Grant } from './access';
  * user / user_role / permission tables are authorization metadata and carry no RLS.
  */
 export async function loadAccess(userId: number, tokenVersion: number): Promise<Access | null> {
-  const [u] = await db
-    .select({ id: user.id, email: user.email, fullName: user.fullName, tokenVersion: user.tokenVersion })
-    .from(user)
-    .where(and(eq(user.id, userId), eq(user.isActive, true)));
+  const u = await db.user.findFirst({
+    where: { id: userId, isActive: true },
+    select: { id: true, email: true, fullName: true, tokenVersion: true },
+  });
   if (!u || u.tokenVersion !== tokenVersion) return null;
 
-  const rows = await db
-    .select({ code: permission.code, dealershipId: userRole.dealershipId, branchId: userRole.branchId })
-    .from(userRole)
-    .innerJoin(rolePermission, eq(rolePermission.roleId, userRole.roleId))
-    .innerJoin(permission, eq(permission.id, rolePermission.permissionId))
-    .where(eq(userRole.userId, userId));
+  const roles = await db.userRole.findMany({
+    where: { userId },
+    select: { dealershipId: true, branchId: true, role: { select: { rolePermissions: { select: { permission: { select: { code: true } } } } } } },
+  });
 
   const grants = new Map<string, Grant[]>();
-  for (const r of rows) {
-    const list = grants.get(r.code) ?? [];
-    list.push({ dealershipId: r.dealershipId, branchId: r.branchId });
-    grants.set(r.code, list);
+  for (const r of roles) {
+    for (const rp of r.role.rolePermissions) {
+      const code = rp.permission.code;
+      const list = grants.get(code) ?? [];
+      list.push({ dealershipId: r.dealershipId, branchId: r.branchId });
+      grants.set(code, list);
+    }
   }
   return new Access({ id: u.id, email: u.email, fullName: u.fullName }, grants);
 }

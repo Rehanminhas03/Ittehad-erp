@@ -1,5 +1,6 @@
-import { and, asc, count, eq, getTableColumns } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import { query } from '../db/client';
+import { delegateOf, pickColumns } from '../db/delegate';
+import { sql } from '../db/sql';
 import type { ZodObject } from 'zod';
 import { ApiRouter } from '../http/apiRouter';
 import { conflict, forbidden, notFound, validationError } from '../lib/errors';
@@ -38,27 +39,23 @@ export interface LineConfig {
 }
 
 export class LineService {
-  readonly cols: Record<string, AnyPgColumn>;
-
   constructor(readonly config: LineConfig) {
-    this.cols = getTableColumns(config.table) as Record<string, AnyPgColumn>;
     for (const k of ['id', 'dealershipId', config.parentKey, config.sortKey]) {
-      if (!this.cols[k]) throw new Error(`${config.names.plural}: unknown column "${k}"`);
+      if (!config.table.$meta.columns[k]) throw new Error(`${config.names.plural}: unknown column "${k}"`);
     }
   }
 
-  private col(k: string) {
-    return this.cols[k]!;
+  private lines(ctx: EntityCtx) {
+    return delegateOf(ctx.tx, this.config.table);
   }
 
   async list(ctx: EntityCtx, parentId: number): Promise<Row[]> {
-    const rows = await ctx.tx
-      .select()
-      .from(this.config.table)
-      .where(eq(this.col(this.config.parentKey), parentId))
-      .orderBy(asc(this.col(this.config.sortKey)), asc(this.col('id')))
-      .limit(this.config.maxLines);
-    return rows as Row[];
+    const { parentKey, sortKey, maxLines } = this.config;
+    return this.lines(ctx).findMany({
+      where: { [parentKey]: parentId },
+      orderBy: [{ [sortKey]: 'asc' }, { id: 'asc' }],
+      take: maxLines,
+    });
   }
 
   /** Visible parent, write-authorised and not locked. */
@@ -83,28 +80,26 @@ export class LineService {
 
   async add(ctx: EntityCtx, parentId: number, input: Record<string, unknown>, opts: { skipLock?: boolean } = {}): Promise<Row> {
     const p = opts.skipLock ? await this.config.parent.findById(ctx, parentId, { lock: true }) : await this.editableParent(ctx, parentId);
-    const [{ n } = { n: 0 }] = await ctx.tx.select({ n: count() }).from(this.config.table).where(eq(this.col(this.config.parentKey), parentId));
+    const n = await this.lines(ctx).count({ where: { [this.config.parentKey]: parentId } });
     if (n >= this.config.maxLines) throw validationError([{ in: 'body', path: '', message: `At most ${this.config.maxLines} lines` }]);
     const data = this.config.prepare ? await this.config.prepare(ctx, p, input) : input;
-    const [row] = (await ctx.tx
-      .insert(this.config.table)
-      .values({ ...data, [this.config.parentKey]: parentId, dealershipId: p.dealershipId })
-      .returning()) as Row[];
-    await this.audit(ctx, p, 'line.add', { lineId: row!.id, ...input });
+    const row = await this.lines(ctx).create({
+      data: pickColumns(this.config.table, { ...data, [this.config.parentKey]: parentId, dealershipId: p.dealershipId }),
+    });
+    await this.audit(ctx, p, 'line.add', { lineId: row.id, ...input });
     await this.config.afterChange?.(ctx, p);
-    return row!;
+    return row;
   }
 
   private async findLine(ctx: EntityCtx, parentId: number, lineId: number): Promise<Row> {
-    const [row] = await ctx.tx
-      .select()
-      .from(this.config.table)
-      .where(and(eq(this.col('id'), lineId), eq(this.col(this.config.parentKey), parentId)))
-      .for('update');
+    const { table, parentKey } = this.config;
+    // Locked for the rest of the transaction, like the parent.
+    await query(ctx.tx, sql`select 1 from ${table} where ${table.id} = ${lineId} and ${(table as unknown as Record<string, typeof table.id>)[parentKey]!} = ${parentId} for update`);
+    const row = await this.lines(ctx).findFirst({ where: { id: lineId, [parentKey]: parentId } });
     if (!row) throw notFound(this.config.names.singular);
-    const reason = this.config.lineLocked?.(row as Row);
+    const reason = this.config.lineLocked?.(row);
     if (reason) throw conflict(reason);
-    return row as Row;
+    return row;
   }
 
   async update(ctx: EntityCtx, parentId: number, lineId: number, input: Record<string, unknown>): Promise<Row> {
@@ -114,17 +109,16 @@ export class LineService {
     const data = this.config.prepare ? await this.config.prepare(ctx, p, { ...before, ...patch }, before) : patch;
     const changes = diffChanges(before, data);
     if (!Object.keys(changes).length) return before;
-    const { id: _id, ...set } = data;
-    const [row] = (await ctx.tx.update(this.config.table).set(set).where(eq(this.col('id'), lineId)).returning()) as Row[];
+    const row = await this.lines(ctx).update({ where: { id: lineId }, data: pickColumns(this.config.table, data) });
     await this.audit(ctx, p, 'line.update', { lineId, ...changes });
     await this.config.afterChange?.(ctx, p);
-    return row!;
+    return row;
   }
 
   async remove(ctx: EntityCtx, parentId: number, lineId: number): Promise<void> {
     const p = await this.editableParent(ctx, parentId);
     const before = await this.findLine(ctx, parentId, lineId);
-    await ctx.tx.delete(this.config.table).where(eq(this.col('id'), lineId));
+    await this.lines(ctx).delete({ where: { id: lineId } });
     await this.audit(ctx, p, 'line.remove', before);
     await this.config.afterChange?.(ctx, p);
   }

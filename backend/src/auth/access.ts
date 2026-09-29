@@ -1,5 +1,4 @@
-import { type SQL, and, eq, inArray, or, sql } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import { type SQL, and, eq, inArray, or, sql } from '../db/sql';
 import type { TenantContext } from '../db/client';
 
 /** One role assignment's reach for a permission. dealershipId null => global. */
@@ -104,8 +103,8 @@ export class Access {
 }
 
 export interface ScopeColumns {
-  dealership: AnyPgColumn;
-  branch?: AnyPgColumn;
+  dealership: SQL;
+  branch?: SQL;
 }
 
 /** Translate a Scope into a WHERE condition over a table's tenant columns. */
@@ -131,7 +130,7 @@ export function viewWhere(
   access: Access,
   cols: ScopeColumns,
   perms: { view: string; viewOwn?: string },
-  owner?: AnyPgColumn,
+  owner?: SQL,
 ): SQL {
   const all = scopeWhere(access.scope(perms.view), cols);
   if (!perms.viewOwn || !owner) return all;

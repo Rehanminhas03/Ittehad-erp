@@ -1,13 +1,12 @@
-import { type SQL, inArray } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import type { Executor } from '../db/client';
+import { type Executor, query } from '../db/client';
+import { type SQL, inArray, sql } from '../db/sql';
 import type { AnyTable, Row } from './types';
 
 /** Where a display name comes from: a table and the column/expression to show. */
 export interface NameSource {
   table: AnyTable;
-  id: AnyPgColumn;
-  label: AnyPgColumn | SQL;
+  id: SQL;
+  label: SQL;
 }
 
 /**
@@ -20,9 +19,9 @@ export async function withNames(ex: Executor, rows: Row[], spec: Record<string, 
   for (const [field, { key, source }] of Object.entries(spec)) {
     const ids = [...new Set(rows.map((r) => r[key]).filter((x): x is number => typeof x === 'number'))];
     const found = ids.length
-      ? await ex.select({ id: source.id, label: source.label }).from(source.table).where(inArray(source.id, ids))
+      ? await query<{ id: number; label: string }>(ex, sql`select ${source.id} as id, ${source.label} as label from ${source.table} where ${inArray(source.id, ids)}`)
       : [];
-    maps[field] = new Map(found.map((f) => [f.id as number, f.label as string]));
+    maps[field] = new Map(found.map((f) => [f.id, f.label]));
   }
   return rows.map((r) => {
     const out: Row = { ...r };

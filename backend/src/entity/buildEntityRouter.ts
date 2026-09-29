@@ -1,8 +1,6 @@
-import { and, desc, eq, getTableColumns } from 'drizzle-orm';
 import { ApiRouter } from '../http/apiRouter';
 import { PageQuery, pageSchema } from '../lib/pagination';
 import { IdParam, Timestamp, z } from '../lib/zod';
-import { auditLog, user, workflowTransition } from '../modules/core/models';
 import { EntityService } from './entityService';
 import type { EntityConfig } from './types';
 
@@ -191,23 +189,23 @@ export function buildEntityRouter(config: EntityConfig, service = new EntityServ
     response: EntityHistorySchema,
     handler: async (ctx) => {
       await service.findVisible(ctx, ctx.params.id);
-      const audit = await ctx.tx
-        .select({ ...getTableColumns(auditLog), actorName: user.fullName })
-        .from(auditLog)
-        .leftJoin(user, eq(user.id, auditLog.actorId))
-        .where(and(eq(auditLog.entityType, config.entityType), eq(auditLog.entityId, String(ctx.params.id))))
-        .orderBy(desc(auditLog.occurredAt), desc(auditLog.id))
-        .limit(HISTORY_LIMIT);
+      const audit = await ctx.tx.auditLog.findMany({
+        where: { entityType: config.entityType, entityId: String(ctx.params.id) },
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: HISTORY_LIMIT,
+        include: { user: { select: { fullName: true } } },
+      });
       const transitions = config.workflow
-        ? await ctx.tx
-            .select({ ...getTableColumns(workflowTransition), actorName: user.fullName })
-            .from(workflowTransition)
-            .leftJoin(user, eq(user.id, workflowTransition.actorId))
-            .where(and(eq(workflowTransition.entityType, config.entityType), eq(workflowTransition.entityId, ctx.params.id)))
-            .orderBy(desc(workflowTransition.occurredAt), desc(workflowTransition.id))
-            .limit(HISTORY_LIMIT)
+        ? await ctx.tx.workflowTransition.findMany({
+            where: { entityType: config.entityType, entityId: ctx.params.id },
+            orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+            take: HISTORY_LIMIT,
+            include: { user: { select: { fullName: true } } },
+          })
         : [];
-      return { audit, transitions };
+      // Each entry with the name of the person who made it.
+      const named = <T extends { user: { fullName: string } | null }>({ user, ...rest }: T) => ({ ...rest, actorName: user?.fullName ?? null });
+      return { audit: audit.map(named), transitions: transitions.map(named) };
     },
   });
 

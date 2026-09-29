@@ -10,10 +10,19 @@ interface PgError {
   message?: string;
 }
 
-/** Drizzle wraps driver errors (DrizzleQueryError.cause); look through the chain. */
+/**
+ * The PostgreSQL error behind a failed query. Prisma (driver adapter) reports it as
+ * meta.driverAdapterError.cause { originalCode: SQLSTATE, constraint: { index } }, for model
+ * operations (P2002 / P2003 / P2039…) and raw SQL (P2010) alike; plain driver errors carry `code`.
+ */
 function pgErrorOf(err: unknown): PgError | null {
   let e: unknown = err;
   for (let i = 0; i < 3 && e; i++) {
+    const cause = (e as { meta?: { driverAdapterError?: { cause?: Record<string, unknown> } } }).meta?.driverAdapterError?.cause;
+    if (cause && typeof cause.originalCode === 'string') {
+      const constraint = cause.constraint as { index?: string } | undefined;
+      return { code: cause.originalCode, constraint: constraint?.index, message: cause.originalMessage as string | undefined };
+    }
     const c = (e as PgError).code;
     if (typeof c === 'string' && /^[0-9A-Z]{5}$/.test(c)) return e as PgError;
     e = (e as { cause?: unknown }).cause;
@@ -24,6 +33,8 @@ function pgErrorOf(err: unknown): PgError | null {
 function toHttp(err: unknown): HttpError | null {
   if (err instanceof HttpError) return err;
   if ((err as { type?: string }).type === 'entity.parse.failed') return new HttpError(400, 'bad_request', 'Malformed JSON body');
+  // Prisma: an update / delete whose record does not exist (or is hidden by row-level security).
+  if ((err as { code?: string }).code === 'P2025') return new HttpError(404, 'not_found', 'Record not found');
   const pg = pgErrorOf(err);
   if (!pg) return null;
   switch (pg.code) {
@@ -46,7 +57,8 @@ function toHttp(err: unknown): HttpError | null {
 }
 
 /** Connection-level failures: the database is down or not reachable (not a bug in the request). */
-const DB_DOWN_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', '57P01', '57P03', '08001', '08006']);
+// Driver codes, PostgreSQL codes, and Prisma's "cannot reach / connection closed" errors.
+const DB_DOWN_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', '57P01', '57P03', '08001', '08006', 'P1001', 'P1002', 'P1017']);
 function isDatabaseDown(err: unknown, depth = 0): boolean {
   if (!err || depth > 4) return false;
   const e = err as { code?: string; cause?: unknown; errors?: unknown[] };

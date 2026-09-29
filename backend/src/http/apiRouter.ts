@@ -3,7 +3,7 @@ import type { ZodObject, ZodType, z } from 'zod';
 import type { Access } from '../auth/access';
 import { authenticate } from '../auth/middleware';
 import { isKnownPermission } from '../auth/permissions';
-import { type Tx, db, withTenantTx } from '../db/client';
+import { type Tx, db, transaction, withTenantTx } from '../db/client';
 import { forbidden, validationError } from '../lib/errors';
 import { type AuditEntry, writeAudit } from '../modules/core/audit';
 import { createNotifications, publishNotifications } from '../modules/core/notifications';
@@ -148,7 +148,7 @@ export class ApiRouter {
       const params = parse(spec.params, req.params, 'params');
       const query = parse(spec.query, req.query, 'query');
       const body = parse(spec.body, req.body, 'body');
-      const result = await db.transaction((tx) => spec.handler({ req, res, tx, params, query, body }));
+      const result = await transaction(db, (tx) => spec.handler({ req, res, tx, params, query, body }));
       send(res, result, spec.status);
     };
     this.register(spec, 'public', false);

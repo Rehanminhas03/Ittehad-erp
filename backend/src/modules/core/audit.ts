@@ -1,5 +1,5 @@
 import type { Executor } from '../../db/client';
-import { auditLog } from './models';
+import { Prisma } from '../../generated/prisma/client';
 
 export interface AuditEntry {
   entityType: string;
@@ -29,16 +29,20 @@ function redact(value: unknown): unknown {
 }
 
 export async function writeAudit(ex: Executor, meta: AuditMeta, entry: AuditEntry): Promise<void> {
-  await ex.insert(auditLog).values({
-    actorId: meta.actorId,
-    requestId: meta.requestId,
-    ip: meta.ip,
-    entityType: entry.entityType,
-    entityId: String(entry.entityId),
-    action: entry.action,
-    dealershipId: entry.dealershipId ?? null,
-    branchId: entry.branchId ?? null,
-    changes: entry.changes === undefined ? null : redact(entry.changes),
+  await ex.auditLog.create({
+    data: {
+      actorId: meta.actorId,
+      requestId: meta.requestId,
+      ip: meta.ip,
+      entityType: entry.entityType,
+      entityId: String(entry.entityId),
+      action: entry.action,
+      dealershipId: entry.dealershipId ?? null,
+      branchId: entry.branchId ?? null,
+      // SQL NULL when there are no changes (as before), not a JSON null.
+      changes: entry.changes === undefined ? Prisma.DbNull : (redact(entry.changes) as Prisma.InputJsonValue),
+    },
+    select: { id: true },
   });
 }
 
