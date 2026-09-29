@@ -6,17 +6,13 @@
  * downloaded and printed by the Manager and the Admin. The PDF is drawn by the browser from the
  * document endpoints below; every create and change is in the record's history and the activity log.
  */
-import { eq, sql } from 'drizzle-orm';
 import type { EntityCtx, Row } from '../../../entity/types';
 import { forbidden, validationError } from '../../../lib/errors';
 import { subMoney } from '../../../lib/money';
 import type { z } from '../../../lib/zod';
 import { DocType, nextDocumentNumber } from '../../core/documents';
-import { dealership, user } from '../../core/models';
 import { assertActiveModel } from '../../master/entities';
-import { vehicle, vehicleModel } from '../../master/models';
 import { assertVariantCodeGiven, leads, money2, ppfForms, pricePpf, priceQuotation, quotations, resolveVariant } from '../entities';
-import { lead, salesOrder } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { PpfFormCreate, QuotationCreate } from '../schemas';
 import { loadTemplate } from './templates';
@@ -44,17 +40,17 @@ async function issuingLead(ctx: EntityCtx, leadId: number, editAll: string) {
 export async function leadOrderVehicle(ctx: EntityCtx, leadId: number) {
   const l = await leads.findVisible(ctx, leadId);
   const order = await leadOrder(ctx, l);
-  const [v] = order?.vehicleId ? await ctx.tx.select({ vin: vehicle.vin, engineNo: vehicle.engineNo }).from(vehicle).where(eq(vehicle.id, order.vehicleId)) : [];
+  const v = order?.vehicleId ? await ctx.tx.vehicle.findUnique({ where: { id: order.vehicleId }, select: { vin: true, engineNo: true } }) : null;
   return { orderNo: order?.orderNo ?? null, chassisNo: v?.vin ?? null, engineNo: v?.engineNo ?? null };
 }
 
 async function leadOrder(ctx: EntityCtx, l: Record<string, unknown>) {
   if (!l.salesOrderId) return undefined;
-  const [o] = await ctx.tx
-    .select({ orderNo: salesOrder.orderNo, unitPrice: salesOrder.unitPrice, discount: salesOrder.discount, bookingAmount: salesOrder.bookingAmount, vehicleId: salesOrder.vehicleId, modelId: salesOrder.modelId })
-    .from(salesOrder)
-    .where(eq(salesOrder.id, l.salesOrderId as number));
-  return o;
+  const o = await ctx.tx.salesOrder.findUnique({
+    where: { id: l.salesOrderId as number },
+    select: { orderNo: true, unitPrice: true, discount: true, bookingAmount: true, vehicleId: true, modelId: true },
+  });
+  return o ?? undefined;
 }
 
 export async function createQuotation(ctx: EntityCtx, leadId: number, input: z.output<typeof QuotationCreate>) {
@@ -147,21 +143,24 @@ export function cleanExtraFields(values: Record<string, string> | undefined) {
 
 /** Dealership, customer (as on the lead), salesperson and vehicle printed on a document. */
 async function parties(ctx: EntityCtx, doc: Row, modelId: number | null) {
-  const [l] = await ctx.tx
-    .select({ name: lead.prospectName, mobile: lead.prospectMobile, email: lead.email, variant: lead.variant, color: lead.preferredColor, modelId: lead.interestedModelId, salesOrderId: lead.salesOrderId })
-    .from(lead)
-    .where(eq(lead.id, doc.leadId as number));
+  const lr = await ctx.tx.lead.findUnique({
+    where: { id: doc.leadId as number },
+    select: { prospectName: true, prospectMobile: true, email: true, variant: true, preferredColor: true, interestedModelId: true, salesOrderId: true },
+  });
+  const l = lr
+    ? { name: lr.prospectName, mobile: lr.prospectMobile, email: lr.email, variant: lr.variant, color: lr.preferredColor, modelId: lr.interestedModelId, salesOrderId: lr.salesOrderId }
+    : undefined;
   const order = l?.salesOrderId ? await leadOrder(ctx, { salesOrderId: l.salesOrderId }) : undefined;
-  const [d] = await ctx.tx
-    .select({ name: dealership.name, code: dealership.code, brand: dealership.brand, address: dealership.address, city: dealership.city, phone: dealership.phone })
-    .from(dealership)
-    .where(eq(dealership.id, doc.dealershipId as number));
-  const [sp] = await ctx.tx.select({ name: user.fullName, phone: user.phone, email: user.email }).from(user).where(eq(user.id, doc.ownerId as number));
+  const d = await ctx.tx.dealership.findUnique({
+    where: { id: doc.dealershipId as number },
+    select: { name: true, code: true, brand: true, address: true, city: true, phone: true },
+  });
+  const spr = await ctx.tx.user.findUnique({ where: { id: doc.ownerId as number }, select: { fullName: true, phone: true, email: true } });
+  const sp = spr ? { name: spr.fullName, phone: spr.phone, email: spr.email } : undefined;
   const mId = modelId ?? order?.modelId ?? l?.modelId ?? null;
-  const [m] = mId
-    ? await ctx.tx.select({ name: sql<string>`${vehicleModel.brand} || ' ' || ${vehicleModel.name}` }).from(vehicleModel).where(eq(vehicleModel.id, mId))
-    : [];
-  const [v] = order?.vehicleId ? await ctx.tx.select({ vin: vehicle.vin, engineNo: vehicle.engineNo }).from(vehicle).where(eq(vehicle.id, order.vehicleId)) : [];
+  const mr = mId ? await ctx.tx.vehicleModel.findUnique({ where: { id: mId }, select: { brand: true, name: true } }) : null;
+  const m = mr ? { name: `${mr.brand} ${mr.name}` } : undefined;
+  const v = order?.vehicleId ? await ctx.tx.vehicle.findUnique({ where: { id: order.vehicleId }, select: { vin: true, engineNo: true } }) : null;
   return {
     issuedAt: doc.createdAt as Date,
     updatedAt: doc.updatedAt as Date,

@@ -1,5 +1,6 @@
-import { type SQL, and, asc, desc, eq, ilike, inArray, isNull, not, or, sql } from 'drizzle-orm';
 import { scopeWhere } from '../../auth/access';
+import { query } from '../../db/client';
+import { type SQL, and, eq, ilike, inArray, not, or, sql } from '../../db/sql';
 import { POLICIES } from '../../config/policies';
 import { EntityService, escapeLike } from '../../entity/entityService';
 import type { EntityCtx } from '../../entity/types';
@@ -7,7 +8,7 @@ import { conflict, forbidden, notFound, validationError } from '../../lib/errors
 import type { z } from '../../lib/zod';
 import { dealership } from '../core/models';
 import { assertActiveModel, customerEntity, vehicleEntity } from './entities';
-import { customer, vehicle, vehicleDealership, vehicleModel, vehicleOwnership } from './models';
+import { customer, vehicle, vehicleModel, vehicleOwnership } from './models';
 import { classifyQuery, normalizeIdentifier } from './normalize';
 import { pakistanToday } from '../../lib/dates';
 import { MasterPerm } from './permissions';
@@ -25,10 +26,10 @@ const today = () => pakistanToday();
 // =============================================================================
 /** Links a vehicle to a dealership (idempotent). Server-internal: callers authorise first. */
 export async function link(ctx: EntityCtx, vehicleId: number, dealershipId: number, source: 'manual' | 'sale' | 'service') {
-  await ctx.tx
-    .insert(vehicleDealership)
-    .values({ vehicleId, dealershipId, source, createdById: ctx.access.userId })
-    .onConflictDoNothing();
+  await ctx.tx.vehicleDealership.createMany({
+    data: [{ vehicleId, dealershipId, source, createdById: ctx.access.userId }],
+    skipDuplicates: true,
+  });
 }
 
 export async function createVehicle(ctx: EntityCtx, input: z.output<typeof VehicleCreate>) {
@@ -48,10 +49,9 @@ export async function createVehicle(ctx: EntityCtx, input: z.output<typeof Vehic
     );
   }
 
-  const [row] = await ctx.tx
-    .insert(vehicle)
-    .values({ ...data, createdById: ctx.access.userId, updatedById: ctx.access.userId })
-    .returning();
+  const row = await ctx.tx.vehicle.create({
+    data: { ...data, createdById: ctx.access.userId, updatedById: ctx.access.userId },
+  });
   await link(ctx, row!.id, dealershipId, 'manual');
   await ctx.audit({ entityType: vehicleEntity.entityType, entityId: row!.id, action: 'create', dealershipId, changes: input });
   if (ownerCustomerId) await recordOwnership(ctx, row!.id, { customerId: ownerCustomerId });
@@ -80,23 +80,24 @@ export async function activateVehicle(
   vehicleId: number,
   input: { dealershipId: number; activatedOn: string; odometerKm: number },
 ) {
-  const [v] = await ctx.tx.select().from(vehicle).where(eq(vehicle.id, vehicleId)).for('update');
+  await query(ctx.tx, sql`select 1 from ${vehicle} where ${vehicle.id} = ${vehicleId} for update`);
+  const v = await ctx.tx.vehicle.findFirst({ where: { id: vehicleId } });
   if (!v) throw notFound('Vehicle');
   if (v.activatedOn) throw conflict(`This vehicle was already delivered on ${v.activatedOn}`);
   const end = new Date(`${input.activatedOn}T00:00:00Z`);
   end.setUTCMonth(end.getUTCMonth() + POLICIES.vehicle.warrantyMonths);
   const warrantyEndsOn = end.toISOString().slice(0, 10);
-  await ctx.tx
-    .update(vehicle)
-    .set({
+  await ctx.tx.vehicle.update({
+    where: { id: vehicleId },
+    data: {
       activatedOn: input.activatedOn,
       warrantyEndsOn,
       activationOdometerKm: input.odometerKm,
       soldByDealershipId: input.dealershipId,
       status: 'delivered',
       updatedById: ctx.access.userId,
-    })
-    .where(eq(vehicle.id, vehicleId));
+    },
+  });
   await link(ctx, vehicleId, input.dealershipId, 'sale');
   await ctx.audit({
     entityType: vehicleEntity.entityType,
@@ -129,11 +130,14 @@ export async function setOwner(ctx: EntityCtx, vehicleId: number, customerId: nu
   if (startDate > today()) throw validationError([{ in: 'body', path: 'startDate', message: 'Ownership cannot start in the future' }]);
 
   // Serialise concurrent transfers of the same vehicle in this dealership.
-  const [open] = await ctx.tx
-    .select()
-    .from(vehicleOwnership)
-    .where(and(eq(vehicleOwnership.vehicleId, vehicleId), eq(vehicleOwnership.dealershipId, dealershipId), isNull(vehicleOwnership.endDate)))
-    .for('update');
+  await query(
+    ctx.tx,
+    sql`select 1 from ${vehicleOwnership}
+         where ${vehicleOwnership.vehicleId} = ${vehicleId} and ${vehicleOwnership.dealershipId} = ${dealershipId}
+           and ${vehicleOwnership.endDate} is null
+           for update`,
+  );
+  const open = await ctx.tx.vehicleOwnership.findFirst({ where: { vehicleId, dealershipId, endDate: null } });
   if (open?.customerId === c.id) throw conflict('This customer is already the current owner');
   if (open && startDate < open.startDate) {
     throw validationError([{ in: 'body', path: 'startDate', message: `Must be on or after the current ownership start (${open.startDate})` }]);
@@ -141,15 +145,14 @@ export async function setOwner(ctx: EntityCtx, vehicleId: number, customerId: nu
 
   await link(ctx, vehicleId, dealershipId, 'manual');
   if (open) {
-    await ctx.tx
-      .update(vehicleOwnership)
-      .set({ endDate: startDate, endedAt: new Date(), endedById: ctx.access.userId })
-      .where(eq(vehicleOwnership.id, open.id));
+    await ctx.tx.vehicleOwnership.update({
+      where: { id: open.id },
+      data: { endDate: startDate, endedAt: new Date(), endedById: ctx.access.userId },
+    });
   }
-  const [row] = await ctx.tx
-    .insert(vehicleOwnership)
-    .values({ dealershipId, vehicleId, customerId: c.id, startDate, createdById: ctx.access.userId })
-    .returning();
+  const row = await ctx.tx.vehicleOwnership.create({
+    data: { dealershipId, vehicleId, customerId: c.id, startDate, createdById: ctx.access.userId },
+  });
   await ctx.audit({
     entityType: vehicleEntity.entityType,
     entityId: vehicleId,
@@ -160,52 +163,44 @@ export async function setOwner(ctx: EntityCtx, vehicleId: number, customerId: nu
   return row!;
 }
 
-const ownershipColumns = {
-  id: vehicleOwnership.id,
-  dealershipId: vehicleOwnership.dealershipId,
-  vehicleId: vehicleOwnership.vehicleId,
-  customerId: vehicleOwnership.customerId,
-  customerName: customer.fullName,
-  customerMobile: customer.mobile,
-  startDate: vehicleOwnership.startDate,
-  endDate: vehicleOwnership.endDate,
-};
-
 /** Ownership history of a vehicle, limited to dealerships where the caller may view customers. */
 export async function listOwnerships(ctx: EntityCtx, vehicleId: number) {
   await vehicles.findVisible(ctx, vehicleId);
-  return ctx.tx
-    .select(ownershipColumns)
-    .from(vehicleOwnership)
-    .innerJoin(customer, eq(customer.id, vehicleOwnership.customerId))
-    .where(
-      and(
-        eq(vehicleOwnership.vehicleId, vehicleId),
-        scopeWhere(ctx.access.scope(MasterPerm.customersView), { dealership: vehicleOwnership.dealershipId }),
-      ),
-    )
-    .orderBy(desc(vehicleOwnership.startDate), desc(vehicleOwnership.id))
-    .limit(100);
+  return query<{
+    id: number; dealershipId: number; vehicleId: number; customerId: number;
+    customerName: string; customerMobile: string; startDate: string; endDate: string | null;
+  }>(
+    ctx.tx,
+    sql`select ${vehicleOwnership.id} as "id", ${vehicleOwnership.dealershipId} as "dealershipId",
+               ${vehicleOwnership.vehicleId} as "vehicleId", ${vehicleOwnership.customerId} as "customerId",
+               ${customer.fullName} as "customerName", ${customer.mobile} as "customerMobile",
+               ${vehicleOwnership.startDate}::text as "startDate", ${vehicleOwnership.endDate}::text as "endDate"
+          from ${vehicleOwnership}
+          inner join ${customer} on ${customer.id} = ${vehicleOwnership.customerId}
+         where ${and(
+           eq(vehicleOwnership.vehicleId, vehicleId),
+           scopeWhere(ctx.access.scope(MasterPerm.customersView), { dealership: vehicleOwnership.dealershipId }),
+         )!}
+         order by ${vehicleOwnership.startDate} desc, ${vehicleOwnership.id} desc
+         limit 100`,
+  );
 }
 
 /** Vehicles a customer owns or owned (bounded: one customer's history). */
 export async function customerVehicles(ctx: EntityCtx, customerId: number) {
   await customers.findVisible(ctx, customerId);
-  return ctx.tx
-    .select({
-      vehicleId: vehicle.id,
-      vin: vehicle.vin,
-      registrationNo: vehicle.registrationNo,
-      modelName: sql<string>`${vehicleModel.brand} || ' ' || ${vehicleModel.name}`,
-      startDate: vehicleOwnership.startDate,
-      endDate: vehicleOwnership.endDate,
-    })
-    .from(vehicleOwnership)
-    .innerJoin(vehicle, eq(vehicle.id, vehicleOwnership.vehicleId))
-    .innerJoin(vehicleModel, eq(vehicleModel.id, vehicle.modelId))
-    .where(eq(vehicleOwnership.customerId, customerId))
-    .orderBy(sql`${vehicleOwnership.endDate} is not null`, desc(vehicleOwnership.startDate))
-    .limit(100);
+  return query<{ vehicleId: number; vin: string | null; registrationNo: string | null; modelName: string; startDate: string; endDate: string | null }>(
+    ctx.tx,
+    sql`select ${vehicle.id} as "vehicleId", ${vehicle.vin} as "vin", ${vehicle.registrationNo} as "registrationNo",
+               ${vehicleModel.brand} || ' ' || ${vehicleModel.name} as "modelName",
+               ${vehicleOwnership.startDate}::text as "startDate", ${vehicleOwnership.endDate}::text as "endDate"
+          from ${vehicleOwnership}
+          inner join ${vehicle} on ${vehicle.id} = ${vehicleOwnership.vehicleId}
+          inner join ${vehicleModel} on ${vehicleModel.id} = ${vehicle.modelId}
+         where ${vehicleOwnership.customerId} = ${customerId}
+         order by ${vehicleOwnership.endDate} is not null, ${vehicleOwnership.startDate} desc
+         limit 100`,
+  );
 }
 
 // =============================================================================
@@ -232,21 +227,17 @@ export async function search(ctx: EntityCtx, q: string) {
   const exactCustomer = or(mobile ? eq(customer.mobileNormalized, mobile) : sql`false`, cnic ? eq(customer.cnic, cnic) : sql`false`)!;
 
   if (access.has(MasterPerm.customersView)) {
-    customerHits = await tx
-      .select({
-        id: customer.id,
-        fullName: customer.fullName,
-        mobile: customer.mobile,
-        cnic: customer.cnic,
-        dealershipId: customer.dealershipId,
-        dealershipName: dealership.name,
-        exact: sql<boolean>`coalesce(${exactCustomer}, false)`,
-      })
-      .from(customer)
-      .innerJoin(dealership, eq(dealership.id, customer.dealershipId))
-      .where(and(customers.viewCondition(access), or(...matchingCustomer)))
-      .orderBy(desc(sql`coalesce(${exactCustomer}, false)`), asc(customer.fullName))
-      .limit(SEARCH_LIMIT);
+    customerHits = await query<(typeof customerHits)[number]>(
+      tx,
+      sql`select ${customer.id} as "id", ${customer.fullName} as "fullName", ${customer.mobile} as "mobile",
+                 ${customer.cnic} as "cnic", ${customer.dealershipId} as "dealershipId", ${dealership.name} as "dealershipName",
+                 coalesce(${exactCustomer}, false) as "exact"
+            from ${customer}
+            inner join ${dealership} on ${dealership.id} = ${customer.dealershipId}
+           where ${and(customers.viewCondition(access), or(...matchingCustomer))!}
+           order by coalesce(${exactCustomer}, false) desc, ${customer.fullName} asc
+           limit ${SEARCH_LIMIT}`,
+    );
   }
 
   // ---- vehicles (visible through dealership links) ----
@@ -267,21 +258,17 @@ export async function search(ctx: EntityCtx, q: string) {
       );
     }
     if (vehicleMatch.length) {
-      const rows = await tx
-        .select({
-          id: vehicle.id,
-          vin: vehicle.vin,
-          registrationNo: vehicle.registrationNo,
-          engineNo: vehicle.engineNo,
-          modelName: sql<string>`${vehicleModel.brand} || ' ' || ${vehicleModel.name}`,
-          modelYear: vehicle.modelYear,
-          exact: sql<boolean>`coalesce(${exactVehicle}, false)`,
-        })
-        .from(vehicle)
-        .innerJoin(vehicleModel, eq(vehicleModel.id, vehicle.modelId))
-        .where(and(vehicleVisibility(access, [MasterPerm.vehiclesView]), or(...vehicleMatch)))
-        .orderBy(desc(sql`coalesce(${exactVehicle}, false)`), desc(vehicle.id))
-        .limit(SEARCH_LIMIT);
+      const rows = await query<Omit<(typeof vehicleHits)[number], 'currentOwner'>>(
+        tx,
+        sql`select ${vehicle.id} as "id", ${vehicle.vin} as "vin", ${vehicle.registrationNo} as "registrationNo",
+                   ${vehicle.engineNo} as "engineNo", ${vehicleModel.brand} || ' ' || ${vehicleModel.name} as "modelName",
+                   ${vehicle.modelYear} as "modelYear", coalesce(${exactVehicle}, false) as "exact"
+              from ${vehicle}
+              inner join ${vehicleModel} on ${vehicleModel.id} = ${vehicle.modelId}
+             where ${and(vehicleVisibility(access, [MasterPerm.vehiclesView]), or(...vehicleMatch))!}
+             order by coalesce(${exactVehicle}, false) desc, ${vehicle.id} desc
+             limit ${SEARCH_LIMIT}`,
+      );
       const owners = await currentOwners(tx, access, rows.map((r) => r.id));
       vehicleHits = rows.map((r) => ({ ...r, currentOwner: owners.get(r.id) ?? null }));
     }
@@ -290,17 +277,15 @@ export async function search(ctx: EntityCtx, q: string) {
   // ---- exact matches elsewhere in the group (only offered to users who can link vehicles) ----
   let groupMatches: { vin: string | null; registrationNo: string | null; modelName: string; matchedOn: 'vin' | 'engineNo' | 'registrationNo' }[] = [];
   if (identifier.length >= 5 && access.has(MasterPerm.vehiclesCreate)) {
-    const rows = await tx
-      .select({
-        vin: vehicle.vin,
-        engineNo: vehicle.engineNo,
-        registrationNo: vehicle.registrationNo,
-        modelName: sql<string>`${vehicleModel.brand} || ' ' || ${vehicleModel.name}`,
-      })
-      .from(vehicle)
-      .innerJoin(vehicleModel, eq(vehicleModel.id, vehicle.modelId))
-      .where(and(exactVehicle, not(vehicleVisibility(access, [MasterPerm.vehiclesView]))))
-      .limit(3);
+    const rows = await query<{ vin: string | null; engineNo: string | null; registrationNo: string | null; modelName: string }>(
+      tx,
+      sql`select ${vehicle.vin} as "vin", ${vehicle.engineNo} as "engineNo", ${vehicle.registrationNo} as "registrationNo",
+                 ${vehicleModel.brand} || ' ' || ${vehicleModel.name} as "modelName"
+            from ${vehicle}
+            inner join ${vehicleModel} on ${vehicleModel.id} = ${vehicle.modelId}
+           where ${and(exactVehicle, not(vehicleVisibility(access, [MasterPerm.vehiclesView])))!}
+           limit 3`,
+    );
     groupMatches = rows.map(({ engineNo, ...r }) => ({
       ...r,
       matchedOn: r.vin === identifier ? 'vin' : engineNo === identifier ? 'engineNo' : 'registrationNo',

@@ -1,4 +1,3 @@
-﻿import { inArray } from 'drizzle-orm';
 import type { EntityConfig, Row } from '../../entity/types';
 import { conflict } from '../../lib/errors';
 import { BoolQuery, IdQuery } from '../../lib/zod';
@@ -55,7 +54,7 @@ export const branchEntity: EntityConfig = {
     decorate: async (ctx, rows) => {
       const ids = [...new Set(rows.map((r) => r.dealershipId as number))];
       if (!ids.length) return rows;
-      const ds = await ctx.tx.select({ id: dealership.id, name: dealership.name }).from(dealership).where(inArray(dealership.id, ids));
+      const ds = await ctx.tx.dealership.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
       const names = new Map(ds.map((d) => [d.id, d.name]));
       return rows.map((r) => ({ ...r, dealershipName: names.get(r.dealershipId as number) }));
     },

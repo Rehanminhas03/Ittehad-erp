@@ -1,4 +1,5 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { query } from '../../../db/client';
+import { type SQL, and, eq, inArray, sql } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import type { z } from '../../../lib/zod';
 import { user } from '../../core/models';
@@ -8,9 +9,9 @@ import { ReportsPerm as P } from '../permissions';
 import type { DashboardQuery } from '../schemas';
 import { ReportScope } from '../scope';
 
-const count = sql<number>`count(*)::int`;
-const month = (col: unknown) => sql<string>`to_char(date_trunc('month', ${col}), 'YYYY-MM')`;
-const turnaround = sql<number>`coalesce(sum(extract(epoch from ${visit.deliveredAt} - ${visit.arrivedAt})), 0)::float8`;
+const count = sql`count(*)::int`;
+const month = (col: SQL) => sql`to_char(date_trunc('month', ${col}), 'YYYY-MM')`;
+const turnaround = sql`coalesce(sum(extract(epoch from ${visit.deliveredAt} - ${visit.arrivedAt})), 0)::float8`;
 const hours = (seconds: number, visits: number) => (visits > 0 ? (seconds / visits / 3600).toFixed(1) : null);
 
 /** Service: workshop throughput, turnaround, work billed, estimate approvals. */
@@ -23,84 +24,98 @@ export async function serviceDashboard(ctx: EntityCtx, q: z.output<typeof Dashbo
   const stats = new StatsByDealership();
 
   stats.put(
-    await ctx.tx
-      .select({
-        d: visit.dealershipId,
-        visits: count,
-        free: sql<number>`(count(*) filter (where ${visit.freeService}))::int`,
-        warranty: sql<number>`(count(*) filter (where ${visit.visitType} = 'warranty'))::int`,
-      })
-      .from(visit)
-      .where(and(visitScope, scope.inPeriod(visit.arrivedAt)))
-      .groupBy(visit.dealershipId),
-  );
-  stats.put(await ctx.tx.select({ d: visit.dealershipId, handedBack: count, turnaround }).from(visit).where(handedBack).groupBy(visit.dealershipId));
-  stats.put(
-    await ctx.tx
-      .select({ d: visit.dealershipId, inWorkshop: count })
-      .from(visit)
-      .where(and(visitScope, inArray(visit.status, ['open', 'in_progress', 'ready'])))
-      .groupBy(visit.dealershipId),
+    await query<{ d: number; visits: number; free: number; warranty: number }>(
+      ctx.tx,
+      sql`select ${visit.dealershipId} as "d", ${count} as "visits",
+                 (count(*) filter (where ${visit.freeService}))::int as "free",
+                 (count(*) filter (where ${visit.visitType} = 'warranty'))::int as "warranty"
+          from ${visit}
+          where ${and(visitScope, scope.inPeriod(visit.arrivedAt))}
+          group by ${visit.dealershipId}`,
+    ),
   );
   stats.put(
-    await ctx.tx
-      .select({
-        d: jobCard.dealershipId,
-        labour: sql<string>`coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} = 'labour' and ${jobCardLine.billable}), 0)::numeric(14, 2)::text`,
-        parts: sql<string>`coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} = 'part' and ${jobCardLine.billable}), 0)::numeric(14, 2)::text`,
-      })
-      .from(jobCardLine)
-      .innerJoin(jobCard, eq(jobCard.id, jobCardLine.jobCardId))
-      .where(and(jobScope, eq(jobCard.status, 'completed'), scope.inPeriod(jobCard.completedAt)))
-      .groupBy(jobCard.dealershipId),
+    await query<{ d: number; handedBack: number; turnaround: number }>(
+      ctx.tx,
+      sql`select ${visit.dealershipId} as "d", ${count} as "handedBack", ${turnaround} as "turnaround"
+          from ${visit}
+          where ${handedBack}
+          group by ${visit.dealershipId}`,
+    ),
   );
   stats.put(
-    await ctx.tx
-      .select({ d: jobCard.dealershipId, completed: count })
-      .from(jobCard)
-      .where(and(jobScope, eq(jobCard.status, 'completed'), scope.inPeriod(jobCard.completedAt)))
-      .groupBy(jobCard.dealershipId),
+    await query<{ d: number; inWorkshop: number }>(
+      ctx.tx,
+      sql`select ${visit.dealershipId} as "d", ${count} as "inWorkshop"
+          from ${visit}
+          where ${and(visitScope, inArray(visit.status, ['open', 'in_progress', 'ready']))}
+          group by ${visit.dealershipId}`,
+    ),
   );
   stats.put(
-    await ctx.tx
-      .select({
-        d: estimate.dealershipId,
-        estApproved: sql<number>`(count(*) filter (where ${estimate.status} = 'approved'))::int`,
-        estDecided: sql<number>`(count(*) filter (where ${estimate.status} in ('approved', 'rejected')))::int`,
-        estApprovedValue: sql<string>`coalesce(sum(${estimate.totalAmount}) filter (where ${estimate.status} = 'approved'), 0)::numeric(14, 2)::text`,
-      })
-      .from(estimate)
-      .where(and(estimateScope, scope.inPeriod(estimate.createdAt)))
-      .groupBy(estimate.dealershipId),
+    await query<{ d: number; labour: string; parts: string }>(
+      ctx.tx,
+      sql`select ${jobCard.dealershipId} as "d",
+                 coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} = 'labour' and ${jobCardLine.billable}), 0)::numeric(14, 2)::text as "labour",
+                 coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} = 'part' and ${jobCardLine.billable}), 0)::numeric(14, 2)::text as "parts"
+          from ${jobCardLine}
+          inner join ${jobCard} on ${jobCard.id} = ${jobCardLine.jobCardId}
+          where ${and(jobScope, eq(jobCard.status, 'completed'), scope.inPeriod(jobCard.completedAt))}
+          group by ${jobCard.dealershipId}`,
+    ),
+  );
+  stats.put(
+    await query<{ d: number; completed: number }>(
+      ctx.tx,
+      sql`select ${jobCard.dealershipId} as "d", ${count} as "completed"
+          from ${jobCard}
+          where ${and(jobScope, eq(jobCard.status, 'completed'), scope.inPeriod(jobCard.completedAt))}
+          group by ${jobCard.dealershipId}`,
+    ),
+  );
+  stats.put(
+    await query<{ d: number; estApproved: number; estDecided: number; estApprovedValue: string }>(
+      ctx.tx,
+      sql`select ${estimate.dealershipId} as "d",
+                 (count(*) filter (where ${estimate.status} = 'approved'))::int as "estApproved",
+                 (count(*) filter (where ${estimate.status} in ('approved', 'rejected')))::int as "estDecided",
+                 coalesce(sum(${estimate.totalAmount}) filter (where ${estimate.status} = 'approved'), 0)::numeric(14, 2)::text as "estApprovedValue"
+          from ${estimate}
+          where ${and(estimateScope, scope.inPeriod(estimate.createdAt))}
+          group by ${estimate.dealershipId}`,
+    ),
   );
 
-  const trend = await ctx.tx
-    .select({ month: month(visit.arrivedAt), value: count })
-    .from(visit)
-    .where(and(visitScope, scope.inTrend(visit.arrivedAt)))
-    .groupBy(month(visit.arrivedAt));
-  const byType = await ctx.tx
-    .select({ label: visit.visitType, value: count })
-    .from(visit)
-    .where(and(visitScope, scope.inPeriod(visit.arrivedAt)))
-    .groupBy(visit.visitType)
-    .orderBy(desc(count));
+  const trend = await query<{ month: string; value: number }>(
+    ctx.tx,
+    sql`select ${month(visit.arrivedAt)} as "month", ${count} as "value"
+        from ${visit}
+        where ${and(visitScope, scope.inTrend(visit.arrivedAt))}
+        group by ${month(visit.arrivedAt)}`,
+  );
+  const byType = await query<{ label: string; value: number }>(
+    ctx.tx,
+    sql`select ${visit.visitType} as "label", ${count} as "value"
+        from ${visit}
+        where ${and(visitScope, scope.inPeriod(visit.arrivedAt))}
+        group by ${visit.visitType}
+        order by ${count} desc`,
+  );
 
   const tables = [];
   if (scope.mode !== 'own') {
-    const byAdvisor = await ctx.tx
-      .select({
-        name: user.fullName,
-        visits: count,
-        handedBack: sql<number>`(count(*) filter (where ${visit.status} = 'delivered'))::int`,
-        turnaround: sql<number>`coalesce(sum(extract(epoch from ${visit.deliveredAt} - ${visit.arrivedAt})) filter (where ${visit.status} = 'delivered'), 0)::float8`,
-      })
-      .from(visit)
-      .innerJoin(user, eq(user.id, visit.advisorId))
-      .where(and(visitScope, scope.inPeriod(visit.arrivedAt)))
-      .groupBy(visit.advisorId, user.fullName)
-      .orderBy(desc(count))
-      .limit(10);
+    const byAdvisor = await query<{ name: string; visits: number; handedBack: number; turnaround: number }>(
+      ctx.tx,
+      sql`select ${user.fullName} as "name", ${count} as "visits",
+                 (count(*) filter (where ${visit.status} = 'delivered'))::int as "handedBack",
+                 coalesce(sum(extract(epoch from ${visit.deliveredAt} - ${visit.arrivedAt})) filter (where ${visit.status} = 'delivered'), 0)::float8 as "turnaround"
+          from ${visit}
+          inner join ${user} on ${user.id} = ${visit.advisorId}
+          where ${and(visitScope, scope.inPeriod(visit.arrivedAt))}
+          group by ${visit.advisorId}, ${user.fullName}
+          order by ${count} desc
+          limit 10`,
+    );
     tables.push({
       key: 'by-advisor',
       title: 'Service advisors',

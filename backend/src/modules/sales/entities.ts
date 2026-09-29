@@ -1,5 +1,6 @@
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { POLICIES } from '../../config/policies';
+import { query } from '../../db/client';
+import { and, inArray, isNull, sql } from '../../db/sql';
 import { EntityService } from '../../entity/entityService';
 import { withNames } from '../../entity/names';
 import type { EntityConfig, EntityCtx, Row } from '../../entity/types';
@@ -10,11 +11,11 @@ import { DocType, nextDocumentNumber } from '../core/documents';
 import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
-import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
+import { vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
 import { CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
-import { ACTIVE_LEAD_STATES, delivery, documentTemplate, lead, LEAD_STATES, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
+import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
 import { SalesPerm as P } from './permissions';
 import { detectModel } from './variantCatalog';
 import { LEAD_NAME, ORDER_NO, ORDER_VEHICLE_STAGE } from './repository';
@@ -45,7 +46,7 @@ export const DUPLICATE_LEAD_MESSAGE = 'Duplicate lead already exists';
 
 /** A customer referenced by a sales document must belong to the same dealership. */
 async function assertCustomerInDealership(ctx: EntityCtx, customerId: number, dealershipId: number) {
-  const [c] = await ctx.tx.select({ dealershipId: customer.dealershipId }).from(customer).where(eq(customer.id, customerId));
+  const c = await ctx.tx.customer.findUnique({ where: { id: customerId }, select: { dealershipId: true } });
   if (!c || c.dealershipId !== dealershipId) {
     throw validationError([{ in: 'body', path: 'customerId', message: 'Choose a customer of this dealership' }]);
   }
@@ -57,7 +58,7 @@ async function assertCustomerInDealership(ctx: EntityCtx, customerId: number, de
  */
 async function assertCanLogFor(ctx: EntityCtx, ownerId: number, dealershipId: number) {
   if (!ctx.access.canIn(P.leadsViewAll, { dealershipId })) throw forbidden('You can only log leads for yourself');
-  const { rows } = await ctx.tx.execute(sql`
+  const rows = await query(ctx.tx, sql`
     select 1 from core.user_role ur
       join core.role_permission rp on rp.role_id = ur.role_id
       join core.permission p on p.id = rp.permission_id
@@ -85,23 +86,22 @@ function assertCanAssign(ctx: EntityCtx, assigneeId: unknown, perm: string, targ
  * returned only to callers who may open it (e.g. the Assistant Manager), others can escalate.
  */
 export async function assertNoActiveLead(ctx: EntityCtx, dealershipId: number, mobileNormalized: string, exceptId?: number) {
-  const [existing] = await ctx.tx
-    .select({ id: lead.id, escalatedAt: lead.escalatedAt })
-    .from(lead)
-    .where(
-      and(
-        eq(lead.dealershipId, dealershipId),
-        eq(lead.prospectMobileNormalized, mobileNormalized),
-        inArray(lead.status, [...ACTIVE_LEAD_STATES]),
-        exceptId ? sql`${lead.id} <> ${exceptId}` : undefined,
-      ),
-    );
+  const existing = await ctx.tx.lead.findFirst({
+    where: {
+      dealershipId,
+      prospectMobileNormalized: mobileNormalized,
+      status: { in: [...ACTIVE_LEAD_STATES] },
+      ...(exceptId ? { id: { not: exceptId } } : {}),
+    },
+    select: { id: true, escalatedAt: true },
+  });
   if (!existing) return;
-  const [visible] = await ctx.tx
-    .select({ id: lead.id, ownerName: user.fullName })
-    .from(lead)
-    .innerJoin(user, eq(user.id, lead.ownerId))
-    .where(and(eq(lead.id, existing.id), leads.viewCondition(ctx.access)));
+  const [visible] = await query<{ id: number; ownerName: string }>(
+    ctx.tx,
+    sql`select ${lead.id} as id, ${user.fullName} as "ownerName"
+          from ${lead} join ${user} on ${user.id} = ${lead.ownerId}
+         where ${lead.id} = ${existing.id} and ${leads.viewCondition(ctx.access)}`,
+  );
   throw conflict(DUPLICATE_LEAD_MESSAGE, {
     duplicate: true,
     escalated: !!existing.escalatedAt,
@@ -266,7 +266,7 @@ const approverGuard = (ctx: EntityCtx, row: Row) =>
 /** Moves the order's lead with it (processing → completed / back to converted). */
 async function moveLead(ctx: EntityCtx, row: Row, action: 'complete' | 'order_cancelled') {
   if (!row.leadId) return;
-  const [l] = await ctx.tx.select({ status: lead.status }).from(lead).where(eq(lead.id, row.leadId as number));
+  const l = await ctx.tx.lead.findUnique({ where: { id: row.leadId as number }, select: { status: true } });
   if (l?.status === 'processing') await leads.transition(ctx, row.leadId as number, action, `Order ${row.orderNo as string}`, { system: true });
 }
 
@@ -356,12 +356,12 @@ export const salesOrderEntity: EntityConfig = {
         requiresComment: true,
         // A scheduled delivery is cancelled with the order, its vehicle freed and its lead reopened.
         effect: async (ctx, row) => {
-          await ctx.tx
-            .update(delivery)
-            .set({ status: 'cancelled', updatedById: ctx.access.userId })
-            .where(and(eq(delivery.salesOrderId, row.id), eq(delivery.status, 'scheduled')));
+          await ctx.tx.delivery.updateMany({
+            where: { salesOrderId: row.id, status: 'scheduled' },
+            data: { status: 'cancelled', updatedById: ctx.access.userId },
+          });
           if (row.vehicleId) {
-            await ctx.tx.update(vehicle).set({ status: 'available', updatedById: ctx.access.userId }).where(eq(vehicle.id, row.vehicleId as number));
+            await ctx.tx.vehicle.updateMany({ where: { id: row.vehicleId as number }, data: { status: 'available', updatedById: ctx.access.userId } });
             await ctx.audit({ entityType: 'master.vehicle', entityId: row.vehicleId as number, action: 'status.update', dealershipId: row.dealershipId as number, branchId: null, changes: { status: 'available' } });
           }
           await moveLead(ctx, row, 'order_cancelled');
@@ -386,10 +386,7 @@ export const salesOrderEntity: EntityConfig = {
       assertCanAssign(ctx, data.salespersonId, P.ordersUpdate, target);
       await assertCustomerInDealership(ctx, data.customerId as number, dealershipId);
       await assertActiveModel(ctx, data.modelId as number);
-      const [d] = await ctx.tx
-        .select({ legalEntityId: dealership.legalEntityId, accountingEntityId: dealership.accountingEntityId })
-        .from(dealership)
-        .where(eq(dealership.id, dealershipId));
+      const d = await ctx.tx.dealership.findUnique({ where: { id: dealershipId }, select: { legalEntityId: true, accountingEntityId: true } });
       return {
         ...priceOrder(data),
         salespersonId: data.salespersonId ?? ctx.access.userId,
@@ -418,7 +415,7 @@ export const salesOrderEntity: EntityConfig = {
       });
       const ids = rows.map((r) => r.vehicleId).filter((x): x is number => typeof x === 'number');
       if (!ids.length) return named;
-      const vs = await ctx.tx.select({ id: vehicle.id, vin: vehicle.vin, engineNo: vehicle.engineNo }).from(vehicle).where(inArray(vehicle.id, ids));
+      const vs = await ctx.tx.vehicle.findMany({ where: { id: { in: ids } }, select: { id: true, vin: true, engineNo: true } });
       const byId = new Map(vs.map((v) => [v.id, v]));
       return named.map((r) => ({ ...r, vehicleVin: byId.get(r.vehicleId as number)?.vin ?? null, vehicleEngineNo: byId.get(r.vehicleId as number)?.engineNo ?? null }));
     },
@@ -487,19 +484,20 @@ async function decorateStock(ctx: EntityCtx, rows: Row[]): Promise<Row[]> {
   const named = await withNames(ctx.tx, rows, { modelName: { key: 'modelId', source: MODEL_NAME } });
   const ids = rows.map((r) => r.id);
   if (!ids.length) return named;
-  const orders = await ctx.tx
-    .select({ vehicleId: salesOrder.vehicleId, id: salesOrder.id, orderNo: salesOrder.orderNo, status: salesOrder.status, customerId: salesOrder.customerId })
-    .from(salesOrder)
-    .where(and(inArray(salesOrder.vehicleId, ids), ne(salesOrder.status, 'cancelled')));
+  const orders = await ctx.tx.salesOrder.findMany({
+    where: { vehicleId: { in: ids }, status: { not: 'cancelled' } },
+    select: { vehicleId: true, id: true, orderNo: true, status: true, customerId: true },
+  });
   const customers = orders.length
-    ? await ctx.tx.select({ id: customer.id, fullName: customer.fullName }).from(customer).where(inArray(customer.id, orders.map((o) => o.customerId)))
+    ? await ctx.tx.customer.findMany({ where: { id: { in: orders.map((o) => o.customerId) } }, select: { id: true, fullName: true } })
     : [];
-  const links = await ctx.tx
-    .select({ vehicleId: vehicleDealership.vehicleId, dealershipId: vehicleDealership.dealershipId, name: dealership.name })
-    .from(vehicleDealership)
-    .innerJoin(dealership, eq(dealership.id, vehicleDealership.dealershipId))
-    .where(inArray(vehicleDealership.vehicleId, ids))
-    .orderBy(vehicleDealership.id);
+  const links = await query<{ vehicleId: number; dealershipId: number; name: string }>(
+    ctx.tx,
+    sql`select ${vehicleDealership.vehicleId} as "vehicleId", ${vehicleDealership.dealershipId} as "dealershipId", ${dealership.name} as name
+          from ${vehicleDealership} join ${dealership} on ${dealership.id} = ${vehicleDealership.dealershipId}
+         where ${inArray(vehicleDealership.vehicleId, ids)}
+         order by ${vehicleDealership.id}`,
+  );
   const byVehicle = new Map(orders.map((o) => [o.vehicleId, o]));
   const names = new Map(customers.map((c) => [c.id, c.fullName]));
   return named.map((r) => {
@@ -532,11 +530,7 @@ export const stockVehicleEntity: EntityConfig = {
   linkedScope: {
     view: (access, codes) => and(isNull(vehicle.activatedOn), vehicleVisibility(access, codes))!,
     writeDealership: async (ctx, row, permission) => {
-      const links = await ctx.tx
-        .select({ dealershipId: vehicleDealership.dealershipId })
-        .from(vehicleDealership)
-        .where(eq(vehicleDealership.vehicleId, row.id))
-        .orderBy(vehicleDealership.id);
+      const links = await ctx.tx.vehicleDealership.findMany({ where: { vehicleId: row.id }, select: { dealershipId: true }, orderBy: { id: 'asc' } });
       return links.find((l) => ctx.access.canIn(permission, { dealershipId: l.dealershipId }))?.dealershipId ?? null;
     },
   },
@@ -559,7 +553,7 @@ export const stockVehicleEntity: EntityConfig = {
       const clash = await findVehicleByIdentifiers(ctx.tx, { vin: patch.vin as string | undefined, engineNo: patch.engineNo as string | null | undefined }, row.id);
       if (clash.length) throw conflict('Another vehicle in the group already has this chassis or engine number');
       if (patch.modelId !== undefined && patch.modelId !== row.modelId) {
-        const [live] = await ctx.tx.select({ id: salesOrder.id }).from(salesOrder).where(and(eq(salesOrder.vehicleId, row.id), ne(salesOrder.status, 'cancelled')));
+        const live = await ctx.tx.salesOrder.findFirst({ where: { vehicleId: row.id, status: { not: 'cancelled' } }, select: { id: true } });
         if (live) throw conflict('The vehicle is on a sales order; release it before changing its model');
         await assertActiveModel(ctx, patch.modelId as number);
       }
@@ -613,10 +607,10 @@ export function priceQuotation(data: Record<string, unknown>, before?: Row) {
  */
 export async function resolveVariant(ctx: EntityCtx, dealershipId: number, code: string | null | undefined) {
   if (!code) return { variantCode: null };
-  const [v] = await ctx.tx
-    .select({ code: vehicleVariant.code, description: vehicleVariant.description, modelId: vehicleVariant.modelId })
-    .from(vehicleVariant)
-    .where(and(eq(vehicleVariant.dealershipId, dealershipId), eq(vehicleVariant.code, code.trim().toUpperCase()), eq(vehicleVariant.isActive, true)));
+  const v = await ctx.tx.vehicleVariant.findFirst({
+    where: { dealershipId, code: code.trim().toUpperCase(), isActive: true },
+    select: { code: true, description: true, modelId: true },
+  });
   if (!v) throw validationError([{ in: 'body', path: 'variantCode', message: 'Unknown variant code for this dealership' }]);
   return { variantCode: v.code, variant: v.description, ...(v.modelId ? { modelId: v.modelId } : {}) };
 }
@@ -627,16 +621,12 @@ export async function resolveVariant(ctx: EntityCtx, dealershipId: number, code:
  */
 export async function assertVariantCodeGiven(ctx: EntityCtx, dealershipId: number, code: string | null | undefined, modelId?: number) {
   if (code) return;
-  const [t] = await ctx.tx.select({ refPrefix: documentTemplate.refPrefix }).from(documentTemplate).where(and(eq(documentTemplate.dealershipId, dealershipId), eq(documentTemplate.kind, 'quotation')));
+  const t = await ctx.tx.documentTemplate.findUnique({ where: { dealershipId_kind: { dealershipId, kind: 'quotation' } }, select: { refPrefix: true } });
   // No saved format: Hyundai's built-in format has the "HI" prefix.
   const prefix = t ? t.refPrefix : (await brandOf(ctx, dealershipId)) === 'Hyundai' ? 'HI' : null;
   if (!prefix) return;
   // With a model: only if that model has codes (e.g. none yet for a new model).
-  const [any] = await ctx.tx
-    .select({ id: vehicleVariant.id })
-    .from(vehicleVariant)
-    .where(and(eq(vehicleVariant.dealershipId, dealershipId), eq(vehicleVariant.isActive, true), modelId ? eq(vehicleVariant.modelId, modelId) : undefined))
-    .limit(1);
+  const any = await ctx.tx.vehicleVariant.findFirst({ where: { dealershipId, isActive: true, ...(modelId ? { modelId } : {}) }, select: { id: true } });
   if (any) throw validationError([{ in: 'body', path: 'variantCode', message: 'Choose the variant code (it goes in the Ref), or type the variant under "Other"' }]);
 }
 
@@ -709,7 +699,7 @@ export const ppfFormEntity: EntityConfig = {
     beforeUpdate: async (ctx, row, patch) => {
       // PBO, chassis and engine stay filled in once the lead has a sales order (before, they may be blank).
       const blank = (['pboNo', 'chassisNo', 'engineNo'] as const).filter((k) => k in patch && !patch[k]);
-      const [owning] = blank.length ? await ctx.tx.select({ salesOrderId: lead.salesOrderId }).from(lead).where(eq(lead.id, row.leadId as number)) : [];
+      const owning = blank.length ? await ctx.tx.lead.findUnique({ where: { id: row.leadId as number }, select: { salesOrderId: true } }) : null;
       if (blank.length && owning?.salesOrderId) {
         const names = { pboNo: 'PBO number', chassisNo: 'chassis number', engineNo: 'engine number' };
         throw validationError(blank.map((k) => ({ in: 'body' as const, path: k, message: `Enter the ${names[k]}` })));
@@ -754,14 +744,11 @@ export const vehicleVariantEntity: EntityConfig = {
 };
 
 async function assertVariantCodeFree(ctx: EntityCtx, dealershipId: number, code: string) {
-  const [dup] = await ctx.tx
-    .select({ id: vehicleVariant.id })
-    .from(vehicleVariant)
-    .where(and(eq(vehicleVariant.dealershipId, dealershipId), eq(vehicleVariant.code, code)));
+  const dup = await ctx.tx.vehicleVariant.findFirst({ where: { dealershipId, code }, select: { id: true } });
   if (dup) throw conflict(`Variant code ${code} already exists`, { existingId: dup.id });
 }
 export async function brandOf(ctx: EntityCtx, dealershipId: number) {
-  const [d] = await ctx.tx.select({ brand: dealership.brand }).from(dealership).where(eq(dealership.id, dealershipId));
+  const d = await ctx.tx.dealership.findUnique({ where: { id: dealershipId }, select: { brand: true } });
   return d?.brand ?? '';
 }
 

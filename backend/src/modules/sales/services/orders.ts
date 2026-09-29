@@ -3,14 +3,15 @@
  * entering its chassis / engine number on the order, allocating free stock, or registering the
  * arriving car for the order in Open stock; until then it stays "pending".
  */
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { query } from '../../../db/client';
+import { and, eq, isNull, sql } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { conflict, forbidden, notFound, validationError } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
 import { vehicle, vehicleDealership, VEHICLE_STATUSES } from '../../master/models';
 import { findVehicleByIdentifiers } from '../../master/repository';
 import { leads, orders, salesOrderEntity } from '../entities';
-import { delivery, lead, salesOrder, VEHICLE_PIPELINE } from '../models';
+import { salesOrder, VEHICLE_PIPELINE } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { AdvanceVehicleStatusBody, OrderVehicleBody, RaiseOrderBody } from '../schemas';
 
@@ -41,8 +42,8 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
     // The order is credited to the salesperson who owns the lead.
     salespersonId: l.ownerId,
   });
-  await ctx.tx.update(salesOrder).set({ leadId }).where(eq(salesOrder.id, order.id));
-  await ctx.tx.update(lead).set({ salesOrderId: order.id }).where(eq(lead.id, leadId));
+  await ctx.tx.salesOrder.update({ where: { id: order.id as number }, data: { leadId } });
+  await ctx.tx.lead.update({ where: { id: leadId }, data: { salesOrderId: order.id as number } });
   await leads.transition(ctx, leadId, 'raise_order', `Sales order ${order.orderNo as string}`, { system: true });
   return orders.get(ctx, order.id);
 }
@@ -72,7 +73,7 @@ export async function setOrderVehicle(ctx: EntityCtx, orderId: number, input: z.
   // An existing car these numbers point to (e.g. stock already registered), when the order has none.
   const matched = !vehicleId && clashes.length === 1 ? clashes[0]! : null;
   // The car on an order needs both its chassis and engine number (given now, or already on the car).
-  const [current] = vehicleId ? await ctx.tx.select({ vin: vehicle.vin, engineNo: vehicle.engineNo }).from(vehicle).where(eq(vehicle.id, vehicleId)) : [];
+  const current = vehicleId ? await ctx.tx.vehicle.findFirst({ where: { id: vehicleId }, select: { vin: true, engineNo: true } }) : null;
   const known = current ?? matched;
   const missing = [
     !(ids.vin ?? known?.vin) && { in: 'body' as const, path: 'vin', message: 'Enter the chassis number' },
@@ -81,9 +82,9 @@ export async function setOrderVehicle(ctx: EntityCtx, orderId: number, input: z.
   if (missing.length) throw validationError(missing);
   if (vehicleId) {
     if (clashes.length) throw conflict('Another vehicle already has this chassis, engine or registration number');
-    const [v] = await ctx.tx.select({ activatedOn: vehicle.activatedOn }).from(vehicle).where(eq(vehicle.id, vehicleId));
+    const v = await ctx.tx.vehicle.findFirst({ where: { id: vehicleId }, select: { activatedOn: true } });
     if (v?.activatedOn) throw conflict('The vehicle has been delivered; its identifiers can no longer be changed here');
-    await ctx.tx.update(vehicle).set({ ...patch, updatedById: ctx.access.userId }).where(eq(vehicle.id, vehicleId));
+    await ctx.tx.vehicle.updateMany({ where: { id: vehicleId }, data: { ...patch, updatedById: ctx.access.userId } });
   } else if (clashes.length) {
     // An existing vehicle (e.g. received stock): link it if it is free and of the ordered model.
     if (clashes.length > 1) throw conflict('These identifiers belong to different vehicles');
@@ -95,23 +96,16 @@ export async function setOrderVehicle(ctx: EntityCtx, orderId: number, input: z.
       throw conflict('The chassis and engine numbers do not belong to the same car');
     }
     // Only a car of this dealership (never another dealership's stock).
-    const [here] = await ctx.tx
-      .select({ id: vehicleDealership.vehicleId })
-      .from(vehicleDealership)
-      .where(and(eq(vehicleDealership.vehicleId, v.id), eq(vehicleDealership.dealershipId, dealershipId)));
+    const here = await ctx.tx.vehicleDealership.findFirst({ where: { vehicleId: v.id, dealershipId }, select: { vehicleId: true } });
     if (!here) throw conflict('That vehicle is registered at another dealership');
-    const [taken] = await ctx.tx
-      .select({ id: salesOrder.id })
-      .from(salesOrder)
-      .where(and(eq(salesOrder.vehicleId, v.id), sql`${salesOrder.status} <> 'cancelled'`));
+    const taken = await ctx.tx.salesOrder.findFirst({ where: { vehicleId: v.id, status: { not: 'cancelled' } }, select: { id: true } });
     if (taken) throw conflict('That vehicle is already on another sales order');
     vehicleId = v.id;
-    await ctx.tx.update(vehicle).set({ ...patch, status: 'booked', updatedById: ctx.access.userId }).where(eq(vehicle.id, vehicleId));
+    await ctx.tx.vehicle.updateMany({ where: { id: vehicleId }, data: { ...patch, status: 'booked', updatedById: ctx.access.userId } });
   } else {
     if (!ids.vin && !ids.engineNo) throw validationError([{ in: 'body', path: 'vin', message: 'Enter the chassis or engine number' }]);
-    const [v] = await ctx.tx
-      .insert(vehicle)
-      .values({
+    const v = await ctx.tx.vehicle.create({
+      data: {
         ...ids,
         modelId: o.modelId as number,
         variant: (o.variant as string | null) ?? null,
@@ -120,16 +114,17 @@ export async function setOrderVehicle(ctx: EntityCtx, orderId: number, input: z.
         status: 'booked',
         createdById: ctx.access.userId,
         updatedById: ctx.access.userId,
-      })
-      .returning({ id: vehicle.id });
-    vehicleId = v!.id;
+      },
+      select: { id: true },
+    });
+    vehicleId = v.id;
   }
-  await ctx.tx
-    .insert(vehicleDealership)
-    .values({ vehicleId, dealershipId, source: 'sale', createdById: ctx.access.userId })
-    .onConflictDoNothing();
+  await ctx.tx.vehicleDealership.createMany({
+    data: [{ vehicleId, dealershipId, source: 'sale', createdById: ctx.access.userId }],
+    skipDuplicates: true,
+  });
   if (vehicleId !== o.vehicleId) {
-    await ctx.tx.update(salesOrder).set({ vehicleId, updatedById: ctx.access.userId }).where(eq(salesOrder.id, orderId));
+    await ctx.tx.salesOrder.update({ where: { id: orderId }, data: { vehicleId, updatedById: ctx.access.userId } });
   }
   await ctx.audit({
     entityType: salesOrderEntity.entityType,
@@ -153,41 +148,41 @@ const isLive = (status: unknown) => (LIVE_ORDER_STATES as readonly string[]).inc
 /** New (never delivered) stock of the order's model at its dealership, not on another live order. */
 export async function allocatableVehicles(ctx: EntityCtx, orderId: number) {
   const o = await orders.findVisible(ctx, orderId);
-  return ctx.tx
-    .select({
-      id: vehicle.id,
-      vin: vehicle.vin,
-      engineNo: vehicle.engineNo,
-      registrationNo: vehicle.registrationNo,
-      variant: vehicle.variant,
-      color: vehicle.color,
-      modelYear: vehicle.modelYear,
-    })
-    .from(vehicle)
-    .innerJoin(vehicleDealership, and(eq(vehicleDealership.vehicleId, vehicle.id), eq(vehicleDealership.dealershipId, o.dealershipId as number)))
-    .where(
-      and(
-        eq(vehicle.modelId, o.modelId as number),
-        isNull(vehicle.activatedOn),
-        eq(vehicle.status, 'available'),
-        sql`not exists (select 1 from ${salesOrder} so where so.vehicle_id = ${vehicle.id} and so.status <> 'cancelled' and so.id <> ${orderId})`,
-      ),
-    )
-    .orderBy(desc(vehicle.modelYear), vehicle.vin)
-    .limit(50);
+  return query<{
+    id: number;
+    vin: string | null;
+    engineNo: string | null;
+    registrationNo: string | null;
+    variant: string | null;
+    color: string | null;
+    modelYear: number | null;
+  }>(
+    ctx.tx,
+    sql`select ${vehicle.id} as "id", ${vehicle.vin} as "vin", ${vehicle.engineNo} as "engineNo",
+          ${vehicle.registrationNo} as "registrationNo", ${vehicle.variant} as "variant", ${vehicle.color} as "color",
+          ${vehicle.modelYear} as "modelYear"
+        from ${vehicle}
+        inner join ${vehicleDealership}
+          on ${and(eq(vehicleDealership.vehicleId, vehicle.id), eq(vehicleDealership.dealershipId, o.dealershipId as number))}
+        where ${and(
+          eq(vehicle.modelId, o.modelId as number),
+          isNull(vehicle.activatedOn),
+          eq(vehicle.status, 'available'),
+          sql`not exists (select 1 from ${salesOrder} so where so.vehicle_id = ${vehicle.id} and so.status <> 'cancelled' and so.id <> ${orderId})`,
+        )}
+        order by ${vehicle.modelYear} desc, ${vehicle.vin}
+        limit 50`,
+  );
 }
 
 async function assertNoScheduledDelivery(ctx: EntityCtx, orderId: number, message: string) {
-  const [scheduled] = await ctx.tx
-    .select({ id: delivery.id })
-    .from(delivery)
-    .where(and(eq(delivery.salesOrderId, orderId), eq(delivery.status, 'scheduled')));
+  const scheduled = await ctx.tx.delivery.findFirst({ where: { salesOrderId: orderId, status: 'scheduled' }, select: { id: true } });
   if (scheduled) throw conflict(message);
 }
 
 /** Vehicle status change, audited against the dealership driving it (the sales order's). */
 async function setVehicleStatus(ctx: EntityCtx, vehicleId: number, status: (typeof VEHICLE_STATUSES)[number], dealershipId: number) {
-  await ctx.tx.update(vehicle).set({ status, updatedById: ctx.access.userId }).where(eq(vehicle.id, vehicleId));
+  await ctx.tx.vehicle.updateMany({ where: { id: vehicleId }, data: { status, updatedById: ctx.access.userId } });
   await ctx.audit({ entityType: 'master.vehicle', entityId: vehicleId, action: 'status.update', dealershipId, branchId: null, changes: { status } });
 }
 
@@ -205,7 +200,7 @@ export async function allocateVehicle(ctx: EntityCtx, orderId: number, vehicleId
   }
   const before = (o.vehicleId as number | null) ?? null;
   // The partial unique index guarantees no concurrent order takes the same vehicle.
-  await ctx.tx.update(salesOrder).set({ vehicleId, updatedById: ctx.access.userId }).where(eq(salesOrder.id, orderId));
+  await ctx.tx.salesOrder.update({ where: { id: orderId }, data: { vehicleId, updatedById: ctx.access.userId } });
   // A car it replaces goes back to free stock (never left booked without an order).
   if (before && before !== vehicleId) await setVehicleStatus(ctx, before, 'available', o.dealershipId as number);
   await ctx.audit({
@@ -227,7 +222,7 @@ export async function releaseVehicle(ctx: EntityCtx, orderId: number) {
   if (o.status === 'delivered') throw conflict('The vehicle has been delivered');
   await assertNoScheduledDelivery(ctx, orderId, 'Cancel the scheduled delivery first');
   const releasedVehicleId = o.vehicleId as number;
-  await ctx.tx.update(salesOrder).set({ vehicleId: null, updatedById: ctx.access.userId }).where(eq(salesOrder.id, orderId));
+  await ctx.tx.salesOrder.update({ where: { id: orderId }, data: { vehicleId: null, updatedById: ctx.access.userId } });
   await ctx.audit({
     entityType: salesOrderEntity.entityType,
     entityId: orderId,
@@ -248,7 +243,7 @@ export async function advanceVehicleStatus(ctx: EntityCtx, orderId: number, inpu
   if (!orders.canOnRow(ctx.access, o, P.ordersAllocate)) throw forbidden();
   if (!isLive(o.status)) throw conflict(`The order is ${o.status as string}`);
   if (!o.vehicleId) throw conflict('Allocate a vehicle to the order first');
-  const [v] = await ctx.tx.select({ status: vehicle.status }).from(vehicle).where(eq(vehicle.id, o.vehicleId as number)).for('update');
+  const [v] = await query<{ status: string }>(ctx.tx, sql`select ${vehicle.status} as "status" from ${vehicle} where ${vehicle.id} = ${o.vehicleId as number} for update`);
   if (!v) throw notFound('Vehicle');
 
   const target = input.status;

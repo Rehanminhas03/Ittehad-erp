@@ -12,6 +12,8 @@ export interface ColumnMeta {
   /** Prisma scalar type. */
   type: 'String' | 'Int' | 'BigInt' | 'Decimal' | 'DateTime' | 'Boolean' | 'Json' | 'Float' | 'Bytes';
   nullable: boolean;
+  /** A PostgreSQL array column (e.g. text[]). */
+  list?: boolean;
   /** numeric(p, s): the number of decimals, so money reads "123.00" as it did before. */
   scale?: number;
   /** A calendar date (PostgreSQL `date`): read and written as "YYYY-MM-DD". */
@@ -43,6 +45,15 @@ export function defineTable<C extends Record<string, ColumnMeta>>(info: Omit<Tab
   return t as unknown as Table<C>;
 }
 
-/** Any generated table. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyTable = Table<Record<string, ColumnMeta>> & Record<string, any>;
+/**
+ * Any generated table, for code that works over every model (entity engine, name lookups): its SQL,
+ * metadata and id column. Other columns: `columnOf(table, key)`.
+ */
+export type AnyTable = Prisma.Sql & { readonly $meta: TableMeta; readonly id: Prisma.Sql };
+
+/** A column of any table by its field name (throws on unknown names). */
+export function columnOf(table: AnyTable, key: string): Prisma.Sql {
+  const col = (table as unknown as Record<string, Prisma.Sql | undefined>)[key];
+  if (!col || !(key in table.$meta.columns)) throw new Error(`${table.$meta.model}: unknown column "${key}"`);
+  return col;
+}

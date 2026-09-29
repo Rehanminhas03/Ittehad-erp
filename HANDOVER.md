@@ -15,19 +15,20 @@ Open Claude Code in `E:\Hyundai dealership software\Portal` and paste this:
 ```text
 You are continuing work on my dealership software in this folder (E:\Hyundai dealership software\Portal).
 Before doing anything, read HANDOVER.md in the project root completely, then skim README.md
-(sections "Running it", "Project structure", "Sales", "Database: no migration files", "Testing",
+(sections "Running it", "Project structure", "Sales", "Database: Prisma ORM + Prisma Migrate", "Testing",
 "Adding a module with the generic pattern").
 
 Context in short:
 - It is a multi-dealership DMS (Hyundai Islamabad, Jetour Ittehad, CSM Ittehad) under Ittehad.
-- Stack: Express 5 + TypeScript + Drizzle + PostgreSQL (RLS) backend, React + Vite + Tailwind 4
-  frontend, RTK Query generated from the backend's OpenAPI. No Docker, no migration files.
+- Stack: Express 5 + TypeScript + Prisma ORM + PostgreSQL (RLS) backend, React + Vite + Tailwind 4
+  frontend, RTK Query generated from the backend's OpenAPI. No Docker. Schema changes go through
+  Prisma migrations (backend/prisma/).
 - Right now I am ONLY working on the SALES portal (leads, orders, delivery, quotations, PPF
   vouchers, dashboards, track record). Service, Parts and Accounts exist but are hidden; do not
   work on them unless I ask.
 
 How I want you to work:
-- Follow the rules in HANDOVER.md section 6 (no Docker, no migrations, db:sync, api:sync, folder
+- Follow the rules in HANDOVER.md section 6 (no Docker, Prisma migrations + db:migrate, api:sync, folder
   structure, tests, README updates, never touch my dev servers on ports 4000/5173 or the
   PostgreSQL 18 on port 5432).
 - For every change: backend + frontend + tests, then run typecheck, tests and build, and verify
@@ -59,8 +60,8 @@ does today and what is still open (section 10). Then wait for my next request.
 
 | Part | Technology |
 |---|---|
-| Backend | Node 24, Express 5, TypeScript, Drizzle ORM (casing snake_case), Zod 4 + zod-to-openapi, JWT auth, Vitest |
-| Database | PostgreSQL 16 with Row-Level Security; schema pushed from the models (`drizzle-kit push` via `npm run db:sync`) — **no migration files** |
+| Backend | Node 24, Express 5, TypeScript, Prisma ORM 7 (`pg` driver adapter; models camelCase mapped to snake_case), Zod 4 + zod-to-openapi, JWT auth, Vitest |
+| Database | PostgreSQL 16 with Row-Level Security; schema in `backend/prisma/schema.prisma`, applied by Prisma Migrate (`backend/prisma/migrations`, baseline `0_init`) via `npm run db:migrate` |
 | Frontend | React 19, Vite, Tailwind CSS 4, React Router, RTK Query **generated** from the backend OpenAPI (`npm run api:sync`), Zod forms, jsPDF 4 (lazy-loaded) for PDFs |
 | Tests | Backend Vitest against the `dms_test` database; frontend Vitest + jsdom |
 
@@ -88,7 +89,8 @@ does today and what is still open (section 10). Then wait for my next request.
 
 | Where | Command | What it does |
 |---|---|---|
-| backend | `npm run db:sync` | Push schema changes to the dev DB and sync permissions (new permission codes are granted to existing roles from `defaultRoles.ts`) |
+| backend | `npm run db:migrate` | Apply pending Prisma migrations to the dev DB, re-apply app-role grants and sync permissions (new permission codes are granted to existing roles from `defaultRoles.ts`) |
+| backend | `npm run db:migration -- --name <name>` | Create a migration from `schema.prisma` changes (add RLS policy / triggers by hand), then `npm run db:generate` |
 | backend | `npm run db:seed` | Idempotent seed (adds only what is missing) |
 | backend | `npm run db:fresh` | Reset + seed (**wipes data**; use only on `dms_test` via the test helper) |
 | backend | `npm test` | All backend tests (about 700; ~12 min) — **resets `dms_test`** |
@@ -104,12 +106,12 @@ does today and what is still open (section 10). Then wait for my next request.
   permissions (`view`, `viewOwn`, `create`, `update`, `updateOwn`, `viewWhen`), tenant scope,
   owner key, filters, search, sort, hooks (`beforeCreate`, `beforeUpdate`, `decorate`) and an
   audit record for every change. Most sales records are entity configs in `modules/sales/entities.ts`.
-- `modules/<module>/` — `models.ts` (Drizzle tables), `schemas.ts` (Zod + OpenAPI), `permissions.ts`,
+- `modules/<module>/` — `models.ts` (generated table identifiers for raw SQL + constants), `schemas.ts` (Zod + OpenAPI), `permissions.ts`,
   `entities.ts`, `services/*.ts` (business operations), `router.ts` (routes via `ApiRouter`).
-- `modules/core/defaultRoles.ts` — role templates (patterns of permission codes). `db:sync` adds new codes to existing roles.
+- `modules/core/defaultRoles.ts` — role templates (patterns of permission codes). `db:migrate` adds new codes to existing roles.
 - `modules/core/documents.ts` — document numbering `CODE-XX-YYYY-00001` (e.g. `HYD-ISB-QT-2026-00001`).
 - `lib/money.ts` — exact money in paisa (`toPaisa`, `fromPaisa`, `addMoney`, `mulMoney`…). Never use floats for money.
-- `db/sql/pre-push.sql` — RLS helper functions (`core.app_tenant_visible`, `core.app_user_id`…).
+- `db/client.ts` — Prisma Client (`db`), `transaction`, `withTenantTx` (sets the RLS context), `query` / `execute` for raw SQL (`sql` helpers in `db/sql.ts`). RLS helper functions (`core.app_tenant_visible`, `core.app_user_id`…) are in the `0_init` migration.
 - Dates are **Pakistan time** (`Asia/Karachi`) for "today", day filters and documents: use `pakistanToday()` / `addDays()` from `lib/dates.ts`, never `new Date().toISOString().slice(0, 10)` (that is the UTC date — still yesterday between midnight and 5 AM in Pakistan; the database's `current_date` is Pakistan time).
 
 ### Frontend (`frontend/src`)
@@ -125,7 +127,7 @@ does today and what is still open (section 10). Then wait for my next request.
 ## 6. Owner's rules (follow these)
 
 1. **Sales only** for now. Do not change Service / Parts / Accounts unless asked.
-2. **No Docker. No migration files.** Schema changes = edit `models.ts` → `npm run db:sync`.
+2. **No Docker.** Schema changes = edit `prisma/schema.prisma` → `npm run db:migration -- --name <name>` (add RLS policy / triggers to the SQL) → `npm run db:generate` → `npm run db:migrate`.
 3. After backend route/schema changes run `npm run api:sync` in `frontend` (never hand-edit generated files).
 4. Keep the **clean structure**: a folder per feature/component, `index.ts` exports, shared code in `shared/`, same shape in every feature. Match the surrounding code's naming, comments and style.
 5. Every feature gets **tests** (backend Vitest; frontend where logic is pure) and a **README.md** update.
@@ -205,7 +207,7 @@ After saving, the document opens in a **preview** → **Download PDF** / **Print
 
 - **Editor overwrote a file once**: `schemas.ts` was replaced by an older copy open in VS Code. If VS Code says "file changed on disk", choose *Revert*. After big edits, grep that expected exports still exist.
 - **jsPDF**: outputting the same document twice gives an **uncompressed** second file — output once and reuse the blob (see `DocumentPreview.tsx`). jsPDF escapes `(` `)` in text streams, so PDF text checks must allow `\(`.
-- **Drizzle / Postgres**: an output alias cannot be used inside an `ORDER BY` expression — wrap the query (see `trackRecord.ts`).
+- **Postgres**: an output alias cannot be used inside an `ORDER BY` expression — wrap the query (see `trackRecord.ts`).
 - **OpenAPI names**: entity read schemas are named from `names.singular` without spaces ("PPF form" → `PPFForm` → type `PpfForm`).
 - **RTK cache tags** come from OpenAPI tags (the entity's singular name, e.g. `'PPF form'`, `'Variant code'`); add invalidations in `salesApi.ts`.
 - **Shell on Windows**: inline `node -e` / `sed` strips backslashes in regexes — write edit scripts to files instead. `.ts` scratch scripts with top-level await must be `.mts` and run from inside `backend/` to resolve packages.
@@ -214,7 +216,7 @@ After saving, the document opens in a **preview** → **Download PDF** / **Print
 - **Midnight–5 AM bugs**: anything using the UTC date shows up only in that window. Sales / master code uses `lib/dates.ts`; tests must use `pakistanToday()` too. Running the backend suite in that window is a good check.
 - **A page crash** shows `app/RouteError` (message + Reload) inside the layout instead of the React Router developer screen. After `api:sync` changes generated hooks, an open tab can be in a mixed state until reloaded.
 - **Tests are not run unless the owner asks** (their instruction, 2026-09-28): still run typecheck + build, write/update tests, and offer to run them.
-- **db:sync only grants NEW permission codes to existing roles.** When a role template gains an existing code (e.g. 2026-09-28: AM / Sales Manager got `sales.leads.create`, `update_own`, `convert_own`), grant it to existing roles with a one-off SQL insert into `core.role_permission` (done on the dev DB); a fresh DB gets it from the template.
+- **db:migrate only grants NEW permission codes to existing roles.** When a role template gains an existing code (e.g. 2026-09-28: AM / Sales Manager got `sales.leads.create`, `update_own`, `convert_own`), grant it to existing roles with a one-off SQL insert into `core.role_permission` (done on the dev DB); a fresh DB gets it from the template.
 - **Stale seed data**: `db:seed` only adds missing rows; to add new reference data to the dev DB without re-adding deleted demo data, write a small targeted script.
 
 ## 10. Status and open items (as of 2026-09-28)
@@ -230,8 +232,9 @@ Open / waiting on the owner:
 
 ## 11. History (short)
 
-1. Built the full DMS (phases 1–7: core, customers & vehicles, sales, service, parts, accounts, dashboards) on PERN; removed Docker; no migration files.
+1. Built the full DMS (phases 1–7: core, customers & vehicles, sales, service, parts, accounts, dashboards) on PERN; removed Docker; schema pushed with Drizzle (later replaced by Prisma, see below).
 2. Focus switched to **Sales**: real login page, other modules hidden, sales folder restructured, Delivery Team / Open stock, Sales Manager manages staff.
 3. Login page redesign (glass, logos), glass dashboards with charts, leads search / filters, activity log, custom date ranges, lead detail corrections, leads default to today, "Visited" CRO-only.
 4. Customer documents: vehicle quotation → stored quotations + PPF, preview / download / print, edit history, track record, this-month dashboard panel.
 5. Hyundai quotation format (one page), editable Document formats, PPF voucher layout, variant codes with paste-from-Excel, Ref `HI/<code>/<date>`, both logos in the header, PPF data from the order.
+6. **Drizzle → Prisma** (2026-09-29): Prisma ORM 7 + Prisma Migrate replace Drizzle completely (baseline `0_init` = the previous schema incl. RLS/triggers/grants; raw SQL via `$queryRaw`; API values unchanged). Existing databases: `npx prisma migrate resolve --applied 0_init` once.

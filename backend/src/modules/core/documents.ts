@@ -1,6 +1,6 @@
-import { eq, sql } from 'drizzle-orm';
-import type { Executor } from '../../db/client';
-import { dealership, documentSequence } from './models';
+import { type Executor, query } from '../../db/client';
+import { sql } from '../../db/sql';
+import { documentSequence } from './models';
 
 /** Document types with a numbering series. Add new series here. */
 export const DocType = {
@@ -30,14 +30,13 @@ export type DocType = (typeof DocType)[keyof typeof DocType];
  */
 export async function nextDocumentNumber(ex: Executor, dealershipId: number, docType: DocType, on = new Date()): Promise<string> {
   const year = on.getFullYear();
-  const [row] = await ex
-    .insert(documentSequence)
-    .values({ dealershipId, docType, year, lastNo: 1 })
-    .onConflictDoUpdate({
-      target: [documentSequence.dealershipId, documentSequence.docType, documentSequence.year],
-      set: { lastNo: sql`${documentSequence.lastNo} + 1` },
-    })
-    .returning({ lastNo: documentSequence.lastNo });
-  const [d] = await ex.select({ code: dealership.code }).from(dealership).where(eq(dealership.id, dealershipId));
+  const [row] = await query<{ lastNo: number }>(
+    ex,
+    sql`insert into ${documentSequence} (dealership_id, doc_type, year, last_no)
+        values (${dealershipId}, ${docType}, ${year}, 1)
+        on conflict (dealership_id, doc_type, year) do update set last_no = ${documentSequence.lastNo} + 1
+        returning last_no as "lastNo"`,
+  );
+  const d = await ex.dealership.findFirst({ where: { id: dealershipId }, select: { code: true } });
   return `${d!.code}-${docType}-${year}-${String(row!.lastNo).padStart(5, '0')}`;
 }

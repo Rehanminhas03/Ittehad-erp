@@ -1,11 +1,9 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { type AccountRole, CHART_TEMPLATE } from '../../config/accounting';
 import type { EntityCtx } from '../../entity/types';
 import { conflict, notFound, validationError } from '../../lib/errors';
 import { fromPaisa, toPaisa } from '../../lib/money';
 import { DocType, nextDocumentNumber } from '../core/documents';
-import { dealership } from '../core/models';
-import { account, journalEntry, journalLine } from './models';
+import type { JOURNAL_SOURCES } from './models';
 
 export interface PostingLine {
   /** Either a role (automatic postings) or a specific account (manual journals). */
@@ -22,7 +20,7 @@ export interface Posting {
   dealershipId: number;
   branchId?: number | null;
   entryDate?: string;
-  source: (typeof journalEntry.$inferInsert)['source'];
+  source: (typeof JOURNAL_SOURCES)[number];
   sourceType?: string;
   sourceId?: number;
   memo: string;
@@ -39,23 +37,20 @@ const TEMPLATE_ROLES = CHART_TEMPLATE.filter((a) => a.role).length;
  * Accounts whose code or role is already taken are left as the accountant set them up.
  */
 export async function ensureChart(ctx: EntityCtx, dealershipId: number) {
-  const [{ n } = { n: 0 }] = await ctx.tx
-    .select({ n: sql<number>`count(*)::int` })
-    .from(account)
-    .where(and(eq(account.dealershipId, dealershipId), sql`${account.role} is not null`));
+  const n = await ctx.tx.account.count({ where: { dealershipId, role: { not: null } } });
   if (n >= TEMPLATE_ROLES) return;
-  await ctx.tx
-    .insert(account)
-    .values(CHART_TEMPLATE.map((a) => ({ ...a, role: a.role ?? null, dealershipId, createdById: ctx.access.userId, updatedById: ctx.access.userId })))
-    .onConflictDoNothing();
+  await ctx.tx.account.createMany({
+    data: CHART_TEMPLATE.map((a) => ({ ...a, role: a.role ?? null, dealershipId, createdById: ctx.access.userId, updatedById: ctx.access.userId })),
+    skipDuplicates: true,
+  });
 }
 
 async function accountsByRole(ctx: EntityCtx, dealershipId: number, roles: AccountRole[]) {
   if (!roles.length) return new Map<string, number>();
-  const rows = await ctx.tx
-    .select({ id: account.id, role: account.role })
-    .from(account)
-    .where(and(eq(account.dealershipId, dealershipId), inArray(account.role, roles), eq(account.isActive, true)));
+  const rows = await ctx.tx.account.findMany({
+    where: { dealershipId, role: { in: roles }, isActive: true },
+    select: { id: true, role: true },
+  });
   const map = new Map(rows.map((r) => [r.role!, r.id]));
   const missing = roles.filter((r) => !map.has(r));
   if (missing.length) throw conflict(`The chart of accounts has no active account for: ${missing.join(', ')}`);
@@ -84,20 +79,19 @@ export async function post(ctx: EntityCtx, p: Posting) {
   const byRole = await accountsByRole(ctx, p.dealershipId, roles);
   const explicit = lines.map((l) => l.accountId).filter((x): x is number => !!x);
   if (explicit.length) {
-    const found = await ctx.tx
-      .select({ id: account.id })
-      .from(account)
-      .where(and(eq(account.dealershipId, p.dealershipId), inArray(account.id, explicit), eq(account.isActive, true)));
+    const found = await ctx.tx.account.findMany({
+      where: { dealershipId: p.dealershipId, id: { in: explicit }, isActive: true },
+      select: { id: true },
+    });
     if (found.length !== new Set(explicit).size) throw validationError([{ in: 'body', path: 'lines', message: "Use active accounts of this dealership's chart" }]);
   }
 
-  const [d] = await ctx.tx
-    .select({ legalEntityId: dealership.legalEntityId, accountingEntityId: dealership.accountingEntityId })
-    .from(dealership)
-    .where(eq(dealership.id, p.dealershipId));
-  const [entry] = await ctx.tx
-    .insert(journalEntry)
-    .values({
+  const d = await ctx.tx.dealership.findFirst({
+    where: { id: p.dealershipId },
+    select: { legalEntityId: true, accountingEntityId: true },
+  });
+  const entry = await ctx.tx.journalEntry.create({
+    data: {
       dealershipId: p.dealershipId,
       branchId: p.branchId ?? null,
       legalEntityId: d?.legalEntityId ?? null,
@@ -111,12 +105,12 @@ export async function post(ctx: EntityCtx, p: Posting) {
       totalAmount: fromPaisa(debit),
       reversalOfId: p.reversalOfId ?? null,
       postedById: ctx.access.userId,
-    })
-    .returning();
-  await ctx.tx.insert(journalLine).values(
-    lines.map((l) => ({
+    },
+  });
+  await ctx.tx.journalLine.createMany({
+    data: lines.map((l) => ({
       dealershipId: p.dealershipId,
-      journalEntryId: entry!.id,
+      journalEntryId: entry.id,
       accountId: l.accountId ?? byRole.get(l.role!)!,
       debit: fromPaisa(l.d),
       credit: fromPaisa(l.c),
@@ -124,18 +118,18 @@ export async function post(ctx: EntityCtx, p: Posting) {
       supplierId: l.supplierId ?? null,
       description: l.description ?? null,
     })),
-  );
-  return entry!;
+  });
+  return entry;
 }
 
 /** Cancels a posted entry with a mirror entry (debits and credits swapped). Each entry reverses once. */
 export async function reverse(ctx: EntityCtx, entryId: number, memo: string, source: Posting['source'] = 'reversal') {
-  const [original] = await ctx.tx.select().from(journalEntry).where(eq(journalEntry.id, entryId));
+  const original = await ctx.tx.journalEntry.findFirst({ where: { id: entryId } });
   if (!original) throw notFound('Journal entry');
-  const [already] = await ctx.tx.select({ id: journalEntry.id }).from(journalEntry).where(eq(journalEntry.reversalOfId, entryId));
+  const already = await ctx.tx.journalEntry.findFirst({ where: { reversalOfId: entryId }, select: { id: true } });
   if (already) throw conflict('This entry has already been reversed');
   if (original.reversalOfId) throw conflict('A reversal cannot itself be reversed; post a new entry instead');
-  const lines = await ctx.tx.select().from(journalLine).where(eq(journalLine.journalEntryId, entryId)).orderBy(asc(journalLine.id));
+  const lines = await ctx.tx.journalLine.findMany({ where: { journalEntryId: entryId }, orderBy: { id: 'asc' } });
   return post(ctx, {
     dealershipId: original.dealershipId,
     branchId: original.branchId,

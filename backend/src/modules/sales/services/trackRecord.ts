@@ -12,7 +12,8 @@
  * leader logs the lead for them or converts a duplicate customer sent to them; the details say who
  * entered and who converted each lead); orders and deliveries to the order's salesperson.
  */
-import { type SQL, sql } from 'drizzle-orm';
+import { query } from '../../../db/client';
+import { type SQL, sql, raw, empty } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { forbidden } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
@@ -24,7 +25,7 @@ const COUNTS = ['leadsLogged', 'converted', 'carsBooked', 'carsDelivered', 'ppfS
 const AMOUNTS = ['ppfAmount', 'ppfAdvance'] as const;
 type Counts = Record<(typeof COUNTS)[number], number> & Record<(typeof AMOUNTS)[number], string>;
 
-const month = (col: string) => sql.raw(`to_char(${col} at time zone 'Asia/Karachi', 'YYYY-MM')`);
+const month = (col: string) => raw(`to_char(${col} at time zone 'Asia/Karachi', 'YYYY-MM')`);
 
 /** Per-person figures for the records matching `when` (a month or a whole year). */
 function countsSql(dealershipId: number, userCol: SQL, when: (col: string, isDate?: boolean) => SQL) {
@@ -71,15 +72,15 @@ export async function trackRecord(ctx: EntityCtx, q: z.output<typeof TrackRecord
   const inSelection = (col: string, isDate = false) =>
     range
       ? isDate
-        ? sql`${sql.raw(col)} between ${range.from}::date and ${range.to}::date`
-        : sql`(${sql.raw(col)} at time zone 'Asia/Karachi')::date between ${range.from}::date and ${range.to}::date`
+        ? sql`${raw(col)} between ${range.from}::date and ${range.to}::date`
+        : sql`(${raw(col)} at time zone 'Asia/Karachi')::date between ${range.from}::date and ${range.to}::date`
       : selected
       ? isDate
-        ? sql`to_char(${sql.raw(col)}, 'YYYY-MM') = ${selected}`
+        ? sql`to_char(${raw(col)}, 'YYYY-MM') = ${selected}`
         : sql`${month(col)} = ${selected}`
       : isDate
-        ? sql`extract(year from ${sql.raw(col)}) = ${year}`
-        : sql`extract(year from ${sql.raw(`${col} at time zone 'Asia/Karachi'`)}) = ${year}`;
+        ? sql`extract(year from ${raw(col)}) = ${year}`
+        : sql`extract(year from ${raw(`${col} at time zone 'Asia/Karachi'`)}) = ${year}`;
 
   // Anyone with records in the selection (e.g. who has since left, or a team leader's own leads).
   const active = sql`
@@ -100,7 +101,7 @@ export async function trackRecord(ctx: EntityCtx, q: z.output<typeof TrackRecord
       : scope === 'salespeople'
         ? sql`${salespeopleSql(dealershipId)} union ${leadersActive} except ${dealershipManagersSql(dealershipId)}`
         : sql`${salespeopleSql(dealershipId)} union ${crosSql(dealershipId)} union ${active} except ${dealershipManagersSql(dealershipId)}`;
-  const { rows: people } = await ctx.tx.execute<{ userId: number; fullName: string; kind: 'salesperson' | 'cro' | 'leader' }>(sql`
+  const people = await query<{ userId: number; fullName: string; kind: 'salesperson' | 'cro' | 'leader' }>(ctx.tx, sql`
     select u.id::int as "userId", u.full_name as "fullName",
            case when u.id in (${salespeopleSql(dealershipId)}) then 'salesperson'
                 when u.id in (${crosSql(dealershipId)}) then 'cro' else 'leader' end as kind
@@ -120,7 +121,7 @@ export async function trackRecord(ctx: EntityCtx, q: z.output<typeof TrackRecord
           ? crosSql(dealershipId)
           : allowed;
 
-  const { rows: members } = await ctx.tx.execute<Counts & { userId: number; fullName: string; isActive: boolean }>(sql`
+  const members = await query<Counts & { userId: number; fullName: string; isActive: boolean }>(ctx.tx, sql`
     select * from (
       select u.id::int as "userId", u.full_name as "fullName", u.is_active as "isActive", ${countsSql(dealershipId, sql`u.id`, inSelection)}
         from core."user" u
@@ -131,7 +132,7 @@ export async function trackRecord(ctx: EntityCtx, q: z.output<typeof TrackRecord
   // Twelve months of the year for the same people (everyone, the salespeople, one person, or own).
   // Always the people shown, so the months add up to the table (the Dealership Manager is never in it).
   const who = sql`and x.uid in (${shown})`;
-  const { rows: months } = await ctx.tx.execute<Counts & { month: string }>(sql`
+  const months = await query<Counts & { month: string }>(ctx.tx, sql`
     with g as (select to_char(make_date(${year}, n, 1), 'YYYY-MM') as month from generate_series(1, 12) n),
     lg as (select to_char(x.created_at at time zone 'Asia/Karachi', 'YYYY-MM') as month, x.owner_id as uid from sales.lead x
            where x.dealership_id = ${dealershipId}),
@@ -164,7 +165,7 @@ export async function trackRecord(ctx: EntityCtx, q: z.output<typeof TrackRecord
   if (!q.details) return out;
 
   // The customers behind the figures, for the same people and period (report download).
-  const day = (col: string) => sql.raw(`to_char(${col} at time zone 'Asia/Karachi', 'YYYY-MM-DD')`);
+  const day = (col: string) => raw(`to_char(${col} at time zone 'Asia/Karachi', 'YYYY-MM-DD')`);
   const leadRows = (dateCol: string, extra: SQL) => sql`
     select l.owner_id::int as "userId", l.prospect_name as customer, l.prospect_mobile as phone,
            m.brand || ' ' || m.name as vehicle, l.source, l.status,
@@ -175,12 +176,12 @@ export async function trackRecord(ctx: EntityCtx, q: z.output<typeof TrackRecord
       left join core."user" eb on eb.id = l.created_by_id
       left join core."user" cb on cb.id = l.converted_by_id
      where l.dealership_id = ${dealershipId} and l.owner_id in (${shown}) ${extra} and ${inSelection(dateCol)}
-     order by l.owner_id, ${sql.raw(dateCol)}
+     order by l.owner_id, ${raw(dateCol)}
      limit 2000`;
   type LeadRow = { userId: number; customer: string; phone: string; vehicle: string | null; source: string; status: string; loggedOn: string; convertedOn: string | null; enteredBy: string | null; convertedBy: string | null };
-  const { rows: leadsLogged } = await ctx.tx.execute<LeadRow>(leadRows('l.created_at', sql``));
-  const { rows: converted } = await ctx.tx.execute<LeadRow>(leadRows('l.converted_at', sql`and l.converted_at is not null`));
-  const { rows: ppf } = await ctx.tx.execute<{ userId: number; formNo: string; customer: string; phone: string; soldOn: string; coverage: string; price: string; paid: string; unpaid: string }>(sql`
+  const leadsLogged = await query<LeadRow>(ctx.tx, leadRows('l.created_at', empty));
+  const converted = await query<LeadRow>(ctx.tx, leadRows('l.converted_at', sql`and l.converted_at is not null`));
+  const ppf = await query<{ userId: number; formNo: string; customer: string; phone: string; soldOn: string; coverage: string; price: string; paid: string; unpaid: string }>(ctx.tx, sql`
     select p.owner_id::int as "userId", p.form_no as "formNo", l.prospect_name as customer, l.prospect_mobile as phone,
            ${day('p.created_at')} as "soldOn", p.coverage,
            p.total_amount::text as price, p.advance_paid::text as paid, (p.total_amount - p.advance_paid)::numeric(14,2)::text as unpaid

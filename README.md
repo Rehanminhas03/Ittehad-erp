@@ -3,7 +3,7 @@
 Multi-tenant dealership ERP/DMS for **Hyundai Islamabad**, **Jetour Ittehad** and **CSM Ittehad**, built on the PERN stack.
 
 ```
-/backend    Express 5 + TypeScript, Drizzle ORM, PostgreSQL, Zod (validation + OpenAPI), Vitest
+/backend    Express 5 + TypeScript, Prisma ORM, PostgreSQL, Zod (validation + OpenAPI), Vitest
 /frontend   React 19 + TypeScript (Vite), Redux Toolkit + RTK Query (generated client), React Router,
             React Hook Form + Zod, Tailwind
 /scripts    setup.mjs (one-time local setup), dev.mjs (runs backend + frontend together)
@@ -28,8 +28,8 @@ package.json   root commands: setup, dev, test, typecheck, build
 Requirements: Node 22+ and a running PostgreSQL 16+. No Docker.
 
 ```bash
-# once: installs dependencies, creates the dms / dms_app roles and the dms / dms_test databases,
-# writes backend/.env, builds the schema and seeds it
+# once: installs dependencies (and generates Prisma Client), creates the dms / dms_app roles and the
+# dms / dms_test / dms_shadow databases, writes backend/.env, applies the Prisma migrations and seeds
 PG_SUPERUSER_URL=postgres://postgres:<password>@127.0.0.1:5432/postgres npm run setup
 
 # every day: backend + frontend together (Ctrl+C stops both)
@@ -57,7 +57,7 @@ Setup can be re-run safely: existing roles and databases are kept, but the dev d
 
 The two database roles:
 
-- `dms` owns the schema and is used by `db:sync`/seed.
+- `dms` owns the schema and is used by the Prisma migrations and the seed (`MIGRATION_DATABASE_URL`).
 - `dms_app` is what the running app connects as. It can only read and write rows, and Row-Level Security applies to it.
 
 For production, run `npm run build`, then `npm start` (backend). Serve `frontend/dist` from any static web server that forwards `/api` to the backend. If that server is plain HTTP, set `COOKIE_SECURE=false`.
@@ -84,7 +84,8 @@ Everything reused lives in one place: `shared/` on the frontend, and `lib/`, `en
 
 ```
 config/        env.ts (validated settings), dealerships.ts (the three dealerships: the only place they're defined)
-db/            client.ts (pool + per-request tenant transaction), setup.ts (db:sync), sql/ (pre/post-push SQL)
+db/            client.ts (Prisma Client + per-request tenant transaction, query/execute for raw SQL),
+               sql.ts (raw SQL helpers), setup.ts (db:migrate), tables.generated.ts (table/column identifiers)
 auth/          access.ts (scopes → SQL), grants.ts, tokens.ts, permissions.ts (catalog), middleware.ts
 http/          apiRouter.ts (validation + OpenAPI + permission per route), errorHandler.ts, openapi.ts
 entity/        generic engines: EntityConfig (entityService, buildEntityRouter), document lines (lines.ts),
@@ -93,7 +94,7 @@ events/        domain events: catalog.ts (every event + payload), bus.ts (publis
 config/        also policies.ts (discount cap, approvals, warranty, free-service grace, labour rate)
 lib/           errors, logger, pagination, zod helpers
 modules/<name>/
-  models.ts        tables (Drizzle)            permissions.ts  permission codes
+  models.ts        table identifiers, enums    permissions.ts  permission codes
   schemas.ts       request/response (Zod)      entities.ts     EntityConfig per entity
   repository.ts    queries                     service.ts      business rules
   router.ts        endpoints
@@ -511,27 +512,33 @@ How it's built:
 
 ---
 
-## Database: no migration files
+## Database: Prisma ORM + Prisma Migrate
 
-The schema is defined only in the TypeScript models (`backend/src/modules/*/models.ts`) and applied with drizzle-kit `push`:
+- **Schema:** `backend/prisma/schema.prisma` (PostgreSQL, multi-schema: core, audit, sales, service, parts, accounts). Config: `backend/prisma.config.ts`. Migrations run as the owner (`MIGRATION_DATABASE_URL`); `SHADOW_DATABASE_URL` is used by `db:migration`.
+- **Migrations:** `backend/prisma/migrations/`. `0_init` is the baseline: every table, index, RLS policy, function, trigger and grant.
+- **Client:** `npm install` / `npm run db:generate` generate Prisma Client into `backend/src/generated/prisma` (git-ignored). It uses the `pg` driver adapter. The app connects as `dms_app` (`DATABASE_URL`), so RLS applies.
+- **Values** come back as before: ids as numbers, money as `"123.00"` strings, and `date` columns as `"YYYY-MM-DD"` (result extension in `src/db/resultExtension.generated.ts`).
+- **Raw SQL** (reports, joins, row locks, RLS context) goes through Prisma: `` query(tx, sql`…`) `` / `` execute(tx, sql`…`) `` from `src/db/client.ts`. `${lead}` renders `"sales"."lead"` and `${lead.status}` renders `"lead"."status"`.
 
 | Command (in `backend/`) | What it does |
 |---|---|
-| `npm run db:sync` | Applies model changes and keeps data. Runs: `src/db/sql/pre-push.sql` (schemas, RLS helper functions) → `drizzle-kit push` (tables, indexes, constraints, RLS policies) → re-applies policy expressions → `src/db/sql/post-push.sql` (grants, append-only triggers) → permission catalog and role-template sync. |
-| `npm run db:reset` | Drops every module schema and rebuilds from scratch. Destroys all data; refused when `NODE_ENV=production`. |
+| `npm run db:migrate` | `prisma migrate deploy` (applies pending migrations, keeps data), then re-applies the `dms_app` grants and syncs the permission catalog and role templates. |
+| `npm run db:migration -- --name <name>` | Creates a new migration from the changes in `schema.prisma` (`prisma migrate dev --create-only`). Review the SQL and add what Prisma does not model (RLS policy, append-only trigger), then run `npm run db:generate` and `npm run db:migrate`. |
+| `npm run db:generate` | Regenerates Prisma Client and `src/db/tables.generated.ts` / `resultExtension.generated.ts` after a schema change. |
+| `npm run db:reset` | Drops every module schema and the migration history, then migrates from scratch. Destroys all data; refused when `NODE_ENV=production`. |
 | `npm run db:seed` | Idempotent seed: dealerships, a main branch each, and the users above. |
 | `npm run db:fresh` | `db:reset` followed by `db:seed`. |
 
-If a push needs to ask about a rename, it will prompt. In that case, run `npx drizzle-kit push` interactively and then `npm run db:sync`.
+A database created before Prisma (by the old schema push) already has the baseline. Mark it applied once with `npx prisma migrate resolve --applied 0_init`, then run `npm run db:migrate`.
 
-> drizzle-kit 0.31's `push` creates RLS policies without their `USING`/`WITH CHECK` expressions. `db:sync` re-applies them from the model definitions (`policyReconcileSql` in `src/db/setup.ts`), so the models remain the single source of truth.
+> Prisma does not model RLS policies or triggers, so they live in the migration SQL. `test/schema.test.ts` fails if a table has no RLS, or if an FK or tenant column has no index.
 
 ---
 
 ## Testing
 
 ```bash
-npm test                    # backend (rebuilds dms_test from the models) then frontend tests
+npm test                    # backend (rebuilds dms_test from the migrations) then frontend tests
 npm run typecheck           # both projects
 ```
 
@@ -564,18 +571,32 @@ Example: a `Supplier` entity in the `parts` module.
 
 ### Backend
 
-1. **Model**: `src/modules/parts/models.ts`, then export it from `src/db/schema.ts`:
+1. **Model**: add it to `prisma/schema.prisma`, then create the migration and regenerate:
 
-   ```ts
-   export const supplier = partsSchema.table('supplier', {
-     id: pk(),
-     dealershipId: bigintId().notNull().references(() => dealership.id),
-     name: text().notNull(),
-     ...trackedColumns(),
-   }, (t) => [index().on(t.dealershipId), ...trackedIndexes(t), tenantPolicy()]);
+   ```prisma
+   model Supplier {
+     id           BigInt     @id @default(autoincrement())
+     dealershipId BigInt     @map("dealership_id")
+     name         String
+     createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+     updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+     dealership   Dealership @relation(fields: [dealershipId], references: [id])
+
+     @@index([dealershipId])
+     @@map("supplier")
+     @@schema("parts")
+   }
    ```
 
-   `tenantPolicy()` adds RLS. The schema tests fail if you forget it, or an index on an FK or tenant column.
+   ```bash
+   npm run db:migration -- --name add_supplier   # then add to the generated migration.sql:
+   #   alter table parts.supplier enable row level security;
+   #   create policy tenant_isolation on parts.supplier
+   #     using (core.app_tenant_visible(dealership_id)) with check (core.app_tenant_visible(dealership_id));
+   npm run db:generate && npm run db:migrate
+   ```
+
+   Re-export the identifier from `src/modules/parts/models.ts` (`export { supplier } from '../../db/tables.generated'`). The schema tests fail if you forget RLS, or an index on an FK or tenant column.
 
 2. **Permissions**: `src/modules/parts/permissions.ts`:
 
@@ -609,7 +630,7 @@ Example: a `Supplier` entity in the `parts` module.
 
    For approvals, add a `workflow` (states + transitions, each with its own permission, optional guard and effect). You then get `GET /workflow` and `POST /:id/transitions`, with history recorded in `core.workflow_transition`.
 
-5. `npm run db:sync`, then `npm test`. The coverage tests cover the new routes automatically.
+5. `npm run db:migrate`, then `npm test`. The coverage tests cover the new routes automatically.
 
 ### Frontend
 

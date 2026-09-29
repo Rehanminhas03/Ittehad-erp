@@ -1,4 +1,5 @@
-import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { query } from '../../db/client';
+import { sql } from '../../db/sql';
 import { EntityService } from '../../entity/entityService';
 import { withNames } from '../../entity/names';
 import type { EntityConfig, EntityCtx, Row } from '../../entity/types';
@@ -6,11 +7,10 @@ import { conflict, validationError } from '../../lib/errors';
 import { cmpMoney } from '../../lib/money';
 import { BoolQuery, IdQuery, z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
-import { vehicle } from '../master/models';
 import { CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL } from '../master/nameSources';
 import { link, vehicles } from '../master/service';
 import { computeCheckIn, releaseCheckIn } from './checkin';
-import { estimate, estimateLine, inspectionTemplateItem, jobCard, jobCardLine, scheduleItem, vehicleSchedule, visit } from './models';
+import { estimate, inspectionTemplateItem, jobCard, scheduleItem, visit } from './models';
 import { ServicePerm as P } from './permissions';
 import {
   EstimateSchema,
@@ -109,14 +109,14 @@ export const visitEntity: EntityConfig = {
         permission: P.visitsUpdate,
         effect: async (ctx, row) => {
           const on = new Date().toISOString().slice(0, 10);
-          await ctx.tx.update(visit).set({ deliveredAt: new Date() }).where(eq(visit.id, row.id));
+          await ctx.tx.visit.update({ where: { id: row.id }, data: { deliveredAt: new Date() } });
           if (row.scheduleEntryId) {
-            await ctx.tx
-              .update(vehicleSchedule)
-              .set({ status: 'done', visitId: row.id, completedOn: on })
-              .where(eq(vehicleSchedule.id, row.scheduleEntryId as number));
+            await ctx.tx.vehicleSchedule.updateMany({
+              where: { id: row.scheduleEntryId as number },
+              data: { status: 'done', visitId: row.id, completedOn: on },
+            });
           }
-          await ctx.tx.update(vehicle).set({ lastServiceOn: on }).where(eq(vehicle.id, row.vehicleId as number));
+          await ctx.tx.vehicle.updateMany({ where: { id: row.vehicleId as number }, data: { lastServiceOn: on } });
         },
       },
       {
@@ -127,7 +127,7 @@ export const visitEntity: EntityConfig = {
         permission: P.visitsUpdate,
         requiresComment: true,
         effect: async (ctx, row) => {
-          await ctx.tx.update(jobCard).set({ status: 'cancelled', updatedById: ctx.access.userId }).where(eq(jobCard.visitId, row.id));
+          await ctx.tx.jobCard.updateMany({ where: { visitId: row.id }, data: { status: 'cancelled', updatedById: ctx.access.userId } });
           await releaseCheckIn(ctx, row.vehicleId as number);
         },
       },
@@ -164,7 +164,7 @@ export const visitEntity: EntityConfig = {
       });
       const ids = rows.map((r) => r.id);
       const cards = ids.length
-        ? await ctx.tx.select({ id: jobCard.id, visitId: jobCard.visitId }).from(jobCard).where(inArray(jobCard.visitId, ids))
+        ? await ctx.tx.jobCard.findMany({ where: { visitId: { in: ids } }, select: { id: true, visitId: true } })
         : [];
       const byVisit = new Map(cards.map((c) => [c.visitId, c.id]));
       return named.map((r) => ({ ...r, jobCardId: byVisit.get(r.id) ?? null }));
@@ -176,16 +176,11 @@ export const visitEntity: EntityConfig = {
 // Job cards
 // =============================================================================
 async function assertJobCardComplete(ctx: EntityCtx, row: Row): Promise<string | null> {
-  const [{ total = 0, pending = 0 } = {}] = await ctx.tx
-    .select({ total: count(), pending: sql<number>`count(*) filter (where ${jobCardLine.status} = 'pending')::int` })
-    .from(jobCardLine)
-    .where(eq(jobCardLine.jobCardId, row.id));
+  const total = await ctx.tx.jobCardLine.count({ where: { jobCardId: row.id } });
+  const pending = await ctx.tx.jobCardLine.count({ where: { jobCardId: row.id, status: 'pending' } });
   if (!total) return 'Add the work done before completing the job card';
   if (pending) return `${pending} line(s) are not marked done yet`;
-  const [{ open = 0 } = {}] = await ctx.tx
-    .select({ open: count() })
-    .from(estimate)
-    .where(and(eq(estimate.jobCardId, row.id), eq(estimate.status, 'submitted')));
+  const open = await ctx.tx.estimate.count({ where: { jobCardId: row.id, status: 'submitted' } });
   if (open) return 'An estimate is still waiting for approval';
   return null;
 }
@@ -225,7 +220,7 @@ export const jobCardEntity: EntityConfig = {
         permission: P.jobCardsWork,
         guard: (_ctx, row) => (row.technicianId ? null : 'Assign a technician first'),
         effect: async (ctx, row) => {
-          await ctx.tx.update(jobCard).set({ startedAt: new Date() }).where(eq(jobCard.id, row.id));
+          await ctx.tx.jobCard.update({ where: { id: row.id }, data: { startedAt: new Date() } });
           await visits.transition(ctx, row.visitId as number, 'start', undefined, { system: true });
         },
       },
@@ -237,7 +232,7 @@ export const jobCardEntity: EntityConfig = {
         permission: P.jobCardsWork,
         guard: assertJobCardComplete,
         effect: async (ctx, row) => {
-          await ctx.tx.update(jobCard).set({ completedAt: new Date() }).where(eq(jobCard.id, row.id));
+          await ctx.tx.jobCard.update({ where: { id: row.id }, data: { completedAt: new Date() } });
           await visits.transition(ctx, row.visitId as number, 'ready', undefined, { system: true });
         },
       },
@@ -261,7 +256,7 @@ export const jobCardEntity: EntityConfig = {
 
 /** A technician must be an active user who can work job cards in this dealership. */
 export async function assertTechnician(ctx: EntityCtx, userId: number, dealershipId: number) {
-  const { rows } = await ctx.tx.execute<{ ok: boolean }>(sql`
+  const rows = await query<{ ok: boolean }>(ctx.tx, sql`
     select exists (
       select 1 from core.user_role ur
         join core.role_permission rp on rp.role_id = ur.role_id
@@ -311,7 +306,7 @@ export const estimateEntity: EntityConfig = {
         to: 'submitted',
         permission: P.estimatesSubmit,
         guard: async (ctx, row) => {
-          const [{ n } = { n: 0 }] = await ctx.tx.select({ n: count() }).from(estimateLine).where(eq(estimateLine.estimateId, row.id));
+          const n = await ctx.tx.estimateLine.count({ where: { estimateId: row.id } });
           if (!n) return 'Add at least one line';
           return cmpMoney(row.totalAmount as string, '0') > 0 ? null : 'Price the lines before submitting';
         },
@@ -323,15 +318,15 @@ export const estimateEntity: EntityConfig = {
         to: 'approved',
         permission: P.estimatesApprove,
         guard: async (ctx, row) => {
-          const [jc] = await ctx.tx.select({ status: jobCard.status }).from(jobCard).where(eq(jobCard.id, row.jobCardId as number));
+          const jc = await ctx.tx.jobCard.findFirst({ where: { id: row.jobCardId as number }, select: { status: true } });
           return jc && ['open', 'in_progress'].includes(jc.status) ? null : 'The job card is no longer open';
         },
         // Approved work goes onto the job card.
         effect: async (ctx, row) => {
-          const lines = await ctx.tx.select().from(estimateLine).where(eq(estimateLine.estimateId, row.id));
+          const lines = await ctx.tx.estimateLine.findMany({ where: { estimateId: row.id } });
           if (lines.length) {
-            await ctx.tx.insert(jobCardLine).values(
-              lines.map((l) => ({
+            await ctx.tx.jobCardLine.createMany({
+              data: lines.map((l) => ({
                 dealershipId: l.dealershipId,
                 jobCardId: row.jobCardId as number,
                 kind: l.kind,
@@ -343,7 +338,7 @@ export const estimateEntity: EntityConfig = {
                 source: 'estimate' as const,
                 estimateLineId: l.id,
               })),
-            );
+            });
           }
         },
       },

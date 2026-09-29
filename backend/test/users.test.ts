@@ -26,8 +26,8 @@ describe('users & role assignment', () => {
     const a = await createDealership('A');
     const admin = await createUser([{ permissions: [...ADMIN, 'core.dealerships.view'], dealershipId: a.id }]);
     const viewerRole = await roleByName('Management'); // holds many permissions admin lacks
-    const salesRole = await owner.pool.query<{ id: number }>("insert into core.role(name) values ('Tiny') returning id::int");
-    await owner.pool.query(
+    const salesRole = await owner.raw<{ id: number }>("insert into core.role(name) values ('Tiny') returning id::int");
+    await owner.raw(
       "insert into core.role_permission select $1, id from core.permission where code = 'core.dealerships.view'",
       [salesRole.rows[0]!.id],
     );
@@ -67,7 +67,7 @@ describe('users & role assignment', () => {
     const b = await createDealership('B');
     const admin = await createUser([{ permissions: ADMIN, dealershipId: a.id }]);
     const target = await createUser([{ permissions: [], dealershipId: a.id }]);
-    const r = await owner.pool.query<{ id: number }>("insert into core.role(name) values ('Empty') returning id::int");
+    const r = await owner.raw<{ id: number }>("insert into core.role(name) values ('Empty') returning id::int");
     const roleId = r.rows[0]!.id;
     const url = `/api/core/users/${target.user.id}/roles`;
     expect((await api.post(url).set(bearer(admin.token)).send({ roleId, dealershipId: b.id })).status).toBe(403);
@@ -78,7 +78,7 @@ describe('users & role assignment', () => {
 
   it('users cannot change their own role assignments', async () => {
     const admin = await createUser([{ permissions: ADMIN }]);
-    const r = await owner.pool.query<{ id: number }>("insert into core.role(name) values ('Self') returning id::int");
+    const r = await owner.raw<{ id: number }>("insert into core.role(name) values ('Self') returning id::int");
     const res = await api.post(`/api/core/users/${admin.user.id}/roles`).set(bearer(admin.token)).send({ roleId: r.rows[0]!.id });
     expect(res.status).toBe(403);
   });

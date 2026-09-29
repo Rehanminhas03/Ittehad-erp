@@ -1,4 +1,5 @@
-import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { query } from '../../../db/client';
+import { and, eq, inArray, ne, sql, type SQL } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import type { z } from '../../../lib/zod';
 import { user } from '../../core/models';
@@ -9,8 +10,8 @@ import { ReportsPerm as P } from '../permissions';
 import type { DashboardQuery } from '../schemas';
 import { ReportScope } from '../scope';
 
-const count = sql<number>`count(*)::int`;
-const month = (col: unknown) => sql<string>`to_char(date_trunc('month', ${col}), 'YYYY-MM')`;
+const count = sql`count(*)::int`;
+const month = (col: SQL) => sql`to_char(date_trunc('month', ${col}), 'YYYY-MM')`;
 
 /** Sales: leads and conversion, orders booked, vehicles delivered, discounting, pipeline. */
 export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof DashboardQuery>) {
@@ -18,81 +19,97 @@ export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof Dashboar
   const leadScope = scope.where({ dealership: lead.dealershipId, branch: lead.branchId, owner: lead.ownerId });
   const orderScope = scope.where({ dealership: salesOrder.dealershipId, branch: salesOrder.branchId, owner: salesOrder.salespersonId });
   const deliveryScope = scope.where({ dealership: delivery.dealershipId, branch: delivery.branchId, owner: delivery.salespersonId });
-  const delivered = and(deliveryScope, eq(delivery.status, 'delivered'));
+  const delivered = and(deliveryScope, eq(delivery.status, 'delivered'))!;
   const live = ne(salesOrder.status, 'cancelled');
   const stats = new StatsByDealership();
 
   stats.put(
-    await ctx.tx
-      .select({ d: lead.dealershipId, leads: count, won: sql<number>`(count(*) filter (where ${lead.status} in ('converted', 'processing', 'completed')))::int` })
-      .from(lead)
-      .where(and(leadScope, scope.inPeriod(lead.createdAt)))
-      .groupBy(lead.dealershipId),
+    await query<{ d: number; leads: number; won: number }>(
+      ctx.tx,
+      sql`select ${lead.dealershipId} as "d", ${count} as "leads",
+                 (count(*) filter (where ${lead.status} in ('converted', 'processing', 'completed')))::int as "won"
+            from ${lead}
+           where ${and(leadScope, scope.inPeriod(lead.createdAt))}
+           group by ${lead.dealershipId}`,
+    ),
   );
   stats.put(
-    await ctx.tx
-      .select({
-        d: salesOrder.dealershipId,
-        booked: count,
-        bookedValue: sql<string>`sum(${salesOrder.totalAmount})::text`,
-        listValue: sql<string>`sum(${salesOrder.unitPrice})::text`,
-        discount: sql<string>`sum(${salesOrder.discount})::text`,
-      })
-      .from(salesOrder)
-      .where(and(orderScope, live, scope.inPeriod(salesOrder.createdAt)))
-      .groupBy(salesOrder.dealershipId),
+    await query<{ d: number; booked: number; bookedValue: string; listValue: string; discount: string }>(
+      ctx.tx,
+      sql`select ${salesOrder.dealershipId} as "d", ${count} as "booked",
+                 sum(${salesOrder.totalAmount})::text as "bookedValue",
+                 sum(${salesOrder.unitPrice})::text as "listValue",
+                 sum(${salesOrder.discount})::text as "discount"
+            from ${salesOrder}
+           where ${and(orderScope, live, scope.inPeriod(salesOrder.createdAt))}
+           group by ${salesOrder.dealershipId}`,
+    ),
   );
   stats.put(
-    await ctx.tx
-      .select({ d: delivery.dealershipId, delivered: count, deliveredValue: sql<string>`sum(${salesOrder.totalAmount})::text` })
-      .from(delivery)
-      .innerJoin(salesOrder, eq(salesOrder.id, delivery.salesOrderId))
-      .where(and(delivered, scope.inPeriod(delivery.deliveredOn)))
-      .groupBy(delivery.dealershipId),
+    await query<{ d: number; delivered: number; deliveredValue: string }>(
+      ctx.tx,
+      sql`select ${delivery.dealershipId} as "d", ${count} as "delivered", sum(${salesOrder.totalAmount})::text as "deliveredValue"
+            from ${delivery}
+           inner join ${salesOrder} on ${eq(salesOrder.id, delivery.salesOrderId)}
+           where ${and(delivered, scope.inPeriod(delivery.deliveredOn))}
+           group by ${delivery.dealershipId}`,
+    ),
   );
   stats.put(
-    await ctx.tx
-      .select({ d: salesOrder.dealershipId, open: count, openValue: sql<string>`sum(${salesOrder.totalAmount})::text` })
-      .from(salesOrder)
-      .where(and(orderScope, inArray(salesOrder.status, ['submitted', 'approved'])))
-      .groupBy(salesOrder.dealershipId),
+    await query<{ d: number; open: number; openValue: string }>(
+      ctx.tx,
+      sql`select ${salesOrder.dealershipId} as "d", ${count} as "open", sum(${salesOrder.totalAmount})::text as "openValue"
+            from ${salesOrder}
+           where ${and(orderScope, inArray(salesOrder.status, ['submitted', 'approved']))}
+           group by ${salesOrder.dealershipId}`,
+    ),
   );
 
-  const trend = await ctx.tx
-    .select({ month: month(delivery.deliveredOn), value: count })
-    .from(delivery)
-    .where(and(delivered, scope.inTrend(delivery.deliveredOn)))
-    .groupBy(month(delivery.deliveredOn));
-  const byModel = await ctx.tx
-    .select({ label: sql<string>`${vehicleModel.brand} || ' ' || ${vehicleModel.name}`, value: count })
-    .from(salesOrder)
-    .innerJoin(vehicleModel, eq(vehicleModel.id, salesOrder.modelId))
-    .where(and(orderScope, live, scope.inPeriod(salesOrder.createdAt)))
-    .groupBy(vehicleModel.brand, vehicleModel.name)
-    .orderBy(desc(count))
-    .limit(8);
-  const bySource = await ctx.tx
-    .select({ label: lead.source, value: count })
-    .from(lead)
-    .where(and(leadScope, scope.inPeriod(lead.createdAt)))
-    .groupBy(lead.source)
-    .orderBy(desc(count));
+  const trend = await query<{ month: string; value: number }>(
+    ctx.tx,
+    sql`select ${month(delivery.deliveredOn)} as "month", ${count} as "value"
+          from ${delivery}
+         where ${and(delivered, scope.inTrend(delivery.deliveredOn))}
+         group by ${month(delivery.deliveredOn)}`,
+  );
+  const byModel = await query<{ label: string; value: number }>(
+    ctx.tx,
+    sql`select ${vehicleModel.brand} || ' ' || ${vehicleModel.name} as "label", ${count} as "value"
+          from ${salesOrder}
+         inner join ${vehicleModel} on ${eq(vehicleModel.id, salesOrder.modelId)}
+         where ${and(orderScope, live, scope.inPeriod(salesOrder.createdAt))}
+         group by ${vehicleModel.brand}, ${vehicleModel.name}
+         order by ${count} desc
+         limit 8`,
+  );
+  const bySource = await query<{ label: string; value: number }>(
+    ctx.tx,
+    sql`select ${lead.source} as "label", ${count} as "value"
+          from ${lead}
+         where ${and(leadScope, scope.inPeriod(lead.createdAt))}
+         group by ${lead.source}
+         order by ${count} desc`,
+  );
 
   const tables = [];
   if (scope.mode !== 'own') {
-    const booked = await ctx.tx
-      .select({ id: salesOrder.salespersonId, name: user.fullName, booked: count, value: sql<string>`sum(${salesOrder.totalAmount})::text` })
-      .from(salesOrder)
-      .innerJoin(user, eq(user.id, salesOrder.salespersonId))
-      .where(and(orderScope, live, scope.inPeriod(salesOrder.createdAt)))
-      .groupBy(salesOrder.salespersonId, user.fullName)
-      .orderBy(desc(sql`sum(${salesOrder.totalAmount})`))
-      .limit(10);
-    const deliveredBy = await ctx.tx
-      .select({ id: delivery.salespersonId, delivered: count })
-      .from(delivery)
-      .where(and(delivered, scope.inPeriod(delivery.deliveredOn)))
-      .groupBy(delivery.salespersonId);
+    const booked = await query<{ id: number; name: string; booked: number; value: string }>(
+      ctx.tx,
+      sql`select ${salesOrder.salespersonId} as "id", ${user.fullName} as "name", ${count} as "booked", sum(${salesOrder.totalAmount})::text as "value"
+            from ${salesOrder}
+           inner join ${user} on ${eq(user.id, salesOrder.salespersonId)}
+           where ${and(orderScope, live, scope.inPeriod(salesOrder.createdAt))}
+           group by ${salesOrder.salespersonId}, ${user.fullName}
+           order by sum(${salesOrder.totalAmount}) desc
+           limit 10`,
+    );
+    const deliveredBy = await query<{ id: number; delivered: number }>(
+      ctx.tx,
+      sql`select ${delivery.salespersonId} as "id", ${count} as "delivered"
+            from ${delivery}
+           where ${and(delivered, scope.inPeriod(delivery.deliveredOn))}
+           group by ${delivery.salespersonId}`,
+    );
     const dMap = new Map(deliveredBy.map((r) => [r.id, r.delivered]));
     tables.push({
       key: 'by-salesperson',

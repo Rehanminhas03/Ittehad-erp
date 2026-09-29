@@ -1,61 +1,66 @@
-import { eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { matchesPattern, permissionCatalog } from '../../auth/permissions';
-import type { Executor } from '../../db/client';
+import { type Executor, query } from '../../db/client';
+import { join, notInArray, sql } from '../../db/sql';
 import { DEFAULT_ROLES } from './defaultRoles';
-import { branch, dealership, permission, role, rolePermission, user, userRole } from './models';
+import { branch, dealership, permission, role, user, userRole } from './models';
 
+/** Prisma `select` for the user fields the API exposes (never the password hash). */
 export const publicUserColumns = {
-  id: user.id,
-  email: user.email,
-  fullName: user.fullName,
-  phone: user.phone,
-  isActive: user.isActive,
-  lastLoginAt: user.lastLoginAt,
-  createdAt: user.createdAt,
-  updatedAt: user.updatedAt,
-};
+  id: true,
+  email: true,
+  fullName: true,
+  phone: true,
+  isActive: true,
+  lastLoginAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
-export function findUserByEmail(ex: Executor, email: string) {
-  return ex
-    .select()
-    .from(user)
-    .where(sql`lower(${user.email}) = ${email.toLowerCase()}`)
-    .then((r) => r[0]);
+/** Case-insensitive exact match on the email (lower() = lower(), as before). */
+export async function findUserByEmail(ex: Executor, email: string) {
+  const [hit] = await query<{ id: number }>(ex, sql`select ${user.id} as "id" from ${user} where lower(${user.email}) = ${email.toLowerCase()} limit 1`);
+  if (!hit) return undefined;
+  return (await ex.user.findUnique({ where: { id: hit.id } })) ?? undefined;
+}
+
+export interface Assignment {
+  id: number;
+  userId: number;
+  roleId: number;
+  roleName: string;
+  dealershipId: number | null;
+  dealershipName: string | null;
+  branchId: number | null;
+  branchName: string | null;
 }
 
 /**
  * Role assignments for users, with names. dealership/branch names are looked up through
  * LEFT JOINs that are subject to RLS, so names of out-of-scope tenants come back null.
  */
-export function assignmentsFor(ex: Executor, userIds: number[]) {
+export function assignmentsFor(ex: Executor, userIds: number[]): Promise<Assignment[]> {
   if (!userIds.length) return Promise.resolve([]);
-  return ex
-    .select({
-      id: userRole.id,
-      userId: userRole.userId,
-      roleId: userRole.roleId,
-      roleName: role.name,
-      dealershipId: userRole.dealershipId,
-      dealershipName: dealership.name,
-      branchId: userRole.branchId,
-      branchName: branch.name,
-    })
-    .from(userRole)
-    .innerJoin(role, eq(role.id, userRole.roleId))
-    .leftJoin(dealership, eq(dealership.id, userRole.dealershipId))
-    .leftJoin(branch, eq(branch.id, userRole.branchId))
-    .where(inArray(userRole.userId, userIds))
-    .orderBy(role.name, userRole.id);
+  return query<Assignment>(
+    ex,
+    sql`select ${userRole.id} as "id", ${userRole.userId} as "userId", ${userRole.roleId} as "roleId", ${role.name} as "roleName",
+               ${userRole.dealershipId} as "dealershipId", ${dealership.name} as "dealershipName",
+               ${userRole.branchId} as "branchId", ${branch.name} as "branchName"
+          from ${userRole}
+          join ${role} on ${role.id} = ${userRole.roleId}
+          left join ${dealership} on ${dealership.id} = ${userRole.dealershipId}
+          left join ${branch} on ${branch.id} = ${userRole.branchId}
+         where ${userRole.userId} in (${join(userIds)})
+         order by ${role.name}, ${userRole.id}`,
+  );
 }
 
 export async function permissionCodesOfRole(ex: Executor, roleId: number): Promise<string[]> {
-  const rows = await ex
-    .select({ code: permission.code })
-    .from(rolePermission)
-    .innerJoin(permission, eq(permission.id, rolePermission.permissionId))
-    .where(eq(rolePermission.roleId, roleId))
-    .orderBy(permission.code);
-  return rows.map((r) => r.code);
+  const rows = await ex.rolePermission.findMany({
+    where: { roleId },
+    select: { permission: { select: { code: true } } },
+    orderBy: { permission: { code: 'asc' } },
+  });
+  return rows.map((r) => r.permission.code);
 }
 
 /**
@@ -68,41 +73,35 @@ export async function permissionCodesOfRole(ex: Executor, roleId: number): Promi
 export async function syncPermissionsAndRoles(ex: Executor): Promise<{ added: string[]; removed: string[] }> {
   const catalog = permissionCatalog();
   const codes = catalog.map((p) => p.code);
-  const existing = new Set((await ex.select({ code: permission.code }).from(permission)).map((r) => r.code));
+  const existing = new Set((await ex.permission.findMany({ select: { code: true } })).map((r) => r.code));
   const added = codes.filter((c) => !existing.has(c));
 
   if (catalog.length) {
-    await ex
-      .insert(permission)
-      .values(catalog)
-      .onConflictDoUpdate({
-        target: permission.code,
-        set: { description: sql`excluded.description`, module: sql`excluded.module` },
-      });
+    await query(
+      ex,
+      sql`insert into ${permission} (code, module, description)
+          values ${join(catalog.map((p) => sql`(${p.code}, ${p.module}, ${p.description})`))}
+          on conflict (code) do update set description = excluded.description, module = excluded.module
+          returning 1 as "ok"`,
+    );
   }
-  const removed = await ex
-    .delete(permission)
-    .where(codes.length ? notInArray(permission.code, codes) : sql`true`)
-    .returning({ code: permission.code });
+  const removed = await query<{ code: string }>(ex, sql`delete from ${permission} where ${notInArray(permission.code, codes)} returning code`);
 
-  const allPerms = await ex.select({ id: permission.id, code: permission.code }).from(permission);
+  const allPerms = await ex.permission.findMany({ select: { id: true, code: true } });
   for (const tpl of DEFAULT_ROLES) {
-    let [r] = await ex.select().from(role).where(eq(role.name, tpl.name));
+    let r = await ex.role.findFirst({ where: { name: tpl.name } });
     let candidates: typeof allPerms;
     if (!r) {
-      [r] = await ex.insert(role).values({ name: tpl.name, description: tpl.description, isSystem: true, delegatedBy: tpl.delegatedBy ?? null }).returning();
+      r = await ex.role.create({ data: { name: tpl.name, description: tpl.description, isSystem: true, delegatedBy: tpl.delegatedBy ?? null } });
       candidates = allPerms;
     } else {
       candidates = allPerms.filter((p) => added.includes(p.code));
       // A delegation introduced by a newer template is filled in; one an admin set is kept.
-      if (tpl.delegatedBy && !r.delegatedBy) await ex.update(role).set({ delegatedBy: tpl.delegatedBy }).where(eq(role.id, r.id));
+      if (tpl.delegatedBy && !r.delegatedBy) await ex.role.update({ where: { id: r.id }, data: { delegatedBy: tpl.delegatedBy } });
     }
     const grant = candidates.filter((p) => tpl.patterns.some((pat) => matchesPattern(p.code, pat)));
     if (grant.length) {
-      await ex
-        .insert(rolePermission)
-        .values(grant.map((p) => ({ roleId: r!.id, permissionId: p.id })))
-        .onConflictDoNothing();
+      await ex.rolePermission.createMany({ data: grant.map((p) => ({ roleId: r!.id, permissionId: p.id })), skipDuplicates: true });
     }
   }
   return { added, removed: removed.map((r) => r.code) };

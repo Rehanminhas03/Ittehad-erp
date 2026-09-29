@@ -1,12 +1,10 @@
-import { asc, eq } from 'drizzle-orm';
 import type { EntityCtx, Row } from '../../entity/types';
 import { publish } from '../../events/bus';
-import { stockAdjustment, stockAdjustmentLine, stockTransfer, stockTransferLine } from './models';
 import { moveStockLines, sumValues } from './stock';
 
 /** Transfer dispatched: stock leaves the source branch at average cost (recorded for the receiver). */
 export async function dispatchTransfer(ctx: EntityCtx, t: Row) {
-  const lines = await ctx.tx.select().from(stockTransferLine).where(eq(stockTransferLine.stockTransferId, t.id)).orderBy(asc(stockTransferLine.id));
+  const lines = await ctx.tx.stockTransferLine.findMany({ where: { stockTransferId: t.id }, orderBy: { id: 'asc' } });
   const results = await moveStockLines(
     ctx,
     lines.map((l) => ({
@@ -21,14 +19,14 @@ export async function dispatchTransfer(ctx: EntityCtx, t: Row) {
     })),
   );
   for (const [i, l] of lines.entries()) {
-    await ctx.tx.update(stockTransferLine).set({ unitCost: results[i]!.unitCost }).where(eq(stockTransferLine.id, l.id));
+    await ctx.tx.stockTransferLine.update({ where: { id: l.id }, data: { unitCost: results[i]!.unitCost } });
   }
-  await ctx.tx.update(stockTransfer).set({ dispatchedAt: new Date() }).where(eq(stockTransfer.id, t.id));
+  await ctx.tx.stockTransfer.update({ where: { id: t.id }, data: { dispatchedAt: new Date() } });
 }
 
 /** Transfer received: the same quantities arrive at the destination at the dispatch cost. */
 export async function receiveTransfer(ctx: EntityCtx, t: Row) {
-  const lines = await ctx.tx.select().from(stockTransferLine).where(eq(stockTransferLine.stockTransferId, t.id)).orderBy(asc(stockTransferLine.id));
+  const lines = await ctx.tx.stockTransferLine.findMany({ where: { stockTransferId: t.id }, orderBy: { id: 'asc' } });
   await moveStockLines(
     ctx,
     lines.map((l) => ({
@@ -43,16 +41,12 @@ export async function receiveTransfer(ctx: EntityCtx, t: Row) {
       referenceNo: t.transferNo as string,
     })),
   );
-  await ctx.tx.update(stockTransfer).set({ receivedAt: new Date() }).where(eq(stockTransfer.id, t.id));
+  await ctx.tx.stockTransfer.update({ where: { id: t.id }, data: { receivedAt: new Date() } });
 }
 
 /** Approved adjustment: each line moves stock (increases at the given cost or the current average). */
 export async function postAdjustment(ctx: EntityCtx, a: Row) {
-  const lines = await ctx.tx
-    .select()
-    .from(stockAdjustmentLine)
-    .where(eq(stockAdjustmentLine.stockAdjustmentId, a.id))
-    .orderBy(asc(stockAdjustmentLine.id));
+  const lines = await ctx.tx.stockAdjustmentLine.findMany({ where: { stockAdjustmentId: a.id }, orderBy: { id: 'asc' } });
   const results = await moveStockLines(
     ctx,
     lines.map((l) => ({
@@ -68,7 +62,7 @@ export async function postAdjustment(ctx: EntityCtx, a: Row) {
       notes: a.reason as string,
     })),
   );
-  await ctx.tx.update(stockAdjustment).set({ postedAt: new Date() }).where(eq(stockAdjustment.id, a.id));
+  await ctx.tx.stockAdjustment.update({ where: { id: a.id }, data: { postedAt: new Date() } });
   await publish(ctx, {
     type: 'stock.moved',
     dealershipId: a.dealershipId as number,

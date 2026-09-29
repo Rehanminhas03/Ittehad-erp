@@ -3,10 +3,7 @@
  * Jetour and CSM do not use codes. More codes are added by the Assistant Manager / Sales Manager
  * under Variant codes (paste from Excel); this list only seeds a new database.
  */
-import { and, eq } from 'drizzle-orm';
 import type { Executor } from '../../db/client';
-import { vehicleModel } from '../master/models';
-import { vehicleVariant } from './models';
 
 export const HYUNDAI_VARIANTS: [code: string, description: string][] = [
   ['AD16ATSRBEIG', 'ELANTRA 1591CC 6A/T SR (BEIG)'],
@@ -34,7 +31,7 @@ const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /** The catalogue model a description belongs to (its name appears in it, e.g. "TUCSON HEV ..." -> Tucson). */
 export async function detectModel(ex: Executor, brand: string, description: string): Promise<number | null> {
-  const models = await ex.select({ id: vehicleModel.id, name: vehicleModel.name }).from(vehicleModel).where(eq(vehicleModel.brand, brand));
+  const models = await ex.vehicleModel.findMany({ where: { brand }, select: { id: true, name: true } });
   const d = squash(description);
   // Longest name first, so "Santa Fe" wins over a shorter match.
   const hit = models.sort((a, b) => b.name.length - a.name.length).find((m) => d.includes(squash(m.name)));
@@ -44,11 +41,8 @@ export async function detectModel(ex: Executor, brand: string, description: stri
 /** Adds the missing Hyundai codes to a dealership (existing codes are left as they are). */
 export async function seedHyundaiVariants(ex: Executor, dealershipId: number) {
   for (const [code, description] of HYUNDAI_VARIANTS) {
-    const [exists] = await ex
-      .select({ id: vehicleVariant.id })
-      .from(vehicleVariant)
-      .where(and(eq(vehicleVariant.dealershipId, dealershipId), eq(vehicleVariant.code, code)));
+    const exists = await ex.vehicleVariant.findFirst({ where: { dealershipId, code }, select: { id: true } });
     if (exists) continue;
-    await ex.insert(vehicleVariant).values({ dealershipId, code, description, modelId: await detectModel(ex, 'Hyundai', description) });
+    await ex.vehicleVariant.create({ data: { dealershipId, code, description, modelId: await detectModel(ex, 'Hyundai', description) }, select: { id: true } });
   }
 }

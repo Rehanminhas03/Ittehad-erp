@@ -1,10 +1,5 @@
-import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { account, invoice, journalEntry, journalLine } from '../src/modules/accounts/models';
-import { customer, vehicle, vehicleModel } from '../src/modules/master/models';
-import { part } from '../src/modules/parts/models';
-import { salesOrder } from '../src/modules/sales/models';
-import { jobCard, jobCardLine, visit } from '../src/modules/service/models';
+import { transaction } from '../src/db/client';
 import { api, bearer, createBranch, createDealership, createUser, owner, useTestDb } from './helpers';
 
 useTestDb();
@@ -30,7 +25,7 @@ async function setup() {
   const main = await createBranch(d.id, 'MAIN');
   const accountant = await createUser([{ permissions: ACCOUNTANT, dealershipId: d.id }]);
   const outsider = await createUser([{ permissions: ACCOUNTANT, dealershipId: other.id }]);
-  const [m] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
+  const m = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
   return { d, other, main, accountant, outsider, modelId: m!.id };
 }
 type S = Awaited<ReturnType<typeof setup>>;
@@ -38,40 +33,37 @@ type S = Awaited<ReturnType<typeof setup>>;
 async function newCustomer(dealershipId: number, name = 'Ayesha Khan') {
   mobileSeq += 1;
   const n = String(mobileSeq).padStart(7, '0');
-  const [c] = await owner.db.insert(customer).values({ dealershipId, fullName: name, mobile: `0300-${n}`, mobileNormalized: `+92300${n}` }).returning();
+  const c = await owner.db.customer.create({ data: { dealershipId, fullName: name, mobile: `0300-${n}`, mobileNormalized: `+92300${n}` } });
   return c!.id;
 }
 
 /** A completed job card with labour, a part and a free (non-billable) line. */
 async function completedJobCard(s: S, customerId: number) {
-  const [v] = await owner.db.insert(vehicle).values({ vin: `ACCVIN${++mobileSeq}`, modelId: s.modelId }).returning();
-  const [vis] = await owner.db
-    .insert(visit)
-    .values({
+  const v = await owner.db.vehicle.create({ data: { vin: `ACCVIN${++mobileSeq}`, modelId: s.modelId } });
+  const vis = await owner.db.visit.create({
+    data: {
       dealershipId: s.d.id, branchId: s.main.id, visitNo: `V-${mobileSeq}`, vehicleId: v!.id, customerId, advisorId: s.accountant.user.id,
       visitType: 'repair', visitSequence: 1, odometerKm: 12000, warrantyValid: false, freeService: false, status: 'ready',
-    })
-    .returning();
-  const [jc] = await owner.db
-    .insert(jobCard)
-    .values({ dealershipId: s.d.id, branchId: s.main.id, jobCardNo: `JC-${mobileSeq}`, visitId: vis!.id, vehicleId: v!.id, advisorId: s.accountant.user.id, status: 'completed' })
-    .returning();
-  await owner.db.insert(jobCardLine).values([
+    },
+  });
+  const jc = await owner.db.jobCard.create({
+    data: { dealershipId: s.d.id, branchId: s.main.id, jobCardNo: `JC-${mobileSeq}`, visitId: vis!.id, vehicleId: v!.id, advisorId: s.accountant.user.id, status: 'completed' },
+  });
+  await owner.db.jobCardLine.createMany({ data: [
     { dealershipId: s.d.id, jobCardId: jc!.id, kind: 'labour', description: 'Brake service', quantity: '1.5', unitPrice: '3000.00', amount: '4500.00', status: 'done' },
     { dealershipId: s.d.id, jobCardId: jc!.id, kind: 'part', description: 'Front brake pads', partNo: 'BP-FRONT', quantity: '1', unitPrice: '14500.00', amount: '14500.00', status: 'done' },
     { dealershipId: s.d.id, jobCardId: jc!.id, kind: 'labour', description: 'Free wash', quantity: '1', unitPrice: '500.00', amount: '500.00', billable: false, status: 'done' },
-  ]);
+  ] });
   return jc!.id;
 }
 
 async function approvedOrder(s: S, customerId: number, total = '9000000.00') {
-  const [o] = await owner.db
-    .insert(salesOrder)
-    .values({
+  const o = await owner.db.salesOrder.create({
+    data: {
       dealershipId: s.d.id, branchId: s.main.id, orderNo: `SO-${++mobileSeq}`, customerId, salespersonId: s.accountant.user.id, modelId: s.modelId,
       variant: 'Ultimate', color: 'White', unitPrice: total, totalAmount: total, status: 'approved',
-    })
-    .returning();
+    },
+  });
   return o!.id;
 }
 
@@ -94,18 +86,19 @@ describe('general journal (database guarantees)', () => {
     const s = await setup();
     // Adding the first custom account provisions the standard chart.
     await api.post('/api/accounts/chart').set(as(s.accountant)).send({ dealershipId: s.d.id, code: '6100', name: 'Utilities', type: 'expense' }).expect(201);
-    const accs = await owner.db.select().from(account).where(eq(account.dealershipId, s.d.id));
+    const accs = await owner.db.account.findMany({ where: { dealershipId: s.d.id } });
     const cash = accs.find((a) => a.role === 'cash')!;
     const equity = accs.find((a) => a.code === '3000')!;
-    const insertUnbalanced = owner.db.transaction(async (tx) => {
-      const [e] = await tx
-        .insert(journalEntry)
-        .values({ dealershipId: s.d.id, entryNo: 'X-1', entryDate: today(), source: 'manual', memo: 'bad', totalAmount: '100', postedById: s.accountant.user.id })
-        .returning();
-      await tx.insert(journalLine).values([
-        { dealershipId: s.d.id, journalEntryId: e!.id, accountId: cash.id, debit: '100' },
-        { dealershipId: s.d.id, journalEntryId: e!.id, accountId: equity.id, credit: '90' },
-      ]);
+    const insertUnbalanced = transaction(owner.db, async (tx) => {
+      const e = await tx.journalEntry.create({
+        data: { dealershipId: s.d.id, entryNo: 'X-1', entryDate: today(), source: 'manual', memo: 'bad', totalAmount: '100', postedById: s.accountant.user.id },
+      });
+      await tx.journalLine.createMany({
+        data: [
+          { dealershipId: s.d.id, journalEntryId: e!.id, accountId: cash.id, debit: '100' },
+          { dealershipId: s.d.id, journalEntryId: e!.id, accountId: equity.id, credit: '90' },
+        ],
+      });
     });
     await expect(insertUnbalanced).rejects.toThrow();
 
@@ -115,15 +108,15 @@ describe('general journal (database guarantees)', () => {
       .send({ dealershipId: s.d.id, memo: 'Opening cash', lines: [{ accountId: cash.id, debit: '50000' }, { accountId: equity.id, credit: '50000' }] });
     expect(ok.status).toBe(201);
     expect(ok.body.entryNo).toMatch(/^HYD-JV-/);
-    await expect(owner.db.update(journalLine).set({ debit: '1' }).where(eq(journalLine.journalEntryId, ok.body.id))).rejects.toThrow();
-    await expect(owner.db.delete(journalEntry).where(eq(journalEntry.id, ok.body.id))).rejects.toThrow();
+    await expect(owner.db.journalLine.updateMany({ where: { journalEntryId: ok.body.id }, data: { debit: '1' } })).rejects.toThrow();
+    await expect(owner.db.journalEntry.deleteMany({ where: { id: ok.body.id } })).rejects.toThrow();
   });
 
   it('manual entries must balance, reverse once, and automatic entries cannot be reversed directly', async () => {
     const s = await setup();
     const cust = await newCustomer(s.d.id);
     const inv = await issuedInvoice(s, { sourceType: 'sales_order', sourceId: await approvedOrder(s, cust, '100.00') });
-    const accs = await owner.db.select().from(account).where(eq(account.dealershipId, s.d.id));
+    const accs = await owner.db.account.findMany({ where: { dealershipId: s.d.id } });
     const cash = accs.find((a) => a.role === 'cash')!.id;
     const expense = accs.find((a) => a.code === '6000')!.id;
 
@@ -188,9 +181,9 @@ describe('invoices', () => {
     const s = await setup();
     const cust = await newCustomer(s.d.id);
     const orderId = await approvedOrder(s, cust, '9000000.00');
-    await owner.db.update(salesOrder).set({ status: 'submitted' }).where(eq(salesOrder.id, orderId));
+    await owner.db.salesOrder.update({ where: { id: orderId }, data: { status: 'submitted' } });
     expect((await api.post('/api/accounts/invoices').set(as(s.accountant)).send({ sourceType: 'sales_order', sourceId: orderId })).status).toBe(409);
-    await owner.db.update(salesOrder).set({ status: 'approved' }).where(eq(salesOrder.id, orderId));
+    await owner.db.salesOrder.update({ where: { id: orderId }, data: { status: 'approved' } });
 
     const first = await api.post('/api/accounts/invoices').set(as(s.accountant)).send({ sourceType: 'sales_order', sourceId: orderId }).expect(201);
     expect(first.body).toMatchObject({ kind: 'vehicle_sale', taxAmount: '0.00', totalAmount: '9000000.00' });
@@ -211,7 +204,7 @@ describe('invoices', () => {
     const s = await setup();
     const orderId = await approvedOrder(s, await newCustomer(s.d.id));
     const draft = await api.post('/api/accounts/invoices').set(as(s.accountant)).send({ sourceType: 'sales_order', sourceId: orderId }).expect(201);
-    await owner.db.update(salesOrder).set({ status: 'cancelled' }).where(eq(salesOrder.id, orderId));
+    await owner.db.salesOrder.update({ where: { id: orderId }, data: { status: 'cancelled' } });
     expect((await api.post(`/api/accounts/invoices/${draft.body.id}/transitions`).set(as(s.accountant)).send({ action: 'issue' })).status).toBe(409);
   });
 });
@@ -296,7 +289,7 @@ describe('operational postings', () => {
     const s = await setup();
     const parts = await createUser([{ permissions: PARTS, dealershipId: s.d.id }]);
     const approver = await createUser([{ permissions: PARTS, dealershipId: s.d.id }]);
-    await owner.db.insert(part).values({ partNo: 'BP-FRONT', description: 'Front brake pads', sellingPrice: '14500.00' });
+    await owner.db.part.create({ data: { partNo: 'BP-FRONT', description: 'Front brake pads', sellingPrice: '14500.00' } });
     const sup = await api.post('/api/parts/suppliers').set(as(parts)).send({ dealershipId: s.d.id, code: 'HMP', name: 'Hyundai Motor Parts' }).expect(201);
     const po = await api.post('/api/parts/purchase-orders').set(as(parts)).send({ dealershipId: s.d.id, branchId: s.main.id, supplierId: sup.body.id });
     await api.post(`/api/parts/purchase-orders/${po.body.id}/lines`).set(as(parts)).send({ partNo: 'BP-FRONT', quantity: '4', unitPrice: '9000' }).expect(201);
@@ -326,7 +319,7 @@ describe('operational postings', () => {
     expect(tb.byCode['1010']).toBe('-20000.00');
 
     // Ledger: running balance on inventory.
-    const inventory = (await owner.db.select().from(account).where(eq(account.code, '1200'))).find((a) => a.dealershipId === s.d.id)!;
+    const inventory = (await owner.db.account.findMany({ where: { code: '1200' } })).find((a) => a.dealershipId === s.d.id)!;
     const ledger = await api.get(`/api/accounts/reports/ledger?accountId=${inventory.id}`).set(as(s.accountant)).expect(200);
     expect(ledger.body.items.map((r: { debit: string; credit: string; balance: string }) => [r.debit, r.credit, r.balance])).toEqual([
       ['36000.00', '0.00', '36000.00'],
@@ -342,8 +335,8 @@ describe('reports and isolation', () => {
     const i1 = await issuedInvoice(s, { sourceType: 'sales_order', sourceId: await approvedOrder(s, a, '1000.00') });
     const i2 = await issuedInvoice(s, { sourceType: 'sales_order', sourceId: await approvedOrder(s, a, '2000.00') });
     await issuedInvoice(s, { sourceType: 'sales_order', sourceId: await approvedOrder(s, a, '4000.00') });
-    await owner.db.update(invoice).set({ dueDate: daysAgo(45) }).where(eq(invoice.id, i1.id));
-    await owner.db.update(invoice).set({ dueDate: daysAgo(120) }).where(eq(invoice.id, i2.id));
+    await owner.db.invoice.update({ where: { id: i1.id }, data: { dueDate: daysAgo(45) } });
+    await owner.db.invoice.update({ where: { id: i2.id }, data: { dueDate: daysAgo(120) } });
     const res = await api.get(`/api/accounts/reports/receivables?dealershipId=${s.d.id}`).set(as(s.accountant)).expect(200);
     expect(res.body.items).toEqual([
       { customerId: a, customerName: 'Aged', current: '4000.00', days1to30: '0.00', days31to60: '1000.00', days61to90: '0.00', over90: '2000.00', total: '7000.00' },
@@ -363,7 +356,7 @@ describe('reports and isolation', () => {
     // RLS: the outsider's own trial balance never sees the other books.
     const tb = await api.get(`/api/accounts/reports/trial-balance?dealershipId=${s.other.id}`).set(as(s.outsider)).expect(200);
     expect(tb.body.totalDebit).toBe('0.00');
-    const count = await owner.db.execute(sql`select count(*)::int as n from accounts.journal_entry where dealership_id = ${s.other.id}`);
+    const count = await owner.raw('select count(*)::int as n from accounts.journal_entry where dealership_id = $1', [s.other.id]);
     expect((count.rows[0] as { n: number }).n).toBe(0);
   });
 

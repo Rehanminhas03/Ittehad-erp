@@ -1,5 +1,6 @@
-import { type SQL, and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { scopeWhere } from '../../auth/access';
+import { execute, query } from '../../db/client';
+import { type SQL, and, eq, gte, inArray, lt, sql } from '../../db/sql';
 import { LineService } from '../../entity/lines';
 import type { EntityCtx, Row } from '../../entity/types';
 import { publish } from '../../events/bus';
@@ -10,7 +11,6 @@ import type { z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
 import { user } from '../core/models';
 import { jobCards } from '../service/entities';
-import { jobCardLine } from '../service/models';
 import {
   adjustments,
   assertPartNotOnDocument,
@@ -52,8 +52,8 @@ import { moveStockLines, sumValues } from './stock';
 
 const today = () => new Date().toISOString().slice(0, 10);
 /** Decimal comparison/arithmetic in Postgres numeric (exact). */
-async function numeric<T extends Record<string, string>>(ctx: EntityCtx, query: SQL): Promise<T> {
-  const { rows } = await ctx.tx.execute(query);
+async function numeric<T extends Record<string, string>>(ctx: EntityCtx, statement: SQL): Promise<T> {
+  const rows = await query<T>(ctx.tx, statement);
   return rows[0] as T;
 }
 
@@ -79,7 +79,8 @@ function partLinePrepare(
 }
 
 async function recomputePoTotal(ctx: EntityCtx, po: Row) {
-  await ctx.tx.execute(
+  await execute(
+    ctx.tx,
     sql`update ${purchaseOrder} set total_amount = (select coalesce(sum(amount), 0) from ${purchaseOrderLine} where purchase_order_id = ${po.id}) where id = ${po.id}`,
   );
 }
@@ -137,11 +138,11 @@ export async function receiveGoods(ctx: EntityCtx, poId: number, input: z.output
 
   const ids = input.lines.map((l) => l.lineId);
   if (new Set(ids).size !== ids.length) throw validationError([{ in: 'body', path: 'lines', message: 'Each PO line once' }]);
-  const poLines = await ctx.tx
-    .select()
-    .from(purchaseOrderLine)
-    .where(and(eq(purchaseOrderLine.purchaseOrderId, poId), inArray(purchaseOrderLine.id, ids)))
-    .for('update');
+  await query(
+    ctx.tx,
+    sql`select 1 from ${purchaseOrderLine} where ${and(eq(purchaseOrderLine.purchaseOrderId, poId), inArray(purchaseOrderLine.id, ids))!} for update`,
+  );
+  const poLines = await ctx.tx.purchaseOrderLine.findMany({ where: { purchaseOrderId: poId, id: { in: ids } } });
   const byId = new Map(poLines.map((l) => [l.id, l]));
   for (const [i, l] of input.lines.entries()) {
     const pl = byId.get(l.lineId);
@@ -155,9 +156,8 @@ export async function receiveGoods(ctx: EntityCtx, poId: number, input: z.output
   const grnNo = await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.goodsReceipt);
   const amounts = input.lines.map((l) => lineAmount(byId.get(l.lineId)!.unitPrice, l.quantity));
   const totalCost = await sumValues(ctx, amounts);
-  const [grn] = await ctx.tx
-    .insert(goodsReceipt)
-    .values({
+  const grn = await ctx.tx.goodsReceipt.create({
+    data: {
       ...target,
       grnNo,
       purchaseOrderId: poId,
@@ -167,14 +167,14 @@ export async function receiveGoods(ctx: EntityCtx, poId: number, input: z.output
       totalCost,
       notes: input.notes ?? null,
       receivedById: ctx.access.userId,
-    })
-    .returning();
-  await ctx.tx.insert(goodsReceiptLine).values(
-    input.lines.map((l, i) => {
+    },
+  });
+  await ctx.tx.goodsReceiptLine.createMany({
+    data: input.lines.map((l, i) => {
       const pl = byId.get(l.lineId)!;
       return { dealershipId: target.dealershipId, goodsReceiptId: grn!.id, purchaseOrderLineId: pl.id, partId: pl.partId, quantity: l.quantity, unitCost: pl.unitPrice, amount: amounts[i]! };
     }),
-  );
+  });
   await moveStockLines(
     ctx,
     input.lines.map((l) => {
@@ -183,15 +183,14 @@ export async function receiveGoods(ctx: EntityCtx, poId: number, input: z.output
     }),
   );
   for (const l of input.lines) {
-    await ctx.tx
-      .update(purchaseOrderLine)
-      .set({ receivedQty: sql`${purchaseOrderLine.receivedQty} + ${l.quantity}::numeric` })
-      .where(eq(purchaseOrderLine.id, l.lineId));
+    // Atomic: received_qty = received_qty + quantity.
+    await ctx.tx.purchaseOrderLine.update({ where: { id: l.lineId }, data: { receivedQty: { increment: l.quantity } } });
   }
-  const [{ open } = { open: 0 }] = await ctx.tx
-    .select({ open: count() })
-    .from(purchaseOrderLine)
-    .where(and(eq(purchaseOrderLine.purchaseOrderId, poId), lt(purchaseOrderLine.receivedQty, purchaseOrderLine.quantity)));
+  const [{ open } = { open: 0 }] = await query<{ open: number }>(
+    ctx.tx,
+    sql`select count(*)::int as open from ${purchaseOrderLine}
+         where ${and(eq(purchaseOrderLine.purchaseOrderId, poId), lt(purchaseOrderLine.receivedQty, purchaseOrderLine.quantity))!}`,
+  );
   await purchaseOrders.transition(ctx, poId, open ? 'receive' : 'complete_receipt', `Goods receipt ${grnNo}`, { system: true });
   await ctx.audit({ entityType: 'parts.goods_receipt', entityId: grn!.id, action: 'create', ...target, changes: { purchaseOrderId: poId, totalCost, lines: input.lines } });
   await publish(ctx, {
@@ -206,22 +205,21 @@ export async function receiveGoods(ctx: EntityCtx, poId: number, input: z.output
 
 export async function goodsReceiptLines(ctx: EntityCtx, grnId: number) {
   await goodsReceipts.findVisible(ctx, grnId);
-  return ctx.tx
-    .select({
-      id: goodsReceiptLine.id,
-      purchaseOrderLineId: goodsReceiptLine.purchaseOrderLineId,
-      partId: goodsReceiptLine.partId,
-      partNo: part.partNo,
-      description: part.description,
-      quantity: goodsReceiptLine.quantity,
-      unitCost: goodsReceiptLine.unitCost,
-      amount: goodsReceiptLine.amount,
-    })
-    .from(goodsReceiptLine)
-    .innerJoin(part, eq(part.id, goodsReceiptLine.partId))
-    .where(eq(goodsReceiptLine.goodsReceiptId, grnId))
-    .orderBy(asc(goodsReceiptLine.id))
-    .limit(200);
+  return query<{
+    id: number; purchaseOrderLineId: number; partId: number; partNo: string; description: string;
+    quantity: string; unitCost: string; amount: string;
+  }>(
+    ctx.tx,
+    sql`select ${goodsReceiptLine.id} as "id", ${goodsReceiptLine.purchaseOrderLineId} as "purchaseOrderLineId",
+               ${goodsReceiptLine.partId} as "partId", ${part.partNo} as "partNo", ${part.description} as "description",
+               ${goodsReceiptLine.quantity}::text as "quantity", ${goodsReceiptLine.unitCost}::text as "unitCost",
+               ${goodsReceiptLine.amount}::text as "amount"
+          from ${goodsReceiptLine}
+          inner join ${part} on ${part.id} = ${goodsReceiptLine.partId}
+         where ${goodsReceiptLine.goodsReceiptId} = ${grnId}
+         order by ${goodsReceiptLine.id} asc
+         limit 200`,
+  );
 }
 
 // =============================================================================
@@ -237,33 +235,30 @@ export async function listMovements(ctx: EntityCtx, q: PageQuery, f: z.output<ty
   if (f.from) conds.push(gte(inventoryTransaction.occurredAt, new Date(`${f.from}T00:00:00`)));
   if (f.to) conds.push(lt(inventoryTransaction.occurredAt, new Date(new Date(`${f.to}T00:00:00`).getTime() + 86_400_000)));
   const where = and(...conds);
-  const items = await ctx.tx
-    .select({
-      id: inventoryTransaction.id,
-      occurredAt: inventoryTransaction.occurredAt,
-      branchId: inventoryTransaction.branchId,
-      partId: inventoryTransaction.partId,
-      partNo: part.partNo,
-      type: inventoryTransaction.type,
-      quantity: inventoryTransaction.quantity,
-      unitCost: inventoryTransaction.unitCost,
-      value: inventoryTransaction.value,
-      balanceAfter: inventoryTransaction.balanceAfter,
-      averageCostAfter: inventoryTransaction.averageCostAfter,
-      referenceType: inventoryTransaction.referenceType,
-      referenceId: inventoryTransaction.referenceId,
-      referenceNo: inventoryTransaction.referenceNo,
-      notes: inventoryTransaction.notes,
-      actorName: user.fullName,
-    })
-    .from(inventoryTransaction)
-    .innerJoin(part, eq(part.id, inventoryTransaction.partId))
-    .leftJoin(user, eq(user.id, inventoryTransaction.actorId))
-    .where(where)
-    .orderBy(desc(inventoryTransaction.occurredAt), desc(inventoryTransaction.id))
-    .limit(q.pageSize)
-    .offset(offsetOf(q));
-  const [{ total } = { total: 0 }] = await ctx.tx.select({ total: count() }).from(inventoryTransaction).where(where);
+  const items = await query<{
+    id: number; occurredAt: Date; branchId: number; partId: number; partNo: string; type: string;
+    quantity: string; unitCost: string; value: string; balanceAfter: string; averageCostAfter: string;
+    referenceType: string; referenceId: number; referenceNo: string | null; notes: string | null; actorName: string | null;
+  }>(
+    ctx.tx,
+    sql`select ${inventoryTransaction.id} as "id", ${inventoryTransaction.occurredAt} as "occurredAt",
+               ${inventoryTransaction.branchId} as "branchId", ${inventoryTransaction.partId} as "partId", ${part.partNo} as "partNo",
+               ${inventoryTransaction.type} as "type", ${inventoryTransaction.quantity}::text as "quantity",
+               ${inventoryTransaction.unitCost}::text as "unitCost", ${inventoryTransaction.value}::text as "value",
+               ${inventoryTransaction.balanceAfter}::text as "balanceAfter", ${inventoryTransaction.averageCostAfter}::text as "averageCostAfter",
+               ${inventoryTransaction.referenceType} as "referenceType", ${inventoryTransaction.referenceId} as "referenceId",
+               ${inventoryTransaction.referenceNo} as "referenceNo", ${inventoryTransaction.notes} as "notes", ${user.fullName} as "actorName"
+          from ${inventoryTransaction}
+          inner join ${part} on ${part.id} = ${inventoryTransaction.partId}
+          left join ${user} on ${user.id} = ${inventoryTransaction.actorId}
+         where ${where!}
+         order by ${inventoryTransaction.occurredAt} desc, ${inventoryTransaction.id} desc
+         limit ${q.pageSize} offset ${offsetOf(q)}`,
+  );
+  const [{ total } = { total: 0 }] = await query<{ total: number }>(
+    ctx.tx,
+    sql`select count(*)::int as total from ${inventoryTransaction} where ${where!}`,
+  );
   return { items, total, page: q.page, pageSize: q.pageSize };
 }
 
@@ -275,7 +270,7 @@ export async function createPartsRequest(ctx: EntityCtx, input: z.output<typeof 
   const target = { dealershipId: jc.dealershipId as number, branchId: input.branchId };
   if (!ctx.access.canIn(P.requestsCreate, { dealershipId: target.dealershipId, branchId: (jc.branchId as number | null) ?? null })) throw forbidden();
   if (!['open', 'in_progress'].includes(jc.status as string)) throw conflict(`This job card is ${jc.status}`);
-  const [b] = await ctx.tx.execute<{ dealership_id: number }>(sql`select dealership_id::int from core.branch where id = ${input.branchId}`).then((r) => r.rows);
+  const [b] = await query<{ dealership_id: number }>(ctx.tx, sql`select dealership_id::int from core.branch where id = ${input.branchId}`);
   if (!b || b.dealership_id !== target.dealershipId) throw validationError([{ in: 'body', path: 'branchId', message: 'Choose a store branch of this dealership' }]);
 
   const resolved = [];
@@ -283,9 +278,8 @@ export async function createPartsRequest(ctx: EntityCtx, input: z.output<typeof 
   if (new Set(resolved.map((r) => r.part.id)).size !== resolved.length) {
     throw validationError([{ in: 'body', path: 'lines', message: 'Each part once per request' }]);
   }
-  const [req] = await ctx.tx
-    .insert(partsRequest)
-    .values({
+  const req = await ctx.tx.partsRequest.create({
+    data: {
       ...target,
       requestNo: await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.partsRequest),
       jobCardId: jc.id,
@@ -293,11 +287,11 @@ export async function createPartsRequest(ctx: EntityCtx, input: z.output<typeof 
       notes: input.notes ?? null,
       createdById: ctx.access.userId,
       updatedById: ctx.access.userId,
-    })
-    .returning();
-  await ctx.tx.insert(partsRequestLine).values(
-    resolved.map((r) => ({ dealershipId: target.dealershipId, partsRequestId: req!.id, partId: r.part.id, partNo: r.part.partNo, description: r.part.description, quantity: r.quantity })),
-  );
+    },
+  });
+  await ctx.tx.partsRequestLine.createMany({
+    data: resolved.map((r) => ({ dealershipId: target.dealershipId, partsRequestId: req!.id, partId: r.part.id, partNo: r.part.partNo, description: r.part.description, quantity: r.quantity })),
+  });
   await ctx.audit({ entityType: 'parts.parts_request', entityId: req!.id, action: 'create', ...target, changes: input });
   return partsRequests.get(ctx, req!.id);
 }
@@ -305,22 +299,21 @@ export async function createPartsRequest(ctx: EntityCtx, input: z.output<typeof 
 /** Request lines with the store's on-hand quantity, for the parts desk. */
 export async function partsRequestLines(ctx: EntityCtx, requestId: number) {
   const req = await partsRequests.findVisible(ctx, requestId);
-  return ctx.tx
-    .select({
-      id: partsRequestLine.id,
-      partId: partsRequestLine.partId,
-      partNo: partsRequestLine.partNo,
-      description: partsRequestLine.description,
-      quantity: partsRequestLine.quantity,
-      issuedQty: partsRequestLine.issuedQty,
-      returnedQty: partsRequestLine.returnedQty,
-      onHand: stockItem.quantityOnHand,
-    })
-    .from(partsRequestLine)
-    .leftJoin(stockItem, and(eq(stockItem.partId, partsRequestLine.partId), eq(stockItem.branchId, req.branchId as number)))
-    .where(eq(partsRequestLine.partsRequestId, requestId))
-    .orderBy(asc(partsRequestLine.id))
-    .limit(50);
+  return query<{
+    id: number; partId: number; partNo: string; description: string;
+    quantity: string; issuedQty: string; returnedQty: string; onHand: string | null;
+  }>(
+    ctx.tx,
+    sql`select ${partsRequestLine.id} as "id", ${partsRequestLine.partId} as "partId", ${partsRequestLine.partNo} as "partNo",
+               ${partsRequestLine.description} as "description", ${partsRequestLine.quantity}::text as "quantity",
+               ${partsRequestLine.issuedQty}::text as "issuedQty", ${partsRequestLine.returnedQty}::text as "returnedQty",
+               ${stockItem.quantityOnHand}::text as "onHand"
+          from ${partsRequestLine}
+          left join ${stockItem} on ${stockItem.partId} = ${partsRequestLine.partId} and ${stockItem.branchId} = ${req.branchId as number}
+         where ${partsRequestLine.partsRequestId} = ${requestId}
+         order by ${partsRequestLine.id} asc
+         limit 50`,
+  );
 }
 
 async function requestForIssue(ctx: EntityCtx, requestId: number) {
@@ -334,11 +327,11 @@ async function requestForIssue(ctx: EntityCtx, requestId: number) {
 
 async function linesFor(ctx: EntityCtx, requestId: number, lineIds: number[]) {
   if (new Set(lineIds).size !== lineIds.length) throw validationError([{ in: 'body', path: 'lines', message: 'Each line once' }]);
-  const rows = await ctx.tx
-    .select()
-    .from(partsRequestLine)
-    .where(and(eq(partsRequestLine.partsRequestId, requestId), inArray(partsRequestLine.id, lineIds)))
-    .for('update');
+  await query(
+    ctx.tx,
+    sql`select 1 from ${partsRequestLine} where ${and(eq(partsRequestLine.partsRequestId, requestId), inArray(partsRequestLine.id, lineIds))!} for update`,
+  );
+  const rows = await ctx.tx.partsRequestLine.findMany({ where: { partsRequestId: requestId, id: { in: lineIds } } });
   const byId = new Map(rows.map((r) => [r.id, r]));
   lineIds.forEach((id, i) => {
     if (!byId.has(id)) throw validationError([{ in: 'body', path: `lines.${i}.lineId`, message: 'Not a line of this request' }]);
@@ -374,18 +367,17 @@ export async function issueParts(ctx: EntityCtx, requestId: number, input: z.out
 
   for (const l of input.lines) {
     const rl = byId.get(l.lineId)!;
-    const [p] = await ctx.tx.select({ sellingPrice: part.sellingPrice }).from(part).where(eq(part.id, rl.partId));
+    const p = await ctx.tx.part.findFirst({ where: { id: rl.partId }, select: { sellingPrice: true } });
     const { issued } = await numeric<{ issued: string }>(ctx, sql`select (${rl.issuedQty}::numeric + ${l.quantity}::numeric - ${rl.returnedQty}::numeric)::text as issued`);
     let jobCardLineId = rl.jobCardLineId;
     if (jobCardLineId) {
-      await ctx.tx
-        .update(jobCardLine)
-        .set({ quantity: issued, amount: lineAmount(p!.sellingPrice, issued) })
-        .where(eq(jobCardLine.id, jobCardLineId));
+      await ctx.tx.jobCardLine.updateMany({
+        where: { id: jobCardLineId },
+        data: { quantity: issued, amount: lineAmount(p!.sellingPrice, issued) },
+      });
     } else {
-      const [created] = await ctx.tx
-        .insert(jobCardLine)
-        .values({
+      const created = await ctx.tx.jobCardLine.create({
+        data: {
           dealershipId: jc.dealershipId as number,
           jobCardId: jc.id,
           kind: 'part',
@@ -398,20 +390,20 @@ export async function issueParts(ctx: EntityCtx, requestId: number, input: z.out
           status: 'done',
           doneById: ctx.access.userId,
           doneAt: new Date(),
-        })
-        .returning({ id: jobCardLine.id });
+        },
+        select: { id: true },
+      });
       jobCardLineId = created!.id;
     }
-    await ctx.tx
-      .update(partsRequestLine)
-      .set({ issuedQty: sql`${partsRequestLine.issuedQty} + ${l.quantity}::numeric`, jobCardLineId })
-      .where(eq(partsRequestLine.id, rl.id));
+    // Atomic: issued_qty = issued_qty + quantity.
+    await ctx.tx.partsRequestLine.update({ where: { id: rl.id }, data: { issuedQty: { increment: l.quantity }, jobCardLineId } });
   }
 
-  const [{ pending } = { pending: 0 }] = await ctx.tx
-    .select({ pending: count() })
-    .from(partsRequestLine)
-    .where(and(eq(partsRequestLine.partsRequestId, requestId), lt(partsRequestLine.issuedQty, partsRequestLine.quantity)));
+  const [{ pending } = { pending: 0 }] = await query<{ pending: number }>(
+    ctx.tx,
+    sql`select count(*)::int as pending from ${partsRequestLine}
+         where ${and(eq(partsRequestLine.partsRequestId, requestId), lt(partsRequestLine.issuedQty, partsRequestLine.quantity))!}`,
+  );
   await partsRequests.transition(ctx, requestId, pending ? 'issue_partial' : 'issue_full', undefined, { system: true });
   await publish(ctx, {
     type: 'stock.moved',
@@ -434,12 +426,11 @@ export async function returnParts(ctx: EntityCtx, requestId: number, input: z.ou
     const { ok } = await numeric<{ ok: string }>(ctx, sql`select (${l.quantity}::numeric <= ${rl.issuedQty}::numeric - ${rl.returnedQty}::numeric)::text as ok`);
     if (ok !== 'true') throw validationError([{ in: 'body', path: `lines.${i}.quantity`, message: `Only ${Number(rl.issuedQty) - Number(rl.returnedQty)} of ${rl.partNo} can be returned` }]);
     // Cost of the most recent issue of this part on this request.
-    const [issue] = await ctx.tx
-      .select({ unitCost: inventoryTransaction.unitCost })
-      .from(inventoryTransaction)
-      .where(and(eq(inventoryTransaction.referenceType, 'parts_request'), eq(inventoryTransaction.referenceId, req.id), eq(inventoryTransaction.partId, rl.partId), eq(inventoryTransaction.type, 'issue')))
-      .orderBy(desc(inventoryTransaction.id))
-      .limit(1);
+    const issue = await ctx.tx.inventoryTransaction.findFirst({
+      where: { referenceType: 'parts_request', referenceId: req.id, partId: rl.partId, type: 'issue' },
+      select: { unitCost: true },
+      orderBy: { id: 'desc' },
+    });
     costs.push(issue!.unitCost);
   }
 
@@ -461,14 +452,15 @@ export async function returnParts(ctx: EntityCtx, requestId: number, input: z.ou
   for (const l of input.lines) {
     const rl = byId.get(l.lineId)!;
     const { net } = await numeric<{ net: string }>(ctx, sql`select (${rl.issuedQty}::numeric - ${rl.returnedQty}::numeric - ${l.quantity}::numeric)::text as net`);
-    await ctx.tx.update(partsRequestLine).set({ returnedQty: sql`${partsRequestLine.returnedQty} + ${l.quantity}::numeric` }).where(eq(partsRequestLine.id, rl.id));
+    // Atomic: returned_qty = returned_qty + quantity.
+    await ctx.tx.partsRequestLine.update({ where: { id: rl.id }, data: { returnedQty: { increment: l.quantity } } });
     if (rl.jobCardLineId) {
       if (Number(net) === 0) {
-        await ctx.tx.update(partsRequestLine).set({ jobCardLineId: null }).where(eq(partsRequestLine.id, rl.id));
-        await ctx.tx.delete(jobCardLine).where(eq(jobCardLine.id, rl.jobCardLineId));
+        await ctx.tx.partsRequestLine.update({ where: { id: rl.id }, data: { jobCardLineId: null } });
+        await ctx.tx.jobCardLine.deleteMany({ where: { id: rl.jobCardLineId } });
       } else {
-        const [line] = await ctx.tx.select({ unitPrice: jobCardLine.unitPrice }).from(jobCardLine).where(eq(jobCardLine.id, rl.jobCardLineId));
-        await ctx.tx.update(jobCardLine).set({ quantity: net, amount: lineAmount(line!.unitPrice, net) }).where(eq(jobCardLine.id, rl.jobCardLineId));
+        const line = await ctx.tx.jobCardLine.findFirst({ where: { id: rl.jobCardLineId }, select: { unitPrice: true } });
+        await ctx.tx.jobCardLine.updateMany({ where: { id: rl.jobCardLineId }, data: { quantity: net, amount: lineAmount(line!.unitPrice, net) } });
       }
     }
   }

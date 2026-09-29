@@ -1,7 +1,4 @@
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { customer, vehicle, vehicleDealership, vehicleModel, vehicleOwnership } from '../src/modules/master/models';
-import { inspectionTemplateItem, scheduleItem, vehicleSchedule } from '../src/modules/service/models';
 import { api, bearer, createDealership, createUser, owner, useTestDb } from './helpers';
 
 useTestDb();
@@ -31,41 +28,43 @@ async function setup() {
   const tech = await createUser([{ permissions: TECH, dealershipId: d.id }]);
   const manager = await createUser([{ permissions: MANAGER, dealershipId: d.id }]);
   const outsider = await createUser([{ permissions: MANAGER, dealershipId: other.id }]);
-  const [model] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
-  await owner.db.insert(scheduleItem).values([
-    { modelId: model!.id, sequence: 1, name: '1st service', dueKm: 1000, dueMonths: 1, isFree: true, labourHours: '1' },
-    { modelId: model!.id, sequence: 2, name: '2nd service', dueKm: 5000, dueMonths: 6, isFree: true, labourHours: '1.5' },
-    { modelId: model!.id, sequence: 3, name: '3rd service', dueKm: 10000, dueMonths: 12, isFree: false, labourHours: '2' },
-  ]);
-  await owner.db.insert(inspectionTemplateItem).values([
-    { area: 'Brakes', item: 'Front pads', sortOrder: 1 },
-    { area: 'Tyres', item: 'Tread depth', sortOrder: 2 },
-  ]);
+  const model = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
+  await owner.db.scheduleItem.createMany({
+    data: [
+      { modelId: model!.id, sequence: 1, name: '1st service', dueKm: 1000, dueMonths: 1, isFree: true, labourHours: '1' },
+      { modelId: model!.id, sequence: 2, name: '2nd service', dueKm: 5000, dueMonths: 6, isFree: true, labourHours: '1.5' },
+      { modelId: model!.id, sequence: 3, name: '3rd service', dueKm: 10000, dueMonths: 12, isFree: false, labourHours: '2' },
+    ],
+  });
+  await owner.db.inspectionTemplateItem.createMany({
+    data: [
+      { area: 'Brakes', item: 'Front pads', sortOrder: 1 },
+      { area: 'Tyres', item: 'Tread depth', sortOrder: 2 },
+    ],
+  });
   return { d, other, advisor, tech, manager, outsider, modelId: model!.id };
 }
 
 /** A delivered vehicle (as Sales would leave it) with an owner and its schedule. */
 async function deliveredCar(s: Awaited<ReturnType<typeof setup>>, opts: { activatedOn?: string; warrantyEndsOn?: string; vin?: string } = {}) {
-  const [v] = await owner.db
-    .insert(vehicle)
-    .values({
+  const v = await owner.db.vehicle.create({
+    data: {
       vin: opts.vin ?? 'SERVICEVIN001',
       modelId: s.modelId,
       activatedOn: opts.activatedOn ?? today(),
       warrantyEndsOn: opts.warrantyEndsOn ?? shift(36),
       activationOdometerKm: 10,
-    })
-    .returning();
-  await owner.db.insert(vehicleDealership).values({ vehicleId: v!.id, dealershipId: s.d.id, source: 'sale' });
+    },
+  });
+  await owner.db.vehicleDealership.create({ data: { vehicleId: v!.id, dealershipId: s.d.id, source: 'sale' } });
   const n = String(v!.id).padStart(7, '0');
-  const [c] = await owner.db
-    .insert(customer)
-    .values({ dealershipId: s.d.id, fullName: `Owner ${v!.id}`, mobile: `0300-${n}`, mobileNormalized: `+92300${n}` })
-    .returning();
-  await owner.db.insert(vehicleOwnership).values({ dealershipId: s.d.id, vehicleId: v!.id, customerId: c!.id, startDate: today() });
-  const items = await owner.db.select().from(scheduleItem).where(eq(scheduleItem.modelId, s.modelId));
-  await owner.db.insert(vehicleSchedule).values(
-    items.map((i) => ({
+  const c = await owner.db.customer.create({
+    data: { dealershipId: s.d.id, fullName: `Owner ${v!.id}`, mobile: `0300-${n}`, mobileNormalized: `+92300${n}` },
+  });
+  await owner.db.vehicleOwnership.create({ data: { dealershipId: s.d.id, vehicleId: v!.id, customerId: c!.id, startDate: today() } });
+  const items = await owner.db.scheduleItem.findMany({ where: { modelId: s.modelId } });
+  await owner.db.vehicleSchedule.createMany({
+    data: items.map((i) => ({
       vehicleId: v!.id,
       scheduleItemId: i.id,
       sequence: i.sequence,
@@ -75,7 +74,7 @@ async function deliveredCar(s: Awaited<ReturnType<typeof setup>>, opts: { activa
       isFree: i.isFree,
       labourHours: i.labourHours,
     })),
-  );
+  });
   return { vehicleId: v!.id, customerId: c!.id };
 }
 
@@ -103,8 +102,8 @@ describe('service schedule from vehicle activation', () => {
     ];
     const seller = await createUser([{ permissions: salesPerms, dealershipId: s.d.id }]);
     const approver = await createUser([{ permissions: salesPerms, dealershipId: s.d.id }]);
-    const [v] = await owner.db.insert(vehicle).values({ vin: 'EVENTVIN0001', modelId: s.modelId }).returning();
-    await owner.db.insert(vehicleDealership).values({ vehicleId: v!.id, dealershipId: s.d.id });
+    const v = await owner.db.vehicle.create({ data: { vin: 'EVENTVIN0001', modelId: s.modelId } });
+    await owner.db.vehicleDealership.create({ data: { vehicleId: v!.id, dealershipId: s.d.id } });
     const c = await api.post('/api/master/customers').set(bearer(seller.token)).send({ dealershipId: s.d.id, fullName: 'Buyer', mobile: '0300-2222222' });
     const o = await api.post('/api/sales/orders').set(bearer(seller.token)).send({ dealershipId: s.d.id, customerId: c.body.id, modelId: s.modelId, unitPrice: '100' });
     await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(seller.token)).send({ action: 'submit' }).expect(200);
@@ -160,7 +159,7 @@ describe('check-in', () => {
     const s = await setup();
     const old = await deliveredCar(s, { activatedOn: shift(-48), warrantyEndsOn: shift(-12) });
     expect((await checkIn(s, old.vehicleId, { visitType: 'warranty' })).status).toBe(422);
-    await owner.db.update(vehicleSchedule).set({ status: 'done' }).where(eq(vehicleSchedule.vehicleId, old.vehicleId));
+    await owner.db.vehicleSchedule.updateMany({ where: { vehicleId: old.vehicleId }, data: { status: 'done' } });
     const res = await checkIn(s, old.vehicleId);
     expect(res.status).toBe(422);
     expect(res.body.error.details[0].message).toMatch(/No scheduled service is pending/);
@@ -168,8 +167,8 @@ describe('check-in', () => {
 
   it('needs a customer when the car has no owner on record at this dealership', async () => {
     const s = await setup();
-    const [v] = await owner.db.insert(vehicle).values({ vin: 'NOOWNERVIN01', modelId: s.modelId }).returning();
-    await owner.db.insert(vehicleDealership).values({ vehicleId: v!.id, dealershipId: s.d.id });
+    const v = await owner.db.vehicle.create({ data: { vin: 'NOOWNERVIN01', modelId: s.modelId } });
+    await owner.db.vehicleDealership.create({ data: { vehicleId: v!.id, dealershipId: s.d.id } });
     expect((await checkIn(s, v!.id, { visitType: 'repair' })).status).toBe(422);
   });
 

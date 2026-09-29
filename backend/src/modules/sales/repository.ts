@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql } from '../../db/sql';
 import type { NameSource } from '../../entity/names';
 import { vehicle } from '../master/models';
 import { lead, salesOrder } from './models';
@@ -19,5 +19,5 @@ export const dealershipManagersSql = (dealershipId: number) => sql`
 export const ORDER_VEHICLE_STAGE: NameSource = {
   table: salesOrder,
   id: salesOrder.id,
-  label: sql<string>`(select ${vehicle.status} from ${vehicle} where ${vehicle.id} = ${salesOrder.vehicleId})`,
+  label: sql`(select ${vehicle.status} from ${vehicle} where ${vehicle.id} = ${salesOrder.vehicleId})`,
 };

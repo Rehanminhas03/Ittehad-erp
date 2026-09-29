@@ -1,9 +1,9 @@
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { type Tx, query } from '../../db/client';
+import { and, eq, isNull, sql } from '../../db/sql';
 import { POLICIES } from '../../config/policies';
 import type { EntityCtx } from '../../entity/types';
 import { validationError } from '../../lib/errors';
 import { customer, vehicle, vehicleOwnership } from '../master/models';
-import { vehicleSchedule, visit } from './models';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const addDays = (d: string, days: number) => {
@@ -12,17 +12,15 @@ const addDays = (d: string, days: number) => {
   return x.toISOString().slice(0, 10);
 };
 
-type Vehicle = typeof vehicle.$inferSelect;
-type ScheduleEntry = typeof vehicleSchedule.$inferSelect;
+type Vehicle = NonNullable<Awaited<ReturnType<Tx['vehicle']['findFirst']>>>;
+type ScheduleEntry = NonNullable<Awaited<ReturnType<Tx['vehicleSchedule']['findFirst']>>>;
 
 /** The vehicle's next scheduled service not yet done (lowest sequence). */
 export async function nextScheduledService(ctx: EntityCtx, vehicleId: number): Promise<ScheduleEntry | null> {
-  const [e] = await ctx.tx
-    .select()
-    .from(vehicleSchedule)
-    .where(and(eq(vehicleSchedule.vehicleId, vehicleId), eq(vehicleSchedule.status, 'due')))
-    .orderBy(asc(vehicleSchedule.sequence))
-    .limit(1);
+  const e = await ctx.tx.vehicleSchedule.findFirst({
+    where: { vehicleId, status: 'due' },
+    orderBy: { sequence: 'asc' },
+  });
   return e ?? null;
 }
 
@@ -39,13 +37,15 @@ export function isFreeScheduledService(entry: ScheduleEntry, odometerKm: number,
 export const lastKnownOdometer = (v: Vehicle) => v.lastOdometerKm ?? v.activationOdometerKm ?? null;
 
 async function currentOwnerIn(ctx: EntityCtx, vehicleId: number, dealershipId: number) {
-  const [o] = await ctx.tx
-    .select({ customerId: vehicleOwnership.customerId, fullName: customer.fullName })
-    .from(vehicleOwnership)
-    .innerJoin(customer, eq(customer.id, vehicleOwnership.customerId))
-    .where(and(eq(vehicleOwnership.vehicleId, vehicleId), eq(vehicleOwnership.dealershipId, dealershipId), isNull(vehicleOwnership.endDate)))
-    .orderBy(desc(vehicleOwnership.startDate))
-    .limit(1);
+  const [o] = await query<{ customerId: number; fullName: string }>(
+    ctx.tx,
+    sql`select ${vehicleOwnership.customerId} as "customerId", ${customer.fullName} as "fullName"
+        from ${vehicleOwnership}
+        inner join ${customer} on ${customer.id} = ${vehicleOwnership.customerId}
+        where ${and(eq(vehicleOwnership.vehicleId, vehicleId), eq(vehicleOwnership.dealershipId, dealershipId), isNull(vehicleOwnership.endDate))}
+        order by ${vehicleOwnership.startDate} desc
+        limit 1`,
+  );
   return o ?? null;
 }
 
@@ -53,11 +53,10 @@ async function currentOwnerIn(ctx: EntityCtx, vehicleId: number, dealershipId: n
 export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: number) {
   const next = await nextScheduledService(ctx, v.id);
   // A live visit at a dealership the caller can see (RLS); the unique index covers the whole group.
-  const [live] = await ctx.tx
-    .select({ id: visit.id })
-    .from(visit)
-    .where(and(eq(visit.vehicleId, v.id), inArray(visit.status, ['open', 'in_progress', 'ready'])))
-    .limit(1);
+  const live = await ctx.tx.visit.findFirst({
+    where: { vehicleId: v.id, status: { in: ['open', 'in_progress', 'ready'] } },
+    select: { id: true },
+  });
   return {
     visitSequence: v.serviceVisitCount + 1,
     nextScheduled: next,
@@ -78,7 +77,8 @@ export async function computeCheckIn(
   ctx: EntityCtx,
   input: { vehicleId: number; dealershipId: number; customerId?: number | null; visitType: string; odometerKm: number },
 ) {
-  const [v] = await ctx.tx.select().from(vehicle).where(eq(vehicle.id, input.vehicleId)).for('update');
+  await query(ctx.tx, sql`select 1 from ${vehicle} where ${eq(vehicle.id, input.vehicleId)} for update`);
+  const v = await ctx.tx.vehicle.findFirst({ where: { id: input.vehicleId } });
   if (!v) throw validationError([{ in: 'body', path: 'vehicleId', message: 'Vehicle not found' }]);
 
   const last = lastKnownOdometer(v);
@@ -88,7 +88,7 @@ export async function computeCheckIn(
 
   let customerId = input.customerId ?? null;
   if (customerId) {
-    const [c] = await ctx.tx.select({ dealershipId: customer.dealershipId }).from(customer).where(eq(customer.id, customerId));
+    const c = await ctx.tx.customer.findFirst({ where: { id: customerId }, select: { dealershipId: true } });
     if (!c || c.dealershipId !== input.dealershipId) {
       throw validationError([{ in: 'body', path: 'customerId', message: 'Choose a customer of this dealership' }]);
     }
@@ -119,18 +119,19 @@ export async function computeCheckIn(
     freeService = isFreeScheduledService(next, input.odometerKm);
   }
 
-  await ctx.tx
-    .update(vehicle)
-    .set({ serviceVisitCount: v.serviceVisitCount + 1, lastOdometerKm: input.odometerKm })
-    .where(eq(vehicle.id, v.id));
+  await ctx.tx.vehicle.update({
+    where: { id: v.id },
+    data: { serviceVisitCount: v.serviceVisitCount + 1, lastOdometerKm: input.odometerKm },
+  });
 
   return { customerId, warrantyValid, serviceNumber, scheduleEntryId, freeService, visitSequence: v.serviceVisitCount + 1 };
 }
 
 /** Undo the visit counter when a check-in is cancelled (no later visit can exist: one live visit per car). */
 export async function releaseCheckIn(ctx: EntityCtx, vehicleId: number) {
-  const [v] = await ctx.tx.select().from(vehicle).where(eq(vehicle.id, vehicleId)).for('update');
+  await query(ctx.tx, sql`select 1 from ${vehicle} where ${eq(vehicle.id, vehicleId)} for update`);
+  const v = await ctx.tx.vehicle.findFirst({ where: { id: vehicleId } });
   if (v && v.serviceVisitCount > 0) {
-    await ctx.tx.update(vehicle).set({ serviceVisitCount: v.serviceVisitCount - 1 }).where(eq(vehicle.id, vehicleId));
+    await ctx.tx.vehicle.update({ where: { id: vehicleId }, data: { serviceVisitCount: v.serviceVisitCount - 1 } });
   }
 }

@@ -1,7 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
-import { dealership, userRole } from '../src/modules/core/models';
-import { vehicleModel } from '../src/modules/master/models';
 import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
 
 useTestDb();
@@ -10,13 +7,13 @@ type Login = Awaited<ReturnType<typeof createUser>>;
 
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 
 async function setup() {
   const d = await createDealership('HYD');
-  const [model] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
+  const model = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
   return {
     d,
     modelId: model!.id,
@@ -316,7 +313,7 @@ describe('PPF voucher', () => {
 describe('variant codes (Hyundai)', () => {
   it('AM / Manager paste codes from Excel; the salesperson picks one and its description is printed', async () => {
     const s = await setup();
-    await owner.db.update(dealership).set({ brand: 'Hyundai' }).where(eq(dealership.id, s.d.id));
+    await owner.db.dealership.update({ where: { id: s.d.id }, data: { brand: 'Hyundai' } });
     const paste = (who: Login, rows: { code: string; description: string }[]) => api.post('/api/sales/variants/import').set(bearer(who.token)).send({ dealershipId: s.d.id, rows });
     const rows = [
       { code: 'nx4fl16thaw', description: 'TUCSON HEV 1598CC 6A/T AWD SIGNATURE' },
@@ -349,7 +346,7 @@ describe('Hyundai Ref and PPF voucher from the order', () => {
     const id = await lead(s);
     // TestBrand dealership, no format prefix: no code needed.
     expect((await quote(s.sales1, id, { unitPrice: '9000000' })).status).toBe(201);
-    await owner.db.update(dealership).set({ brand: 'Hyundai' }).where(eq(dealership.id, s.d.id));
+    await owner.db.dealership.update({ where: { id: s.d.id }, data: { brand: 'Hyundai' } });
     // Hyundai but no codes yet: still fine.
     expect((await quote(s.sales1, id, { unitPrice: '9000000' })).status).toBe(201);
     await api.post('/api/sales/variants/import').set(bearer(s.am.token)).send({ dealershipId: s.d.id, rows: [{ code: 'NX4FL16THAW', description: 'TUCSON HEV 1598CC 6A/T AWD SIGNATURE' }] }).expect(200);
@@ -640,7 +637,7 @@ const ids = (b: { members: { userId: number }[] }) => b.members.map((m) => m.use
 describe('quotation for another model than the lead', () => {
   it('quotes the model chosen on the quotation, with a typed variant', async () => {
     const s = await setup();
-    const [sonata] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Sonata' }).returning();
+    const sonata = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Sonata' } });
     const id = await lead(s, '03009000001');
     const q = await quote(s.sales1, id, { unitPrice: '9000000', modelId: sonata!.id, variant: '2.5 N Line' });
     expect(q.status, JSON.stringify(q.body)).toBe(201);
@@ -665,7 +662,7 @@ describe('track record groups are the Sales Manager only', () => {
 describe('editing a quotation with a typed variant (Hyundai)', () => {
   it('keeps working without a code; removing a code needs a typed variant', async () => {
     const s = await setup();
-    await owner.db.update(dealership).set({ brand: 'Hyundai' }).where(eq(dealership.id, s.d.id));
+    await owner.db.dealership.update({ where: { id: s.d.id }, data: { brand: 'Hyundai' } });
     await api.post('/api/sales/variants/import').set(bearer(s.am.token)).send({ dealershipId: s.d.id, rows: [{ code: 'NX4FL16THAW', description: 'TUCSON HEV 1598CC 6A/T AWD SIGNATURE' }] }).expect(200);
     const id = await lead(s);
     // "Other": a typed variant, no code; editing only the price (the form sends every field) works.

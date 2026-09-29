@@ -1,9 +1,7 @@
-import { type SQL, and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import { type SQL, and, eq, gte, lt, sql } from '../../db/sql';
 import { viewWhere } from '../../auth/access';
 import type { EntityCtx } from '../../entity/types';
 import { forbidden, validationError } from '../../lib/errors';
-import { dealership } from '../core/models';
 import type { DashboardQuery } from './schemas';
 import type { z } from '../../lib/zod';
 
@@ -53,18 +51,18 @@ export class ReportScope {
   }
 
   /** Tenant (+ owner under view_own) condition, plus the optional dealership filter. */
-  where(cols: { dealership: AnyPgColumn; branch?: AnyPgColumn; owner?: AnyPgColumn }): SQL {
+  where(cols: { dealership: SQL; branch?: SQL; owner?: SQL }): SQL {
     const scope = viewWhere(this.ctx.access, { dealership: cols.dealership, branch: cols.branch }, { view: this.perms.view, viewOwn: cols.owner ? this.perms.viewOwn : undefined }, cols.owner);
     return this.dealershipId ? and(scope, eq(cols.dealership, this.dealershipId))! : scope;
   }
 
   /** `col` falls inside the period (timestamps or dates). */
-  inPeriod(col: AnyPgColumn): SQL {
+  inPeriod(col: SQL): SQL {
     return and(gte(col, sql`${this.from}::date`), lt(col, sql`${addDays(this.to, 1)}::date`))!;
   }
 
   /** `col` falls inside the 6-month trend window. */
-  inTrend(col: AnyPgColumn): SQL {
+  inTrend(col: SQL): SQL {
     return and(gte(col, sql`${`${this.months[0]}-01`}::date`), lt(col, sql`${addDays(this.to, 1)}::date`))!;
   }
 
@@ -72,15 +70,16 @@ export class ReportScope {
   async dealerships(): Promise<{ id: number; name: string }[]> {
     const { access } = this.ctx;
     const codes = [this.perms.view, this.perms.viewOwn].filter((c): c is string => !!c);
-    const base = this.ctx.tx.select({ id: dealership.id, name: dealership.name }).from(dealership).orderBy(dealership.name);
-    if (this.dealershipId) return base.where(eq(dealership.id, this.dealershipId));
-    if (codes.some((c) => access.hasGlobal(c))) return base.where(eq(dealership.isActive, true));
+    const base = (where: { id?: number | { in: number[] }; isActive?: boolean }) =>
+      this.ctx.tx.dealership.findMany({ where, select: { id: true, name: true }, orderBy: [{ name: 'asc' }] });
+    if (this.dealershipId) return base({ id: this.dealershipId });
+    if (codes.some((c) => access.hasGlobal(c))) return base({ isActive: true });
     const ids = new Set<number>();
     for (const c of codes) {
       const s = access.scope(c);
       s.dealershipIds.forEach((d) => ids.add(d));
       s.branches.forEach((b) => ids.add(b.dealershipId));
     }
-    return ids.size ? base.where(inArray(dealership.id, [...ids])) : [];
+    return ids.size ? base({ id: { in: [...ids] } }) : [];
   }
 }

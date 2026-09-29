@@ -4,13 +4,12 @@
  * dealership prints with the current format. Until edited, a built-in default applies: Hyundai
  * Islamabad's own quotation, and the same format with their own names for Jetour and CSM.
  */
-import { and, eq } from 'drizzle-orm';
 import type { EntityCtx } from '../../../entity/types';
 import { forbidden, notFound } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
 import { diffChanges } from '../../core/audit';
-import { dealership, user } from '../../core/models';
-import { DOCUMENT_KINDS, documentTemplate } from '../models';
+import type { Prisma } from '../../../generated/prisma/client';
+import type { DOCUMENT_KINDS } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { DocumentTemplateBody } from '../schemas';
 
@@ -107,10 +106,10 @@ function ppfDefaults(d: Dealer): Fields {
 const defaultsFor = (d: Dealer, kind: Kind): Fields => (kind === 'ppf' ? ppfDefaults(d) : quotationDefaults(d));
 
 async function dealer(ctx: EntityCtx, dealershipId: number): Promise<Dealer> {
-  const [d] = await ctx.tx
-    .select({ name: dealership.name, code: dealership.code, brand: dealership.brand, address: dealership.address, city: dealership.city, phone: dealership.phone })
-    .from(dealership)
-    .where(eq(dealership.id, dealershipId));
+  const d = await ctx.tx.dealership.findUnique({
+    where: { id: dealershipId },
+    select: { name: true, code: true, brand: true, address: true, city: true, phone: true },
+  });
   if (!d) throw notFound('Dealership');
   return d;
 }
@@ -140,13 +139,10 @@ const pickFields = (r: Record<string, unknown>): Fields => ({
 
 /** The dealership's current format (saved, or the built-in default). Server-internal: no permission check. */
 export async function loadTemplate(ctx: EntityCtx, dealershipId: number, kind: Kind = 'quotation') {
-  const [row] = await ctx.tx
-    .select()
-    .from(documentTemplate)
-    .where(and(eq(documentTemplate.dealershipId, dealershipId), eq(documentTemplate.kind, kind)));
+  const row = await ctx.tx.documentTemplate.findUnique({ where: { dealershipId_kind: { dealershipId, kind } } });
   if (!row) return { dealershipId, kind, ...defaultsFor(await dealer(ctx, dealershipId), kind), isDefault: true, updatedAt: null, updatedByName: null };
-  const [u] = row.updatedById ? await ctx.tx.select({ name: user.fullName }).from(user).where(eq(user.id, row.updatedById)) : [];
-  return { dealershipId, kind, ...pickFields(row), isDefault: false, updatedAt: row.updatedAt, updatedByName: u?.name ?? null };
+  const u = row.updatedById ? await ctx.tx.user.findUnique({ where: { id: row.updatedById }, select: { fullName: true } }) : null;
+  return { dealershipId, kind, ...pickFields(row), isDefault: false, updatedAt: row.updatedAt, updatedByName: u?.fullName ?? null };
 }
 
 /** Anyone who issues or reads the dealership's documents may read its format (the forms use its defaults). */
@@ -162,17 +158,17 @@ export async function saveTemplate(ctx: EntityCtx, kind: Kind, input: z.output<t
   if (!ctx.access.canIn(P.templatesManage, { dealershipId })) throw forbidden('Only the Assistant Manager or Sales Manager can change the formats');
   const before = await loadTemplate(ctx, dealershipId, kind);
   const values: Fields = pickFields({ ...fields });
-  const [row] = await ctx.tx
-    .insert(documentTemplate)
-    .values({ dealershipId, kind, ...values, createdById: ctx.access.userId, updatedById: ctx.access.userId })
-    .onConflictDoUpdate({
-      target: [documentTemplate.dealershipId, documentTemplate.kind],
-      set: { ...values, updatedById: ctx.access.userId, updatedAt: new Date() },
-    })
-    .returning({ id: documentTemplate.id });
+  const { fieldLabels, ...rest } = values;
+  const data = { ...rest, fieldLabels: fieldLabels as Prisma.InputJsonValue };
+  const row = await ctx.tx.documentTemplate.upsert({
+    where: { dealershipId_kind: { dealershipId, kind } },
+    create: { dealershipId, kind, ...data, createdById: ctx.access.userId, updatedById: ctx.access.userId },
+    update: { ...data, updatedById: ctx.access.userId, updatedAt: new Date() },
+    select: { id: true },
+  });
   const changes = diffChanges(pickFields(before), values);
   if (Object.keys(changes).length) {
-    await ctx.audit({ entityType: 'sales.document_template', entityId: row!.id, action: before.isDefault ? 'create' : 'update', dealershipId, branchId: null, changes });
+    await ctx.audit({ entityType: 'sales.document_template', entityId: row.id, action: before.isDefault ? 'create' : 'update', dealershipId, branchId: null, changes });
   }
   return loadTemplate(ctx, dealershipId, kind);
 }

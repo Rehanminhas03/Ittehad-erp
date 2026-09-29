@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from 'drizzle-orm';
+import { sql } from '../../db/sql';
 import { INVOICE_DUE_DAYS, REVENUE_ROLE, type AccountRole } from '../../config/accounting';
 import { EntityService } from '../../entity/entityService';
 import { type NameSource, withNames } from '../../entity/names';
@@ -8,10 +8,8 @@ import { fromPaisa, toPaisa } from '../../lib/money';
 import { BoolQuery, IdQuery, z } from '../../lib/zod';
 import { CUSTOMER_NAME, USER_NAME } from '../master/nameSources';
 import { SUPPLIER_NAME } from '../parts/entities';
-import { salesOrder } from '../sales/models';
-import { jobCard } from '../service/models';
 import { ensureChart, post, reverse } from './ledger';
-import { account, invoice, invoiceLine, journalEntry, payment, paymentAllocation } from './models';
+import { account, invoice, journalEntry, payment } from './models';
 import { AccountsPerm as P } from './permissions';
 import { AccountCreate, AccountSchema, AccountUpdate, InvoiceSchema, InvoiceUpdate, JournalEntrySchema, PaymentSchema } from './schemas';
 
@@ -19,7 +17,7 @@ const statusFilter = (states: readonly string[]) => ({ key: 'status', schema: z.
 const today = () => new Date().toISOString().slice(0, 10);
 export const addDays = (isoDate: string, days: number) => new Date(Date.parse(`${isoDate}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
-export const ACCOUNT_LABEL: NameSource = { table: account, id: account.id, label: sql<string>`${account.code} || ' ' || ${account.name}` };
+export const ACCOUNT_LABEL: NameSource = { table: account, id: account.id, label: sql`${account.code} || ' ' || ${account.name}` };
 export const INVOICE_NO: NameSource = { table: invoice, id: invoice.id, label: invoice.invoiceNo };
 
 // =============================================================================
@@ -79,11 +77,11 @@ export const journalEntity: EntityConfig = {
     decorate: async (ctx, rows) => {
       const named = await withNames(ctx.tx, rows, { postedByName: { key: 'postedById', source: USER_NAME } });
       if (!rows.length) return named;
-      const reversals = await ctx.tx
-        .select({ id: journalEntry.id, of: journalEntry.reversalOfId })
-        .from(journalEntry)
-        .where(inArray(journalEntry.reversalOfId, rows.map((r) => r.id)));
-      const by = new Map(reversals.map((r) => [r.of, r.id]));
+      const reversals = await ctx.tx.journalEntry.findMany({
+        where: { reversalOfId: { in: rows.map((r) => r.id) } },
+        select: { id: true, reversalOfId: true },
+      });
+      const by = new Map(reversals.map((r) => [r.reversalOfId, r.id]));
       return named.map((r) => ({ ...r, reversedById: by.get(r.id) ?? null }));
     },
   },
@@ -95,18 +93,18 @@ export const journalEntity: EntityConfig = {
 /** Why an invoice's source document can no longer be invoiced, or null. */
 async function sourceProblem(ctx: EntityCtx, row: Row): Promise<string | null> {
   if (row.sourceType === 'sales_order') {
-    const [o] = await ctx.tx.select({ status: salesOrder.status }).from(salesOrder).where(eq(salesOrder.id, row.sourceId as number));
+    const o = await ctx.tx.salesOrder.findFirst({ where: { id: row.sourceId as number }, select: { status: true } });
     return o && ['approved', 'delivered'].includes(o.status) ? null : 'The sales order is no longer approved';
   }
   if (row.sourceType === 'job_card') {
-    const [j] = await ctx.tx.select({ status: jobCard.status }).from(jobCard).where(eq(jobCard.id, row.sourceId as number));
+    const j = await ctx.tx.jobCard.findFirst({ where: { id: row.sourceId as number }, select: { status: true } });
     return j?.status === 'completed' ? null : 'The job card is not completed';
   }
   return null;
 }
 
 async function canIssue(ctx: EntityCtx, row: Row) {
-  const [{ n } = { n: 0 }] = await ctx.tx.select({ n: sql<number>`count(*)::int` }).from(invoiceLine).where(eq(invoiceLine.invoiceId, row.id));
+  const n = await ctx.tx.invoiceLine.count({ where: { invoiceId: row.id } });
   if (!n) return 'Add at least one line';
   if (toPaisa(row.totalAmount as string) <= 0n) return 'The invoice total must be greater than zero';
   return sourceProblem(ctx, row);
@@ -114,11 +112,11 @@ async function canIssue(ctx: EntityCtx, row: Row) {
 
 /** Issue: Dr receivables (customer) / Cr revenue by line kind / Cr sales tax. */
 async function postInvoice(ctx: EntityCtx, row: Row) {
-  const lines = await ctx.tx.select().from(invoiceLine).where(eq(invoiceLine.invoiceId, row.id));
+  const lines = await ctx.tx.invoiceLine.findMany({ where: { invoiceId: row.id } });
   const revenue = new Map<AccountRole, bigint>();
   let tax = 0n;
   for (const l of lines) {
-    const role = REVENUE_ROLE[l.kind];
+    const role = REVENUE_ROLE[l.kind as keyof typeof REVENUE_ROLE];
     revenue.set(role, (revenue.get(role) ?? 0n) + toPaisa(l.amount));
     tax += toPaisa(l.taxAmount);
   }
@@ -138,10 +136,10 @@ async function postInvoice(ctx: EntityCtx, row: Row) {
     ],
   });
   const due = addDays(invoiceDate, INVOICE_DUE_DAYS);
-  await ctx.tx
-    .update(invoice)
-    .set({ journalEntryId: entry.id, invoiceDate, dueDate: (row.dueDate as string) > due ? (row.dueDate as string) : due })
-    .where(eq(invoice.id, row.id));
+  await ctx.tx.invoice.update({
+    where: { id: row.id },
+    data: { journalEntryId: entry.id, invoiceDate, dueDate: (row.dueDate as string) > due ? (row.dueDate as string) : due },
+  });
 }
 
 async function voidInvoice(ctx: EntityCtx, row: Row) {
@@ -212,12 +210,9 @@ export const invoiceEntity: EntityConfig = {
 // =============================================================================
 async function voidPayment(ctx: EntityCtx, row: Row) {
   if (row.journalEntryId) await reverse(ctx, row.journalEntryId as number, `Void payment ${row.paymentNo as string}`);
-  const allocations = await ctx.tx.select().from(paymentAllocation).where(eq(paymentAllocation.paymentId, row.id));
+  const allocations = await ctx.tx.paymentAllocation.findMany({ where: { paymentId: row.id } });
   for (const a of allocations) {
-    await ctx.tx
-      .update(invoice)
-      .set({ amountPaid: sql`${invoice.amountPaid} - ${a.amount}::numeric` })
-      .where(eq(invoice.id, a.invoiceId));
+    await ctx.tx.invoice.update({ where: { id: a.invoiceId }, data: { amountPaid: { decrement: a.amount } } });
     await refreshInvoiceStatus(ctx, a.invoiceId, `Payment ${row.paymentNo as string} voided`);
   }
 }
@@ -266,12 +261,9 @@ export const payments = new EntityService(paymentEntity);
 
 /** Moves an invoice to issued / partly paid / paid to match its amount paid. */
 export async function refreshInvoiceStatus(ctx: EntityCtx, invoiceId: number, comment: string) {
-  const [inv] = await ctx.tx
-    .select({ status: invoice.status, total: invoice.totalAmount, paid: invoice.amountPaid })
-    .from(invoice)
-    .where(eq(invoice.id, invoiceId));
-  const paid = toPaisa(inv!.paid);
-  const want = paid === 0n ? 'issued' : paid >= toPaisa(inv!.total) ? 'paid' : 'partially_paid';
+  const inv = await ctx.tx.invoice.findFirst({ where: { id: invoiceId }, select: { status: true, totalAmount: true, amountPaid: true } });
+  const paid = toPaisa(inv!.amountPaid);
+  const want = paid === 0n ? 'issued' : paid >= toPaisa(inv!.totalAmount) ? 'paid' : 'partially_paid';
   if (want === inv!.status) return;
   const action = want === 'issued' ? 'unpay' : want === 'paid' ? 'pay_full' : 'pay_partial';
   await invoices.transition(ctx, invoiceId, action, comment, { system: true });

@@ -3,7 +3,8 @@
  * Manager, only with work of their own in the period), daily walk-ins, orders raised and completed.
  * Computed from the records, one dealership at a time.
  */
-import { sql } from 'drizzle-orm';
+import { query } from '../../../db/client';
+import { sql, raw } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { forbidden, validationError } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
@@ -15,7 +16,7 @@ import { addDays, pakistanToday } from '../../../lib/dates';
 const MAX_DAYS = 92;
 /** Today in Pakistan (UTC+5, no DST). */
 const localToday = () => pakistanToday();
-const day = (col: string) => sql.raw(`(${col} at time zone 'Asia/Karachi')::date`);
+const day = (col: string) => raw(`(${col} at time zone 'Asia/Karachi')::date`);
 
 /** Users with a sales role at the dealership (anyone who logs leads or handles escalations). */
 export const membersSql = (dealershipId: number) => sql`
@@ -45,7 +46,8 @@ export const membersSql = (dealershipId: number) => sql`
 
 export async function teamMembers(ctx: EntityCtx, dealershipId: number) {
   if (![P.leadsViewAll, P.reportsView, P.quotationsViewAll, P.ppfViewAll].some((c) => ctx.access.canIn(c, { dealershipId }))) throw forbidden();
-  const { rows } = await ctx.tx.execute<{ id: number; fullName: string; sellsCars: boolean; takesLeads: boolean }>(
+  const rows = await query<{ id: number; fullName: string; sellsCars: boolean; takesLeads: boolean }>(
+    ctx.tx,
     sql`select id, "fullName", "sellsCars", "takesLeads" from (${membersSql(dealershipId)}) m order by "fullName" limit 200`,
   );
   return rows;
@@ -62,7 +64,7 @@ export async function teamReport(ctx: EntityCtx, q: z.output<typeof TeamReportQu
   }
   const inPeriod = (col: string) => sql`${day(col)} between ${from}::date and ${to}::date`;
 
-  const { rows: members } = await ctx.tx.execute<{
+  const members = await query<{
     userId: number;
     fullName: string;
     roles: string;
@@ -73,7 +75,7 @@ export async function teamReport(ctx: EntityCtx, q: z.output<typeof TeamReportQu
     escalationsConverted: number;
     ordersRaised: number;
     ordersCompleted: number;
-  }>(sql`
+  }>(ctx.tx, sql`
     select "userId", "fullName", roles, leads, "walkIns", "followUps", converted, "escalationsConverted", "ordersRaised", "ordersCompleted" from (
     select m.id as "userId", m."fullName", m.roles, m."isLeader",
       (select count(*)::int from sales.lead l where l.dealership_id = ${dealershipId} and l.owner_id = m.id and ${inPeriod('l.created_at')}) as leads,
@@ -89,7 +91,7 @@ export async function teamReport(ctx: EntityCtx, q: z.output<typeof TeamReportQu
     where not t."isLeader" or t.leads + t."followUps" + t.converted + t."ordersRaised" + t."ordersCompleted" > 0
     order by "ordersRaised" desc, converted desc, "fullName"`);
 
-  const { rows: daily } = await ctx.tx.execute<{ date: string; walkIns: number; leads: number; converted: number }>(sql`
+  const daily = await query<{ date: string; walkIns: number; leads: number; converted: number }>(ctx.tx, sql`
     select to_char(g.d, 'YYYY-MM-DD') as date,
       (select count(*)::int from sales.lead l where l.dealership_id = ${dealershipId} and l.source = 'walk_in' and ${day('l.created_at')} = g.d) as "walkIns",
       (select count(*)::int from sales.lead l where l.dealership_id = ${dealershipId} and ${day('l.created_at')} = g.d) as leads,

@@ -1,5 +1,5 @@
 import type { EntityCtx } from '../entity/types';
-import { domainEvent } from '../modules/core/models';
+import { Prisma } from '../generated/prisma/client';
 import type { DomainEventMap, DomainEventType } from './catalog';
 
 export interface DomainEvent<K extends DomainEventType = DomainEventType> {
@@ -24,13 +24,17 @@ export function subscribe<K extends DomainEventType>(type: K, handler: Handler<K
 
 /** Records the event (append-only log) and runs its subscribers in the same transaction. */
 export async function publish<K extends DomainEventType>(ctx: EntityCtx, event: DomainEvent<K>): Promise<void> {
-  await ctx.tx.insert(domainEvent).values({
-    dealershipId: event.dealershipId,
-    type: event.type,
-    aggregateType: event.aggregateType,
-    aggregateId: event.aggregateId,
-    payload: event.payload,
-    actorId: ctx.access.userId,
+  await ctx.tx.domainEvent.create({
+    data: {
+      dealershipId: event.dealershipId,
+      type: event.type,
+      aggregateType: event.aggregateType,
+      aggregateId: event.aggregateId,
+      // Typed payload objects (plain JSON data).
+      payload: event.payload as unknown as Prisma.InputJsonValue,
+      actorId: ctx.access.userId,
+    },
+    select: { id: true },
   });
   for (const handler of handlers.get(event.type) ?? []) await handler(ctx, event as unknown as DomainEvent<DomainEventType>);
 }

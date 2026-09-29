@@ -1,9 +1,10 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { query } from '../../db/client';
+import { raw, sql } from '../../db/sql';
 import type { EntityCtx } from '../../entity/types';
 import { conflict } from '../../lib/errors';
-import { inventoryTransaction, part, stockItem } from './models';
+import { type MOVEMENT_TYPES, stockItem } from './models';
 
-export type MovementType = (typeof inventoryTransaction.$inferInsert)['type'];
+export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
 export interface Movement {
   dealershipId: number;
@@ -35,59 +36,68 @@ export interface MovementResult {
  * Arithmetic runs in Postgres numeric, so quantities and money are exact.
  */
 export async function moveStock(ctx: EntityCtx, m: Movement): Promise<MovementResult> {
-  await ctx.tx
-    .insert(stockItem)
-    .values({ dealershipId: m.dealershipId, branchId: m.branchId, partId: m.partId })
-    .onConflictDoNothing({ target: [stockItem.branchId, stockItem.partId] });
-  const [item] = await ctx.tx
-    .select()
-    .from(stockItem)
-    .where(and(eq(stockItem.branchId, m.branchId), eq(stockItem.partId, m.partId)))
-    .for('update');
+  // One stock row per (branch, part): a no-op when it already exists.
+  await ctx.tx.stockItem.createMany({
+    data: [{ dealershipId: m.dealershipId, branchId: m.branchId, partId: m.partId }],
+    skipDuplicates: true,
+  });
+  const [item] = await query<{ id: number; quantityOnHand: string; averageCost: string }>(
+    ctx.tx,
+    sql`select ${stockItem.id} as "id", ${stockItem.quantityOnHand}::text as "quantityOnHand", ${stockItem.averageCost}::text as "averageCost"
+          from ${stockItem}
+         where ${stockItem.branchId} = ${m.branchId} and ${stockItem.partId} = ${m.partId}
+           for update`,
+  );
 
   const inbound = !m.quantity.trim().startsWith('-');
   const cost = inbound && m.unitCost != null ? m.unitCost : item!.averageCost;
-  const [updated] = await ctx.tx
-    .update(stockItem)
-    .set({
-      quantityOnHand: sql`${stockItem.quantityOnHand} + ${m.quantity}::numeric`,
-      averageCost: inbound
-        ? sql`case when ${stockItem.quantityOnHand} + ${m.quantity}::numeric = 0 then ${cost}::numeric
-                   else round((${stockItem.quantityOnHand} * ${stockItem.averageCost} + ${m.quantity}::numeric * ${cost}::numeric)
-                              / (${stockItem.quantityOnHand} + ${m.quantity}::numeric), 2) end`
-        : stockItem.averageCost,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(stockItem.id, item!.id), sql`${stockItem.quantityOnHand} + ${m.quantity}::numeric >= 0`))
-    .returning({ balanceAfter: stockItem.quantityOnHand, averageCostAfter: stockItem.averageCost });
+  // One atomic statement: numeric arithmetic in Postgres, never below zero.
+  const averageCost = inbound
+    ? sql`case when ${stockItem.quantityOnHand} + ${m.quantity}::numeric = 0 then ${cost}::numeric
+               else round((${stockItem.quantityOnHand} * ${stockItem.averageCost} + ${m.quantity}::numeric * ${cost}::numeric)
+                          / (${stockItem.quantityOnHand} + ${m.quantity}::numeric), 2) end`
+    : stockItem.averageCost;
+  const [updated] = await query<{ balanceAfter: string; averageCostAfter: string }>(
+    ctx.tx,
+    sql`update ${stockItem}
+           set ${raw('quantity_on_hand')} = ${stockItem.quantityOnHand} + ${m.quantity}::numeric,
+               ${raw('average_cost')} = ${averageCost},
+               ${raw('updated_at')} = now()
+         where ${stockItem.id} = ${item!.id} and ${stockItem.quantityOnHand} + ${m.quantity}::numeric >= 0
+     returning ${stockItem.quantityOnHand}::text as "balanceAfter", ${stockItem.averageCost}::text as "averageCostAfter"`,
+  );
 
   if (!updated) {
-    const [p] = await ctx.tx.select({ partNo: part.partNo }).from(part).where(eq(part.id, m.partId));
+    const p = await ctx.tx.part.findFirst({ where: { id: m.partId }, select: { partNo: true } });
     throw conflict(`Not enough stock of ${p?.partNo ?? `part ${m.partId}`}: ${Number(item!.quantityOnHand)} on hand, ${Math.abs(Number(m.quantity))} needed`, {
       partId: m.partId,
       onHand: item!.quantityOnHand,
     });
   }
 
-  const [{ value } = { value: '0' }] = await ctx.tx.execute<{ value: string }>(
+  const [{ value } = { value: '0' }] = await query<{ value: string }>(
+    ctx.tx,
     sql`select round(${m.quantity}::numeric * ${cost}::numeric, 2)::text as value`,
-  ).then((r) => r.rows);
+  );
 
-  await ctx.tx.insert(inventoryTransaction).values({
-    dealershipId: m.dealershipId,
-    branchId: m.branchId,
-    partId: m.partId,
-    type: m.type,
-    quantity: m.quantity,
-    unitCost: cost,
-    value,
-    balanceAfter: updated.balanceAfter,
-    averageCostAfter: updated.averageCostAfter,
-    referenceType: m.referenceType,
-    referenceId: m.referenceId,
-    referenceNo: m.referenceNo ?? null,
-    notes: m.notes ?? null,
-    actorId: ctx.access.userId,
+  await ctx.tx.inventoryTransaction.create({
+    data: {
+      dealershipId: m.dealershipId,
+      branchId: m.branchId,
+      partId: m.partId,
+      type: m.type,
+      quantity: m.quantity,
+      unitCost: cost,
+      value,
+      balanceAfter: updated.balanceAfter,
+      averageCostAfter: updated.averageCostAfter,
+      referenceType: m.referenceType,
+      referenceId: m.referenceId,
+      referenceNo: m.referenceNo ?? null,
+      notes: m.notes ?? null,
+      actorId: ctx.access.userId,
+    },
+    select: { id: true },
   });
   return { unitCost: cost, value, ...updated };
 }
@@ -106,8 +116,9 @@ export async function moveStockLines(ctx: EntityCtx, moves: Movement[]): Promise
 /** Sum of signed values, exact (for event payloads / document totals). */
 export async function sumValues(ctx: EntityCtx, values: string[]): Promise<string> {
   if (!values.length) return '0.00';
-  const [{ total } = { total: '0.00' }] = await ctx.tx
-    .execute<{ total: string }>(sql`select coalesce(sum(v), 0)::numeric(14,2)::text as total from unnest(${`{${values.join(',')}}`}::numeric[]) v`)
-    .then((r) => r.rows);
+  const [{ total } = { total: '0.00' }] = await query<{ total: string }>(
+    ctx.tx,
+    sql`select coalesce(sum(v), 0)::numeric(14,2)::text as total from unnest(${`{${values.join(',')}}`}::numeric[]) v`,
+  );
   return total;
 }

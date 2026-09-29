@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { vehicleModel } from '../src/modules/master/models';
 import { classifyQuery, normalizeCnic, normalizeIdentifier, normalizeMobile } from '../src/modules/master/normalize';
 import { api, bearer, createDealership, createUser, owner, useTestDb } from './helpers';
 
@@ -11,7 +10,7 @@ const ALL = [
 ];
 
 async function model() {
-  const [m] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
+  const m = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
   return m!.id;
 }
 

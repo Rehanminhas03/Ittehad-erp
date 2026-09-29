@@ -1,7 +1,4 @@
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { userRole } from '../src/modules/core/models';
-import { customer, vehicleModel } from '../src/modules/master/models';
 import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
 
 useTestDb();
@@ -10,13 +7,13 @@ type Login = Awaited<ReturnType<typeof createUser>>;
 
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 
 async function setup() {
   const d = await createDealership('HYD');
-  const [model] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
+  const model = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
   return {
     d,
     modelId: model!.id,
@@ -46,7 +43,7 @@ describe('correcting lead details after conversion', () => {
     const res = await details(s.sales1, id, { prospectName: 'Ayesha Khan', email: 'ayesha@example.com', prospectMobile: '03009998877' });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ prospectName: 'Ayesha Khan', email: 'ayesha@example.com', prospectMobile: '03009998877', status: 'converted' });
-    const [c] = await owner.db.select().from(customer).where(eq(customer.id, res.body.customerId));
+    const [c] = await owner.db.customer.findMany({ where: { id: res.body.customerId } });
     expect(c).toMatchObject({ fullName: 'Ayesha Khan', email: 'ayesha@example.com', mobileNormalized: '+923009998877' });
     // Recorded in the activity log with before / after.
     const log = await api.get('/api/core/activity/mine?category=leads').set(bearer(s.sales1.token));

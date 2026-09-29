@@ -1284,8 +1284,8 @@ model Delivery {
   deliveredAt            DateTime?  @map("delivered_at") @db.Timestamptz(6)
   deliveredById          BigInt?    @map("delivered_by_id")
   odometerKm             Int?       @map("odometer_km")
-  documentsHandedOvers   String[]   @default([]) @map("documents_handed_over")
-  accessoriesHandedOvers String[]   @default([]) @map("accessories_handed_over")
+  documentsHandedOver    String[]   @default([]) @map("documents_handed_over")
+  accessoriesHandedOver  String[]   @default([]) @map("accessories_handed_over")
   customerAcknowledged   Boolean    @default(false) @map("customer_acknowledged")
   customerAcknowledgedAt DateTime?  @map("customer_acknowledged_at") @db.Timestamptz(6)
   notes                  String?
@@ -1337,7 +1337,7 @@ model DocumentTemplate {
   standardEquipment   String?    @map("standard_equipment")
   terms               String[]   @default([])
   closingLines        String[]   @default([]) @map("closing_lines")
-  signOffs            String[]   @default([]) @map("sign_off")
+  signOff             String[]   @default([]) @map("sign_off")
   title               String?
   fieldLabels         Json       @default("{}") @map("field_labels")
   hiddenFields        String[]   @default([]) @map("hidden_fields")

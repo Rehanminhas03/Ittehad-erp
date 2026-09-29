@@ -1,8 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import { io as connect, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { vehicleModel } from '../src/modules/master/models';
-import { userRole } from '../src/modules/core/models';
 import { attachRealtime, closeRealtime } from '../src/lib/realtime';
 import { api, app, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
 
@@ -11,7 +9,7 @@ useTestDb();
 type Login = Awaited<ReturnType<typeof createUser>>;
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 
@@ -46,7 +44,7 @@ describe('notifications', () => {
   it('pushes a change live to everyone else at the dealership, with the task, the person and a link', async () => {
     const d = await createDealership('HYD');
     const other = await createDealership('JET');
-    const [model] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
+    const model = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
     const sales1 = await staff('Salesperson', d.id);
     const manager = await staff('Sales Manager', d.id);
     const elsewhere = await staff('Salesperson', other.id);

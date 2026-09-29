@@ -16,5 +16,5 @@
     "verbatimModuleSyntax": true,
     "noEmit": true
   },
-  "include": ["src", "test", "drizzle.config.ts", "vitest.config.ts"]
+  "include": ["src", "test", "prisma.config.ts", "vitest.config.ts"]
 }

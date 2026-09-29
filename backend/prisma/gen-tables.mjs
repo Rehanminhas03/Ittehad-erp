@@ -20,10 +20,11 @@ for (const m of schema.matchAll(/^model (\w+) \{\n([\s\S]*?)\n\}/gm)) {
     const f = line.match(/^\s+(\w+)\s+(\w+)(\[\])?(\?)?(.*)$/);
     if (!f || line.trim().startsWith('@@') || line.trim().startsWith('//')) continue;
     const [, field, type, list, optional, rest] = f;
-    if (!SCALARS.has(type) || list) continue;
+    if (!SCALARS.has(type)) continue; // relation fields (other models) are not columns
     const column = rest.match(/@map\("([^"]+)"\)/)?.[1] ?? field;
     const dec = rest.match(/@db\.Decimal\((\d+),\s*(\d+)\)/);
     const meta = { column, type, nullable: !!optional };
+    if (list) meta.list = true; // PostgreSQL array (e.g. text[])
     if (dec) meta.scale = Number(dec[2]);
     if (/@db\.Date\b/.test(rest)) meta.dateOnly = true;
     columns[field] = meta;

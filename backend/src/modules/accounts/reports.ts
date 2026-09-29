@@ -1,4 +1,5 @@
-import { sql } from 'drizzle-orm';
+import { query as runQuery } from '../../db/client';
+import { type SQL, sql } from '../../db/sql';
 import type { EntityCtx } from '../../entity/types';
 import { forbidden, notFound } from '../../lib/errors';
 import { addMoney, cmpMoney } from '../../lib/money';
@@ -16,9 +17,8 @@ function assertReportScope(ctx: EntityCtx, dealershipId: number) {
   if (!ctx.access.canIn(P.reportsView, { dealershipId })) throw forbidden('You cannot view the accounts of this dealership');
 }
 
-async function rows<T>(ctx: EntityCtx, query: ReturnType<typeof sql>): Promise<T[]> {
-  const { rows: r } = await ctx.tx.execute(query);
-  return r as T[];
+function rows<T>(ctx: EntityCtx, query: SQL): Promise<T[]> {
+  return runQuery<T>(ctx.tx, query);
 }
 
 // =============================================================================
@@ -92,7 +92,7 @@ export async function receivablesAging(ctx: EntityCtx, page: PageQuery, q: z.out
   assertReportScope(ctx, q.dealershipId);
   const open = sql`from ${invoice} i join ${customer} c on c.id = i.customer_id
                    where i.dealership_id = ${q.dealershipId} and i.status in ('issued', 'partially_paid')`;
-  const bucket = (cond: ReturnType<typeof sql>) => sql`coalesce(sum(i.total_amount - i.amount_paid) filter (where ${cond}), 0)::numeric(14, 2)::text`;
+  const bucket = (cond: SQL) => sql`coalesce(sum(i.total_amount - i.amount_paid) filter (where ${cond}), 0)::numeric(14, 2)::text`;
   const items = await rows<Record<string, unknown>>(
     ctx,
     sql`

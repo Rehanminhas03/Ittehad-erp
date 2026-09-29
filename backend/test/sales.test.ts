@@ -1,8 +1,5 @@
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { subscribe } from '../src/events/bus';
-import { domainEvent, userRole } from '../src/modules/core/models';
-import { customer, vehicle, vehicleDealership, vehicleModel, vehicleOwnership } from '../src/modules/master/models';
 import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
 import { pakistanToday } from '../src/lib/dates';
 
@@ -19,7 +16,7 @@ type Login = Awaited<ReturnType<typeof createUser>>;
 /** A user holding one of the real default sales roles, scoped to one dealership. */
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 
@@ -29,8 +26,8 @@ const DELIVERY_DESK = ['sales.orders.view_all', 'sales.orders.allocate', 'sales.
 /** The vehicle on every test lead (model and variant are required); one per test (the data resets). */
 let leadModelId = 0;
 async function tucson() {
-  const [found] = await owner.db.select().from(vehicleModel).where(eq(vehicleModel.name, 'Tucson'));
-  return found ? found.id : (await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning())[0]!.id;
+  const [found] = await owner.db.vehicleModel.findMany({ where: { name: 'Tucson' } });
+  return found ? found.id : (await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } })).id;
 }
 
 async function team(code: string) {
@@ -372,7 +369,7 @@ describe('sales orders (Admin)', () => {
     const fixEngine = await put({ engineNo: 'G4FL-123457' });
     expect(fixEngine.body).toMatchObject({ vehicleId: withVin.body.vehicleId, vehicleVin: 'KMHJ381ABC001', vehicleEngineNo: 'G4FL123457' });
     // The vehicle is linked to the dealership (visible in its stock later).
-    const links = await owner.db.select().from(vehicleDealership).where(eq(vehicleDealership.vehicleId, withVin.body.vehicleId));
+    const links = await owner.db.vehicleDealership.findMany({ where: { vehicleId: withVin.body.vehicleId } });
     expect(links.map((x) => x.dealershipId)).toEqual([s.d.id]);
 
     // Identifiers are unique across the group.
@@ -387,8 +384,8 @@ describe('sales orders (Admin)', () => {
 
   it('links an existing undelivered stock vehicle when its chassis number is entered', async () => {
     const s = await setup();
-    const [v] = await owner.db.insert(vehicle).values({ vin: 'STOCKVIN0001', engineNo: 'ENG0001', modelId: s.modelId }).returning();
-    await owner.db.insert(vehicleDealership).values({ vehicleId: v!.id, dealershipId: s.d.id, source: 'manual' });
+    const v = await owner.db.vehicle.create({ data: { vin: 'STOCKVIN0001', engineNo: 'ENG0001', modelId: s.modelId } });
+    await owner.db.vehicleDealership.create({ data: { vehicleId: v!.id, dealershipId: s.d.id, source: 'manual' } });
     const leadId = await newLead(s.sales1, s.d.id);
     await convert(s.sales1, leadId, s.modelId);
     const o = await raiseOrder(s, leadId);
@@ -398,9 +395,9 @@ describe('sales orders (Admin)', () => {
     expect(res.body).toMatchObject({ vehicleId: v!.id, vehicleEngineNo: 'ENG0001', vehicleStatus: 'booked' });
 
     // Numbers of two different cars, or a car of another dealership, are refused.
-    const [elsewhere] = await owner.db.insert(vehicle).values({ vin: 'JETSTOCK0001', engineNo: 'JETENG0001', modelId: s.modelId }).returning();
+    const elsewhere = await owner.db.vehicle.create({ data: { vin: 'JETSTOCK0001', engineNo: 'JETENG0001', modelId: s.modelId } });
     const jet = await createDealership('JET');
-    await owner.db.insert(vehicleDealership).values({ vehicleId: elsewhere!.id, dealershipId: jet.id, source: 'manual' });
+    await owner.db.vehicleDealership.create({ data: { vehicleId: elsewhere!.id, dealershipId: jet.id, source: 'manual' } });
     const l2 = await newLead(s.sales2, s.d.id, '0300-7771112');
     await convert(s.sales2, l2, s.modelId);
     const o2 = await raiseOrder(s, l2);
@@ -433,11 +430,11 @@ describe('delivery (hand-over)', () => {
     const order = await api.get(`/api/sales/orders/${orderId}`).set(bearer(s.manager.token));
     expect(order.body.status).toBe('delivered');
     expect((await api.get(`/api/sales/leads/${leadId}`).set(bearer(s.am.token))).body.status).toBe('completed');
-    const [veh] = await owner.db.select().from(vehicle).where(eq(vehicle.id, order.body.vehicleId));
+    const [veh] = await owner.db.vehicle.findMany({ where: { id: order.body.vehicleId } });
     expect(veh).toMatchObject({ activatedOn: today, soldByDealershipId: s.d.id, status: 'delivered' });
-    const [own] = await owner.db.select().from(vehicleOwnership).where(eq(vehicleOwnership.vehicleId, veh!.id));
+    const [own] = await owner.db.vehicleOwnership.findMany({ where: { vehicleId: veh!.id } });
     expect(own).toMatchObject({ customerId: order.body.customerId, startDate: today });
-    const [event] = await owner.db.select().from(domainEvent).where(eq(domainEvent.aggregateId, veh!.id));
+    const [event] = await owner.db.domainEvent.findMany({ where: { aggregateId: veh!.id } });
     expect(event).toMatchObject({ type: 'vehicle.activated', dealershipId: s.d.id });
     expect(event!.payload).toMatchObject({ salesOrderId: orderId, deliveryId });
   });
@@ -540,7 +537,7 @@ describe('access matrix', () => {
 
 describe('dealership isolation (Hyundai, Jetour, CSM)', () => {
   it('confines every role to its own dealership', async () => {
-    const [model] = await owner.db.insert(vehicleModel).values({ brand: 'Any', name: 'Model' }).returning();
+    const model = await owner.db.vehicleModel.create({ data: { brand: 'Any', name: 'Model' } });
     const modelId = model!.id;
     const teams = [await team('HYD'), await team('JET'), await team('CSM')];
     const data = new Map<number, { leads: number[]; order: number }>();
@@ -592,7 +589,7 @@ describe('Convert to Lead: correcting the customer while converting', () => {
       .send(conversion(s.modelId, { prospectName: 'Bilal Ahmed Khan', prospectMobile: '03008000009' }));
     expect(l.status, JSON.stringify(l.body)).toBe(200);
     expect(l.body).toMatchObject({ status: 'converted', prospectName: 'Bilal Ahmed Khan', prospectMobile: '03008000009', variant: '2.0 GLS' });
-    const [c] = await owner.db.select().from(customer).where(eq(customer.id, l.body.customerId));
+    const [c] = await owner.db.customer.findMany({ where: { id: l.body.customerId } });
     expect(c).toMatchObject({ fullName: 'Bilal Ahmed Khan', mobileNormalized: '+923008000009' });
   });
 });
@@ -605,7 +602,7 @@ describe('leads summary above the list', () => {
     const old = await newLead(s.sales2, s.d.id, '0300-7000003');
     await convert(s.sales1, a, s.modelId);
     // An old lead: last touched 40 days ago.
-    await owner.pool.query(`update sales.lead set updated_at = now() - interval '40 days' where id = $1`, [old]);
+    await owner.raw(`update sales.lead set updated_at = now() - interval '40 days' where id = $1`, [old]);
 
     const summary = (who: Login, query = '') => api.get(`/api/sales/leads/summary${query}`).set(bearer(who.token));
     const today = pakistanToday();

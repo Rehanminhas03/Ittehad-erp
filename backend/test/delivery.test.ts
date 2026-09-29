@@ -1,7 +1,4 @@
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { userRole } from '../src/modules/core/models';
-import { vehicle, vehicleModel } from '../src/modules/master/models';
 import { pakistanToday } from '../src/lib/dates';
 import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
 
@@ -11,7 +8,7 @@ type Login = Awaited<ReturnType<typeof createUser>>;
 
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 
@@ -29,8 +26,8 @@ async function team(code: string) {
 
 async function setup() {
   const t = await team('HYD');
-  const [model] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
-  const [other] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Elantra' }).returning();
+  const model = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
+  const other = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Elantra' } });
   return { ...t, modelId: model!.id, otherModelId: other!.id };
 }
 type Setup = Awaited<ReturnType<typeof setup>>;
@@ -149,7 +146,7 @@ describe('Delivery Team: allocation, logistics and hand-over', () => {
     expect(done.body).toMatchObject({ status: 'delivered', deliveredOn: today });
 
     expect((await api.get(`/api/sales/leads/${leadId}`).set(bearer(s.sales1.token))).body.status).toBe('completed');
-    const [veh] = await owner.db.select().from(vehicle).where(eq(vehicle.id, v));
+    const [veh] = await owner.db.vehicle.findMany({ where: { id: v } });
     expect(veh).toMatchObject({ status: 'delivered', activatedOn: today });
     // Delivered vehicles leave the open stock.
     expect((await api.get(`/api/sales/stock/${v}`).set(bearer(s.delivery.token))).status).toBe(404);
@@ -218,7 +215,7 @@ describe('Delivery Team: from booking to the car arriving', () => {
   it('one Delivery Team login can work every dealership it is assigned to', async () => {
     const s = await setup();
     const jet = await team('JET');
-    await owner.db.insert(userRole).values({ userId: s.delivery.user.id, roleId: await roleByName('Delivery Team'), dealershipId: jet.d.id });
+    await owner.db.userRole.create({ data: { userId: s.delivery.user.id, roleId: await roleByName('Delivery Team'), dealershipId: jet.d.id } });
     await api.post('/api/sales/stock').set(bearer(s.delivery.token)).send(intake(jet, s.modelId, 'SHAREDVIN001')).expect(201);
     const list = await api.get('/api/sales/stock').set(bearer(s.delivery.token));
     expect(list.body.items.map((v: { dealershipId: number }) => v.dealershipId)).toContain(jet.d.id);
@@ -311,7 +308,7 @@ describe('review fixes', () => {
     const { orderId } = await bookedOrder(s, '0300-6660001');
     await api.put(`/api/sales/orders/${orderId}/allocation`).set(bearer(s.delivery.token)).send({ vehicleId: first }).expect(200);
     await api.put(`/api/sales/orders/${orderId}/allocation`).set(bearer(s.delivery.token)).send({ vehicleId: second }).expect(200);
-    const [old] = await owner.db.select().from(vehicle).where(eq(vehicle.id, first));
+    const [old] = await owner.db.vehicle.findMany({ where: { id: first } });
     expect(old!.status).toBe('available');
   });
 

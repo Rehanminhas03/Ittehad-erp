@@ -6,9 +6,9 @@
  * Modules register how to name their records (a lead's customer, an order number) so entries read
  * well without core depending on them: see registerActivityLabels.
  */
-import { type SQL, and, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { scopeWhere } from '../../auth/access';
-import type { Executor } from '../../db/client';
+import { type Executor, query } from '../../db/client';
+import { type SQL, and, eq, ilike, inArray, notInArray, or, sql } from '../../db/sql';
 import { escapeLike } from '../../entity/entityService';
 import type { EntityCtx } from '../../entity/types';
 import type { z } from '../../lib/zod';
@@ -24,8 +24,8 @@ export function registerActivityLabels(entityType: string, resolve: LabelResolve
   labelResolvers.set(entityType, resolve);
 }
 registerActivityLabels('core.user', async (ex, ids) => {
-  const rows = await ex.select({ id: user.id, name: user.fullName }).from(user).where(inArray(user.id, ids.map(Number).filter(Boolean)));
-  return new Map(rows.map((r) => [String(r.id), r.name]));
+  const rows = await ex.user.findMany({ where: { id: { in: ids.map(Number).filter(Boolean) } }, select: { id: true, fullName: true } });
+  return new Map(rows.map((r) => [String(r.id), r.fullName]));
 });
 
 const SIGN_IN_ACTIONS = ['login', 'login.dev', 'login.failed', 'login.blocked', 'logout', 'password.change'];
@@ -35,7 +35,7 @@ function categoryCondition(category: z.output<typeof ActivityQuery>['category'])
     case 'sign_in':
       return and(eq(auditLog.entityType, 'core.user'), inArray(auditLog.action, SIGN_IN_ACTIONS));
     case 'users':
-      return and(eq(auditLog.entityType, 'core.user'), sql`${auditLog.action} not in (${sql.join(SIGN_IN_ACTIONS.map((a) => sql`${a}`), sql`, `)})`);
+      return and(eq(auditLog.entityType, 'core.user'), notInArray(auditLog.action, SIGN_IN_ACTIONS));
     case 'leads':
       return eq(auditLog.entityType, 'sales.lead');
     case 'documents':
@@ -57,29 +57,38 @@ function dateConditions(from?: string, to?: string): SQL[] {
   return [from ? sql`${day} >= ${from}::date` : undefined, to ? sql`${day} <= ${to}::date` : undefined].filter(Boolean) as SQL[];
 }
 
+interface ActivityRow {
+  id: number;
+  occurredAt: Date;
+  actorId: number | null;
+  actorName: string | null;
+  dealershipId: number | null;
+  dealershipName: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  changes: unknown;
+  ip: string | null;
+}
+
 async function page(ctx: EntityCtx, where: SQL, q: { page: number; pageSize: number }, withIp: boolean) {
-  const rows = await ctx.tx
-    .select({
-      id: auditLog.id,
-      occurredAt: auditLog.occurredAt,
-      actorId: auditLog.actorId,
-      actorName: user.fullName,
-      dealershipId: auditLog.dealershipId,
-      dealershipName: dealership.name,
-      entityType: auditLog.entityType,
-      entityId: auditLog.entityId,
-      action: auditLog.action,
-      changes: auditLog.changes,
-      ip: auditLog.ip,
-    })
-    .from(auditLog)
-    .leftJoin(user, eq(user.id, auditLog.actorId))
-    .leftJoin(dealership, eq(dealership.id, auditLog.dealershipId))
-    .where(where)
-    .orderBy(desc(auditLog.occurredAt), desc(auditLog.id))
-    .limit(q.pageSize)
-    .offset((q.page - 1) * q.pageSize);
-  const [{ total } = { total: 0 }] = await ctx.tx.select({ total: count() }).from(auditLog).leftJoin(user, eq(user.id, auditLog.actorId)).where(where);
+  const rows = await query<ActivityRow>(
+    ctx.tx,
+    sql`select ${auditLog.id} as "id", ${auditLog.occurredAt} as "occurredAt", ${auditLog.actorId} as "actorId",
+               ${user.fullName} as "actorName", ${auditLog.dealershipId} as "dealershipId", ${dealership.name} as "dealershipName",
+               ${auditLog.entityType} as "entityType", ${auditLog.entityId} as "entityId", ${auditLog.action} as "action",
+               ${auditLog.changes} as "changes", ${auditLog.ip} as "ip"
+          from ${auditLog}
+          left join ${user} on ${user.id} = ${auditLog.actorId}
+          left join ${dealership} on ${dealership.id} = ${auditLog.dealershipId}
+         where ${where}
+         order by ${auditLog.occurredAt} desc, ${auditLog.id} desc
+         limit ${q.pageSize} offset ${(q.page - 1) * q.pageSize}`,
+  );
+  const [{ total } = { total: 0 }] = await query<{ total: number }>(
+    ctx.tx,
+    sql`select count(*)::int as "total" from ${auditLog} left join ${user} on ${user.id} = ${auditLog.actorId} where ${where}`,
+  );
 
   // Readable record names, one query per entity type on the page.
   const labels = new Map<string, string>();

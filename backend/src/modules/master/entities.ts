@@ -1,9 +1,7 @@
-import { inArray } from 'drizzle-orm';
 import type { EntityConfig, EntityCtx, Row } from '../../entity/types';
 import { conflict, validationError } from '../../lib/errors';
 import { BoolQuery, IdQuery, z } from '../../lib/zod';
-import { dealership } from '../core/models';
-import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES, vehicleModel } from './models';
+import { customer, vehicle, VEHICLE_STATUSES, vehicleModel } from './models';
 import { normalizeCnic, normalizeIdentifier, normalizeMobile } from './normalize';
 import { MasterPerm } from './permissions';
 import {
@@ -89,7 +87,7 @@ export const customerEntity: EntityConfig = {
     decorate: async (ctx, rows) => {
       const ids = [...new Set(rows.map((r) => r.dealershipId as number))];
       if (!ids.length) return rows;
-      const ds = await ctx.tx.select({ id: dealership.id, name: dealership.name }).from(dealership).where(inArray(dealership.id, ids));
+      const ds = await ctx.tx.dealership.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
       const names = new Map(ds.map((d) => [d.id, d.name]));
       return rows.map((r) => ({ ...r, dealershipName: names.get(r.dealershipId as number) }));
     },
@@ -123,11 +121,11 @@ export const vehicleEntity: EntityConfig = {
   linkedScope: {
     view: vehicleVisibility,
     writeDealership: async (ctx, row, permission) => {
-      const links = await ctx.tx
-        .select({ dealershipId: vehicleDealership.dealershipId })
-        .from(vehicleDealership)
-        .where(inArray(vehicleDealership.vehicleId, [row.id]))
-        .orderBy(vehicleDealership.id);
+      const links = await ctx.tx.vehicleDealership.findMany({
+        where: { vehicleId: row.id },
+        select: { dealershipId: true },
+        orderBy: { id: 'asc' },
+      });
       return links.find((l) => ctx.access.canIn(permission, { dealershipId: l.dealershipId }))?.dealershipId ?? null;
     },
   },
@@ -155,6 +153,6 @@ export const vehicleEntity: EntityConfig = {
 };
 
 export async function assertActiveModel(ctx: EntityCtx, modelId: number) {
-  const [m] = await ctx.tx.select({ isActive: vehicleModel.isActive }).from(vehicleModel).where(inArray(vehicleModel.id, [modelId]));
+  const m = await ctx.tx.vehicleModel.findFirst({ where: { id: modelId }, select: { isActive: true } });
   if (!m?.isActive) throw validationError([{ in: 'body', path: 'modelId', message: 'Choose an active vehicle model' }]);
 }

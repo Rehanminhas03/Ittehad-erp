@@ -1,8 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { domainEvent } from '../src/modules/core/models';
-import { customer, vehicle, vehicleDealership, vehicleModel } from '../src/modules/master/models';
-import { inventoryTransaction, part, stockItem } from '../src/modules/parts/models';
 import { api, bearer, createBranch, createDealership, createUser, owner, useTestDb } from './helpers';
 
 useTestDb();
@@ -32,10 +28,12 @@ async function setup() {
   const manager = await createUser([{ permissions: MANAGER, dealershipId: d.id }]);
   const advisor = await createUser([{ permissions: ADVISOR, dealershipId: d.id }]);
   const outsider = await createUser([{ permissions: MANAGER, dealershipId: other.id }]);
-  await owner.db.insert(part).values([
-    { partNo: 'OIL-5W30', description: 'Engine oil 5W-30 (1 L)', uom: 'litre', sellingPrice: '2500.00' },
-    { partNo: 'BP-FRONT', description: 'Front brake pads', sellingPrice: '14500.00' },
-  ]);
+  await owner.db.part.createMany({
+    data: [
+      { partNo: 'OIL-5W30', description: 'Engine oil 5W-30 (1 L)', uom: 'litre', sellingPrice: '2500.00' },
+      { partNo: 'BP-FRONT', description: 'Front brake pads', sellingPrice: '14500.00' },
+    ],
+  });
   const sup = await api.post('/api/parts/suppliers').set(bearer(buyer.token)).send({ dealershipId: d.id, code: 'hmp', name: 'Hyundai Motor Parts' });
   return { d, other, main, north, buyer, store, manager, advisor, outsider, supplierId: sup.body.id as number };
 }
@@ -59,12 +57,9 @@ function receiveAll(s: S, po: Awaited<ReturnType<typeof approvedPo>>, qty: Recor
 }
 
 const onHand = async (branchId: number, partNo: string) => {
-  const [row] = await owner.db
-    .select({ qty: stockItem.quantityOnHand, avg: stockItem.averageCost })
-    .from(stockItem)
-    .innerJoin(part, eq(part.id, stockItem.partId))
-    .where(and(eq(stockItem.branchId, branchId), eq(part.partNo, partNo)));
-  return row ?? { qty: '0.00', avg: '0.00' };
+  const p = await owner.db.part.findFirst({ where: { partNo }, select: { id: true } });
+  const item = p && (await owner.db.stockItem.findFirst({ where: { branchId, partId: p.id }, select: { quantityOnHand: true, averageCost: true } }));
+  return item ? { qty: item.quantityOnHand, avg: item.averageCost } : { qty: '0.00', avg: '0.00' };
 };
 
 describe('catalogue', () => {
@@ -124,7 +119,7 @@ describe('purchase orders and receipts', () => {
     await receiveAll(s, po2, { 'OIL-5W30': '10' }).expect(201);
     expect(await onHand(s.main.id, 'OIL-5W30')).toEqual({ qty: '30.00', avg: '110.00' });
 
-    const events = await owner.db.select().from(domainEvent).where(eq(domainEvent.type, 'goods.received'));
+    const events = await owner.db.domainEvent.findMany({ where: { type: 'goods.received' } });
     expect(events.map((e) => (e.payload as { totalCost: string }).totalCost)).toEqual(['1000.00', '19000.00', '1300.00']);
   });
 
@@ -158,7 +153,7 @@ describe('stock ledger', () => {
     await api.post(`/api/parts/adjustments/${adj2.body.id}/transitions`).set(bearer(s.manager.token)).send({ action: 'approve' }).expect(200);
     expect(await onHand(s.main.id, 'BP-FRONT')).toEqual({ qty: '2.00', avg: '9000.00' });
 
-    const { rows } = await owner.pool.query<{ mismatches: string }>(`
+    const { rows } = await owner.raw<{ mismatches: string }>(`
       select count(*)::text as mismatches from parts.stock_item si
        where si.quantity_on_hand <> (select coalesce(sum(t.quantity), 0) from parts.inventory_transaction t
                                       where t.branch_id = si.branch_id and t.part_id = si.part_id)`);
@@ -169,18 +164,17 @@ describe('stock ledger', () => {
       ['adjustment', '-1.00', '2.00'],
       ['receipt', '3.00', '3.00'],
     ]);
-    await expect(owner.db.execute(sql`update parts.inventory_transaction set quantity = 99`)).rejects.toMatchObject({
-      cause: { message: expect.stringMatching(/append-only/) },
-    });
+    // Prisma raw-query errors carry the database message in their own message (no pg `cause`).
+    await expect(owner.raw('update parts.inventory_transaction set quantity = 99')).rejects.toThrow(/append-only/);
   });
 });
 
 describe('parts requests from the workshop', () => {
   async function jobCardFor(s: S) {
-    const [m] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
-    const [v] = await owner.db.insert(vehicle).values({ vin: 'PARTSVIN0001', modelId: m!.id }).returning();
-    await owner.db.insert(vehicleDealership).values({ vehicleId: v!.id, dealershipId: s.d.id });
-    const [c] = await owner.db.insert(customer).values({ dealershipId: s.d.id, fullName: 'C', mobile: '0300-9999999', mobileNormalized: '+923009999999' }).returning();
+    const m = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
+    const v = await owner.db.vehicle.create({ data: { vin: 'PARTSVIN0001', modelId: m!.id } });
+    await owner.db.vehicleDealership.create({ data: { vehicleId: v!.id, dealershipId: s.d.id } });
+    const c = await owner.db.customer.create({ data: { dealershipId: s.d.id, fullName: 'C', mobile: '0300-9999999', mobileNormalized: '+923009999999' } });
     const visit = await api
       .post('/api/service/visits')
       .set(bearer(s.advisor.token))
@@ -225,8 +219,8 @@ describe('parts requests from the workshop', () => {
     jcLines = await api.get(`/api/service/job-cards/${jobCardId}/lines`).set(bearer(s.advisor.token));
     expect(jcLines.body[0]).toMatchObject({ quantity: '3.00', amount: '7500.00' });
 
-    const types = await owner.db.select({ type: inventoryTransaction.type, value: inventoryTransaction.value }).from(inventoryTransaction).where(eq(inventoryTransaction.referenceType, 'parts_request'));
-    expect(types).toEqual([
+    const types = await owner.db.inventoryTransaction.findMany({ where: { referenceType: 'parts_request' }, select: { type: true, value: true }, orderBy: { id: 'asc' } });
+    expect(types.map(({ type, value }) => ({ type, value }))).toEqual([
       { type: 'issue', value: '-400.00' },
       { type: 'issue', value: '-50.00' },
       { type: 'return', value: '150.00' },

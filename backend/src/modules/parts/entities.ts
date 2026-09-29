@@ -1,12 +1,13 @@
-import { and, count, eq, ne } from 'drizzle-orm';
 import { POLICIES } from '../../config/policies';
+import { query } from '../../db/client';
+import { and, eq, ne, sql } from '../../db/sql';
 import { EntityService } from '../../entity/entityService';
 import { type NameSource, withNames } from '../../entity/names';
 import type { EntityConfig, EntityCtx, Row } from '../../entity/types';
 import { conflict, validationError } from '../../lib/errors';
 import { BoolQuery, IdQuery, z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
-import { branch, dealership } from '../core/models';
+import { branch } from '../core/models';
 import { USER_NAME } from '../master/nameSources';
 import { jobCard } from '../service/models';
 import {
@@ -60,14 +61,14 @@ export const normalizePartNo = (s: string) => s.toUpperCase().replace(/\s+/g, ''
 
 /** Active catalogue part for a part number, or a 422 on the given field. */
 export async function resolvePart(ctx: EntityCtx, partNo: string, path = 'partNo') {
-  const [p] = await ctx.tx.select().from(part).where(eq(part.partNo, normalizePartNo(partNo)));
+  const p = await ctx.tx.part.findFirst({ where: { partNo: normalizePartNo(partNo) } });
   if (!p || !p.isActive) throw validationError([{ in: 'body', path, message: `Unknown or inactive part number "${partNo}"` }]);
   return p;
 }
 
 /** Same dealership check for a branch referenced by id (composite FKs also enforce it). */
 async function assertBranchOf(ctx: EntityCtx, branchId: number, dealershipId: number, path = 'branchId') {
-  const [b] = await ctx.tx.select({ dealershipId: branch.dealershipId }).from(branch).where(eq(branch.id, branchId));
+  const b = await ctx.tx.branch.findFirst({ where: { id: branchId }, select: { dealershipId: true } });
   if (!b || b.dealershipId !== dealershipId) throw validationError([{ in: 'body', path, message: 'Choose a branch of this dealership' }]);
 }
 
@@ -78,7 +79,7 @@ const differentApprover = (ctx: EntityCtx, row: Row) =>
 
 async function hasLines(ctx: EntityCtx, table: typeof purchaseOrderLine | typeof stockTransferLine | typeof stockAdjustmentLine, key: 'purchaseOrderId' | 'stockTransferId' | 'stockAdjustmentId', id: number) {
   const col = (table as unknown as Record<string, typeof purchaseOrderLine.purchaseOrderId>)[key]!;
-  const [{ n } = { n: 0 }] = await ctx.tx.select({ n: count() }).from(table).where(eq(col, id));
+  const [{ n } = { n: 0 }] = await query<{ n: number }>(ctx.tx, sql`select count(*)::int as n from ${table} where ${eq(col, id)}`);
   return n > 0 ? null : 'Add at least one line';
 }
 
@@ -171,14 +172,14 @@ export const purchaseOrderEntity: EntityConfig = {
     beforeCreate: async (ctx, data) => {
       const dealershipId = data.dealershipId as number;
       await assertBranchOf(ctx, data.branchId as number, dealershipId);
-      const [s] = await ctx.tx.select().from(supplier).where(eq(supplier.id, data.supplierId as number));
+      const s = await ctx.tx.supplier.findFirst({ where: { id: data.supplierId as number } });
       if (!s || s.dealershipId !== dealershipId || !s.isActive) {
         throw validationError([{ in: 'body', path: 'supplierId', message: 'Choose an active supplier of this dealership' }]);
       }
-      const [d] = await ctx.tx
-        .select({ legalEntityId: dealership.legalEntityId, accountingEntityId: dealership.accountingEntityId })
-        .from(dealership)
-        .where(eq(dealership.id, dealershipId));
+      const d = await ctx.tx.dealership.findFirst({
+        where: { id: dealershipId },
+        select: { legalEntityId: true, accountingEntityId: true },
+      });
       return {
         ...data,
         orderDate: data.orderDate ?? new Date().toISOString().slice(0, 10),
@@ -190,7 +191,7 @@ export const purchaseOrderEntity: EntityConfig = {
     beforeUpdate: async (ctx, row, patch) => {
       if (row.status !== 'draft') throw conflict('Only draft purchase orders can be edited');
       if (patch.supplierId) {
-        const [s] = await ctx.tx.select().from(supplier).where(eq(supplier.id, patch.supplierId as number));
+        const s = await ctx.tx.supplier.findFirst({ where: { id: patch.supplierId as number } });
         if (!s || s.dealershipId !== row.dealershipId || !s.isActive) {
           throw validationError([{ in: 'body', path: 'supplierId', message: 'Choose an active supplier of this dealership' }]);
         }
@@ -438,9 +439,11 @@ export async function assertPartNotOnDocument(
   exceptLineId?: number,
 ) {
   const t = table as typeof purchaseOrderLine;
-  const [dup] = await ctx.tx
-    .select({ id: t.id })
-    .from(t)
-    .where(and(eq(parentCol, parentId), eq(t.partId, partId), exceptLineId ? ne(t.id, exceptLineId) : undefined));
+  const [dup] = await query<{ id: number }>(
+    ctx.tx,
+    sql`select ${t.id} as id from ${t}
+         where ${and(eq(parentCol, parentId), eq(t.partId, partId), exceptLineId ? ne(t.id, exceptLineId) : undefined)!}
+         limit 1`,
+  );
   if (dup) throw conflict('This part is already on the document; change that line instead');
 }

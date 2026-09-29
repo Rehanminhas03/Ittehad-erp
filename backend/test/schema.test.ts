@@ -7,7 +7,7 @@ const SCHEMAS = ['core', 'audit', 'sales', 'service', 'parts', 'accounts'];
 
 describe('database structure rules', () => {
   it('indexes every foreign key (an index must lead with one of the FK columns)', async () => {
-    const { rows } = await owner.pool.query<{ fk: string }>(
+    const { rows } = await owner.raw<{ fk: string }>(
       `select c.conrelid::regclass || ' (' || c.conname || ')' as fk
          from pg_constraint c
          join pg_namespace n on n.oid = c.connamespace
@@ -22,7 +22,7 @@ describe('database structure rules', () => {
   });
 
   it('enables RLS on every table with a dealership_id column', async () => {
-    const { rows } = await owner.pool.query<{ t: string }>(
+    const { rows } = await owner.raw<{ t: string }>(
       `select format('%I.%I', n.nspname, c.relname) as t
          from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
@@ -36,7 +36,7 @@ describe('database structure rules', () => {
   });
 
   it('indexes every dealership_id / branch_id column (tenant filters)', async () => {
-    const { rows } = await owner.pool.query<{ col: string }>(
+    const { rows } = await owner.raw<{ col: string }>(
       `select format('%I.%I.%I', n.nspname, c.relname, a.attname) as col
          from pg_class c
          join pg_namespace n on n.oid = c.relnamespace

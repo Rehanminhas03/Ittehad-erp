@@ -2,20 +2,16 @@
  * Idempotent development seed (owner connection): dealerships, a main branch each, an admin and
  * a few demo users. Safe to re-run; existing rows are left untouched.
  */
-import { and, eq, isNull, sql } from 'drizzle-orm';
 import { DEALERSHIPS } from '../config/dealerships';
 import { env } from '../config/env';
-import { createDb } from '../db/client';
-import { branch, dealership, role, user, userRole } from '../modules/core/models';
+import { type Executor, type Tx, createDb, query, transaction } from '../db/client';
+import { sql } from '../db/sql';
+import { user } from '../modules/core/models';
 import { hashPassword } from '../modules/core/service';
 import type { EntityCtx } from '../entity/types';
 import { addMoney, lineAmount } from '../lib/money';
 import { ensureChart, post } from '../modules/accounts/ledger';
-import { account } from '../modules/accounts/models';
-import { vehicle, vehicleDealership, vehicleModel } from '../modules/master/models';
-import { inventoryTransaction, part, stockItem, supplier } from '../modules/parts/models';
 import { seedHyundaiVariants } from '../modules/sales/variantCatalog';
-import { inspectionTemplateItem, scheduleItem } from '../modules/service/models';
 
 /** Starter model catalogue; maintained afterwards under Administration → Vehicle models. */
 const VEHICLE_MODELS: { brand: string; name: string; bodyType: string }[] = [
@@ -128,69 +124,73 @@ const STOCK: { dealership: string; brand: string; model: string; vin: string; co
   { dealership: 'JET-ITH', brand: 'Jetour', model: 'Dashing', vin: 'LVTDB31DEMO00005', color: 'Blue' },
 ];
 
-const { pool, db } = createDb(env.MIGRATION_DATABASE_URL, 2);
-type SeedTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const { db, disconnect } = createDb(env.MIGRATION_DATABASE_URL, 2);
+type SeedTx = Tx;
+
+/** A user's id by email, case-insensitively (as the sign-in looks it up). */
+async function userIdByEmail(ex: Executor, email: string): Promise<number | undefined> {
+  const [row] = await query<{ id: number }>(ex, sql`select ${user.id} as "id" from ${user} where lower(${user.email}) = ${email} limit 1`);
+  return row?.id;
+}
 
 /** Demo users and their role assignments (idempotent). */
 async function seedUsers(tx: SeedTx, dealershipIds: Map<string, number>) {
   for (const u of USERS) {
-    let [existing] = await tx.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${u.email}`);
-    if (!existing) {
-      [existing] = await tx
-        .insert(user)
-        .values({ email: u.email, fullName: u.fullName, passwordHash: await hashPassword(u.password) })
-        .returning({ id: user.id });
+    let userId = await userIdByEmail(tx, u.email);
+    if (!userId) {
+      userId = (
+        await tx.user.create({
+          data: { email: u.email, fullName: u.fullName, passwordHash: await hashPassword(u.password) },
+          select: { id: true },
+        })
+      ).id;
     }
     for (const a of u.roles) {
-      const [r] = await tx.select({ id: role.id }).from(role).where(eq(role.name, a.role));
-      if (!r) throw new Error(`Role "${a.role}" missing; run npm run db:sync first`);
+      const r = await tx.role.findFirst({ where: { name: a.role }, select: { id: true } });
+      if (!r) throw new Error(`Role "${a.role}" missing; run npm run db:migrate first`);
       const dealershipId = a.dealership ? dealershipIds.get(a.dealership)! : null;
-      const [has] = await tx
-        .select({ id: userRole.id })
-        .from(userRole)
-        .where(
-          and(
-            eq(userRole.userId, existing!.id),
-            eq(userRole.roleId, r.id),
-            dealershipId === null ? isNull(userRole.dealershipId) : eq(userRole.dealershipId, dealershipId),
-            isNull(userRole.branchId),
-          ),
-        );
-      if (!has) await tx.insert(userRole).values({ userId: existing!.id, roleId: r.id, dealershipId });
+      const has = await tx.userRole.findFirst({
+        where: { userId, roleId: r.id, dealershipId, branchId: null },
+        select: { id: true },
+      });
+      if (!has) await tx.userRole.create({ data: { userId, roleId: r.id, dealershipId }, select: { id: true } });
     }
   }
 }
 
 try {
-  await db.transaction(async (tx) => {
+  await transaction(db, async (tx) => {
     const dealershipIds = new Map<string, number>();
     for (const d of DEALERSHIPS) {
-      await tx.insert(dealership).values(d).onConflictDoNothing({ target: dealership.code });
-      const [row] = await tx.select({ id: dealership.id }).from(dealership).where(eq(dealership.code, d.code));
+      await tx.dealership.createMany({ data: [{ code: d.code, name: d.name, brand: d.brand, city: d.city }], skipDuplicates: true });
+      const row = await tx.dealership.findUnique({ where: { code: d.code }, select: { id: true } });
       dealershipIds.set(d.code, row!.id);
-      await tx
-        .insert(branch)
-        .values({ dealershipId: row!.id, code: 'MAIN', name: `${d.name} - Main`, city: d.city })
-        .onConflictDoNothing();
+      await tx.branch.createMany({
+        data: [{ dealershipId: row!.id, code: 'MAIN', name: `${d.name} - Main`, city: d.city }],
+        skipDuplicates: true,
+      });
     }
 
-    await tx.insert(vehicleModel).values(VEHICLE_MODELS).onConflictDoNothing();
+    await tx.vehicleModel.createMany({ data: VEHICLE_MODELS, skipDuplicates: true });
 
-    for (const m of await tx.select({ id: vehicleModel.id }).from(vehicleModel)) {
-      await tx.insert(scheduleItem).values(SCHEDULE.map((s) => ({ ...s, modelId: m.id }))).onConflictDoNothing();
+    for (const m of await tx.vehicleModel.findMany({ select: { id: true } })) {
+      await tx.scheduleItem.createMany({ data: SCHEDULE.map((s) => ({ ...s, modelId: m.id })), skipDuplicates: true });
     }
-    await tx
-      .insert(inspectionTemplateItem)
-      .values(INSPECTION.map(([area, item], i) => ({ area, item, sortOrder: (i + 1) * 10 })))
-      .onConflictDoNothing();
+    await tx.inspectionTemplateItem.createMany({
+      data: INSPECTION.map(([area, item], i) => ({ area, item, sortOrder: (i + 1) * 10 })),
+      skipDuplicates: true,
+    });
 
     for (const s of STOCK) {
-      const [m] = await tx
-        .select({ id: vehicleModel.id })
-        .from(vehicleModel)
-        .where(and(eq(vehicleModel.brand, s.brand), eq(vehicleModel.name, s.model)));
-      const [v] = await tx.insert(vehicle).values({ vin: s.vin, modelId: m!.id, color: s.color, modelYear: 2026 }).onConflictDoNothing().returning();
-      if (v) await tx.insert(vehicleDealership).values({ vehicleId: v.id, dealershipId: dealershipIds.get(s.dealership)! }).onConflictDoNothing();
+      const m = await tx.vehicleModel.findFirst({ where: { brand: s.brand, name: s.model }, select: { id: true } });
+      const [v] = await tx.vehicle.createManyAndReturn({
+        data: [{ vin: s.vin, modelId: m!.id, color: s.color, modelYear: 2026 }],
+        skipDuplicates: true,
+        select: { id: true },
+      });
+      if (v) {
+        await tx.vehicleDealership.createMany({ data: [{ vehicleId: v.id, dealershipId: dealershipIds.get(s.dealership)! }], skipDuplicates: true });
+      }
     }
 
     await seedUsers(tx, dealershipIds);
@@ -200,41 +200,45 @@ try {
 
     // Parts catalogue, a supplier per dealership, and opening stock at each main branch. Runs after
     // the users so the opening-stock ledger rows have an actor; on-hand and ledger are written together.
-    await tx
-      .insert(part)
-      .values(PARTS.map(({ cost: _c, opening: _o, ...p }) => ({ ...p, partNo: p.partNo.toUpperCase() })))
-      .onConflictDoNothing();
-    const [admin] = await tx.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = 'admin@dms.local'`);
-    if (!admin) throw new Error('admin@dms.local missing');
+    await tx.part.createMany({
+      data: PARTS.map(({ cost: _c, opening: _o, ...p }) => ({ ...p, partNo: p.partNo.toUpperCase() })),
+      skipDuplicates: true,
+    });
+    const adminId = await userIdByEmail(tx, 'admin@dms.local');
+    if (!adminId) throw new Error('admin@dms.local missing');
+    const admin = { id: adminId };
     for (const d of DEALERSHIPS) {
       const dealershipId = dealershipIds.get(d.code)!;
-      await tx.insert(supplier).values({ dealershipId, code: 'MAIN-SUP', name: `${d.brand} Genuine Parts` }).onConflictDoNothing();
-      const [mainBranch] = await tx.select({ id: branch.id }).from(branch).where(and(eq(branch.dealershipId, dealershipId), eq(branch.code, 'MAIN')));
+      await tx.supplier.createMany({ data: [{ dealershipId, code: 'MAIN-SUP', name: `${d.brand} Genuine Parts` }], skipDuplicates: true });
+      const mainBranch = await tx.branch.findFirst({ where: { dealershipId, code: 'MAIN' }, select: { id: true } });
       const opening: string[] = [];
       for (const p of PARTS) {
-        const [pr] = await tx.select({ id: part.id }).from(part).where(eq(part.partNo, p.partNo.toUpperCase()));
-        const created = await tx
-          .insert(stockItem)
-          .values({ dealershipId, branchId: mainBranch!.id, partId: pr!.id, quantityOnHand: p.opening, averageCost: p.cost, reorderLevel: '5' })
-          .onConflictDoNothing()
-          .returning({ id: stockItem.id });
+        const pr = await tx.part.findUnique({ where: { partNo: p.partNo.toUpperCase() }, select: { id: true } });
+        const created = await tx.stockItem.createManyAndReturn({
+          data: [{ dealershipId, branchId: mainBranch!.id, partId: pr!.id, quantityOnHand: p.opening, averageCost: p.cost, reorderLevel: '5' }],
+          skipDuplicates: true,
+          select: { id: true },
+        });
         if (created.length) {
           opening.push(lineAmount(p.cost, p.opening));
-          await tx.insert(inventoryTransaction).values({
-            dealershipId,
-            branchId: mainBranch!.id,
-            partId: pr!.id,
-            type: 'adjustment',
-            quantity: p.opening,
-            unitCost: p.cost,
-            value: lineAmount(p.cost, p.opening),
-            balanceAfter: p.opening,
-            averageCostAfter: p.cost,
-            referenceType: 'opening_stock',
-            referenceId: 0,
-            referenceNo: 'OPENING',
-            notes: 'Opening stock (seed)',
-            actorId: admin.id,
+          await tx.inventoryTransaction.create({
+            data: {
+              dealershipId,
+              branchId: mainBranch!.id,
+              partId: pr!.id,
+              type: 'adjustment',
+              quantity: p.opening,
+              unitCost: p.cost,
+              value: lineAmount(p.cost, p.opening),
+              balanceAfter: p.opening,
+              averageCostAfter: p.cost,
+              referenceType: 'opening_stock',
+              referenceId: 0,
+              referenceNo: 'OPENING',
+              notes: 'Opening stock (seed)',
+              actorId: admin.id,
+            },
+            select: { id: true },
           });
         }
       }
@@ -242,7 +246,7 @@ try {
       const ctx = { tx, access: { userId: admin.id } } as unknown as EntityCtx;
       await ensureChart(ctx, dealershipId);
       if (opening.length) {
-        const [equity] = await tx.select({ id: account.id }).from(account).where(and(eq(account.dealershipId, dealershipId), eq(account.code, '3000')));
+        const equity = await tx.account.findFirst({ where: { dealershipId, code: '3000' }, select: { id: true } });
         const value = addMoney(...opening);
         await post(ctx, {
           dealershipId,
@@ -258,10 +262,10 @@ try {
     }
   });
   console.log('Seed complete. Admin login: admin@dms.local / Admin@12345');
-  await pool.end();
+  await disconnect();
   process.exit(0);
 } catch (err) {
   console.error(err);
-  await pool.end();
+  await disconnect();
   process.exit(1);
 }

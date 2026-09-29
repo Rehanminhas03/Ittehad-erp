@@ -82,7 +82,7 @@ describe('auth', () => {
   it('rejects tokens of deactivated users immediately', async () => {
     const { user, token } = await createUser([{ permissions: ['core.dealerships.view'] }]);
     expect((await api.get('/api/auth/me').set(bearer(token))).status).toBe(200);
-    await owner.pool.query('update core."user" set is_active = false where id = $1', [user.id]);
+    await owner.raw('update core."user" set is_active = false where id = $1', [user.id]);
     expect((await api.get('/api/auth/me').set(bearer(token))).status).toBe(401);
   });
 

@@ -1,8 +1,9 @@
 /**
  * Database structure through Prisma Migrate (prisma/migrations; run from the backend directory
  * with the OWNER connection):
- *   migrateDatabase  `prisma migrate deploy` (tables, indexes, RLS policies, functions, triggers,
- *                    grants), then the permission catalog + default role templates
+ *   migrateDatabase  `prisma migrate deploy` (tables, indexes, RLS policies, functions, triggers),
+ *                    then the app-role grants (APP_GRANTS, so new tables are covered too) and the
+ *                    permission catalog + default role templates
  *   dropAll          drops every module schema and Prisma's migration history (all data!)
  */
 import { spawnSync } from 'node:child_process';
@@ -12,6 +13,39 @@ import { syncPermissionsAndRoles } from '../modules/core/repository';
 import { createDb, transaction } from './client';
 
 const SCHEMAS = ['core', 'audit', 'sales', 'service', 'parts', 'accounts'];
+
+/**
+ * Re-applied after every migrate (idempotent). The runtime role `dms_app` (created once by
+ * `npm run setup`, see scripts/setup.mjs) gets DML only and is not a table owner, so RLS applies to it.
+ * Append-only tables: no UPDATE/DELETE for the app role, and a trigger stops everyone else too —
+ * add each new append-only table to the list.
+ */
+const APP_GRANTS = [
+  'grant usage on schema core, audit, sales, service, parts, accounts to dms_app',
+  'grant select, insert, update, delete on all tables in schema core, sales, service, parts, accounts to dms_app',
+  'grant usage, select on all sequences in schema core, audit, sales, service, parts, accounts to dms_app',
+  'revoke all on audit.audit_log from dms_app',
+  'grant select, insert on audit.audit_log to dms_app',
+  `do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'audit.audit_log',
+    'core.workflow_transition',
+    'core.domain_event',
+    'parts.inventory_transaction',
+    'accounts.journal_entry',
+    'accounts.journal_line'
+  ] loop
+    execute format('revoke update, delete, truncate on %s from dms_app', t);
+    execute format('drop trigger if exists append_only on %s', t);
+    execute format(
+      'create trigger append_only before update or delete on %s for each row execute function core.forbid_mutation()', t);
+  end loop;
+end
+$$`,
+];
 
 /** Runs the Prisma CLI (prisma.config.ts) against `url`. */
 function prismaCli(args: string[], url: string): string {
@@ -40,8 +74,13 @@ export async function dropAll(url: string) {
   });
 }
 
-/** Applies pending migrations, then registers the permission catalog and default roles. */
+/** Applies pending migrations and the app-role grants, then registers the permission catalog and default roles. */
 export async function migrateDatabase(url: string) {
   prismaCli(['migrate', 'deploy'], url);
-  return withOwner(url, (db) => transaction(db, (tx) => syncPermissionsAndRoles(tx)));
+  return withOwner(url, (db) =>
+    transaction(db, async (tx) => {
+      for (const stmt of APP_GRANTS) await tx.$executeRawUnsafe(stmt);
+      return syncPermissionsAndRoles(tx);
+    }),
+  );
 }

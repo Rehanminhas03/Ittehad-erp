@@ -8,7 +8,8 @@
  *   - Assistant Manager: duplicate customers sent to them.
  *   - Salesperson / CRO (own leads): new leads not followed up; customers whose car is ready.
  */
-import { and, count, eq, sql, type SQL } from 'drizzle-orm';
+import { query } from '../../../db/client';
+import { and, eq, sql, type SQL } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { pakistanToday } from '../../../lib/dates';
 import { vehicle } from '../../master/models';
@@ -18,14 +19,14 @@ import { SalesPerm as P } from '../permissions';
 
 export type ActionItem = { key: string; title: string; count: number; to: string; urgent: boolean };
 
-const carIs = (status: string, vehicleIdCol: SQL | typeof salesOrder.vehicleId) =>
+const carIs = (status: string, vehicleIdCol: SQL) =>
   sql`exists (select 1 from ${vehicle} where ${vehicle.id} = ${vehicleIdCol} and ${vehicle.status} = ${status})`;
 
 export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
   const { access } = ctx;
   const items: ActionItem[] = [];
   const countOf = async (table: typeof lead | typeof salesOrder | typeof delivery, where: SQL | undefined) =>
-    (await ctx.tx.select({ n: count() }).from(table).where(where))[0]?.n ?? 0;
+    (await query<{ n: number }>(ctx.tx, sql`select count(*)::int as "n" from ${table} where ${where ?? sql`true`}`))[0]?.n ?? 0;
   const add = (item: Omit<ActionItem, 'count'>, n: number) => {
     if (n > 0) items.push({ ...item, count: n });
   };

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { userRole } from '../src/modules/core/models';
 import { api, bearer, createDealership, createUser, leadVehicle, owner, PASSWORD, roleByName, useTestDb } from './helpers';
 
 useTestDb();
@@ -8,7 +7,7 @@ type Login = Awaited<ReturnType<typeof createUser>>;
 
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 
@@ -33,10 +32,10 @@ describe('activity log', () => {
     expect(res.body.items[0]).toMatchObject({ actorId: sp.user.id, dealershipId: d.id, dealershipName: 'Dealer HYD' });
 
     // A deactivated account trying to sign in is recorded as blocked.
-    await owner.pool.query('update core."user" set is_active = false where id = $1', [sp.user.id]);
+    await owner.raw('update core."user" set is_active = false where id = $1', [sp.user.id]);
     await signIn(sp.user.email).expect(401);
-    const [row] = (await owner.pool.query("select action from audit.audit_log where actor_id = $1 order by id desc limit 1", [sp.user.id])).rows;
-    expect(row.action).toBe('login.blocked');
+    const [row] = (await owner.raw("select action from audit.audit_log where actor_id = $1 order by id desc limit 1", [sp.user.id])).rows;
+    expect(row!.action).toBe('login.blocked');
   });
 
   it("records the person's work on leads, with readable names", async () => {

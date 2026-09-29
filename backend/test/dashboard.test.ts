@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { userRole } from '../src/modules/core/models';
-import { vehicleModel } from '../src/modules/master/models';
 import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
 
 useTestDb();
@@ -9,13 +7,13 @@ type Login = Awaited<ReturnType<typeof createUser>>;
 
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 
 async function setup() {
   const d = await createDealership('HYD');
-  const [model] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
+  const model = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
   return {
     d,
     modelId: model!.id,
@@ -92,7 +90,7 @@ describe('leads by latest activity', () => {
     const old = await newLead(s, s.sales1, '03004440001', 'Old Converted');
     const idle = await newLead(s, s.sales1, '03004440002', 'Old Idle');
     // Both were logged ten days ago.
-    await owner.pool.query(`update sales.lead set created_at = now() - interval '10 days', updated_at = now() - interval '10 days' where id = any($1)`, [[old, idle]]);
+    await owner.raw(`update sales.lead set created_at = now() - interval '10 days', updated_at = now() - interval '10 days' where id = any($1)`, [[old, idle]]);
     const fresh = await newLead(s, s.sales1, '03004440003', 'New Today');
     await convert(s, s.sales1, old);
 

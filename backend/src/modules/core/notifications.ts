@@ -9,15 +9,14 @@
  * bookkeeping around it); many of the same kind collapse ("Variant codes added (19)").
  * Sign-ins and personal profile changes are not broadcast. Details never carry customer data.
  */
-import { and, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { Executor } from '../../db/client';
+import { type Executor, type Tx, query } from '../../db/client';
+import { sql } from '../../db/sql';
 import type { EntityCtx } from '../../entity/types';
 import { notFound } from '../../lib/errors';
 import { emitToUsers } from '../../lib/realtime';
 import type { AuditEntry } from './audit';
-import { notification, user } from './models';
 
-type Row = typeof notification.$inferSelect;
+type Row = NonNullable<Awaited<ReturnType<Tx['notification']['findFirst']>>>;
 interface Spec {
   title: string;
   /** Which entry of a request is the notification (the highest wins). */
@@ -145,7 +144,7 @@ export function describeChange(e: AuditEntry): Spec | null {
 
 /** Sales templates carry their kind on the row, not in the audit entry. */
 async function templateTitle(ex: Executor, id: string) {
-  const { rows } = await ex.execute<{ kind: string }>(sql`select kind from sales.document_template where id = ${Number(id)}`);
+  const rows = await query<{ kind: string }>(ex, sql`select kind from sales.document_template where id = ${Number(id)}`);
   return rows[0]?.kind === 'ppf' ? 'PPF voucher format changed' : 'Quotation format changed';
 }
 
@@ -168,31 +167,28 @@ export async function createNotifications(ex: Executor, actorId: number | null, 
   const scope = dealershipId
     ? sql`ur.dealership_id = ${dealershipId}`
     : sql`ur.dealership_id in (select dealership_id from core.user_role where user_id = ${actorId} and dealership_id is not null)`;
-  const { rows: recipients } = await ex.execute<{ id: number }>(sql`
+  const recipients = await query<{ id: number }>(ex, sql`
     select distinct u.id::int as id
       from core."user" u
       join core.user_role ur on ur.user_id = u.id
      where u.is_active and u.id <> ${actorId} and (ur.dealership_id is null or ${scope})`);
   if (!recipients.length) return [];
-  const [actor] = await ex.select({ fullName: user.fullName }).from(user).where(eq(user.id, actorId));
+  const actor = await ex.user.findFirst({ where: { id: actorId }, select: { fullName: true } });
 
-  return ex
-    .insert(notification)
-    .values(
-      recipients.map((r) => ({
-        userId: r.id,
-        dealershipId,
-        entityType: best.entry.entityType,
-        entityId: String(best.entry.entityId),
-        action: best.entry.action,
-        title,
-        detail,
-        href: best.spec.href ?? null,
-        actorId,
-        actorName: actor?.fullName ?? null,
-      })),
-    )
-    .returning();
+  return ex.notification.createManyAndReturn({
+    data: recipients.map((r) => ({
+      userId: r.id,
+      dealershipId,
+      entityType: best.entry.entityType,
+      entityId: String(best.entry.entityId),
+      action: best.entry.action,
+      title,
+      detail,
+      href: best.spec.href ?? null,
+      actorId,
+      actorName: actor?.fullName ?? null,
+    })),
+  });
 }
 
 /** Pushes saved notifications to their recipients (after commit), with each one's new unread count. */
@@ -217,36 +213,34 @@ export function present(r: Row) {
 }
 
 // ---- The signed-in person's notifications (RLS: only their own rows are visible) -------------
-const mine = (ctx: EntityCtx) => eq(notification.userId, ctx.access.userId);
+const mine = (ctx: EntityCtx) => ({ userId: ctx.access.userId });
 
 export async function listNotifications(ctx: EntityCtx, q: { page: number; pageSize: number; unread?: boolean }) {
-  const where = and(mine(ctx), q.unread ? isNull(notification.readAt) : undefined);
-  const [{ n: total } = { n: 0 }] = await ctx.tx.select({ n: count() }).from(notification).where(where);
-  const rows = await ctx.tx
-    .select()
-    .from(notification)
-    .where(where)
-    .orderBy(desc(notification.createdAt), desc(notification.id))
-    .limit(q.pageSize)
-    .offset((q.page - 1) * q.pageSize);
+  const where = { ...mine(ctx), ...(q.unread ? { readAt: null } : {}) };
+  const total = await ctx.tx.notification.count({ where });
+  const rows = await ctx.tx.notification.findMany({
+    where,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: q.pageSize,
+    skip: (q.page - 1) * q.pageSize,
+  });
   return { items: rows.map(present), total, page: q.page, pageSize: q.pageSize, unread: await unreadCount(ctx) };
 }
 
 export async function unreadCount(ctx: EntityCtx) {
-  const [{ n } = { n: 0 }] = await ctx.tx.select({ n: count() }).from(notification).where(and(mine(ctx), isNull(notification.readAt)));
-  return n;
+  return ctx.tx.notification.count({ where: { ...mine(ctx), readAt: null } });
 }
 
 export async function markRead(ctx: EntityCtx, ids: number[] | 'all') {
-  await ctx.tx
-    .update(notification)
-    .set({ readAt: new Date() })
-    .where(and(mine(ctx), isNull(notification.readAt), ids === 'all' ? undefined : inArray(notification.id, ids)));
+  await ctx.tx.notification.updateMany({
+    where: { ...mine(ctx), readAt: null, ...(ids === 'all' ? {} : { id: { in: ids } }) },
+    data: { readAt: new Date() },
+  });
   return { unread: await unreadCount(ctx) };
 }
 
 export async function deleteNotification(ctx: EntityCtx, id: number) {
-  const gone = await ctx.tx.delete(notification).where(and(mine(ctx), eq(notification.id, id))).returning({ id: notification.id });
-  if (!gone.length) throw notFound('Notification');
+  const gone = await ctx.tx.notification.deleteMany({ where: { ...mine(ctx), id } });
+  if (!gone.count) throw notFound('Notification');
   return { unread: await unreadCount(ctx) };
 }

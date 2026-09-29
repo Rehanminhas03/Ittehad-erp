@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { userRole } from '../src/modules/core/models';
 import { api, bearer, createDealership, createUser, owner, PASSWORD, roleByName, useTestDb } from './helpers';
 
 useTestDb();
@@ -8,7 +7,7 @@ type Login = Awaited<ReturnType<typeof createUser>>;
 
 async function staff(roleName: string, dealershipId: number): Promise<Login> {
   const u = await createUser();
-  await owner.db.insert(userRole).values({ userId: u.user.id, roleId: await roleByName(roleName), dealershipId });
+  await owner.db.userRole.create({ data: { userId: u.user.id, roleId: await roleByName(roleName), dealershipId } });
   return u;
 }
 

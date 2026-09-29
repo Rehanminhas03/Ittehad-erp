@@ -4,7 +4,9 @@
  * Duplicate phone numbers are blocked; the salesperson can escalate the existing lead so the
  * Assistant Manager may convert it on the owner's behalf.
  */
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { execute, query } from '../../../db/client';
+import { pickColumns } from '../../../db/delegate';
+import { and, eq, inArray, sql } from '../../../db/sql';
 import { withNames } from '../../../entity/names';
 import { diffChanges } from '../../core/audit';
 import type { EntityCtx } from '../../../entity/types';
@@ -16,7 +18,7 @@ import { USER_NAME } from '../../master/nameSources';
 import { normalizeMobile } from '../../master/normalize';
 import { findDuplicateCustomer } from '../../master/repository';
 import { assertNoActiveLead, leads } from '../entities';
-import { ACTIVE_LEAD_STATES, lead, leadFollowUp } from '../models';
+import { ACTIVE_LEAD_STATES, lead } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { ConvertLeadBody, EscalateDuplicateBody, LeadDetailsBody, LeadFollowUpCreate } from '../schemas';
 
@@ -42,17 +44,19 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
     if (!ctx.access.canIn(P.leadsRecordVisit, targetOf(l))) throw forbidden('Only the CRO records in-person visits');
   }
 
-  await ctx.tx.insert(leadFollowUp).values({
-    dealershipId: l.dealershipId as number,
-    leadId,
-    outcome: input.outcome,
-    remarks: input.remarks ?? null,
-    createdById: ctx.access.userId,
+  await ctx.tx.leadFollowUp.create({
+    data: {
+      dealershipId: l.dealershipId as number,
+      leadId,
+      outcome: input.outcome,
+      remarks: input.remarks ?? null,
+      createdById: ctx.access.userId,
+    },
   });
-  await ctx.tx
-    .update(lead)
-    .set({ followUpCount: sql`${lead.followUpCount} + 1`, lastFollowUpAt: new Date(), updatedById: ctx.access.userId })
-    .where(eq(lead.id, leadId));
+  await ctx.tx.lead.update({
+    where: { id: leadId },
+    data: { followUpCount: { increment: 1 }, lastFollowUpAt: new Date(), updatedById: ctx.access.userId },
+  });
   await ctx.audit({
     entityType: 'sales.lead',
     entityId: leadId,
@@ -71,7 +75,7 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
 
 export async function listFollowUps(ctx: EntityCtx, leadId: number) {
   await leads.findVisible(ctx, leadId);
-  const rows = await ctx.tx.select().from(leadFollowUp).where(eq(leadFollowUp.leadId, leadId)).orderBy(desc(leadFollowUp.createdAt)).limit(100);
+  const rows = await ctx.tx.leadFollowUp.findMany({ where: { leadId }, orderBy: { createdAt: 'desc' }, take: 100 });
   return withNames(ctx.tx, rows as never, { createdByName: { key: 'createdById', source: USER_NAME } });
 }
 
@@ -105,23 +109,23 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
   if (customerId && Object.keys(corrected).length) {
     const dup = await findDuplicateCustomer(ctx.tx, dealershipId, phoneNormalized, null, customerId);
     if (dup) throw conflict(`Another customer already has this phone number: ${dup.fullName}`);
-    await ctx.tx
-      .update(customer)
-      .set({ fullName: name, mobile: phone, mobileNormalized: phoneNormalized, updatedById: ctx.access.userId })
-      .where(eq(customer.id, customerId));
+    await ctx.tx.customer.update({
+      where: { id: customerId },
+      data: { fullName: name, mobile: phone, mobileNormalized: phoneNormalized, updatedById: ctx.access.userId },
+    });
   }
   if (!customerId) {
     const existing = await findDuplicateCustomer(ctx.tx, dealershipId, phoneNormalized, null);
     if (existing) {
       customerId = existing.id;
-      await ctx.tx
-        .update(customer)
-        .set({ email: sql`coalesce(${customer.email}, ${input.email})` })
-        .where(eq(customer.id, existing.id));
+      // Keeps an email already on the customer.
+      await execute(
+        ctx.tx,
+        sql`update ${customer} set email = coalesce(${customer.email}, ${input.email ?? null}), updated_at = now() where ${customer.id} = ${existing.id}`,
+      );
     } else {
-      const [c] = await ctx.tx
-        .insert(customer)
-        .values({
+      const c = await ctx.tx.customer.create({
+        data: {
           dealershipId,
           kind: 'individual',
           fullName: name,
@@ -130,16 +134,17 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
           email: input.email,
           createdById: ctx.access.userId,
           updatedById: ctx.access.userId,
-        })
-        .returning({ id: customer.id });
-      customerId = c!.id;
+        },
+        select: { id: true },
+      });
+      customerId = c.id;
       await ctx.audit({ entityType: 'master.customer', entityId: customerId, action: 'create', dealershipId, changes: { fromLeadId: leadId } });
     }
   }
 
-  await ctx.tx
-    .update(lead)
-    .set({
+  await ctx.tx.lead.update({
+    where: { id: leadId },
+    data: {
       customerId,
       prospectName: name,
       prospectMobile: phone,
@@ -156,8 +161,8 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
       convertedAt: new Date(),
       convertedById: ctx.access.userId,
       updatedById: ctx.access.userId,
-    })
-    .where(eq(lead.id, leadId));
+    },
+  });
   if (Object.keys(corrected).length) await ctx.audit({ entityType: 'sales.lead', entityId: leadId, action: 'details.update', ...target, changes: corrected });
   await leads.transition(ctx, leadId, 'convert', asOwner ? undefined : 'Converted by the Assistant Manager (duplicate customer)', { system: true });
   return leads.get(ctx, leadId);
@@ -200,10 +205,10 @@ export async function correctLeadDetails(ctx: EntityCtx, leadId: number, input: 
       customerPatch.mobile = patch.prospectMobile;
       customerPatch.mobileNormalized = patch.prospectMobileNormalized;
     }
-    await ctx.tx.update(customer).set({ ...customerPatch, updatedById: ctx.access.userId }).where(eq(customer.id, customerId));
+    await ctx.tx.customer.update({ where: { id: customerId }, data: { ...customerPatch, updatedById: ctx.access.userId } });
   }
 
-  await ctx.tx.update(lead).set({ ...patch, updatedById: ctx.access.userId }).where(eq(lead.id, leadId));
+  await ctx.tx.lead.update({ where: { id: leadId }, data: pickColumns(lead, { ...patch, updatedById: ctx.access.userId }) });
   await ctx.audit({ entityType: 'sales.lead', entityId: leadId, action: 'details.update', ...target, changes });
   return leads.get(ctx, leadId);
 }
@@ -217,26 +222,26 @@ export async function escalateDuplicate(ctx: EntityCtx, input: z.output<typeof E
   if (!ctx.access.canIn(P.leadsCreate, { dealershipId: input.dealershipId })) throw forbidden();
   const mobileNormalized = normalizeMobile(input.prospectMobile)!;
   // Looked up regardless of owner (RLS still confines it to the caller's dealerships).
-  const [existing] = await ctx.tx
-    .select()
-    .from(lead)
-    .where(
-      and(
-        eq(lead.dealershipId, input.dealershipId),
-        eq(lead.prospectMobileNormalized, mobileNormalized),
-        inArray(lead.status, [...ACTIVE_LEAD_STATES]),
-      ),
-    )
-    .for('update');
+  const [locked] = await query<{ id: number }>(
+    ctx.tx,
+    sql`select ${lead.id} as id from ${lead}
+         where ${and(
+           eq(lead.dealershipId, input.dealershipId),
+           eq(lead.prospectMobileNormalized, mobileNormalized),
+           inArray(lead.status, [...ACTIVE_LEAD_STATES]),
+         )}
+         for update`,
+  );
+  const existing = locked ? await ctx.tx.lead.findUnique({ where: { id: locked.id } }) : null;
   if (!existing) throw notFound('Lead');
   if (existing.ownerId === ctx.access.userId) throw conflict('This lead is already yours');
   if (existing.escalatedAt) return { leadId: existing.id, escalatedAt: existing.escalatedAt };
 
   const escalatedAt = new Date();
-  await ctx.tx
-    .update(lead)
-    .set({ escalatedAt, escalatedById: ctx.access.userId, escalationNote: input.note ?? null })
-    .where(eq(lead.id, existing.id));
+  await ctx.tx.lead.update({
+    where: { id: existing.id },
+    data: { escalatedAt, escalatedById: ctx.access.userId, escalationNote: input.note ?? null },
+  });
   await ctx.audit({
     entityType: 'sales.lead',
     entityId: existing.id,

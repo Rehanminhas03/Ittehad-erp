@@ -1,9 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { invoice, payment } from '../src/modules/accounts/models';
-import { customer, vehicle, vehicleModel } from '../src/modules/master/models';
-import { part, stockItem } from '../src/modules/parts/models';
-import { delivery, lead, salesOrder } from '../src/modules/sales/models';
-import { jobCard, jobCardLine, visit } from '../src/modules/service/models';
 import { api, bearer, createBranch, createDealership, createUser, owner, useTestDb } from './helpers';
 
 useTestDb();
@@ -24,7 +19,7 @@ const get = (token: string, key: string, query = '') => api.get(`/api/reports/da
 async function setup() {
   const hyd = await createDealership('HYD');
   const jet = await createDealership('JET');
-  const [m] = await owner.db.insert(vehicleModel).values({ brand: 'Hyundai', name: 'Tucson' }).returning();
+  const m = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
   const exec1 = await createUser([{ permissions: ['reports.sales.view_own'], dealershipId: hyd.id }]);
   const exec2 = await createUser([{ permissions: ['reports.sales.view_own'], dealershipId: hyd.id }]);
   const manager = await createUser([{ permissions: ['reports.sales.view', 'reports.service.view', 'reports.parts.view', 'reports.accounts.view'], dealershipId: hyd.id }]);
@@ -36,7 +31,7 @@ type S = Awaited<ReturnType<typeof setup>>;
 
 async function newCustomer(dealershipId: number) {
   const k = String(++seq).padStart(7, '0');
-  const [c] = await owner.db.insert(customer).values({ dealershipId, fullName: `Customer ${seq}`, mobile: `0300-${k}`, mobileNormalized: `+92300${k}` }).returning();
+  const c = await owner.db.customer.create({ data: { dealershipId, fullName: `Customer ${seq}`, mobile: `0300-${k}`, mobileNormalized: `+92300${k}` } });
   return c!.id;
 }
 
@@ -44,14 +39,15 @@ async function newCustomer(dealershipId: number) {
 async function order(s: S, dealershipId: number, salespersonId: number, total: string, opts: { delivered?: boolean; discount?: string } = {}) {
   const customerId = await newCustomer(dealershipId);
   const unitPrice = (Number(total) + Number(opts.discount ?? 0)).toFixed(2);
-  const [o] = await owner.db
-    .insert(salesOrder)
-    .values({ dealershipId, orderNo: `SO-${++seq}`, customerId, salespersonId, modelId: s.modelId, unitPrice, discount: opts.discount ?? '0', totalAmount: total, status: opts.delivered ? 'delivered' : 'approved' })
-    .returning();
+  const o = await owner.db.salesOrder.create({
+    data: { dealershipId, orderNo: `SO-${++seq}`, customerId, salespersonId, modelId: s.modelId, unitPrice, discount: opts.discount ?? '0', totalAmount: total, status: opts.delivered ? 'delivered' : 'approved' },
+  });
   if (opts.delivered) {
-    const [v] = await owner.db.insert(vehicle).values({ vin: `RPTVIN${++seq}`, modelId: s.modelId }).returning();
-    await owner.db.insert(delivery).values({
-      dealershipId, deliveryNo: `DN-${seq}`, salesOrderId: o!.id, vehicleId: v!.id, customerId, salespersonId, scheduledDate: today(), deliveredOn: today(), deliveredAt: new Date(), status: 'delivered',
+    const v = await owner.db.vehicle.create({ data: { vin: `RPTVIN${++seq}`, modelId: s.modelId } });
+    await owner.db.delivery.create({
+      data: {
+        dealershipId, deliveryNo: `DN-${seq}`, salesOrderId: o!.id, vehicleId: v!.id, customerId, salespersonId, scheduledDate: today(), deliveredOn: today(), deliveredAt: new Date(), status: 'delivered',
+      },
     });
   }
   return o!.id;
@@ -59,7 +55,7 @@ async function order(s: S, dealershipId: number, salespersonId: number, total: s
 
 async function leadFor(dealershipId: number, ownerId: number, status: 'new' | 'converted' = 'new') {
   const k = String(++seq).padStart(7, '0');
-  await owner.db.insert(lead).values({ dealershipId, ownerId, prospectName: 'P', prospectMobile: `0321-${k}`, prospectMobileNormalized: `+92321${k}`, source: 'walk_in', status });
+  await owner.db.lead.create({ data: { dealershipId, ownerId, prospectName: 'P', prospectMobile: `0321-${k}`, prospectMobileNormalized: `+92321${k}`, source: 'walk_in', status } });
 }
 
 describe('dashboard access', () => {
@@ -137,29 +133,29 @@ describe('service, parts and finance dashboards', () => {
     const s = await setup();
     const advisor = await createUser([{ permissions: ['reports.service.view_own'], dealershipId: s.hyd.id }]);
     const make = async (advisorId: number, arrivedHoursAgo: number, deliveredHoursAgo: number | null) => {
-      const [v] = await owner.db.insert(vehicle).values({ vin: `SVCVIN${++seq}`, modelId: s.modelId }).returning();
-      const [vi] = await owner.db
-        .insert(visit)
-        .values({
+      const v = await owner.db.vehicle.create({ data: { vin: `SVCVIN${++seq}`, modelId: s.modelId } });
+      const vi = await owner.db.visit.create({
+        data: {
           dealershipId: s.hyd.id, visitNo: `V-${seq}`, vehicleId: v!.id, customerId: await newCustomer(s.hyd.id), advisorId, visitType: 'repair', visitSequence: 1, odometerKm: 1000,
           warrantyValid: false, freeService: false, arrivedAt: hoursAgo(arrivedHoursAgo), deliveredAt: deliveredHoursAgo === null ? null : hoursAgo(deliveredHoursAgo),
           status: deliveredHoursAgo === null ? 'in_progress' : 'delivered',
-        })
-        .returning();
-      return vi!;
+        },
+      });
+      return vi;
     };
     const v1 = await make(advisor.user.id, 10, 4); // 6 h
     await make(advisor.user.id, 5, 1); // 4 h
     await make(s.manager.user.id, 3, null);
-    const [jc] = await owner.db
-      .insert(jobCard)
-      .values({ dealershipId: s.hyd.id, jobCardNo: `JC-${++seq}`, visitId: v1.id, vehicleId: v1.vehicleId, advisorId: advisor.user.id, status: 'completed', completedAt: hoursAgo(4) })
-      .returning();
-    await owner.db.insert(jobCardLine).values([
-      { dealershipId: s.hyd.id, jobCardId: jc!.id, kind: 'labour', description: 'L', quantity: '2', unitPrice: '3000', amount: '6000.00' },
-      { dealershipId: s.hyd.id, jobCardId: jc!.id, kind: 'part', description: 'P', quantity: '1', unitPrice: '14500', amount: '14500.00' },
-      { dealershipId: s.hyd.id, jobCardId: jc!.id, kind: 'labour', description: 'Free', quantity: '1', unitPrice: '500', amount: '500.00', billable: false },
-    ]);
+    const jc = await owner.db.jobCard.create({
+      data: { dealershipId: s.hyd.id, jobCardNo: `JC-${++seq}`, visitId: v1.id, vehicleId: v1.vehicleId, advisorId: advisor.user.id, status: 'completed', completedAt: hoursAgo(4) },
+    });
+    await owner.db.jobCardLine.createMany({
+      data: [
+        { dealershipId: s.hyd.id, jobCardId: jc!.id, kind: 'labour', description: 'L', quantity: '2', unitPrice: '3000', amount: '6000.00' },
+        { dealershipId: s.hyd.id, jobCardId: jc!.id, kind: 'part', description: 'P', quantity: '1', unitPrice: '14500', amount: '14500.00' },
+        { dealershipId: s.hyd.id, jobCardId: jc!.id, kind: 'labour', description: 'Free', quantity: '1', unitPrice: '500', amount: '500.00', billable: false },
+      ],
+    });
 
     const own = (await get(advisor.token, 'service')).body as Dashboard;
     expect(own.mode).toBe('own');
@@ -174,13 +170,15 @@ describe('service, parts and finance dashboards', () => {
 
   it('values stock and flags low stock per branch', async () => {
     const s = await setup();
-    const [p1] = await owner.db.insert(part).values({ partNo: 'A-1', description: 'A', sellingPrice: '10' }).returning();
-    const [p2] = await owner.db.insert(part).values({ partNo: 'B-1', description: 'B', sellingPrice: '10' }).returning();
+    const p1 = await owner.db.part.create({ data: { partNo: 'A-1', description: 'A', sellingPrice: '10' } });
+    const p2 = await owner.db.part.create({ data: { partNo: 'B-1', description: 'B', sellingPrice: '10' } });
     const b = await createBranch(s.hyd.id, 'MAIN');
-    await owner.db.insert(stockItem).values([
-      { dealershipId: s.hyd.id, branchId: b.id, partId: p1!.id, quantityOnHand: '10', averageCost: '150.00', reorderLevel: '5' },
-      { dealershipId: s.hyd.id, branchId: b.id, partId: p2!.id, quantityOnHand: '2', averageCost: '1000.00', reorderLevel: '5' },
-    ]);
+    await owner.db.stockItem.createMany({
+      data: [
+        { dealershipId: s.hyd.id, branchId: b.id, partId: p1!.id, quantityOnHand: '10', averageCost: '150.00', reorderLevel: '5' },
+        { dealershipId: s.hyd.id, branchId: b.id, partId: p2!.id, quantityOnHand: '2', averageCost: '1000.00', reorderLevel: '5' },
+      ],
+    });
     const d = (await get(s.manager.token, 'parts')).body as Dashboard;
     expect(metric(d, 'stockValue')).toBe('3500.00');
     expect(metric(d, 'low')).toBe(1);
@@ -195,13 +193,15 @@ describe('service, parts and finance dashboards', () => {
       dealershipId: s.hyd.id, invoiceNo: `INV-${++seq}`, kind: 'service' as const, customerId: c, sourceType: 'job_card', sourceId: seq, invoiceDate: today(), dueDate: due,
       subtotal: total, taxAmount: '0', totalAmount: total, amountPaid: paid, status,
     });
-    await owner.db.insert(invoice).values([
-      inv('1000.00', '0', 'issued', '2020-01-01'),
-      inv('2000.00', '500.00', 'partially_paid', '2999-01-01'),
-      inv('3000.00', '3000.00', 'paid', today()),
-      inv('9999.00', '0', 'draft', today()),
-    ]);
-    await owner.db.insert(payment).values({ dealershipId: s.hyd.id, paymentNo: `RC-${++seq}`, direction: 'receipt', customerId: c, method: 'cash', paymentDate: today(), amount: '3500.00' });
+    await owner.db.invoice.createMany({
+      data: [
+        inv('1000.00', '0', 'issued', '2020-01-01'),
+        inv('2000.00', '500.00', 'partially_paid', '2999-01-01'),
+        inv('3000.00', '3000.00', 'paid', today()),
+        inv('9999.00', '0', 'draft', today()),
+      ],
+    });
+    await owner.db.payment.create({ data: { dealershipId: s.hyd.id, paymentNo: `RC-${++seq}`, direction: 'receipt', customerId: c, method: 'cash', paymentDate: today(), amount: '3500.00' } });
     const d = (await get(s.manager.token, 'accounts')).body as Dashboard;
     expect(metric(d, 'invoiced')).toBe('6000.00'); // drafts excluded
     expect(metric(d, 'collected')).toBe('3500.00');

@@ -2,7 +2,7 @@
 //   npm run setup
 //   PG_SUPERUSER_URL=postgres://postgres:secret@127.0.0.1:5432/postgres npm run setup
 // Steps: install dependencies -> create roles/databases (idempotent) -> write backend/.env if
-// missing -> build the schema from scratch and seed.
+// missing -> build the database from the Prisma migrations and seed.
 import { execSync } from 'node:child_process';
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -23,7 +23,8 @@ await client.connect();
 const exists = async (sql, v) => (await client.query(sql, [v])).rowCount > 0;
 if (!(await exists('select 1 from pg_roles where rolname = $1', 'dms'))) await client.query("create role dms login password 'dms' createdb");
 if (!(await exists('select 1 from pg_roles where rolname = $1', 'dms_app'))) await client.query("create role dms_app login password 'dms_app'");
-for (const db of ['dms', 'dms_test']) {
+// dms_shadow: scratch database for `prisma migrate dev` (creating new migrations).
+for (const db of ['dms', 'dms_test', 'dms_shadow']) {
   if (!(await exists('select 1 from pg_database where datname = $1', db))) await client.query(`create database ${db} owner dms`);
   await client.query(`grant connect on database ${db} to dms_app`);
 }
@@ -39,7 +40,7 @@ for (const file of [envPath, path.join(root, 'backend', '.env.test')]) {
   writeFileSync(file, readFileSync(file, 'utf8').replace(/(postgres:\/\/[^@\s]+@)[^/\s]+\//g, `$1${server}/`));
 }
 
-console.log('4/4 Building the database from the models and seeding...');
+console.log('4/4 Building the database from the Prisma migrations and seeding...');
 run('npm run db:fresh', path.join(root, 'backend'));
 
 console.log('\nDone. Start everything with:  npm run dev');

@@ -28,8 +28,10 @@ function redact(value: unknown): unknown {
   return value;
 }
 
+// createMany: no RETURNING, so the insert does not need the row to pass audit_read (e.g. a sign-in,
+// written before there is a current user).
 export async function writeAudit(ex: Executor, meta: AuditMeta, entry: AuditEntry): Promise<void> {
-  await ex.auditLog.create({
+  await ex.auditLog.createMany({
     data: {
       actorId: meta.actorId,
       requestId: meta.requestId,
@@ -42,7 +44,6 @@ export async function writeAudit(ex: Executor, meta: AuditMeta, entry: AuditEntr
       // SQL NULL when there are no changes (as before), not a JSON null.
       changes: entry.changes === undefined ? Prisma.DbNull : (redact(entry.changes) as Prisma.InputJsonValue),
     },
-    select: { id: true },
   });
 }
 

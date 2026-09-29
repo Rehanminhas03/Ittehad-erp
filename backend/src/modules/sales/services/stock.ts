@@ -1,13 +1,10 @@
 /** Open stock (Delivery Team): registering incoming vehicles at a dealership. */
-import { eq } from 'drizzle-orm';
 import type { EntityCtx } from '../../../entity/types';
 import { conflict, forbidden, validationError } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
 import { assertActiveModel } from '../../master/entities';
-import { vehicle, vehicleDealership } from '../../master/models';
 import { findVehicleByIdentifiers } from '../../master/repository';
 import { orders, salesOrderEntity, stock } from '../entities';
-import { salesOrder } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { StockVehicleCreate } from '../schemas';
 import { LIVE_ORDER_STATES } from './orders';
@@ -36,9 +33,8 @@ export async function receiveStockVehicle(ctx: EntityCtx, input: z.output<typeof
     if (o.modelId !== fields.modelId) throw bad('That order is for a different model');
   }
 
-  const [v] = await ctx.tx
-    .insert(vehicle)
-    .values({
+  const v = await ctx.tx.vehicle.create({
+    data: {
       vin: fields.vin,
       engineNo: fields.engineNo ?? null,
       modelId: fields.modelId,
@@ -49,21 +45,22 @@ export async function receiveStockVehicle(ctx: EntityCtx, input: z.output<typeof
       status: o ? 'received' : 'available',
       createdById: ctx.access.userId,
       updatedById: ctx.access.userId,
-    })
-    .returning({ id: vehicle.id });
-  await ctx.tx.insert(vehicleDealership).values({ vehicleId: v!.id, dealershipId, source: 'manual', createdById: ctx.access.userId });
-  await ctx.audit({ entityType: 'sales.stock_vehicle', entityId: v!.id, action: 'create', dealershipId, branchId: null, changes: input });
+    },
+    select: { id: true },
+  });
+  await ctx.tx.vehicleDealership.create({ data: { vehicleId: v.id, dealershipId, source: 'manual', createdById: ctx.access.userId } });
+  await ctx.audit({ entityType: 'sales.stock_vehicle', entityId: v.id, action: 'create', dealershipId, branchId: null, changes: input });
 
   if (o) {
-    await ctx.tx.update(salesOrder).set({ vehicleId: v!.id, updatedById: ctx.access.userId }).where(eq(salesOrder.id, o.id as number));
+    await ctx.tx.salesOrder.update({ where: { id: o.id }, data: { vehicleId: v.id, updatedById: ctx.access.userId } });
     await ctx.audit({
       entityType: salesOrderEntity.entityType,
       entityId: o.id as number,
       action: 'allocate',
       dealershipId,
       branchId: (o.branchId as number | null) ?? null,
-      changes: { vehicleId: { from: null, to: v!.id }, vehicleStatus: 'received' },
+      changes: { vehicleId: { from: null, to: v.id }, vehicleStatus: 'received' },
     });
   }
-  return stock.get(ctx, v!.id);
+  return stock.get(ctx, v.id);
 }

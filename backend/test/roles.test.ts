@@ -17,10 +17,10 @@ describe('roles & permissions (runtime-editable RBAC)', () => {
   it('permission edits take effect on the very next request', async () => {
     const d = await createDealership('A');
     const admin = await createUser([{ permissions: ['core.roles.view', 'core.roles.manage'] }]);
-    const r = await owner.pool.query<{ id: number }>("insert into core.role(name) values ('Viewer') returning id::int");
+    const r = await owner.raw<{ id: number }>("insert into core.role(name) values ('Viewer') returning id::int");
     const roleId = r.rows[0]!.id;
     const u = await createUser([]);
-    await owner.pool.query('insert into core.user_role(user_id, role_id, dealership_id) values ($1, $2, $3)', [u.user.id, roleId, d.id]);
+    await owner.raw('insert into core.user_role(user_id, role_id, dealership_id) values ($1, $2, $3)', [u.user.id, roleId, d.id]);
 
     expect((await api.get('/api/core/dealerships').set(bearer(u.token))).status).toBe(403);
     const set = await api.put(`/api/core/roles/${roleId}/permissions`).set(bearer(admin.token)).send({ permissionCodes: ['core.dealerships.view'] });
