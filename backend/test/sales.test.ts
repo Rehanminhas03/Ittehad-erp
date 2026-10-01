@@ -240,10 +240,10 @@ describe('Convert to Lead', () => {
     const s = await setup();
     const convertAs = (who: Login, leadId: number) => api.post(`/api/sales/leads/${leadId}/convert`).set(bearer(who.token)).send(conversion(s.modelId));
 
-    // Logged by the AM for Salesperson 1: the AM converts it; the other salesperson cannot.
+    // Logged by the AM for Salesperson 1: the AM converts it; the other salesperson cannot (cannot even see it).
     const forSales1 = await api.post('/api/sales/leads').set(bearer(s.am.token)).send(walkIn(s.d.id, '0300-7100001', { ownerId: s.sales1.user.id }));
     expect(forSales1.status, JSON.stringify(forSales1.body)).toBe(201);
-    expect((await convertAs(s.sales2, forSales1.body.id)).status).toBe(403);
+    expect((await convertAs(s.sales2, forSales1.body.id)).status).toBe(404);
     const byAm = await convertAs(s.am, forSales1.body.id);
     expect(byAm.status, JSON.stringify(byAm.body)).toBe(200);
     expect(byAm.body).toMatchObject({ status: 'converted', ownerId: s.sales1.user.id, convertedById: s.am.user.id });

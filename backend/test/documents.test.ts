@@ -296,7 +296,8 @@ describe('PPF voucher', () => {
     });
 
     await convert(s, id);
-    await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' }).expect(201);
+    const pboNo = nextPbo();
+    await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo, unitPrice: '9000000' }).expect(201);
     // Not typed: taken from the sales order (PBO) and its vehicle (chassis / engine); none known yet -> required.
     const noVehicle = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ coverage: 'partial', amount: '100000' });
     expect(noVehicle.status).toBe(422);
@@ -306,7 +307,7 @@ describe('PPF voucher', () => {
     await api.put(`/api/sales/orders/${orderId}/vehicle`).set(bearer(s.admin.token)).send({ vin: 'ORDERVIN0001', engineNo: 'ORDERENG1' }).expect(200);
     const fromOrder = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ coverage: 'partial', amount: '100000' });
     expect(fromOrder.status).toBe(201);
-    expect(fromOrder.body).toMatchObject({ pboNo: expect.stringMatching(/SO-/), chassisNo: 'ORDERVIN0001', engineNo: 'ORDERENG1' });
+    expect(fromOrder.body).toMatchObject({ pboNo, chassisNo: 'ORDERVIN0001', engineNo: 'ORDERENG1' });
   });
 });
 
@@ -364,12 +365,13 @@ describe('Hyundai Ref and PPF voucher from the order', () => {
     const id = await lead(s);
     const before = await get(s.sales1, `leads/${id}/order-vehicle`);
     expect(before.status).toBe(200);
-    expect(before.body).toEqual({ orderNo: null, chassisNo: null, engineNo: null });
+    expect(before.body).toEqual({ orderNo: null, pboNo: null, chassisNo: null, engineNo: null });
     await convert(s, id);
-    const order = (await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
+    const pboNo = nextPbo();
+    const order = (await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo, unitPrice: '9000000' })).body;
     await api.put(`/api/sales/orders/${order.id}/vehicle`).set(bearer(s.admin.token)).send({ vin: 'MALPC81BLRM123456', engineNo: 'G4FL889900' });
     const after = (await get(s.sales1, `leads/${id}/order-vehicle`)).body;
-    expect(after).toMatchObject({ orderNo: order.orderNo, chassisNo: 'MALPC81BLRM123456', engineNo: 'G4FL889900' });
+    expect(after).toMatchObject({ orderNo: order.orderNo, pboNo, chassisNo: 'MALPC81BLRM123456', engineNo: 'G4FL889900' });
     expect((await get(s.sales2, `leads/${id}/order-vehicle`)).status).toBe(404);
   });
 });
@@ -605,13 +607,14 @@ describe("track record: team leaders' leads, who entered and who converted", () 
     const track = (who: Login, extra = '') => api.get(`/api/sales/team/track-record?dealershipId=${s.d.id}&${q}${extra}`).set(bearer(who.token));
     const newLead = (who: Login, mobile: string, extra: Record<string, unknown> = {}) =>
       api.post('/api/sales/leads').set(bearer(who.token)).send({ dealershipId: s.d.id, prospectName: 'Walk-in', prospectMobile: mobile, ...vehicleOf(s), ...extra });
-    const conversion = { ...vehicleOf(s), preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-8' };
+    // A new CNIC each time: each lead is a different customer.
+    const conversion = () => ({ ...vehicleOf(s), preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-8' });
 
     // The AM logs a lead for salesperson 1, who converts it; the AM logs and converts one of their own.
     const forSales1 = (await newLead(s.am, '03006666661', { ownerId: s.sales1.user.id })).body.id;
-    await api.post(`/api/sales/leads/${forSales1}/convert`).set(bearer(s.sales1.token)).send(conversion).expect(200);
+    await api.post(`/api/sales/leads/${forSales1}/convert`).set(bearer(s.sales1.token)).send(conversion()).expect(200);
     const amOwn = (await newLead(s.am, '03006666662')).body.id;
-    await api.post(`/api/sales/leads/${amOwn}/convert`).set(bearer(s.am.token)).send(conversion).expect(200);
+    await api.post(`/api/sales/leads/${amOwn}/convert`).set(bearer(s.am.token)).send(conversion()).expect(200);
     // The lead shows who entered it.
     expect((await get(s.sales1, `leads/${forSales1}`)).body).toMatchObject({ createdById: s.am.user.id, createdByName: s.am.user.fullName });
 
