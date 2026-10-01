@@ -10,4 +10,5 @@ export const MasterPerm = definePermissions('master', {
   ownershipManage: ['master.ownership.manage', 'Record vehicle ownership and transfers'],
   modelsView: ['master.models.view', 'View the vehicle model catalogue'],
   modelsManage: ['master.models.manage', 'Maintain the vehicle model catalogue (global grant required)'],
+  modelsManageBrand: ['master.models.manage_brand', "Add and edit the vehicle models of the dealership's own brand (e.g. a Jetour dealership: Jetour models)"],
 });

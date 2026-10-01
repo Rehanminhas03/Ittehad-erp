@@ -153,10 +153,10 @@ export function SalesDashboard() {
       { label: 'Approved', value: orders?.byStatus.approved ?? 0, icon: 'car', tone: 'violet', to: '/sales/orders?status=approved' },
     ],
     delivery: [
-      { label: 'Waiting for a vehicle', value: orders?.awaitingVehicle, icon: 'order', tone: 'orange', to: '/sales/orders?live=true&hasVehicle=false', hint: 'Booked, no car yet' },
+      { label: 'Waiting for a vehicle', value: orders?.awaitingVehicle, icon: 'order', tone: 'orange', to: '/sales/delivery-status?stage=waiting', hint: 'Booked, car not dispatched yet' },
       { label: 'Free stock', value: stock?.free, icon: 'car', tone: 'blue', to: '/sales/stock?allocated=false' },
       { label: 'Ready for delivery', value: stock?.byStatus.ready_for_delivery ?? 0, icon: 'check', tone: 'aqua', to: '/sales/stock?status=ready_for_delivery' },
-      { label: 'Deliveries scheduled', value: data?.deliveries?.scheduled, icon: 'truck', tone: 'violet', to: '/sales/deliveries?status=scheduled' },
+      { label: 'Deliveries scheduled', value: data?.deliveries?.scheduled, icon: 'truck', tone: 'violet', to: '/sales/delivery-status?stage=scheduled' },
     ],
   };
   const tiles = byLayout[layout];
@@ -272,7 +272,7 @@ export function SalesDashboard() {
         <Panel
           title={layout === 'delivery' ? 'Delivery queue' : 'Orders awaiting your approval'}
           subtitle={layout === 'delivery' ? 'Booked orders, oldest first' : 'Draft or submitted, oldest first; the Vehicle column shows when the car is ready'}
-          to={layout === 'delivery' ? '/sales/orders?live=true' : '/sales/orders?awaitingApproval=true'}
+          to={layout === 'delivery' ? '/sales/delivery-status' : '/sales/orders?awaitingApproval=true'}
         >
           <RecordsTable
             rows={recordsOrders.data?.items}

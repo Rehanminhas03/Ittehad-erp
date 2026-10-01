@@ -24,6 +24,10 @@ import {
 import { type DocKind, DocumentPreview, DownloadIcon, EyeIcon, PrintIcon } from './DocumentPreview';
 import { PPF_COVERAGES, PPF_FINISHES } from './labels';
 
+/** Jetour staff: their quotations print a delivery period sentence instead of a number of days. */
+const isJetourStaff = (perm: ReturnType<typeof usePermission>) =>
+  [P.quotationsViewAll, P.quotationsViewOwn].flatMap((c) => perm.dealershipsFor(c)).some((d) => d.brand === 'Jetour');
+
 /** Salesperson filter for team views (the dealership's sales staff). */
 function useSalespersonOptions() {
   const perm = usePermission();
@@ -145,7 +149,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { label: 'Total', value: (q) => <span className="font-semibold">{formatMoney(q.totalAmount)}</span> },
       { label: 'Booking amount', value: (q) => formatMoney(q.bookingAmount) },
       { label: 'Valid until', value: (q) => formatDate(q.validUntil) },
-      { label: 'Tentative delivery', value: (q) => (q.deliveryDays != null ? `${q.deliveryDays} days` : null) },
+      { label: 'Tentative delivery', value: (q) => q.deliveryPeriod ?? (q.deliveryDays != null ? `${q.deliveryDays} days` : null) },
       { label: 'Payment mode', value: (q) => q.paymentMode },
       { label: 'Notes', value: (q) => q.notes },
       ...whoFields<Quotation>(),
@@ -166,7 +170,8 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { name: 'color', label: 'Colour', type: 'text' },
       { name: 'bookingAmount', label: 'Booking amount (PKR)', type: 'money' },
       { name: 'validUntil', label: 'Valid until', type: 'date', required: true },
-      { name: 'deliveryDays', label: 'Tentative delivery (days)', type: 'number' },
+      { name: 'deliveryDays', label: 'Tentative delivery (days)', type: 'number', visible: (perm) => !isJetourStaff(perm) },
+      { name: 'deliveryPeriod', label: 'Tentative delivery period', type: 'text', hint: 'e.g. ONE MONTH AFTER FULL PAYMENT.', visible: isJetourStaff },
       { name: 'paymentMode', label: 'Payment mode', type: 'text' },
       { name: 'notes', label: 'Notes on the quotation', type: 'textarea', span: 2 },
     ],
@@ -181,6 +186,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       withholdingTax: money('Withholding tax'),
       withholdingTaxNonFiler: optionalMoney('Withholding tax (non-filer)'),
       deliveryDays: z.union([z.literal('').transform(() => null), z.coerce.number().int().min(0).max(365)]).nullish(),
+      deliveryPeriod: optionalText(120),
       paymentMode: optionalText(80),
       variant: optionalText(160),
       color: optionalText(40),

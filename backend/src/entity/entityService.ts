@@ -3,9 +3,20 @@ import { type Executor, query } from '../db/client';
 import { delegateOf, pickColumns } from '../db/delegate';
 import { type SQL, and, eq, ilike, or, raw, sql } from '../db/sql';
 import { conflict, forbidden, notFound, validationError } from '../lib/errors';
+import { IdQuery } from '../lib/zod';
 import { type Page, type PageQuery, offsetOf } from '../lib/pagination';
 import { diffChanges } from '../modules/core/audit';
 import type { EntityConfig, EntityCtx, Row, WorkflowTransitionDef } from './types';
+
+/**
+ * The list's query filters: the entity's own, plus `dealershipId` for every dealership-owned entity
+ * (the Dealership filter on list screens of people who work at several dealerships).
+ */
+export function listFilters(config: EntityConfig): NonNullable<EntityConfig['filters']> {
+  const own = config.filters ?? {};
+  const key = config.tenant?.dealershipKey;
+  return key && !own.dealershipId ? { ...own, dealershipId: { key, schema: IdQuery } } : own;
+}
 
 export const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
@@ -112,10 +123,11 @@ export class EntityService {
     const term = q.q && config.normalizeSearch ? config.normalizeSearch(q.q) : q.q;
     if (term && config.search?.length) {
       const pattern = `%${escapeLike(term)}%`;
-      conds.push(or(...config.search.map((k) => ilike(this.col(k), pattern))));
+      conds.push(or(...config.search.map((k) => ilike(this.col(k), pattern)), config.searchExtra?.(pattern)));
     }
+    const known = listFilters(config);
     for (const [param, value] of Object.entries(filters)) {
-      const f = config.filters?.[param];
+      const f = known[param];
       if (f && value !== undefined) conds.push(f.where ? f.where(value) : eq(this.col(f.key), value));
     }
     const where = and(...conds) ?? sql`true`;

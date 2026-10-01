@@ -147,6 +147,7 @@ const injectedRtkApi = api
             sort: queryArg.sort,
             q: queryArg.q,
             isActive: queryArg.isActive,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["Dealership"],
@@ -509,6 +510,7 @@ export type ListDealershipsApiArg = {
   sort?: string;
   q?: string;
   isActive?: "true" | "false";
+  dealershipId?: number;
 };
 export type CreateDealershipApiResponse = /** status 201 Success */ Dealership;
 export type CreateDealershipApiArg = {

@@ -6,14 +6,43 @@
 import { query } from '../../../db/client';
 import { and, eq, isNull, sql } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
+import { expectedDelivery } from '../../../lib/dates';
 import { conflict, forbidden, notFound, validationError } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
 import { vehicle, vehicleDealership, VEHICLE_STATUSES } from '../../master/models';
+import { formatCnic, normalizeCnic } from '../../master/normalize';
 import { findVehicleByIdentifiers } from '../../master/repository';
 import { leads, orders, salesOrderEntity } from '../entities';
 import { salesOrder, VEHICLE_PIPELINE } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { AdvanceVehicleStatusBody, OrderVehicleBody, RaiseOrderBody } from '../schemas';
+
+/**
+ * Every sales order needs the customer's CNIC (every dealership): the customer's own, or the one
+ * given now (saved on the customer; not one that already belongs to another customer here).
+ */
+export async function ensureCustomerCnic(ctx: EntityCtx, customerId: number, dealershipId: number, given: string | undefined) {
+  const c = await ctx.tx.customer.findFirst({ where: { id: customerId }, select: { cnic: true } });
+  const cnic = given ? normalizeCnic(given) : null;
+  if (!cnic) {
+    if (c?.cnic) return;
+    throw validationError([{ in: 'body', path: 'customerCnic', message: "Enter the customer's CNIC (required on every sales order)" }]);
+  }
+  if (cnic === c?.cnic) return;
+  const other = await ctx.tx.customer.findFirst({ where: { dealershipId, cnic, id: { not: customerId } }, select: { fullName: true } });
+  if (other) throw validationError([{ in: 'body', path: 'customerCnic', message: `CNIC ${formatCnic(cnic)} belongs to another customer (${other.fullName})` }]);
+  await ctx.tx.customer.update({ where: { id: customerId }, data: { cnic, updatedById: ctx.access.userId }, select: { id: true } });
+  await ctx.audit({ entityType: 'master.customer', entityId: customerId, action: 'update', dealershipId, changes: { cnic: { from: c?.cnic ?? null, to: cnic } } });
+}
+
+/** A PBO number is used once per dealership (a cancelled order frees it). */
+export async function assertNewPbo(ctx: EntityCtx, dealershipId: number, pboNo: string, exceptOrderId?: number) {
+  const same = await ctx.tx.salesOrder.findFirst({
+    where: { dealershipId, pboNo: { equals: pboNo.trim(), mode: 'insensitive' }, status: { not: 'cancelled' }, ...(exceptOrderId ? { id: { not: exceptOrderId } } : {}) },
+    select: { orderNo: true },
+  });
+  if (same) throw validationError([{ in: 'body', path: 'pboNo', message: `PBO ${pboNo} is already on sales order ${same.orderNo}` }]);
+}
 
 // ---- Raise the order from a converted lead ----------------------------------------------
 export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output<typeof RaiseOrderBody>) {
@@ -24,10 +53,13 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
   if (l.status !== 'converted') {
     throw conflict(l.status === 'processing' ? 'A sales order is already raised for this lead' : 'Only converted leads can be ordered');
   }
+  await ensureCustomerCnic(ctx, l.customerId as number, dealershipId, input.customerCnic);
+  await assertNewPbo(ctx, dealershipId, input.pboNo);
 
   const order = await orders.create(ctx, {
     dealershipId,
     branchId,
+    pboNo: input.pboNo,
     customerId: l.customerId,
     modelId: l.interestedModelId,
     variant: l.variant ?? null,
@@ -37,7 +69,10 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
     discount: input.discount,
     bookingAmount: input.bookingAmount ?? (l.paymentAmount as string | null) ?? '0',
     paymentReference: input.paymentReference ?? (l.paymentInstrumentRef as string | null),
-    expectedDeliveryDate: input.expectedDeliveryDate ?? null,
+    // The request's, else what the salesperson told the customer at conversion.
+    ...(input.expectedDeliveryDate
+      ? expectedDelivery(input.expectedDeliveryDate, input.expectedDeliveryByMonth)
+      : expectedDelivery(l.expectedDeliveryDate as string | null, l.expectedDeliveryByMonth as boolean)),
     notes: input.notes ?? null,
     // The order is credited to the salesperson who owns the lead.
     salespersonId: l.ownerId,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button, Checkbox, Field, Input, Textarea } from '@/shared/components/ui';
-import { DELIVERY_DOCUMENTS } from '../../../permissions';
+import { DELIVERY_DOCUMENTS, PDI_CHECKLIST } from '../../../permissions';
 import type { CompleteDeliveryRequest } from '../../../salesApi';
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
@@ -14,8 +14,8 @@ interface HandOverFormProps {
 }
 
 /**
- * The hand-over details: date, odometer, plate (if issued), documents and accessories handed over,
- * notes, and the customer's acknowledgement (required). Used on a scheduled delivery and by
+ * The hand-over details: the pre-delivery checklist (every item required), date, odometer, plate
+ * (if issued), documents and accessories handed over, notes, and the customer's acknowledgement (required). Used on a scheduled delivery and by
  * "Mark as delivered" on the order.
  */
 export function HandOverForm({ customerName, submitLabel, loading, onSubmit, onCancel }: HandOverFormProps) {
@@ -26,9 +26,12 @@ export function HandOverForm({ customerName, submitLabel, loading, onSubmit, onC
   const [accessories, setAccessories] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [notes, setNotes] = useState('');
+  const [checklist, setChecklist] = useState<string[]>([]);
 
   const km = Number(odometer);
-  const valid = odometer !== '' && Number.isInteger(km) && km >= 0 && km <= 100000 && acknowledged;
+  const checked = PDI_CHECKLIST.every((c) => checklist.includes(c.value));
+  const valid = checked && odometer !== '' && Number.isInteger(km) && km >= 0 && km <= 100000 && acknowledged;
+  const toggleCheck = (value: string) => setChecklist((c) => (c.includes(value) ? c.filter((x) => x !== value) : [...c, value]));
   const toggleDoc = (value: string) => setDocuments((d) => (d.includes(value) ? d.filter((x) => x !== value) : [...d, value]));
 
   return (
@@ -38,6 +41,13 @@ export function HandOverForm({ customerName, submitLabel, loading, onSubmit, onC
         order.
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Field label="Pre-delivery checklist" required className="sm:col-span-3" hint={checked ? undefined : 'Tick every item before handing the car over'}>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg bg-amber-50/60 px-3 py-2">
+            {PDI_CHECKLIST.map((c) => (
+              <Checkbox key={c.value} label={c.label} checked={checklist.includes(c.value)} onChange={() => toggleCheck(c.value)} />
+            ))}
+          </div>
+        </Field>
         <Field label="Delivered on" htmlFor="ho-date" required>
           <Input id="ho-date" type="date" max={today()} value={deliveredOn} onChange={(e) => setDeliveredOn(e.target.value)} />
         </Field>
@@ -82,6 +92,7 @@ export function HandOverForm({ customerName, submitLabel, loading, onSubmit, onC
                 .split(',')
                 .map((a) => a.trim())
                 .filter(Boolean),
+              checklist: checklist as never,
               customerAcknowledged: acknowledged,
               notes: notes.trim() || null,
             })

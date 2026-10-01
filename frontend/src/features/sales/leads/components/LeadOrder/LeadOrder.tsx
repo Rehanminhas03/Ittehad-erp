@@ -1,11 +1,62 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { VEHICLE_PIPELINE, VEHICLE_STATUSES } from '@/features/crm';
-import { Button, Field, Input, Section, Select, StatusBadge, Textarea } from '@/shared/components/ui';
+import { formatCnic, maskCnic, VEHICLE_PIPELINE, VEHICLE_STATUSES } from '@/features/crm';
+import { useGetCustomerQuery } from '@/features/crm/crmApi';
+import { Button, Field, Input, Section, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { apiFieldErrors, formatMoney } from '@/shared/lib';
 import { labelOf, ORDER_TYPES, P, PAYMENT_INSTRUMENTS } from '../../../permissions';
 import { type Lead, useRaiseSalesOrderMutation } from '../../../salesApi';
+import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
+
+const STAGE_STYLE: Record<string, { label: string; tone: string }> = {
+  none: { label: 'Waiting for a car', tone: 'bg-amber-50 text-amber-900 ring-amber-200' },
+  booked: { label: 'Car booked', tone: 'bg-sky-50 text-sky-900 ring-sky-200' },
+  in_transit: { label: 'In transit', tone: 'bg-indigo-50 text-indigo-900 ring-indigo-200' },
+  received: { label: 'Received at the dealership', tone: 'bg-teal-50 text-teal-900 ring-teal-200' },
+  ready_for_delivery: { label: 'Ready for delivery', tone: 'bg-emerald-50 text-emerald-900 ring-emerald-200' },
+  delivered: { label: 'Delivered', tone: 'bg-emerald-600 text-white ring-emerald-700' },
+  hold: { label: 'On hold', tone: 'bg-red-50 text-red-900 ring-red-200' },
+};
+
+/**
+ * Where the customer's car is, easy to read at a glance: the stage in large bold letters, then the
+ * steps (done ✓, the current one filled, the rest grey).
+ */
+function CarStatus({ stage }: { stage: string | null | undefined }) {
+  const key = stage ?? 'none';
+  const style = STAGE_STYLE[key] ?? { label: VEHICLE_STATUSES.find((s) => s.value === key)?.label ?? key, tone: 'bg-slate-50 text-slate-900 ring-slate-200' };
+  const at = key === 'delivered' ? VEHICLE_PIPELINE.length : VEHICLE_PIPELINE.indexOf(key as (typeof VEHICLE_PIPELINE)[number]);
+  return (
+    <div className="mt-4 space-y-3">
+      <div className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl px-4 py-3 ring-1 ${style.tone}`}>
+        <span className="text-xs font-semibold tracking-wide uppercase opacity-80">Car status</span>
+        <span className="text-xl font-bold">{style.label}</span>
+      </div>
+      {key !== 'none' && key !== 'hold' && (
+        <ol className="flex flex-wrap items-center gap-1.5 text-sm" aria-label="Car progress">
+          {VEHICLE_PIPELINE.map((p, i) => (
+            <li key={p} className="flex items-center gap-1.5">
+              <span
+                className={
+                  i < at
+                    ? 'rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-800'
+                    : i === at
+                      ? 'rounded-full bg-brand-600 px-2.5 py-1 font-bold text-white shadow-sm'
+                      : 'rounded-full bg-slate-100 px-2.5 py-1 text-slate-400'
+                }
+              >
+                {i < at ? '✓ ' : ''}
+                {VEHICLE_STATUSES.find((s) => s.value === p)?.label ?? p}
+              </span>
+              {i < VEHICLE_PIPELINE.length - 1 && <span className="text-slate-300">→</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
 
 /**
  * The lead's sales order: the Admin raises it (PBO / CBO) once the lead is converted; afterwards
@@ -23,9 +74,19 @@ export function LeadOrder({ lead }: { lead: Lead }) {
     discount: '0',
     bookingAmount: lead.paymentAmount ?? '',
     paymentReference: lead.paymentInstrumentRef ?? '',
-    expectedDeliveryDate: '',
     notes: '',
   });
+  // The customer's CNIC: required on every sales order (prefilled when the customer has one).
+  const canRaise = lead.status === 'converted' && perm.canIn(P.ordersCreate, lead.dealershipId, lead.branchId);
+  const { data: customer } = useGetCustomerQuery({ id: lead.customerId ?? 0 }, { skip: !canRaise || !lead.customerId });
+  const [cnic, setCnic] = useState('');
+  // The PBO number from the head-office system (required); leads and orders are searchable by it.
+  const [pboNo, setPboNo] = useState('');
+  useEffect(() => {
+    if (customer?.cnic) setCnic((c) => c || formatCnic(customer.cnic));
+  }, [customer?.cnic]);
+  // What the salesperson told the customer at conversion (a month, usually).
+  const [expected, setExpected] = useState<ExpectedDeliveryValue>({ date: lead.expectedDeliveryDate ?? '', byMonth: lead.expectedDeliveryDate ? !!lead.expectedDeliveryByMonth : true });
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
 
   const canViewOrders = perm.canIn(P.ordersViewAll, lead.dealershipId, lead.branchId);
@@ -50,43 +111,20 @@ export function LeadOrder({ lead }: { lead: Lead }) {
             Sales order <span className="font-mono">{lead.orderNo}</span> has been raised by the Admin.
           </p>
         )}
-        {/* Where the car is (Delivery Team updates it), so the customer can be kept informed. */}
-        {lead.status === 'processing' && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-slate-600">Car:</span>
-            {lead.vehicleStage ? (
-              <>
-                <ol className="flex flex-wrap items-center gap-1.5" aria-label="Car progress">
-                  {VEHICLE_PIPELINE.map((p, i) => (
-                    <li key={p} className="flex items-center gap-1.5">
-                      <span
-                        className={
-                          i <= VEHICLE_PIPELINE.indexOf(lead.vehicleStage as (typeof VEHICLE_PIPELINE)[number])
-                            ? 'rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700'
-                            : 'rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500'
-                        }
-                      >
-                        {VEHICLE_STATUSES.find((s) => s.value === p)?.label ?? p}
-                      </span>
-                      {i < VEHICLE_PIPELINE.length - 1 && <span className="text-slate-300">→</span>}
-                    </li>
-                  ))}
-                </ol>
-                {lead.vehicleStage === 'hold' && <StatusBadge status="hold" label="On hold" />}
-              </>
-            ) : (
-              <span className="text-amber-700">Waiting for a car to be allocated</span>
-            )}
-          </div>
-        )}
+        {/* Where the car is (in big, clear letters), so the customer can be kept informed. */}
+        {(lead.status === 'processing' || lead.status === 'completed') && <CarStatus stage={lead.status === 'completed' ? 'delivered' : lead.vehicleStage} />}
       </Section>
     );
   }
   if (lead.status !== 'converted' || !perm.canIn(P.ordersCreate, lead.dealershipId, lead.branchId)) return null;
 
   const submit = async () => {
-    if (!v.unitPrice.trim()) {
-      setErrors({ unitPrice: 'Price is required' });
+    const missing: Record<string, string> = {};
+    if (!v.unitPrice.trim()) missing.unitPrice = 'Price is required';
+    if (!pboNo.trim()) missing.pboNo = 'Enter the PBO number from the head-office system';
+    if (cnic.replace(/\D/g, '').length !== 13) missing.customerCnic = "Enter the customer's CNIC (13 digits), required on every sales order";
+    if (Object.keys(missing).length) {
+      setErrors(missing);
       return;
     }
     setErrors({});
@@ -95,11 +133,14 @@ export function LeadOrder({ lead }: { lead: Lead }) {
         id: lead.id,
         raiseOrderRequest: {
           orderType: v.orderType as never,
+          pboNo: pboNo.trim(),
           unitPrice: v.unitPrice,
           discount: v.discount || '0',
           bookingAmount: v.bookingAmount || undefined,
           paymentReference: v.paymentReference || null,
-          expectedDeliveryDate: v.expectedDeliveryDate || null,
+          customerCnic: cnic.trim(),
+          expectedDeliveryDate: expected.date || null,
+          expectedDeliveryByMonth: !!expected.date && expected.byMonth,
           notes: v.notes || null,
         },
       }).unwrap();
@@ -125,8 +166,27 @@ export function LeadOrder({ lead }: { lead: Lead }) {
             ))}
           </Select>
         </Field>
-        <Field label="Expected delivery" htmlFor="ro-date">
-          <Input id="ro-date" type="date" value={v.expectedDeliveryDate} onChange={set('expectedDeliveryDate')} />
+        <Field label="PBO number" htmlFor="ro-pbo" required error={errors.pboNo} hint="From the head-office system">
+          <Input id="ro-pbo" value={pboNo} onChange={(e) => setPboNo(e.target.value)} placeholder="e.g. 11873" invalid={!!errors.pboNo} />
+        </Field>
+        <Field
+          label="Customer CNIC"
+          htmlFor="ro-cnic"
+          required
+          error={errors.customerCnic}
+          hint={customer?.cnic ? 'Entered by the salesperson: check it against the CNIC copy and correct it if needed' : 'Saved on the customer'}
+        >
+          <Input
+            id="ro-cnic"
+            inputMode="numeric"
+            value={cnic}
+            onChange={(e) => setCnic(maskCnic(e.target.value))}
+            placeholder="14301-5305891-1"
+            invalid={!!errors.customerCnic}
+          />
+        </Field>
+        <Field label="Expected delivery" htmlFor="ro-date" error={errors.expectedDeliveryDate} hint="A month (usual) or the exact date">
+          <ExpectedDeliveryInput id="ro-date" value={expected} onChange={setExpected} invalid={!!errors.expectedDeliveryDate} />
         </Field>
         <Field label="Price (PKR)" htmlFor="ro-price" required error={errors.unitPrice}>
           <Input id="ro-price" inputMode="decimal" value={v.unitPrice} onChange={set('unitPrice')} invalid={!!errors.unitPrice} />

@@ -13,7 +13,7 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate && node prisma/gen-tables.mjs",
     "db:migrate": "tsx src/scripts/dbMigrate.ts",
-    "db:migration": "prisma migrate dev --create-only",
+    "db:migration": "tsx src/scripts/dbMigration.ts",
     "db:reset": "tsx src/scripts/dbReset.ts",
     "db:seed": "tsx src/scripts/seed.ts",
     "db:fresh": "npm run db:reset && npm run db:seed",

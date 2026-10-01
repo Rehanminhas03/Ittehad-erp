@@ -82,6 +82,7 @@ const injectedRtkApi = api
             status: queryArg.status,
             jobCardId: queryArg.jobCardId,
             branchId: queryArg.branchId,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["PartsRequest"],
@@ -261,6 +262,7 @@ const injectedRtkApi = api
             status: queryArg.status,
             supplierId: queryArg.supplierId,
             branchId: queryArg.branchId,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["PurchaseOrder"],
@@ -336,6 +338,7 @@ const injectedRtkApi = api
             q: queryArg.q,
             purchaseOrderId: queryArg.purchaseOrderId,
             supplierId: queryArg.supplierId,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["GoodsReceipt"],
@@ -371,6 +374,7 @@ const injectedRtkApi = api
             q: queryArg.q,
             branchId: queryArg.branchId,
             partId: queryArg.partId,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["StockItem"],
@@ -487,6 +491,7 @@ const injectedRtkApi = api
             q: queryArg.q,
             status: queryArg.status,
             toBranchId: queryArg.toBranchId,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["StockTransfer"],
@@ -601,6 +606,7 @@ const injectedRtkApi = api
             q: queryArg.q,
             status: queryArg.status,
             reason: queryArg.reason,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["StockAdjustment"],
@@ -741,6 +747,7 @@ export type ListPartsRequestsApiArg = {
   status?: "open" | "partially_issued" | "issued" | "cancelled";
   jobCardId?: number;
   branchId?: number;
+  dealershipId?: number;
 };
 export type ListPartsRequestLinesApiResponse =
   /** status 200 Success */ PartsRequestLine[];
@@ -852,6 +859,7 @@ export type ListPurchaseOrdersApiArg = {
     | "cancelled";
   supplierId?: number;
   branchId?: number;
+  dealershipId?: number;
 };
 export type CreatePurchaseOrderApiResponse =
   /** status 201 Success */ PurchaseOrder;
@@ -895,6 +903,7 @@ export type ListGoodsReceiptsApiArg = {
   q?: string;
   purchaseOrderId?: number;
   supplierId?: number;
+  dealershipId?: number;
 };
 export type GetGoodsReceiptApiResponse = /** status 200 Success */ GoodsReceipt;
 export type GetGoodsReceiptApiArg = {
@@ -913,6 +922,7 @@ export type ListStockItemsApiArg = {
   q?: string;
   branchId?: number;
   partId?: number;
+  dealershipId?: number;
 };
 export type GetStockItemApiResponse = /** status 200 Success */ StockItem;
 export type GetStockItemApiArg = {
@@ -981,6 +991,7 @@ export type ListStockTransfersApiArg = {
   q?: string;
   status?: "draft" | "dispatched" | "received" | "cancelled";
   toBranchId?: number;
+  dealershipId?: number;
 };
 export type CreateStockTransferApiResponse =
   /** status 201 Success */ StockTransfer;
@@ -1047,6 +1058,7 @@ export type ListStockAdjustmentsApiArg = {
   q?: string;
   status?: "draft" | "submitted" | "posted" | "rejected";
   reason?: string;
+  dealershipId?: number;
 };
 export type CreateStockAdjustmentApiResponse =
   /** status 201 Success */ StockAdjustment;

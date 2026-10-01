@@ -84,6 +84,28 @@ const injectedRtkApi = api
           providesTags: ["Search"],
         },
       ),
+      createDealershipModel: build.mutation<
+        CreateDealershipModelApiResponse,
+        CreateDealershipModelApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/master/vehicle-models/for-dealership`,
+          method: "POST",
+          body: queryArg.dealershipModelCreate,
+        }),
+        invalidatesTags: ["VehicleModel"],
+      }),
+      updateDealershipModel: build.mutation<
+        UpdateDealershipModelApiResponse,
+        UpdateDealershipModelApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/master/vehicle-models/${queryArg.id}/for-dealership`,
+          method: "PATCH",
+          body: queryArg.dealershipModelUpdate,
+        }),
+        invalidatesTags: ["VehicleModel"],
+      }),
       listVehicleModels: build.query<
         ListVehicleModelsApiResponse,
         ListVehicleModelsApiArg
@@ -349,6 +371,31 @@ export type UnifiedSearchApiResponse = /** status 200 Success */ SearchResult;
 export type UnifiedSearchApiArg = {
   q: string;
 };
+export type CreateDealershipModelApiResponse = /** status 201 Success */ {
+  id: number;
+  brand: string;
+  name: string;
+  bodyType: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+export type CreateDealershipModelApiArg = {
+  dealershipModelCreate: DealershipModelCreate;
+};
+export type UpdateDealershipModelApiResponse = /** status 200 Success */ {
+  id: number;
+  brand: string;
+  name: string;
+  bodyType: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+export type UpdateDealershipModelApiArg = {
+  id: number;
+  dealershipModelUpdate: DealershipModelUpdate;
+};
 export type ListVehicleModelsApiResponse =
   /** status 200 Success */ VehicleModelPage;
 export type ListVehicleModelsApiArg = {
@@ -547,6 +594,15 @@ export type SearchResult = {
     matchedOn: "vin" | "engineNo" | "registrationNo";
   }[];
 };
+export type DealershipModelCreate = {
+  dealershipId: number;
+  name: string;
+};
+export type DealershipModelUpdate = {
+  dealershipId: number;
+  name?: string;
+  isActive?: boolean;
+};
 export type VehicleModel = {
   id: number;
   brand: string;
@@ -673,6 +729,8 @@ export const {
   useLazyListCustomerVehiclesQuery,
   useUnifiedSearchQuery,
   useLazyUnifiedSearchQuery,
+  useCreateDealershipModelMutation,
+  useUpdateDealershipModelMutation,
   useListVehicleModelsQuery,
   useLazyListVehicleModelsQuery,
   useCreateVehicleModelMutation,

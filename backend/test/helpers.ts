@@ -106,3 +106,11 @@ export async function roleByName(name: string) {
   const r = await owner.db.role.findFirst({ where: { name }, select: { id: true } });
   return r!.id;
 }
+
+let cnicSeq = 0;
+/** A new valid CNIC (13 digits) for each call: every sales order needs the customer's CNIC. */
+export const nextCnic = () => String(3520200000000 + ++cnicSeq);
+
+let pboSeq = 0;
+/** A new PBO number for each call: every sales order needs one (unique per dealership). */
+export const nextPbo = () => `PBO-${10000 + ++pboSeq}`;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ActiveBadge } from '@/shared/components/ui';
+import { ActiveBadge, Input } from '@/shared/components/ui';
 import { activeFilter, dealershipFilter, type EntityViewConfig, idField, muted, optionalText, requiredText, strong } from '@/shared/entity';
 import { formatDateTime } from '@/shared/lib';
 import { CustomerVehicles } from '../components/CustomerVehicles';
@@ -11,7 +11,7 @@ import {
   useListCustomersQuery,
   useUpdateCustomerMutation,
 } from '../crmApi';
-import { formatCnic } from '../lib/format';
+import { formatCnic, maskCnic } from '../lib/format';
 import { P } from '../permissions';
 
 const KIND_OPTIONS = [
@@ -91,7 +91,15 @@ export const customerView: EntityViewConfig<Customer> = {
       { name: 'mobile', label: 'Mobile', type: 'text', required: true, placeholder: '0300-1234567', hint: 'Used to find the customer; must be unique in the dealership' },
       { name: 'altPhone', label: 'Alternate phone', type: 'text' },
       { name: 'email', label: 'Email', type: 'email' },
-      { name: 'cnic', label: 'CNIC', type: 'text', placeholder: '35202-1234567-1' },
+      {
+        name: 'cnic',
+        label: 'CNIC',
+        type: 'custom',
+        hint: '13 digits, e.g. 14301-5305891-1',
+        render: ({ id, value, onChange, invalid }) => (
+          <Input id={id} inputMode="numeric" value={maskCnic(value as string | null)} onChange={(e) => onChange(maskCnic(e.target.value))} placeholder="14301-5305891-1" invalid={invalid} />
+        ),
+      },
       { name: 'ntn', label: 'NTN', type: 'text' },
       { name: 'city', label: 'City', type: 'text' },
       { name: 'address', label: 'Address', type: 'textarea', span: 2 },

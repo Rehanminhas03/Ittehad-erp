@@ -10,6 +10,8 @@ export const addTagTypes = [
   "SalesOrder",
   "StockVehicle",
   "Delivery",
+  "DeliveryPipeline",
+  "DeliveryReport",
 ] as const;
 const injectedRtkApi = api
   .enhanceEndpoints({
@@ -356,6 +358,15 @@ const injectedRtkApi = api
         }),
         providesTags: ["StockVehicle"],
       }),
+      getDeliveryNote: build.query<
+        GetDeliveryNoteApiResponse,
+        GetDeliveryNoteApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/deliveries/${queryArg.id}/note`,
+        }),
+        providesTags: ["Delivery"],
+      }),
       completeDelivery: build.mutation<
         CompleteDeliveryApiResponse,
         CompleteDeliveryApiArg
@@ -366,6 +377,37 @@ const injectedRtkApi = api
           body: queryArg.completeDeliveryRequest,
         }),
         invalidatesTags: ["Delivery"],
+      }),
+      getDeliveryPipeline: build.query<
+        GetDeliveryPipelineApiResponse,
+        GetDeliveryPipelineApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/delivery-pipeline`,
+          params: {
+            stage: queryArg.stage,
+            dealershipId: queryArg.dealershipId,
+            q: queryArg.q,
+            overdue: queryArg.overdue,
+            page: queryArg.page,
+            pageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["DeliveryPipeline"],
+      }),
+      getDeliveryReport: build.query<
+        GetDeliveryReportApiResponse,
+        GetDeliveryReportApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/delivery-report`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            from: queryArg["from"],
+            to: queryArg.to,
+          },
+        }),
+        providesTags: ["DeliveryReport"],
       }),
       listLeads: build.query<ListLeadsApiResponse, ListLeadsApiArg>({
         query: (queryArg) => ({
@@ -387,6 +429,7 @@ const injectedRtkApi = api
             createdOn: queryArg.createdOn,
             activityFrom: queryArg.activityFrom,
             activityTo: queryArg.activityTo,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["Lead"],
@@ -459,6 +502,7 @@ const injectedRtkApi = api
             awaitingApproval: queryArg.awaitingApproval,
             vehicleStage: queryArg.vehicleStage,
             hasVehicle: queryArg.hasVehicle,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["SalesOrder"],
@@ -534,6 +578,7 @@ const injectedRtkApi = api
             due: queryArg.due,
             deliveredFrom: queryArg.deliveredFrom,
             deliveredTo: queryArg.deliveredTo,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["Delivery"],
@@ -611,6 +656,7 @@ const injectedRtkApi = api
             ownerId: queryArg.ownerId,
             createdFrom: queryArg.createdFrom,
             createdTo: queryArg.createdTo,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["Quotation"],
@@ -651,6 +697,7 @@ const injectedRtkApi = api
             ownerId: queryArg.ownerId,
             createdFrom: queryArg.createdFrom,
             createdTo: queryArg.createdTo,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["PPF form"],
@@ -775,6 +822,8 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   variant: string | null;
   preferredColor: string | null;
   expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   notes: string | null;
   paymentInstrument:
     | (
@@ -836,6 +885,8 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   variant: string | null;
   preferredColor: string | null;
   expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   notes: string | null;
   paymentInstrument:
     | (
@@ -905,6 +956,7 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   bookingAmount: string | null;
   validUntil: string;
   deliveryDays: number | null;
+  deliveryPeriod: string | null;
   paymentMode: string | null;
   notes: string | null;
   createdAt: string;
@@ -977,6 +1029,8 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   variant: string | null;
   preferredColor: string | null;
   expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   notes: string | null;
   paymentInstrument:
     | (
@@ -1024,6 +1078,7 @@ export type ConvertLeadApiArg = {
 export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   id: number;
   orderNo: string;
+  pboNo: string | null;
   orderType: "pbo" | "cbo";
   dealershipId: number;
   branchId: number | null;
@@ -1043,6 +1098,7 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   totalAmount: string;
   bookingAmount: string;
   expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
   vehicleId: number | null;
   vehicleLabel?: string | null;
   vehicleStatus?:
@@ -1137,6 +1193,7 @@ export type GetSalesTrackRecordApiArg = {
 export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   id: number;
   orderNo: string;
+  pboNo: string | null;
   orderType: "pbo" | "cbo";
   dealershipId: number;
   branchId: number | null;
@@ -1156,6 +1213,7 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   totalAmount: string;
   bookingAmount: string;
   expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
   vehicleId: number | null;
   vehicleLabel?: string | null;
   vehicleStatus?:
@@ -1194,6 +1252,7 @@ export type ListAllocatableVehiclesApiArg = {
 export type AllocateVehicleApiResponse = /** status 200 Success */ {
   id: number;
   orderNo: string;
+  pboNo: string | null;
   orderType: "pbo" | "cbo";
   dealershipId: number;
   branchId: number | null;
@@ -1213,6 +1272,7 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   totalAmount: string;
   bookingAmount: string;
   expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
   vehicleId: number | null;
   vehicleLabel?: string | null;
   vehicleStatus?:
@@ -1246,6 +1306,7 @@ export type AllocateVehicleApiArg = {
 export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   id: number;
   orderNo: string;
+  pboNo: string | null;
   orderType: "pbo" | "cbo";
   dealershipId: number;
   branchId: number | null;
@@ -1265,6 +1326,7 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   totalAmount: string;
   bookingAmount: string;
   expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
   vehicleId: number | null;
   vehicleLabel?: string | null;
   vehicleStatus?:
@@ -1297,6 +1359,7 @@ export type ReleaseVehicleApiArg = {
 export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   id: number;
   orderNo: string;
+  pboNo: string | null;
   orderType: "pbo" | "cbo";
   dealershipId: number;
   branchId: number | null;
@@ -1316,6 +1379,7 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   totalAmount: string;
   bookingAmount: string;
   expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
   vehicleId: number | null;
   vehicleLabel?: string | null;
   vehicleStatus?:
@@ -1371,6 +1435,7 @@ export type ListOrderDeliveriesApiResponse = /** status 200 Success */ {
     | "insurance_cover_note"
   )[];
   accessoriesHandedOver: string[];
+  checklist: ("pdi_done" | "documents_ready" | "accessories_fitted")[];
   customerAcknowledged: boolean;
   customerAcknowledgedAt: string | null;
   notes: string | null;
@@ -1407,6 +1472,7 @@ export type ScheduleDeliveryApiResponse = /** status 201 Success */ {
     | "insurance_cover_note"
   )[];
   accessoriesHandedOver: string[];
+  checklist: ("pdi_done" | "documents_ready" | "accessories_fitted")[];
   customerAcknowledged: boolean;
   customerAcknowledgedAt: string | null;
   notes: string | null;
@@ -1444,6 +1510,7 @@ export type DeliverOrderApiResponse = /** status 200 Success */ {
     | "insurance_cover_note"
   )[];
   accessoriesHandedOver: string[];
+  checklist: ("pdi_done" | "documents_ready" | "accessories_fitted")[];
   customerAcknowledged: boolean;
   customerAcknowledgedAt: string | null;
   notes: string | null;
@@ -1482,6 +1549,10 @@ export type ListStockVehiclesApiArg = {
   dealershipId?: number;
   allocated?: "true" | "false";
 };
+export type GetDeliveryNoteApiResponse = /** status 200 Success */ DeliveryNote;
+export type GetDeliveryNoteApiArg = {
+  id: number;
+};
 export type CompleteDeliveryApiResponse = /** status 200 Success */ {
   id: number;
   deliveryNo: string;
@@ -1507,6 +1578,7 @@ export type CompleteDeliveryApiResponse = /** status 200 Success */ {
     | "insurance_cover_note"
   )[];
   accessoriesHandedOver: string[];
+  checklist: ("pdi_done" | "documents_ready" | "accessories_fitted")[];
   customerAcknowledged: boolean;
   customerAcknowledgedAt: string | null;
   notes: string | null;
@@ -1518,6 +1590,23 @@ export type CompleteDeliveryApiResponse = /** status 200 Success */ {
 export type CompleteDeliveryApiArg = {
   id: number;
   completeDeliveryRequest: CompleteDeliveryRequest;
+};
+export type GetDeliveryPipelineApiResponse =
+  /** status 200 Success */ DeliveryPipeline;
+export type GetDeliveryPipelineApiArg = {
+  stage?: "waiting" | "in_transit" | "received" | "scheduled" | "delivered";
+  dealershipId?: number;
+  q?: string;
+  overdue?: "true" | "false";
+  page?: number;
+  pageSize?: number;
+};
+export type GetDeliveryReportApiResponse =
+  /** status 200 Success */ DeliveryReport;
+export type GetDeliveryReportApiArg = {
+  dealershipId?: number;
+  from?: string;
+  to?: string;
 };
 export type ListLeadsApiResponse = /** status 200 Success */ LeadPage;
 export type ListLeadsApiArg = {
@@ -1553,6 +1642,7 @@ export type ListLeadsApiArg = {
   createdOn?: string;
   activityFrom?: string;
   activityTo?: string;
+  dealershipId?: number;
 };
 export type CreateLeadApiResponse = /** status 201 Success */ Lead;
 export type CreateLeadApiArg = {
@@ -1608,6 +1698,7 @@ export type ListSalesOrdersApiArg = {
     | "transferred"
     | "hold";
   hasVehicle?: "true" | "false";
+  dealershipId?: number;
 };
 export type CreateSalesOrderApiResponse = /** status 201 Success */ SalesOrder;
 export type CreateSalesOrderApiArg = {
@@ -1650,6 +1741,7 @@ export type ListDeliveriesApiArg = {
   due?: "true" | "false";
   deliveredFrom?: string;
   deliveredTo?: string;
+  dealershipId?: number;
 };
 export type GetDeliveryWorkflowApiResponse =
   /** status 200 Success */ WorkflowDefinition;
@@ -1696,6 +1788,7 @@ export type ListQuotationsApiArg = {
   ownerId?: number;
   createdFrom?: string;
   createdTo?: string;
+  dealershipId?: number;
 };
 export type GetQuotationApiResponse = /** status 200 Success */ Quotation;
 export type GetQuotationApiArg = {
@@ -1721,6 +1814,7 @@ export type ListPpfFormsApiArg = {
   ownerId?: number;
   createdFrom?: string;
   createdTo?: string;
+  dealershipId?: number;
 };
 export type GetPpfFormApiResponse = /** status 200 Success */ PpfForm;
 export type GetPpfFormApiArg = {
@@ -1826,10 +1920,12 @@ export type QuotationCreate = {
   withholdingTax?: string;
   withholdingTaxNonFiler?: string;
   deliveryDays?: number | null;
+  deliveryPeriod?: string | null;
   paymentMode?: string | null;
 };
 export type LeadOrderVehicle = {
   orderNo: string | null;
+  pboNo: string | null;
   chassisNo: string | null;
   engineNo: string | null;
 };
@@ -1863,16 +1959,22 @@ export type ConvertLeadRequest = {
   paymentInstrumentRef: string;
   paymentInstrumentBank?: string | null;
   paymentAmount?: string;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
+  customerCnic: string;
   notes?: string | null;
 };
 export type RaiseOrderRequest = {
   orderType?: "pbo" | "cbo";
+  pboNo: string;
   branchId?: number | null;
   unitPrice: string;
   discount?: string;
   bookingAmount?: string;
   paymentReference?: string | null;
+  customerCnic?: string;
   expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   notes?: string | null;
 };
 export type DocumentTemplate = {
@@ -1918,6 +2020,7 @@ export type QuotationDocument = {
   variantCode: string | null;
   billTo: string | null;
   deliveryDays: number | null;
+  deliveryPeriod: string | null;
   paymentMode: string | null;
   template: DocumentTemplate;
   issuedAt: string;
@@ -2270,6 +2373,7 @@ export type CompleteDeliveryRequest = {
     | "insurance_cover_note"
   )[];
   accessoriesHandedOver?: string[];
+  checklist: ("pdi_done" | "documents_ready" | "accessories_fitted")[];
   customerAcknowledged: boolean;
   notes?: string | null;
 };
@@ -2322,6 +2426,112 @@ export type StockVehiclePage = {
   page: number;
   pageSize: number;
 };
+export type DeliveryNote = {
+  deliveryNo: string;
+  status: string;
+  scheduledDate: string;
+  deliveredAt: string | null;
+  dealership: {
+    name: string;
+    code: string;
+    brand: string;
+  };
+  customer: {
+    name: string | null;
+    cnic: string | null;
+  };
+  pboNo: string | null;
+  orderNo: string | null;
+  vehicle: {
+    brand: string | null;
+    model: string | null;
+    variant: string | null;
+    color: string | null;
+    chassisNo: string | null;
+    engineNo: string | null;
+  };
+  accessories: string[];
+};
+export type DeliveryPipeline = {
+  stage: "waiting" | "in_transit" | "received" | "scheduled" | "delivered";
+  counts: {
+    waiting: number;
+    in_transit: number;
+    received: number;
+    scheduled: number;
+    delivered: number;
+  };
+  items: {
+    orderId: number;
+    orderNo: string;
+    pboNo: string | null;
+    orderStatus: string;
+    leadId: number | null;
+    dealershipId: number;
+    dealershipName: string;
+    customerName: string | null;
+    salespersonName: string | null;
+    model: string | null;
+    variant: string | null;
+    color: string | null;
+    vehicleId: number | null;
+    chassisNo: string | null;
+    engineNo: string | null;
+    vehicleStatus: string | null;
+    deliveryId: number | null;
+    deliveryNo: string | null;
+    scheduledDate: string | null;
+    deliveredOn: string | null;
+    approvedAt: string | null;
+    expectedDeliveryDate: string | null;
+    expectedDeliveryByMonth: boolean;
+    bookedAt: string;
+    stage: "waiting" | "in_transit" | "received" | "scheduled" | "delivered";
+  }[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+export type DeliveryReport = {
+  asOf: string;
+  period: {
+    from: string;
+    to: string;
+  };
+  dealerships: {
+    id: number;
+    code: string;
+    name: string;
+    brand: string;
+    thisMonth: number;
+    thisYear: number;
+    last30Days: number;
+    allTime: number;
+    inPeriod: number;
+    scheduled: number;
+    avgDaysToDeliver: number | null;
+  }[];
+  total: {
+    thisMonth: number;
+    thisYear: number;
+    last30Days: number;
+    allTime: number;
+    inPeriod: number;
+    scheduled: number;
+    avgDaysToDeliver: number | null;
+  };
+  byModel: {
+    brand: string;
+    model: string;
+    delivered: number;
+    avgDaysToDeliver: number | null;
+  }[];
+  byMonth: {
+    month: string;
+    booked: number;
+    delivered: number;
+  }[];
+};
 export type Lead = {
   id: number;
   dealershipId: number;
@@ -2339,6 +2549,8 @@ export type Lead = {
   variant: string | null;
   preferredColor: string | null;
   expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   notes: string | null;
   paymentInstrument:
     | (
@@ -2460,6 +2672,7 @@ export type EntityHistory = {
 export type SalesOrder = {
   id: number;
   orderNo: string;
+  pboNo: string | null;
   orderType: "pbo" | "cbo";
   dealershipId: number;
   branchId: number | null;
@@ -2479,6 +2692,7 @@ export type SalesOrder = {
   totalAmount: string;
   bookingAmount: string;
   expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
   vehicleId: number | null;
   vehicleLabel?: string | null;
   vehicleStatus?:
@@ -2514,6 +2728,7 @@ export type SalesOrderPage = {
 export type SalesOrderCreate = {
   dealershipId: number;
   branchId?: number | null;
+  pboNo?: string | null;
   customerId: number;
   modelId: number;
   variant?: string | null;
@@ -2522,6 +2737,7 @@ export type SalesOrderCreate = {
   discount?: string;
   bookingAmount?: string;
   expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   salespersonId?: number;
   financingRef?: string | null;
   paymentReference?: string | null;
@@ -2529,6 +2745,7 @@ export type SalesOrderCreate = {
   notes?: string | null;
 };
 export type SalesOrderUpdate = {
+  pboNo?: string | null;
   customerId?: number;
   modelId?: number;
   variant?: string | null;
@@ -2537,6 +2754,7 @@ export type SalesOrderUpdate = {
   discount?: string;
   bookingAmount?: string;
   expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   salespersonId?: number;
   financingRef?: string | null;
   paymentReference?: string | null;
@@ -2569,6 +2787,7 @@ export type Delivery = {
     | "insurance_cover_note"
   )[];
   accessoriesHandedOver: string[];
+  checklist: ("pdi_done" | "documents_ready" | "accessories_fitted")[];
   customerAcknowledged: boolean;
   customerAcknowledgedAt: string | null;
   notes: string | null;
@@ -2617,6 +2836,7 @@ export type Quotation = {
   bookingAmount: string | null;
   validUntil: string;
   deliveryDays: number | null;
+  deliveryPeriod: string | null;
   paymentMode: string | null;
   notes: string | null;
   createdAt: string;
@@ -2647,6 +2867,7 @@ export type QuotationUpdate = {
   withholdingTax?: string;
   withholdingTaxNonFiler?: string;
   deliveryDays?: number | null;
+  deliveryPeriod?: string | null;
   paymentMode?: string | null;
 };
 export type PpfForm = {
@@ -2781,7 +3002,13 @@ export const {
   useReceiveStockVehicleMutation,
   useListStockVehiclesQuery,
   useLazyListStockVehiclesQuery,
+  useGetDeliveryNoteQuery,
+  useLazyGetDeliveryNoteQuery,
   useCompleteDeliveryMutation,
+  useGetDeliveryPipelineQuery,
+  useLazyGetDeliveryPipelineQuery,
+  useGetDeliveryReportQuery,
+  useLazyGetDeliveryReportQuery,
   useListLeadsQuery,
   useLazyListLeadsQuery,
   useCreateLeadMutation,

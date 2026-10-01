@@ -36,9 +36,10 @@ const ALL_SECTIONS: NavSection[] = [
       { label: 'Leads', to: '/sales/leads', any: ['sales.leads.view_all', 'sales.leads.view_own', 'sales.leads.view_converted'] },
       { label: 'Duplicate customers', to: '/sales/leads?escalated=true&range=all', any: ['sales.leads.convert_escalated'] },
       { label: 'Sales orders', to: '/sales/orders', any: ['sales.orders.view_all', 'sales.orders.view_own'] },
-      { label: 'Delivery queue', to: '/sales/orders?live=true', any: ['sales.orders.allocate'] },
       { label: 'Open stock', to: '/sales/stock', any: ['sales.stock.view'] },
-      { label: 'Deliveries', to: '/sales/deliveries', any: ['sales.deliveries.view_all', 'sales.deliveries.view_own'] },
+      // Every booked order by stage (a salesperson: their own customers' cars).
+      { label: 'Deliveries', to: '/sales/delivery-status', any: ['sales.orders.view_all', 'sales.deliveries.view_all', 'sales.deliveries.view_own', 'sales.leads.convert_own'] },
+      { label: 'Delivery report', to: '/sales/delivery-report', any: ['sales.deliveries.view_all'] },
       { label: 'Quotations', to: '/sales/quotations', any: ['sales.quotations.view_all', 'sales.quotations.view_own'] },
       { label: 'PPF vouchers', to: '/sales/ppf-forms', any: ['sales.ppf.view_all', 'sales.ppf.view_own'] },
       { label: 'Document formats', to: '/sales/document-formats', any: ['sales.templates.manage'] },

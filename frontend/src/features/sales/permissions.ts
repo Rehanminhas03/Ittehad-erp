@@ -89,6 +89,13 @@ export const DELIVERY_DOCUMENTS = [
   { value: 'insurance_cover_note', label: 'Insurance cover note' },
 ];
 
+/** Pre-delivery checklist: every item is ticked before the car is handed over. */
+export const PDI_CHECKLIST = [
+  { value: 'pdi_done', label: 'PDI (pre-delivery inspection) done' },
+  { value: 'documents_ready', label: 'Documents ready' },
+  { value: 'accessories_fitted', label: 'Accessories fitted' },
+] as const;
+
 export const LEAD_SOURCES = [
   { value: 'walk_in', label: 'Walk-in' },
   { value: 'phone', label: 'Phone' },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo } from './helpers';
 
 useTestDb();
 
@@ -34,7 +34,7 @@ const convert = (s: Setup, who: Login, id: number) =>
   api
     .post(`/api/sales/leads/${id}/convert`)
     .set(bearer(who.token))
-    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', paymentInstrumentRef: 'CH-1' })
+    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-1' })
     .expect(200);
 
 const dashboard = (who: Login) => api.get('/api/sales/dashboard').set(bearer(who.token));

@@ -15,3 +15,15 @@ export function pakistanToday(days = 0, now = Date.now()): string {
 export function addDays(isoDate: string, days: number): string {
   return new Date(Date.parse(`${isoDate}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 }
+
+/** The last day of the month of a yyyy-mm-dd (an expected delivery "in December" is due by the 31st). */
+export function monthEnd(isoDate: string): string {
+  const [y, m] = isoDate.split('-').map(Number) as [number, number];
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+}
+
+/** An expected delivery as stored: a month is kept as its last day. */
+export function expectedDelivery(date: string | null | undefined, byMonth: boolean | undefined) {
+  if (!date) return { expectedDeliveryDate: null, expectedDeliveryByMonth: false };
+  return byMonth ? { expectedDeliveryDate: monthEnd(date), expectedDeliveryByMonth: true } : { expectedDeliveryDate: date, expectedDeliveryByMonth: false };
+}

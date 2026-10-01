@@ -346,6 +346,7 @@ export const resultExtension = {
     customerId: { needs: { customerId: true }, compute: (r: { customerId: bigint | null }) => fromBigInt(r.customerId) },
     interestedModelId: { needs: { interestedModelId: true }, compute: (r: { interestedModelId: bigint | null }) => fromBigInt(r.interestedModelId) },
     expectedCloseDate: { needs: { expectedCloseDate: true }, compute: (r: { expectedCloseDate: Date | null }) => fromDate(r.expectedCloseDate) },
+    expectedDeliveryDate: { needs: { expectedDeliveryDate: true }, compute: (r: { expectedDeliveryDate: Date | null }) => fromDate(r.expectedDeliveryDate) },
     paymentAmount: { needs: { paymentAmount: true }, compute: (r: { paymentAmount: { toFixed(dp: number): string } | null }) => fromDecimal(r.paymentAmount, 2) },
     escalatedById: { needs: { escalatedById: true }, compute: (r: { escalatedById: bigint | null }) => fromBigInt(r.escalatedById) },
     convertedById: { needs: { convertedById: true }, compute: (r: { convertedById: bigint | null }) => fromBigInt(r.convertedById) },

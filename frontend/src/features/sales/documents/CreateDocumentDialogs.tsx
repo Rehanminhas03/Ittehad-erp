@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Button, Dialog, Field, Input, Select, Textarea } from '@/shared/components/ui';
-import { useToast } from '@/shared/hooks';
+import { usePermission, useToast } from '@/shared/hooks';
 import { apiFieldErrors } from '@/shared/lib';
 import { type Lead, useCreateLeadPpfFormMutation, useCreateLeadQuotationMutation, useGetDocumentTemplateQuery, useGetLeadOrderVehicleQuery, useListVariantCodesQuery } from '../salesApi';
 import { LeadModelSelect } from '../leads/components/LeadModelSelect';
 import { VariantPicker } from '../leads/components/VariantPicker';
 import { PPF_COVERAGES, PPF_FINISHES } from './labels';
+
+/** Jetour's usual tentative delivery period (its quotations print a sentence, not a number of days). */
+const P_QUOTATIONS_CREATE = 'sales.quotations.create';
+
+export const JETOUR_DELIVERY_PERIOD = 'ONE MONTH AFTER FULL PAYMENT.';
 
 type Props = { lead: Lead; open: boolean; onClose: () => void; onCreated: (id: number) => void };
 const blank = (s: string) => s.trim() || null;
@@ -35,6 +40,9 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
   const [create, { isLoading }] = useCreateLeadQuotationMutation();
   const { errors, setErrors, run } = useSubmit();
   const hasOrder = !!lead.salesOrderId;
+  // Jetour's quotation: a delivery period sentence, the note under the title, no non-filer tax line.
+  const perm = usePermission();
+  const jetour = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === lead.dealershipId)?.brand === 'Jetour';
   const [v, setV] = useState({
     // From the lead; the customer may now want another model or variant.
     modelId: lead.interestedModelId ? String(lead.interestedModelId) : '',
@@ -51,6 +59,7 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
     color: lead.preferredColor ?? '',
     validDays: '7',
     deliveryDays: '',
+    deliveryPeriod: '',
     paymentMode: '',
     notes: '',
   });
@@ -63,7 +72,9 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
       validDays: String(format.defaultValidityDays),
       deliveryDays: format.defaultDeliveryDays != null ? String(format.defaultDeliveryDays) : s.deliveryDays,
       paymentMode: s.paymentMode || (format.defaultPaymentMode ?? ''),
+      deliveryPeriod: s.deliveryPeriod || (jetour ? JETOUR_DELIVERY_PERIOD : ''),
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the format is known
   }, [format]);
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   // Hyundai (a Ref prefix): the chosen model's variant codes; the code goes in the Ref (HI/<code>/<date>).
@@ -98,7 +109,8 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
             freightInsurance: v.freightInsurance.trim() || '0',
             withholdingTax: v.withholdingTax.trim() || '0',
             withholdingTaxNonFiler: v.withholdingTaxNonFiler.trim() || undefined,
-            deliveryDays: v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
+            deliveryDays: jetour ? null : v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
+            deliveryPeriod: jetour ? blank(v.deliveryPeriod) : null,
             paymentMode: blank(v.paymentMode),
           },
         }).unwrap(),
@@ -172,26 +184,34 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
           <Field label="Withholding tax — filer (PKR)" htmlFor="qt-wht" error={errors.withholdingTax} hint="Added as a line item">
             <Input id="qt-wht" inputMode="decimal" value={v.withholdingTax} onChange={set('withholdingTax')} invalid={!!errors.withholdingTax} placeholder="e.g. 246160" />
           </Field>
-          <Field label="Withholding tax — non-filer (PKR)" htmlFor="qt-wht-nf" error={errors.withholdingTaxNonFiler} hint="Quoted in the terms">
-            <Input id="qt-wht-nf" inputMode="decimal" value={v.withholdingTaxNonFiler} onChange={set('withholdingTaxNonFiler')} invalid={!!errors.withholdingTaxNonFiler} placeholder="e.g. 1311450" />
-          </Field>
+          {!jetour && (
+            <Field label="Withholding tax — non-filer (PKR)" htmlFor="qt-wht-nf" error={errors.withholdingTaxNonFiler} hint="Quoted in the terms">
+              <Input id="qt-wht-nf" inputMode="decimal" value={v.withholdingTaxNonFiler} onChange={set('withholdingTaxNonFiler')} invalid={!!errors.withholdingTaxNonFiler} placeholder="e.g. 1311450" />
+            </Field>
+          )}
           <Field label="Colour" htmlFor="qt-color">
             <Input id="qt-color" value={v.color} onChange={set('color')} />
           </Field>
-          <Field label="Booking amount (PKR)" htmlFor="qt-booking" error={errors.bookingAmount} hint={hasOrder ? 'Empty: from the sales order' : undefined}>
+          <Field label="Booking amount (PKR)" htmlFor="qt-booking" error={errors.bookingAmount} hint={hasOrder ? 'Empty: from the sales order' : jetour ? 'Printed as "Booking Price" in the table' : undefined}>
             <Input id="qt-booking" inputMode="decimal" value={v.bookingAmount} onChange={set('bookingAmount')} invalid={!!errors.bookingAmount} />
           </Field>
           <Field label="Valid for (days)" htmlFor="qt-valid" error={errors.validDays}>
             <Input id="qt-valid" type="number" min={1} max={60} value={v.validDays} onChange={set('validDays')} />
           </Field>
-          <Field label="Tentative delivery (days)" htmlFor="qt-delivery" error={errors.deliveryDays}>
-            <Input id="qt-delivery" type="number" min={0} max={365} value={v.deliveryDays} onChange={set('deliveryDays')} />
-          </Field>
+          {jetour ? (
+            <Field label="Tentative delivery period" htmlFor="qt-delivery" error={errors.deliveryPeriod} hint="e.g. ONE MONTH AFTER FULL PAYMENT. or DECEMBER 26 & JANUARY 27.">
+              <Input id="qt-delivery" value={v.deliveryPeriod} onChange={set('deliveryPeriod')} />
+            </Field>
+          ) : (
+            <Field label="Tentative delivery (days)" htmlFor="qt-delivery" error={errors.deliveryDays}>
+              <Input id="qt-delivery" type="number" min={0} max={365} value={v.deliveryDays} onChange={set('deliveryDays')} />
+            </Field>
+          )}
           <Field label="Payment mode" htmlFor="qt-payment" error={errors.paymentMode}>
             <Input id="qt-payment" value={v.paymentMode} onChange={set('paymentMode')} />
           </Field>
-          <Field label="Notes on the quotation" htmlFor="qt-notes" className="sm:col-span-2">
-            <Textarea id="qt-notes" rows={2} value={v.notes} onChange={set('notes')} placeholder="e.g. Includes registration and one-year insurance" />
+          <Field label={jetour ? 'Note (printed under QUOTATION)' : 'Notes on the quotation'} htmlFor="qt-notes" className="sm:col-span-2">
+            <Textarea id="qt-notes" rows={2} value={v.notes} onChange={set('notes')} placeholder={jetour ? '(Limited Stock & Limited Time Offer Price)' : 'e.g. Includes registration and one-year insurance'} />
           </Field>
         </div>
     </Dialog>

@@ -105,6 +105,8 @@ export interface EntityConfig {
   search?: readonly string[];
   /** Canonicalise the search string before matching (e.g. identifiers stored without dashes). */
   normalizeSearch?: (q: string) => string;
+  /** More places the search box looks (e.g. the lead's sales order PBO number), OR'ed with `search`. */
+  searchExtra?: (pattern: string) => SQL;
   /** Exact-match query filters: query param -> column key + zod parser. */
   /** Query filters: exact match on `key` by default, or a custom condition via `where`. */
   filters?: Record<string, { key: string; schema: ZodType; where?: (value: unknown) => SQL }>;

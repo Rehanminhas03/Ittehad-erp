@@ -1,5 +1,5 @@
 // Applies pending Prisma migrations (keeps data) and registers the permission catalog / default roles.
-// Structure changes: edit prisma/schema.prisma, then `npx prisma migrate dev --name <change>`.
+// Structure changes: edit prisma/schema.prisma, then `npm run db:migration -- --name <change>`.
 import { env } from '../config/env';
 import { migrateDatabase } from '../db/setup';
 

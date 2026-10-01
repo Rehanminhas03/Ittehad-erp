@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { subscribe } from '../src/events/bus';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo } from './helpers';
 import { pakistanToday } from '../src/lib/dates';
 
 useTestDb();
@@ -66,7 +66,7 @@ const conversion = (modelId: number, over: Record<string, unknown> = {}) => ({
   preferredColor: 'Polar White',
   email: 'bilal@example.com',
   paymentInstrument: 'pay_order',
-  paymentInstrumentRef: 'PO-778812',
+  customerCnic: nextCnic(), paymentInstrumentRef: 'PO-778812',
   paymentInstrumentBank: 'HBL',
   paymentAmount: '500000',
   ...over,
@@ -85,7 +85,7 @@ async function convert(who: Login, leadId: number, modelId: number) {
 }
 
 async function raiseOrder(s: Setup, leadId: number, over: Record<string, unknown> = {}) {
-  const res = await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9500000', discount: '100000', ...over });
+  const res = await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9500000', discount: '100000', ...over });
   expect(res.status, JSON.stringify(res.body)).toBe(201);
   return res.body;
 }
@@ -111,7 +111,7 @@ async function deliver(s: Setup, orderId: number) {
   await carArrived(orderId);
   const d = await api.post(`/api/sales/orders/${orderId}/deliveries`).set(bearer(s.desk.token)).send({ scheduledDate: today });
   expect(d.status, JSON.stringify(d.body)).toBe(201);
-  await api.post(`/api/sales/deliveries/${d.body.id}/complete`).set(bearer(s.desk.token)).send({ odometerKm: 5, customerAcknowledged: true }).expect(200);
+  await api.post(`/api/sales/deliveries/${d.body.id}/complete`).set(bearer(s.desk.token)).send({ odometerKm: 5, checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'], customerAcknowledged: true }).expect(200);
   return d.body.id as number;
 }
 
@@ -236,6 +236,29 @@ describe('escalation to the Assistant Manager', () => {
 });
 
 describe('Convert to Lead', () => {
+  it('the Assistant Manager and the Manager convert the leads they logged, also for a salesperson (who stays the owner)', async () => {
+    const s = await setup();
+    const convertAs = (who: Login, leadId: number) => api.post(`/api/sales/leads/${leadId}/convert`).set(bearer(who.token)).send(conversion(s.modelId));
+
+    // Logged by the AM for Salesperson 1: the AM converts it; the other salesperson cannot.
+    const forSales1 = await api.post('/api/sales/leads').set(bearer(s.am.token)).send(walkIn(s.d.id, '0300-7100001', { ownerId: s.sales1.user.id }));
+    expect(forSales1.status, JSON.stringify(forSales1.body)).toBe(201);
+    expect((await convertAs(s.sales2, forSales1.body.id)).status).toBe(403);
+    const byAm = await convertAs(s.am, forSales1.body.id);
+    expect(byAm.status, JSON.stringify(byAm.body)).toBe(200);
+    expect(byAm.body).toMatchObject({ status: 'converted', ownerId: s.sales1.user.id, convertedById: s.am.user.id });
+
+    // The Manager's own lead, and one they logged for a salesperson.
+    const own = await api.post('/api/sales/leads').set(bearer(s.manager.token)).send(walkIn(s.d.id, '0300-7100002'));
+    expect((await convertAs(s.manager, own.body.id)).status).toBe(200);
+    const forSales2 = await api.post('/api/sales/leads').set(bearer(s.manager.token)).send(walkIn(s.d.id, '0300-7100003', { ownerId: s.sales2.user.id }));
+    expect((await convertAs(s.manager, forSales2.body.id)).body).toMatchObject({ status: 'converted', ownerId: s.sales2.user.id });
+
+    // A salesperson's own lead stays theirs to convert (not the AM's, unless sent as a duplicate).
+    const salesLead = await newLead(s.sales1, s.d.id, '0300-7100004');
+    expect((await convertAs(s.am, salesLead)).status).toBe(403);
+  });
+
   it('requires model, variant, colour, email and the payment instrument, then hands the lead to the Admin', async () => {
     const s = await setup();
     const leadId = await newLead(s.sales1, s.d.id);
@@ -319,14 +342,54 @@ describe('in-person visits', () => {
 });
 
 describe('sales orders (Admin)', () => {
+  it('CNIC at conversion (checked and corrected by the Admin), a PBO number on every order, and search by PBO', async () => {
+    const s = await setup();
+    // The salesperson enters the customer's CNIC when converting.
+    const first = await newLead(s.sales1, s.d.id, '0300-8100001');
+    const noCnic = await api.post(`/api/sales/leads/${first}/convert`).set(bearer(s.sales1.token)).send({ ...conversion(s.modelId), customerCnic: undefined });
+    expect(noCnic.status).toBe(422);
+    expect(JSON.stringify(noCnic.body)).toContain('customerCnic');
+    expect((await api.post(`/api/sales/leads/${first}/convert`).set(bearer(s.sales1.token)).send(conversion(s.modelId, { customerCnic: '12345' }))).status).toBe(422);
+    const converted = await api.post(`/api/sales/leads/${first}/convert`).set(bearer(s.sales1.token)).send(conversion(s.modelId, { customerCnic: '14301-5305891-1' }));
+    expect(converted.status, JSON.stringify(converted.body)).toBe(200);
+    const customerId = converted.body.customerId as number;
+    expect((await owner.db.customer.findFirst({ where: { id: customerId }, select: { cnic: true } }))?.cnic).toBe('1430153058911');
+
+    // The Admin raises the order with the PBO number from the head-office system, correcting the CNIC.
+    const raise = (leadId: number, body: Record<string, unknown>) =>
+      api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000', ...body });
+    const noPbo = await raise(first, {});
+    expect(noPbo.status).toBe(422);
+    expect(JSON.stringify(noPbo.body)).toContain('pboNo');
+    const ok = await raise(first, { pboNo: 'PBO-11873', customerCnic: '14301-5305891-2' });
+    expect(ok.status, JSON.stringify(ok.body)).toBe(201);
+    expect(ok.body.pboNo).toBe('PBO-11873');
+    expect((await owner.db.customer.findFirst({ where: { id: customerId }, select: { cnic: true } }))?.cnic).toBe('1430153058912');
+
+    // A PBO number is used once per dealership; another customer cannot take this CNIC.
+    const second = await newLead(s.sales1, s.d.id, '0300-8100002', { prospectName: 'Other Buyer' });
+    await convert(s.sales1, second, s.modelId);
+    const samePbo = await raise(second, { pboNo: 'pbo-11873' });
+    expect(samePbo.status).toBe(422);
+    expect(JSON.stringify(samePbo.body)).toContain('already on sales order');
+    const sameCnic = await raise(second, { pboNo: 'PBO-22000', customerCnic: '14301-5305891-2' });
+    expect(sameCnic.status).toBe(422);
+    expect(JSON.stringify(sameCnic.body)).toContain('belongs to another customer');
+
+    // Leads and orders are found by the PBO number, or just its last digits.
+    const ids = (res: { body: { items: { id: number }[] } }) => res.body.items.map((x) => x.id);
+    expect(ids(await api.get('/api/sales/orders?q=873').set(bearer(s.admin.token)))).toEqual([ok.body.id]);
+    expect(ids(await api.get('/api/sales/leads?q=873&range=all').set(bearer(s.manager.token)))).toEqual([first]);
+  });
+
   it('raises a PBO / CBO from a converted lead; the lead shows Processing to the Salesperson and AM', async () => {
     const s = await setup();
     const leadId = await newLead(s.sales1, s.d.id);
     for (const who of [s.sales1, s.am, s.manager, s.cro]) {
-      expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(who.token)).send({ unitPrice: '1' })).status).toBe(403);
+      expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(who.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '1' })).status).toBe(403);
     }
     // Not converted yet: invisible to the Admin.
-    expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.admin.token)).send({ unitPrice: '1' })).status).toBe(404);
+    expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '1' })).status).toBe(404);
     await convert(s.sales1, leadId, s.modelId);
 
     const o = await raiseOrder(s, leadId, { orderType: 'cbo' });
@@ -347,11 +410,11 @@ describe('sales orders (Admin)', () => {
       const l = await api.get(`/api/sales/leads/${leadId}`).set(bearer(who.token));
       expect(l.body).toMatchObject({ status: 'processing', orderNo: o.orderNo });
     }
-    expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.admin.token)).send({ unitPrice: '1' })).status).toBe(409);
+    expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '1' })).status).toBe(409);
     // The discount policy still applies.
     const l2 = await newLead(s.sales2, s.d.id, '0300-1231231');
     await convert(s.sales2, l2, s.modelId);
-    expect((await api.post(`/api/sales/leads/${l2}/order`).set(bearer(s.admin.token)).send({ unitPrice: '1000', discount: '900' })).status).toBe(422);
+    expect((await api.post(`/api/sales/leads/${l2}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '1000', discount: '900' })).status).toBe(422);
   });
 
   it('allocates the vehicle by chassis / engine number, pending until entered and editable later', async () => {
@@ -455,7 +518,7 @@ describe('delivery (hand-over)', () => {
     expect((await complete({ odometerKm: 3, customerAcknowledged: false })).status).toBe(422);
     failActivation = true;
     try {
-      expect((await complete({ odometerKm: 3, customerAcknowledged: true })).status).toBe(500);
+      expect((await complete({ odometerKm: 3, checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'], customerAcknowledged: true })).status).toBe(500);
     } finally {
       failActivation = false;
     }
@@ -554,7 +617,7 @@ describe('dealership isolation (Hyundai, Jetour, CSM)', () => {
       const a = await newLead(t.sales1, t.d.id, `0300-300000${i}`);
       const b = await newLead(t.cro, t.d.id, `0300-310000${i}`, { source: 'social' });
       await convert(t.sales1, a, modelId);
-      const o = await api.post(`/api/sales/leads/${a}/order`).set(bearer(t.admin.token)).send({ unitPrice: '100' });
+      const o = await api.post(`/api/sales/leads/${a}/order`).set(bearer(t.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '100' });
       expect(o.status).toBe(201);
       data.set(t.d.id, { leads: [a, b], order: o.body.id });
     }

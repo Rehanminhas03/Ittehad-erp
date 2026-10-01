@@ -1,8 +1,9 @@
 import { BoolQuery, Id, Money, Timestamp, z } from '../../lib/zod';
 import { VEHICLE_STATUSES } from '../master/models';
-import { normalizeMobile } from '../master/normalize';
+import { normalizeCnic, normalizeMobile } from '../master/normalize';
 import {
   DELIVERY_DOCUMENTS,
+  PDI_CHECKLIST,
   DELIVERY_STATES,
   FOLLOW_UP_OUTCOMES,
   LEAD_SOURCES,
@@ -45,6 +46,9 @@ export const LeadSchema = z.object({
   variant: z.string().nullable(),
   preferredColor: z.string().nullable(),
   expectedCloseDate: z.string().nullable(),
+  /** When the customer can expect the car: a date, or a month (stored as its last day). */
+  expectedDeliveryDate: z.string().nullable().optional(),
+  expectedDeliveryByMonth: z.boolean().optional(),
   notes: z.string().nullable(),
   paymentInstrument: z.enum(PAYMENT_INSTRUMENTS).nullable(),
   paymentInstrumentRef: z.string().nullable(),
@@ -153,6 +157,8 @@ export const QuotationSchema = z.object({
   bookingAmount: z.string().nullable(),
   validUntil: z.string(),
   deliveryDays: z.number().int().nullable(),
+  /** Free text (Jetour: "ONE MONTH AFTER FULL PAYMENT."), printed instead of the days when given. */
+  deliveryPeriod: z.string().nullable(),
   paymentMode: z.string().nullable(),
   notes: z.string().nullable(),
   ...docTrail,
@@ -198,6 +204,7 @@ const quotationTerms = {
   withholdingTax: Money,
   withholdingTaxNonFiler: Money.nullish(),
   deliveryDays: z.number().int().min(0).max(365).nullish(),
+  deliveryPeriod: optionalText(120),
   paymentMode: optionalText(80),
 };
 /**
@@ -237,7 +244,7 @@ export const QuotationUpdate = z
   .openapi('QuotationUpdate');
 
 /** The lead's sales order details a PPF voucher takes (null until known). */
-export const LeadOrderVehicleSchema = z.object({ orderNo: z.string().nullable(), chassisNo: z.string().nullable(), engineNo: z.string().nullable() }).openapi('LeadOrderVehicle');
+export const LeadOrderVehicleSchema = z.object({ orderNo: z.string().nullable(), pboNo: z.string().nullable(), chassisNo: z.string().nullable(), engineNo: z.string().nullable() }).openapi('LeadOrderVehicle');
 
 export const PpfFormSchema = z.object({
   id: Id,
@@ -360,6 +367,7 @@ export const QuotationDocumentSchema = z
     variantCode: z.string().nullable(),
     billTo: z.string().nullable(),
     deliveryDays: z.number().int().nullable(),
+    deliveryPeriod: z.string().nullable(),
     paymentMode: z.string().nullable(),
     /** The dealership's current quotation format. */
     template: DocumentTemplateSchema,
@@ -426,6 +434,15 @@ export const ConvertLeadBody = z
     paymentInstrumentRef: requiredText('Payment instrument number', 60),
     paymentInstrumentBank: optionalText(80),
     paymentAmount: Money.nullish(),
+    /** Expected delivery told to the customer (carried to the sales order): a date, or a month. */
+    expectedDeliveryDate: isoDate.nullish(),
+    expectedDeliveryByMonth: z.boolean().optional(),
+    /** The customer's CNIC (required): saved on the customer; the Admin checks it against the copy. */
+    customerCnic: z
+      .string({ error: "Enter the customer's CNIC" })
+      .trim()
+      .max(20)
+      .refine((v) => normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
     notes: optionalText(2000),
   })
   .openapi('ConvertLeadRequest');
@@ -440,12 +457,27 @@ export const EscalationResultSchema = z.object({ leadId: Id, escalatedAt: Timest
 export const RaiseOrderBody = z
   .object({
     orderType: z.enum(ORDER_TYPES).default('pbo'),
+    /** The PBO number from the head-office system (required). */
+    pboNo: requiredText('PBO number', 40),
     branchId: Id.nullish(),
     unitPrice: Money,
     discount: Money.default('0'),
     bookingAmount: Money.nullish(),
     paymentReference: optionalText(80),
+    /**
+     * The customer's CNIC: required on every sales order. Empty when the customer already has one;
+     * a new or corrected CNIC is saved on the customer.
+     */
+    customerCnic: z
+      .string()
+      .trim()
+      .max(20)
+      .optional()
+      .refine((v) => !v || normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+    /** Empty: from the lead (what the salesperson told the customer). */
     expectedDeliveryDate: isoDate.nullish(),
+    /** The expected delivery is a month (the date is its last day), not an exact date. */
+    expectedDeliveryByMonth: z.boolean().optional(),
     notes: optionalText(2000),
   })
   .openapi('RaiseOrderRequest');
@@ -476,6 +508,93 @@ const TrackLeadRow = z.object({
   enteredBy: z.string().nullable(),
   convertedBy: z.string().nullable(),
 });
+// ---- Delivery pipeline (Deliveries page) ----------------------------------------------------------
+const PIPELINE_STAGE = z.enum(['waiting', 'in_transit', 'received', 'scheduled', 'delivered']);
+export const DeliveryPipelineQuery = z
+  .object({
+    stage: PIPELINE_STAGE.optional(),
+    dealershipId: z.coerce.number().int().positive().optional(),
+    /** Order number, customer name, chassis or engine number. */
+    q: z.string().trim().max(100).optional(),
+    /** Only orders past their expected delivery whose car has not arrived. */
+    overdue: BoolQuery.optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  })
+  .openapi('DeliveryPipelineQuery');
+export const DeliveryPipelineSchema = z
+  .object({
+    stage: PIPELINE_STAGE,
+    counts: z.object({ waiting: z.number().int(), in_transit: z.number().int(), received: z.number().int(), scheduled: z.number().int(), delivered: z.number().int() }),
+    items: z.array(
+      z.object({
+        orderId: Id,
+        orderNo: z.string(),
+        pboNo: z.string().nullable(),
+        orderStatus: z.string(),
+        leadId: Id.nullable(),
+        dealershipId: Id,
+        dealershipName: z.string(),
+        customerName: z.string().nullable(),
+        salespersonName: z.string().nullable(),
+        model: z.string().nullable(),
+        variant: z.string().nullable(),
+        color: z.string().nullable(),
+        vehicleId: Id.nullable(),
+        chassisNo: z.string().nullable(),
+        engineNo: z.string().nullable(),
+        vehicleStatus: z.string().nullable(),
+        deliveryId: Id.nullable(),
+        deliveryNo: z.string().nullable(),
+        scheduledDate: z.string().nullable(),
+        deliveredOn: z.string().nullable(),
+        approvedAt: z.string().nullable(),
+        expectedDeliveryDate: z.string().nullable(),
+        expectedDeliveryByMonth: z.boolean(),
+        bookedAt: z.string(),
+        stage: PIPELINE_STAGE,
+      }),
+    ),
+    total: z.number().int(),
+    page: z.number().int(),
+    pageSize: z.number().int(),
+  })
+  .openapi('DeliveryPipeline');
+
+// ---- Delivery report --------------------------------------------------------------------------------
+export const DeliveryReportQuery = z
+  .object({
+    /** One dealership; omitted = every dealership the caller sees, and all together. */
+    dealershipId: z.coerce.number().int().positive().optional(),
+    /** The chosen period (default: this month). */
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+  })
+  .refine((q) => !q.from === !q.to, { message: 'Give both a start and an end date', path: ['from'] })
+  .refine((q) => !q.from || !q.to || q.from <= q.to, { message: 'The start date must be on or before the end date', path: ['from'] })
+  .openapi('DeliveryReportQuery');
+const DeliveryCounts = {
+  thisMonth: z.number().int(),
+  thisYear: z.number().int(),
+  last30Days: z.number().int(),
+  allTime: z.number().int(),
+  inPeriod: z.number().int(),
+  scheduled: z.number().int(),
+  /** Average days from the order's approval to delivery (cars delivered in the period). */
+  avgDaysToDeliver: z.number().nullable(),
+};
+export const DeliveryReportSchema = z
+  .object({
+    asOf: z.string(),
+    period: z.object({ from: z.string(), to: z.string() }),
+    dealerships: z.array(z.object({ id: Id, code: z.string(), name: z.string(), brand: z.string(), ...DeliveryCounts })),
+    total: z.object(DeliveryCounts),
+    byModel: z.array(z.object({ brand: z.string(), model: z.string(), delivered: z.number().int(), avgDaysToDeliver: z.number().nullable() })),
+    /** Per month of the period: orders booked (not cancelled) and cars delivered. */
+    byMonth: z.array(z.object({ month: z.string(), booked: z.number().int(), delivered: z.number().int() })),
+  })
+  .openapi('DeliveryReport');
+
 export const TrackRecordQuery = z
   .object({
     dealershipId: z.coerce.number().int().positive(),
@@ -654,6 +773,7 @@ export const SalesDashboardSchema = z
 export const SalesOrderSchema = z.object({
   id: Id,
   orderNo: z.string(),
+  pboNo: z.string().nullable(),
   orderType: z.enum(ORDER_TYPES),
   dealershipId: Id,
   branchId: Id.nullable(),
@@ -673,6 +793,7 @@ export const SalesOrderSchema = z.object({
   totalAmount: z.string(),
   bookingAmount: z.string(),
   expectedDeliveryDate: z.string().nullable(),
+  expectedDeliveryByMonth: z.boolean(),
   vehicleId: Id.nullable(),
   vehicleLabel: z.string().nullable().optional(),
   vehicleStatus: z.enum(VEHICLE_STATUSES).nullable().optional(),
@@ -687,6 +808,7 @@ export const SalesOrderSchema = z.object({
 });
 
 const orderFields = {
+  pboNo: optionalText(40),
   customerId: Id,
   modelId: Id,
   variant: optionalText(80),
@@ -695,6 +817,7 @@ const orderFields = {
   discount: Money.default('0'),
   bookingAmount: Money.default('0'),
   expectedDeliveryDate: isoDate.nullish(),
+  expectedDeliveryByMonth: z.boolean().optional(),
   salespersonId: Id.optional(),
   /** Bank / leasing reference, for orders financed rather than paid outright. */
   financingRef: optionalText(80),
@@ -815,6 +938,8 @@ export const DeliverySchema = z.object({
   odometerKm: z.number().int().nullable(),
   documentsHandedOver: z.array(z.enum(DELIVERY_DOCUMENTS)),
   accessoriesHandedOver: z.array(z.string()),
+  /** The pre-delivery checklist ticked at hand-over. */
+  checklist: z.array(z.enum(PDI_CHECKLIST)),
   customerAcknowledged: z.boolean(),
   customerAcknowledgedAt: Timestamp.nullable(),
   notes: z.string().nullable(),
@@ -822,6 +947,29 @@ export const DeliverySchema = z.object({
   createdAt: Timestamp,
   updatedAt: Timestamp,
 });
+
+/** The delivery note: who takes delivery, against which PBO, the vehicle (blank where not known). */
+export const DeliveryNoteSchema = z
+  .object({
+    deliveryNo: z.string(),
+    status: z.string(),
+    scheduledDate: z.string(),
+    deliveredAt: z.string().nullable(),
+    dealership: z.object({ name: z.string(), code: z.string(), brand: z.string() }),
+    customer: z.object({ name: z.string().nullable(), cnic: z.string().nullable() }),
+    pboNo: z.string().nullable(),
+    orderNo: z.string().nullable(),
+    vehicle: z.object({
+      brand: z.string().nullable(),
+      model: z.string().nullable(),
+      variant: z.string().nullable(),
+      color: z.string().nullable(),
+      chassisNo: z.string().nullable(),
+      engineNo: z.string().nullable(),
+    }),
+    accessories: z.array(z.string()),
+  })
+  .openapi('DeliveryNote');
 
 export const ScheduleDeliveryBody = z
   .object({ scheduledDate: isoDate, branchId: Id.nullish(), notes: optionalText(2000) })
@@ -835,6 +983,10 @@ export const CompleteDeliveryBody = z
     registrationNo: z.string().trim().max(40).nullish(),
     documentsHandedOver: z.array(z.enum(DELIVERY_DOCUMENTS)).max(DELIVERY_DOCUMENTS.length).default([]),
     accessoriesHandedOver: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
+    /** Pre-delivery checklist: every item must be ticked (PDI done, documents ready, accessories fitted). */
+    checklist: z
+      .array(z.enum(PDI_CHECKLIST))
+      .refine((v) => PDI_CHECKLIST.every((i) => v.includes(i)), 'Tick every item of the pre-delivery checklist (PDI done, documents ready, accessories fitted)'),
     /** The customer must confirm receipt to complete the delivery. */
     customerAcknowledged: z.boolean().refine((v) => v, 'The customer must acknowledge receipt to complete the delivery'),
     notes: optionalText(2000),

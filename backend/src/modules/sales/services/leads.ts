@@ -5,6 +5,8 @@
  * Assistant Manager may convert it on the owner's behalf.
  */
 import { execute, query } from '../../../db/client';
+import { expectedDelivery } from '../../../lib/dates';
+import { ensureCustomerCnic } from './orders';
 import { pickColumns } from '../../../db/delegate';
 import { and, eq, inArray, sql } from '../../../db/sql';
 import { withNames } from '../../../entity/names';
@@ -82,13 +84,16 @@ export async function listFollowUps(ctx: EntityCtx, leadId: number) {
 // ---- Convert to Lead ------------------------------------------------------------
 /**
  * Captures the qualifying details and hands the lead to the dealership's Admin.
- * Allowed for the owner (convert_own), or the Assistant Manager (convert_escalated) but only on a
- * lead escalated after a duplicate-phone block. The customer record is reused by phone or created.
+ * Allowed for the owner (convert_own); for the team leader (Assistant Manager / Manager, convert_own)
+ * who logged the lead, also when they logged it for a salesperson (who stays the owner); or the
+ * Assistant Manager (convert_escalated) but only on a lead escalated after a duplicate-phone block.
+ * The customer record is reused by phone or created.
  */
 export async function convertLead(ctx: EntityCtx, leadId: number, input: z.output<typeof ConvertLeadBody>) {
   const l = await leads.findVisible(ctx, leadId, { lock: true });
   const target = targetOf(l);
-  const asOwner = l.ownerId === ctx.access.userId && ctx.access.canIn(P.leadsConvertOwn, target);
+  const mine = l.ownerId === ctx.access.userId || l.createdById === ctx.access.userId;
+  const asOwner = mine && ctx.access.canIn(P.leadsConvertOwn, target);
   const asEscalation = ctx.access.canIn(P.leadsConvertEscalated, target);
   if (!asOwner) {
     if (!asEscalation) throw forbidden('Only the lead owner can convert this lead');
@@ -142,6 +147,9 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
     }
   }
 
+  // The customer's CNIC (required at conversion): the Admin checks it against the copy when raising the order.
+  await ensureCustomerCnic(ctx, customerId, dealershipId, input.customerCnic);
+
   await ctx.tx.lead.update({
     where: { id: leadId },
     data: {
@@ -157,6 +165,8 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
       paymentInstrumentRef: input.paymentInstrumentRef,
       paymentInstrumentBank: input.paymentInstrumentBank ?? null,
       paymentAmount: input.paymentAmount ?? null,
+      // Told to the customer; copied to the sales order when the Admin raises it.
+      ...expectedDelivery(input.expectedDeliveryDate ?? (l.expectedDeliveryDate as string | null), input.expectedDeliveryDate ? input.expectedDeliveryByMonth : (l.expectedDeliveryByMonth as boolean)),
       notes: input.notes ?? (l.notes as string | null),
       convertedAt: new Date(),
       convertedById: ctx.access.userId,

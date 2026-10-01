@@ -242,4 +242,23 @@ describe('vehicle model catalogue', () => {
     expect((await api.post('/api/master/vehicle-models').set(bearer(global.token)).send({ brand: 'Jetour', name: 'T2' })).status).toBe(201);
     expect((await api.get('/api/master/vehicle-models').set(bearer(scoped.token))).body.total).toBe(1);
   });
+
+  it("lets a dealership's team leaders add and edit models of its own brand only", async () => {
+    const jet = await owner.db.dealership.create({ data: { code: 'JET', name: 'Jetour Ittehad', brand: 'Jetour' } });
+    const leader = await createUser([{ permissions: ['master.models.view', 'master.models.manage_brand'], dealershipId: jet.id }]);
+    const seller = await createUser([{ permissions: ['master.models.view'], dealershipId: jet.id }]);
+    const hyundai = await owner.db.vehicleModel.create({ data: { brand: 'Hyundai', name: 'Tucson' } });
+    const add = (who: typeof leader, name: string) => api.post('/api/master/vehicle-models/for-dealership').set(bearer(who.token)).send({ dealershipId: jet.id, name });
+
+    const t1 = await add(leader, 'T1');
+    expect(t1.status, JSON.stringify(t1.body)).toBe(201);
+    expect(t1.body).toMatchObject({ brand: 'Jetour', name: 'T1', isActive: true }); // the brand comes from the dealership
+    expect((await add(leader, 't1')).status).toBe(409); // already in the list
+    expect((await add(seller, 'T2')).status).toBe(403);
+
+    const edit = (id: number, body: Record<string, unknown>) => api.patch(`/api/master/vehicle-models/${id}/for-dealership`).set(bearer(leader.token)).send({ dealershipId: jet.id, ...body });
+    expect((await edit(t1.body.id, { name: 'T1 Plus' })).body.name).toBe('T1 Plus');
+    expect((await edit(t1.body.id, { isActive: false })).body.isActive).toBe(false);
+    expect((await edit(hyundai.id, { name: 'Tucson 2' })).status).toBe(403); // another brand's model
+  });
 });

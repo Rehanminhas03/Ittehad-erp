@@ -16,6 +16,11 @@ import {
   DocumentTemplateBody,
   DocumentTemplateQuery,
   DocumentTemplateSchema,
+  DeliveryNoteSchema,
+  DeliveryPipelineQuery,
+  DeliveryPipelineSchema,
+  DeliveryReportQuery,
+  DeliveryReportSchema,
   DeliverySchema,
   EscalateDuplicateBody,
   EscalationResultSchema,
@@ -385,7 +390,18 @@ const stockActions = new ApiRouter('/sales/stock', 'StockVehicle').route({
   handler: (ctx) => svc.receiveStockVehicle(ctx, ctx.body),
 });
 
-const deliveryActions = new ApiRouter('/sales/deliveries', 'Delivery').route({
+const deliveryActions = new ApiRouter('/sales/deliveries', 'Delivery')
+  .route({
+    method: 'get',
+    path: '/:id/note',
+    operationId: 'getDeliveryNote',
+    summary: 'What the delivery note prints (customer, PBO, vehicle); signed at hand-over',
+    permission: [P.deliveriesViewAll, P.deliveriesViewOwn],
+    params: IdParam,
+    response: DeliveryNoteSchema,
+    handler: (ctx) => svc.deliveryNote(ctx, ctx.params.id),
+  })
+  .route({
   method: 'post',
   path: '/:id/complete',
   operationId: 'completeDelivery',
@@ -397,8 +413,34 @@ const deliveryActions = new ApiRouter('/sales/deliveries', 'Delivery').route({
   handler: (ctx) => svc.completeDelivery(ctx, ctx.params.id, ctx.body),
 });
 
+// ---- Deliveries page: every booked order by stage (a salesperson: their own customers' cars) ----
+const deliveryPipelineActions = new ApiRouter('/sales/delivery-pipeline', 'DeliveryPipeline').route({
+  method: 'get',
+  path: '/',
+  operationId: 'getDeliveryPipeline',
+  summary: 'Booked orders by stage (waiting for car, in transit, received, scheduled, delivered) with a count per stage',
+  permission: [P.ordersViewAll, P.deliveriesViewAll, P.ordersViewOwn, P.deliveriesViewOwn, P.leadsViewOwn],
+  query: DeliveryPipelineQuery,
+  response: DeliveryPipelineSchema,
+  handler: (ctx) => svc.deliveryPipeline(ctx, ctx.query),
+});
+
+// ---- Delivery report (the delivery portal and the sales managers) ----
+const deliveryReportActions = new ApiRouter('/sales/delivery-report', 'DeliveryReport').route({
+  method: 'get',
+  path: '/',
+  operationId: 'getDeliveryReport',
+  summary: 'Cars delivered this month / this year / last 30 days / all time and in a chosen period, per dealership and together; per model and month',
+  permission: P.deliveriesViewAll,
+  query: DeliveryReportQuery,
+  response: DeliveryReportSchema,
+  handler: (ctx) => svc.deliveryReport(ctx, ctx.query),
+});
+
 export const salesRouters = [
   dashboardActions,
+  deliveryPipelineActions,
+  deliveryReportActions,
   leadActions,
   teamActions,
   orderActions,

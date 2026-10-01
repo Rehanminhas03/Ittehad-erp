@@ -11,7 +11,7 @@ import { hashPassword } from '../modules/core/service';
 import type { EntityCtx } from '../entity/types';
 import { addMoney, lineAmount } from '../lib/money';
 import { ensureChart, post } from '../modules/accounts/ledger';
-import { seedHyundaiVariants } from '../modules/sales/variantCatalog';
+import { seedHyundaiVariants, seedJetourVariants } from '../modules/sales/variantCatalog';
 
 /** Starter model catalogue; maintained afterwards under Administration → Vehicle models. */
 const VEHICLE_MODELS: { brand: string; name: string; bodyType: string }[] = [
@@ -24,6 +24,8 @@ const VEHICLE_MODELS: { brand: string; name: string; bodyType: string }[] = [
   { brand: 'Hyundai', name: 'Porter H-100', bodyType: 'Pickup' },
   { brand: 'Jetour', name: 'X70 Plus', bodyType: 'SUV' },
   { brand: 'Jetour', name: 'Dashing', bodyType: 'SUV' },
+  { brand: 'Jetour', name: 'T1', bodyType: 'SUV' },
+  { brand: 'Jetour', name: 'T2', bodyType: 'SUV' },
 ];
 
 const USERS: { email: string; fullName: string; password: string; roles: { role: string; dealership: string | null }[] }[] = [
@@ -197,6 +199,8 @@ try {
 
     // Hyundai variant codes for the quotation (Hyundai Islamabad only; Jetour and CSM use none).
     for (const d of DEALERSHIPS) if (d.code.startsWith('HYD')) await seedHyundaiVariants(tx, dealershipIds.get(d.code)!);
+    // Jetour variants (T1 / T2) at Jetour Ittehad.
+    for (const d of DEALERSHIPS) if (d.brand === 'Jetour') await seedJetourVariants(tx, dealershipIds.get(d.code)!);
 
     // Parts catalogue, a supplier per dealership, and opening stock at each main branch. Runs after
     // the users so the opening-stock ledger rows have an actor; on-hand and ledger are written together.

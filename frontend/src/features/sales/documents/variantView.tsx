@@ -6,6 +6,7 @@ import { dealershipFilter, type EntityViewConfig, idField, mono, muted, optional
 import { usePermission, useToast } from '@/shared/hooks';
 import { apiFieldErrors } from '@/shared/lib';
 import { P } from '../permissions';
+import { BrandModels } from './BrandModels';
 import {
   type VariantCode,
   useCreateVariantCodeMutation,
@@ -119,6 +120,13 @@ function PasteVariants() {
   );
 }
 
+/** The models of the brands this person manages variants for (Jetour staff: Jetour models only). */
+function useVariantModelOptions() {
+  const perm = usePermission();
+  const brands = [...new Set(perm.dealershipsFor(P.templatesManage).map((d) => d.brand))];
+  return useVehicleModelOptions(brands.length ? brands : undefined);
+}
+
 const fields = {
   code: z.string().trim().min(2, 'Enter the code').max(40),
   description: z.string().trim().min(2, 'Enter the description').max(160),
@@ -126,7 +134,10 @@ const fields = {
   isActive: z.boolean(),
 };
 
-/** Variant codes (Hyundai): picked on quotations; the description is what the quotation prints. */
+/**
+ * Variant codes, per model (Hyundai: the manufacturer codes; Jetour: short codes like T1-PETROL): picked on
+ * leads and quotations; the description is what the quotation prints. The brand's models are above the list.
+ */
 export const variantView: EntityViewConfig<VariantCode> = {
   singular: 'Variant code',
   plural: 'Variant codes',
@@ -136,9 +147,14 @@ export const variantView: EntityViewConfig<VariantCode> = {
   scope: { dealershipKey: 'dealershipId' },
   list: {
     defaultSort: 'code',
-    searchPlaceholder: 'Search code or description (e.g. NX4 or TUCSON)',
-    header: () => <PasteVariants />,
-    filters: [{ param: 'modelId', label: 'Model', type: 'select', useOptions: useVehicleModelOptions }, { param: 'isActive', label: 'Active', type: 'boolean' }, dealershipFilter],
+    searchPlaceholder: 'Search code or description',
+    header: () => (
+      <>
+        <BrandModels />
+        <PasteVariants />
+      </>
+    ),
+    filters: [{ param: 'modelId', label: 'Model', type: 'select', useOptions: useVariantModelOptions }, { param: 'isActive', label: 'Active', type: 'boolean' }, dealershipFilter],
     columns: [
       { key: 'code', header: 'Code', sortKey: 'code', render: (v) => mono(v.code) },
       { key: 'description', header: 'Description (printed on the quotation)', sortKey: 'description', render: (v) => strong(v.description) },
@@ -161,7 +177,7 @@ export const variantView: EntityViewConfig<VariantCode> = {
       { name: 'dealershipId', label: 'Dealership', type: 'dealership', required: true, mode: 'create', scopePermission: P.templatesManage },
       { name: 'code', label: 'Code', type: 'text', required: true, placeholder: 'NX4FL16THAW' },
       { name: 'description', label: 'Description', type: 'text', required: true, span: 2, placeholder: 'TUCSON HEV 1598CC 6A/T AWD SIGNATURE' },
-      { name: 'modelId', label: 'Model', type: 'select', useOptions: useVehicleModelOptions, hint: 'Empty: found from the description' },
+      { name: 'modelId', label: 'Model', type: 'select', useOptions: useVariantModelOptions, hint: 'Empty: found from the description' },
       { name: 'isActive', label: 'Active', type: 'boolean' },
     ],
     defaults: { isActive: true },

@@ -51,7 +51,7 @@ $$`,
  * Runs the Prisma CLI (prisma.config.ts) against `url`. "Can't reach database server" (P1001) is
  * retried: a remote database (e.g. Neon) can take a while to wake up or to accept the connection.
  */
-function prismaCli(args: string[], url: string, attempts = 4): string {
+export function prismaCli(args: string[], url: string, attempts = 4): string {
   for (let i = 1; ; i++) {
     const run = spawnSync(process.execPath, [path.resolve('node_modules/prisma/build/index.js'), ...args], {
       env: { ...process.env, MIGRATION_DATABASE_URL: url },

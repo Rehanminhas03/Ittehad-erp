@@ -2,7 +2,7 @@
  * Document formats: each dealership's quotation letterhead, delivery lines, terms and conditions,
  * closing lines and sign-off. The Assistant Manager / Sales Manager edit them; every quotation of the
  * dealership prints with the current format. Until edited, a built-in default applies: Hyundai
- * Islamabad's own quotation, and the same format with their own names for Jetour and CSM.
+ * Islamabad's own quotation, Jetour Ittehad's own quotation, and the Hyundai format with its own name for CSM.
  */
 import type { EntityCtx } from '../../../entity/types';
 import { forbidden, notFound } from '../../../lib/errors';
@@ -86,7 +86,51 @@ function groupQuotation(d: Dealer): Fields {
   };
 }
 
-const quotationDefaults = (d: Dealer): Fields => (d.code.startsWith('HYD') || d.brand === 'Hyundai' ? HYUNDAI_QUOTATION : groupQuotation(d));
+/**
+ * Jetour Ittehad's quotation (2026-09-30, from its Dashing / X70 and T2 i-DM quotations; one format
+ * for every Jetour model). Printed with Jetour's own layout (frontend pdf.ts). The tagline is the
+ * website line under the contact details. The battery warranty line prints only for the i-DM PHEV.
+ */
+const JETOUR_QUOTATION: Fields = {
+  companyName: 'JETOUR ITTEHAD',
+  refPrefix: null,
+  tagline: 'www.ittehadmotors.com',
+  address: 'Plot #. 415, off 9th Avenue, Sector I-9/3, Islamabad',
+  phone: '+92 (51) 111 500 100',
+  email: 'info@ittehadmotors.com',
+  deliveryNotes: [
+    'Delivery Period at the time of receiving payment/booking will be applicable',
+    'Delivery Times are as per current prevailing conditions',
+    'Delivery Times are communicated as per instructions by JETOUR',
+  ],
+  deliveryStation: 'JETOUR ITTEHAD ISLAMABAD',
+  defaultPaymentMode: '100% Advance Payment.',
+  defaultValidityDays: 7,
+  defaultDeliveryDays: null,
+  highlightLine: null,
+  standardEquipment: 'As per Brochure',
+  terms: [
+    'All Payments **(Pay Orders)** to be made in favor of **UNITED MOTORS PVT LTD NTN # 7154939-2.**',
+    'Any impact on prices, including but not limited to Government levies (including FED, GST, and CVT etc.), duties, tariffs, fiscal policies, import policies, PKR devaluation, shall be on account of customer.',
+    'Force Majeure clause is applicable, including but not limited to Acts of God or enemy, change in Government Policies, Government announced Lockdowns, Labor Strikes, or Civil Unrest, injunctions by Court of Law.',
+    'Vehicle is covered by manufacturer’s warranty of **60 months** or **150,000 km,** whichever occurs first.',
+    '[Hybrid only] Battery Warranty is **96 months** or **160,000 km,** whichever occurs first.',
+    'Any difference in Price will have to be paid before delivery.',
+    'Further Sales Tax @ 4% will be applicable on all Corporate and Business Individual Customers who are registered in sales tax but are non-Active and customers which are not registered in sales tax.',
+    'Orders taken from customers are governed by **PBO** (Provisional Booking Order Form) and are under its terms and conditions. Order will be deemed confirmed only at the time of realization of funds and completion of all formalities.',
+    'At any time, throughout the transaction, terms and conditions of this quotation shall remain supreme, even if any document received by us, unless notified/authorized by our office in written form.',
+    'JETOUR ITTEHAD Islamabad is acting on behalf of the dealer of **JETOUR,** and is not subject to any liability, including legal or financial. Delivery times are constantly changing based on first come basis, & available stocks.',
+  ],
+  closingLines: [],
+  signOff: ['Owned & Operated by:', 'Ittehad Motors', '(an Ittehad Steel Company)'],
+  title: null,
+  fieldLabels: {},
+  hiddenFields: [],
+  customFields: [],
+};
+
+const quotationDefaults = (d: Dealer): Fields =>
+  d.code.startsWith('HYD') || d.brand === 'Hyundai' ? HYUNDAI_QUOTATION : d.brand === 'Jetour' ? JETOUR_QUOTATION : groupQuotation(d);
 
 /** The PPF voucher as the dealership uses it: the fields it asked for and a manager's signature. */
 function ppfDefaults(d: Dealer): Fields {

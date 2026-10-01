@@ -113,7 +113,7 @@ describe('service schedule from vehicle activation', () => {
       await api.patch(`/api/sales/orders/${o.body.id}/vehicle-status`).set(bearer(approver.token)).send({ status }).expect(200);
     }
     const dl = await api.post(`/api/sales/orders/${o.body.id}/deliveries`).set(bearer(approver.token)).send({ scheduledDate: today() });
-    await api.post(`/api/sales/deliveries/${dl.body.id}/complete`).set(bearer(approver.token)).send({ odometerKm: 7, customerAcknowledged: true }).expect(200);
+    await api.post(`/api/sales/deliveries/${dl.body.id}/complete`).set(bearer(approver.token)).send({ odometerKm: 7, checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'], customerAcknowledged: true }).expect(200);
 
     const sched = await api.get(`/api/service/vehicles/${v!.id}/schedule`).set(bearer(s.advisor.token));
     expect(sched.status).toBe(200);

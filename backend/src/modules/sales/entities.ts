@@ -133,6 +133,9 @@ export const leadEntity: EntityConfig = {
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'ownerId',
   search: ['prospectName', 'prospectMobileNormalized'],
+  // Also by the sales order's PBO or order number (e.g. the last digits of a PBO).
+  searchExtra: (p) =>
+    sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${lead.salesOrderId} and (${salesOrder.pboNo} ilike ${p} or ${salesOrder.orderNo} ilike ${p}))`,
   // Name, or phone typed any way (full or partial, with or without dashes / spaces).
   normalizeSearch: mobileSearchTerm,
   filters: {
@@ -286,7 +289,7 @@ export const salesOrderEntity: EntityConfig = {
   },
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'salespersonId',
-  search: ['orderNo'],
+  search: ['orderNo', 'pboNo'],
   filters: {
     status: statusFilter(['draft', 'submitted', 'approved', 'delivered', 'cancelled']),
     orderType: { key: 'orderType', schema: z.enum(['pbo', 'cbo']) },
@@ -403,6 +406,14 @@ export const salesOrderEntity: EntityConfig = {
       }
       if (patch.customerId) await assertCustomerInDealership(ctx, patch.customerId as number, target.dealershipId);
       if (patch.modelId) await assertActiveModel(ctx, patch.modelId as number);
+      // A PBO number is used once per dealership (a cancelled order frees it).
+      if (typeof patch.pboNo === 'string' && patch.pboNo.trim() && patch.pboNo !== row.pboNo) {
+        const same = await ctx.tx.salesOrder.findFirst({
+          where: { dealershipId: target.dealershipId, pboNo: { equals: patch.pboNo.trim(), mode: 'insensitive' }, status: { not: 'cancelled' }, id: { not: row.id as number } },
+          select: { orderNo: true },
+        });
+        if (same) throw validationError([{ in: 'body', path: 'pboNo', message: `PBO ${patch.pboNo} is already on sales order ${same.orderNo}` }]);
+      }
       return patch.unitPrice !== undefined || patch.discount !== undefined ? priceOrder(patch, row) : patch;
     },
     decorate: async (ctx, rows) => {
@@ -437,6 +448,8 @@ export const deliveryEntity: EntityConfig = {
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'salespersonId',
   search: ['deliveryNo'],
+  searchExtra: (p) =>
+    sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${delivery.salesOrderId} and (${salesOrder.pboNo} ilike ${p} or ${salesOrder.orderNo} ilike ${p}))`,
   filters: {
     status: statusFilter(['scheduled', 'delivered', 'cancelled']),
     salesOrderId: { key: 'salesOrderId', schema: IdQuery },

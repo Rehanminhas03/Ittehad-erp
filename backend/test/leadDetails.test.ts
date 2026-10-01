@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo } from './helpers';
 
 useTestDb();
 
@@ -30,7 +30,7 @@ async function convertedLead(s: Setup, mobile = '03001234567') {
   await api
     .post(`/api/sales/leads/${l.body.id}/convert`)
     .set(bearer(s.sales1.token))
-    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'ayesha@exmaple.com', paymentInstrument: 'cheque', paymentInstrumentRef: 'CH-1' })
+    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'ayesha@exmaple.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-1' })
     .expect(200);
   return l.body.id as number;
 }
@@ -54,7 +54,7 @@ describe('correcting lead details after conversion', () => {
     const s = await setup();
     const id = await convertedLead(s);
     expect((await details(s.admin, id, { preferredColor: 'Phantom Black' })).body.preferredColor).toBe('Phantom Black');
-    await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000' }).expect(201);
+    await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' }).expect(201);
     const processing = await details(s.admin, id, { notes: 'Customer asked for delivery on Friday' });
     expect(processing.body).toMatchObject({ status: 'processing', notes: 'Customer asked for delivery on Friday' });
     // The order shows the corrected customer name.

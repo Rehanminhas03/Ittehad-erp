@@ -5,12 +5,15 @@ import { customerEntity, vehicleEntity, vehicleModelEntity } from './entities';
 import { MasterPerm } from './permissions';
 import {
   CustomerVehicleSchema,
+  DealershipModelCreate,
+  DealershipModelUpdate,
   OwnershipCreate,
   OwnershipSchema,
   SearchQuery,
   SearchResultSchema,
   VehicleCreate,
   VehicleLinkBody,
+  VehicleModelSchema,
   VehicleSchema,
 } from './schemas';
 import * as svc from './service';
@@ -86,10 +89,37 @@ const searchRouter = new ApiRouter('/master/search', 'Search').route({
   handler: (ctx) => svc.search(ctx, ctx.query.q),
 });
 
+// Models of the dealership's own brand, for its Assistant Manager / Manager (before the generated
+// routes so `/for-dealership` is not taken as `/:id`).
+const dealershipModelRouter = new ApiRouter('/master/vehicle-models', 'VehicleModel')
+  .route({
+    method: 'post',
+    path: '/for-dealership',
+    operationId: 'createDealershipModel',
+    summary: "Add a model of the dealership's own brand (e.g. Jetour T1 at a Jetour dealership)",
+    permission: MasterPerm.modelsManageBrand,
+    body: DealershipModelCreate,
+    response: VehicleModelSchema,
+    status: 201,
+    handler: (ctx) => svc.createDealershipModel(ctx, ctx.body),
+  })
+  .route({
+    method: 'patch',
+    path: '/:id/for-dealership',
+    operationId: 'updateDealershipModel',
+    summary: "Rename or (de)activate a model of the dealership's own brand",
+    permission: MasterPerm.modelsManageBrand,
+    params: IdParam,
+    body: DealershipModelUpdate,
+    response: VehicleModelSchema,
+    handler: (ctx) => svc.updateDealershipModel(ctx, ctx.params.id, ctx.body),
+  });
+
 export const masterRouters = [
   searchRouter,
   vehicleRouter,
   customerExtrasRouter,
+  dealershipModelRouter,
   buildEntityRouter(vehicleModelEntity).router,
   buildEntityRouter(customerEntity, svc.customers).router,
   buildEntityRouter(vehicleEntity, svc.vehicles).router,

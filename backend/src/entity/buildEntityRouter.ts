@@ -1,7 +1,7 @@
 import { ApiRouter } from '../http/apiRouter';
 import { PageQuery, pageSchema } from '../lib/pagination';
 import { IdParam, Timestamp, z } from '../lib/zod';
-import { EntityService } from './entityService';
+import { EntityService, listFilters } from './entityService';
 import type { EntityConfig } from './types';
 
 export const HISTORY_LIMIT = 200;
@@ -84,7 +84,7 @@ export function buildEntityRouter(config: EntityConfig, service = new EntityServ
     : schemas.read.openapi(schemaName);
 
   const filterShape = Object.fromEntries(
-    Object.entries(config.filters ?? {}).map(([param, f]) => [param, f.schema.optional()]),
+    Object.entries(listFilters(config)).map(([param, f]) => [param, f.schema.optional()]),
   );
   const ListQuery = PageQuery.extend(filterShape);
 

@@ -6,7 +6,7 @@
 //   variantView.tsx           Variant codes (Hyundai), paste from Excel
 //   documentViews.tsx         Quotations and PPF forms: list, detail, correct (with who created / changed)
 export { buildPpfPdf, buildQuotationPdf, amountInWords } from './pdf';
-export { DocumentPreview, type DocKind } from './DocumentPreview';
+export { DeliveryNoteButton, DocumentPreview, type DocKind } from './DocumentPreview';
 export { LeadDocuments, LeadDocumentsButton } from './LeadDocuments';
 export { ppfView, quotationView } from './documentViews';
 export { variantView } from './variantView';

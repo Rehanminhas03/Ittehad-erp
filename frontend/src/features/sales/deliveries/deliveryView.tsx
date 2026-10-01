@@ -1,8 +1,9 @@
 import { Badge, StatusBadge } from '@/shared/components/ui';
 import { dealershipFilter, type EntityViewConfig, mono, muted, statusFilter, strong } from '@/shared/entity';
 import { formatDate, formatDateTime } from '@/shared/lib';
+import { DeliveryNoteButton } from '../documents/DocumentPreview';
 import { DeliveryCompletion } from './components/DeliveryCompletion';
-import { DELIVERY_DOCUMENTS, DELIVERY_STATES, P } from '../permissions';
+import { DELIVERY_DOCUMENTS, DELIVERY_STATES, P, PDI_CHECKLIST } from '../permissions';
 import {
   type Delivery,
   useGetDeliveryHistoryQuery,
@@ -25,7 +26,7 @@ export const deliveryView: EntityViewConfig<Delivery> = {
   ownerKey: 'salespersonId',
   list: {
     defaultSort: 'scheduledDate',
-    searchPlaceholder: 'Search delivery number',
+    searchPlaceholder: 'Search delivery, order or PBO number',
     filters: [
       statusFilter(DELIVERY_STATES),
       dealershipFilter,
@@ -56,6 +57,10 @@ export const deliveryView: EntityViewConfig<Delivery> = {
       { label: 'Delivered', value: (d) => (d.deliveredAt ? formatDateTime(d.deliveredAt) : '—') },
       { label: 'Odometer at delivery', value: (d) => (d.odometerKm == null ? '—' : `${d.odometerKm} km`) },
       {
+        label: 'Pre-delivery checklist',
+        value: (d) => (d.checklist?.length ? d.checklist.map((c) => PDI_CHECKLIST.find((x) => x.value === c)?.label ?? c).join(', ') : '—'),
+      },
+      {
         label: 'Documents handed over',
         value: (d) => (d.documentsHandedOver?.length ? d.documentsHandedOver.map(docLabel).join(', ') : '—'),
       },
@@ -76,7 +81,17 @@ export const deliveryView: EntityViewConfig<Delivery> = {
       },
       { label: 'Notes', value: (d) => d.notes },
     ],
-    sections: (d) => <DeliveryCompletion delivery={d} />,
+    sections: (d) => (
+      <>
+        {d.status !== 'cancelled' && (
+          <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
+            <span className="text-sm text-slate-500">Print it for the customer to sign at hand-over.</span>
+            <DeliveryNoteButton deliveryId={d.id} />
+          </div>
+        )}
+        <DeliveryCompletion delivery={d} />
+      </>
+    ),
   },
   api: {
     useList: useListDeliveriesQuery,

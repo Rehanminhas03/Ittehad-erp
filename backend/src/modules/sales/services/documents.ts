@@ -41,14 +41,14 @@ export async function leadOrderVehicle(ctx: EntityCtx, leadId: number) {
   const l = await leads.findVisible(ctx, leadId);
   const order = await leadOrder(ctx, l);
   const v = order?.vehicleId ? await ctx.tx.vehicle.findUnique({ where: { id: order.vehicleId }, select: { vin: true, engineNo: true } }) : null;
-  return { orderNo: order?.orderNo ?? null, chassisNo: v?.vin ?? null, engineNo: v?.engineNo ?? null };
+  return { orderNo: order?.orderNo ?? null, pboNo: order?.pboNo ?? null, chassisNo: v?.vin ?? null, engineNo: v?.engineNo ?? null };
 }
 
 async function leadOrder(ctx: EntityCtx, l: Record<string, unknown>) {
   if (!l.salesOrderId) return undefined;
   const o = await ctx.tx.salesOrder.findUnique({
     where: { id: l.salesOrderId as number },
-    select: { orderNo: true, unitPrice: true, discount: true, bookingAmount: true, vehicleId: true, modelId: true },
+    select: { orderNo: true, pboNo: true, unitPrice: true, discount: true, bookingAmount: true, vehicleId: true, modelId: true },
   });
   return o ?? undefined;
 }
@@ -96,6 +96,7 @@ export async function createQuotation(ctx: EntityCtx, leadId: number, input: z.o
     billTo: input.billTo ?? null,
     withholdingTaxNonFiler: input.withholdingTaxNonFiler == null ? null : money2(input.withholdingTaxNonFiler),
     deliveryDays: input.deliveryDays ?? null,
+    deliveryPeriod: input.deliveryPeriod ?? null,
     paymentMode: input.paymentMode ?? null,
   });
 }
@@ -106,7 +107,7 @@ export async function createPpfForm(ctx: EntityCtx, leadId: number, input: z.out
   // once the lead has an order; before that they may be blank (the voucher shows the order's numbers
   // as soon as it exists).
   const order = await leadOrderVehicle(ctx, leadId);
-  const pboNo = input.pboNo || order.orderNo;
+  const pboNo = input.pboNo || order.pboNo || order.orderNo;
   const chassisNo = input.chassisNo || order.chassisNo;
   const engineNo = input.engineNo || order.engineNo;
   const missing = !l.salesOrderId ? [] : [
@@ -190,6 +191,7 @@ export async function quotationDocument(ctx: EntityCtx, id: number) {
     variantCode: (q.variantCode as string | null) ?? null,
     billTo: (q.billTo as string | null) ?? null,
     deliveryDays: (q.deliveryDays as number | null) ?? null,
+    deliveryPeriod: (q.deliveryPeriod as string | null) ?? null,
     paymentMode: (q.paymentMode as string | null) ?? null,
     // Always the dealership's current format, so an edited format shows on every quotation.
     template: await loadTemplate(ctx, q.dealershipId as number, 'quotation'),

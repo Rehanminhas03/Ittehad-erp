@@ -3250,6 +3250,46 @@
           "groupMatches"
         ]
       },
+      "DealershipModelCreate": {
+        "type": "object",
+        "properties": {
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "dealershipId",
+          "name"
+        ]
+      },
+      "DealershipModelUpdate": {
+        "type": "object",
+        "properties": {
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dealershipId"
+        ]
+      },
       "VehicleModelPage": {
         "type": "object",
         "properties": {
@@ -4133,6 +4173,11 @@
             "minimum": 0,
             "maximum": 365
           },
+          "deliveryPeriod": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
           "paymentMode": {
             "type": "string",
             "nullable": true,
@@ -4147,6 +4192,10 @@
             "type": "string",
             "nullable": true
           },
+          "pboNo": {
+            "type": "string",
+            "nullable": true
+          },
           "chassisNo": {
             "type": "string",
             "nullable": true
@@ -4158,6 +4207,7 @@
         },
         "required": [
           "orderNo",
+          "pboNo",
           "chassisNo",
           "engineNo"
         ]
@@ -4304,6 +4354,18 @@
             "type": "string",
             "example": "1250000.00"
           },
+          "expectedDeliveryDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
+          },
+          "customerCnic": {
+            "type": "string",
+            "maxLength": 20
+          },
           "notes": {
             "type": "string",
             "nullable": true,
@@ -4316,7 +4378,8 @@
           "variant",
           "email",
           "paymentInstrument",
-          "paymentInstrumentRef"
+          "paymentInstrumentRef",
+          "customerCnic"
         ]
       },
       "RaiseOrderRequest": {
@@ -4329,6 +4392,11 @@
               "cbo"
             ],
             "default": "pbo"
+          },
+          "pboNo": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
           },
           "branchId": {
             "type": "integer",
@@ -4353,10 +4421,17 @@
             "nullable": true,
             "maxLength": 80
           },
+          "customerCnic": {
+            "type": "string",
+            "maxLength": 20
+          },
           "expectedDeliveryDate": {
             "type": "string",
             "nullable": true,
             "format": "date"
+          },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
           },
           "notes": {
             "type": "string",
@@ -4365,6 +4440,7 @@
           }
         },
         "required": [
+          "pboNo",
           "unitPrice"
         ]
       },
@@ -4387,6 +4463,10 @@
           },
           "deliveryDays": {
             "type": "integer",
+            "nullable": true
+          },
+          "deliveryPeriod": {
+            "type": "string",
             "nullable": true
           },
           "paymentMode": {
@@ -4573,6 +4653,7 @@
           "variantCode",
           "billTo",
           "deliveryDays",
+          "deliveryPeriod",
           "paymentMode",
           "template",
           "issuedAt",
@@ -6122,6 +6203,17 @@
             "maxItems": 30,
             "default": []
           },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pdi_done",
+                "documents_ready",
+                "accessories_fitted"
+              ]
+            }
+          },
           "customerAcknowledged": {
             "type": "boolean"
           },
@@ -6133,6 +6225,7 @@
         },
         "required": [
           "odometerKm",
+          "checklist",
           "customerAcknowledged"
         ]
       },
@@ -6310,6 +6403,499 @@
           "modelId"
         ]
       },
+      "DeliveryNote": {
+        "type": "object",
+        "properties": {
+          "deliveryNo": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "scheduledDate": {
+            "type": "string"
+          },
+          "deliveredAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "dealership": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "brand": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "code",
+              "brand"
+            ]
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "nullable": true
+              },
+              "cnic": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "name",
+              "cnic"
+            ]
+          },
+          "pboNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "type": "object",
+            "properties": {
+              "brand": {
+                "type": "string",
+                "nullable": true
+              },
+              "model": {
+                "type": "string",
+                "nullable": true
+              },
+              "variant": {
+                "type": "string",
+                "nullable": true
+              },
+              "color": {
+                "type": "string",
+                "nullable": true
+              },
+              "chassisNo": {
+                "type": "string",
+                "nullable": true
+              },
+              "engineNo": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "brand",
+              "model",
+              "variant",
+              "color",
+              "chassisNo",
+              "engineNo"
+            ]
+          },
+          "accessories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "deliveryNo",
+          "status",
+          "scheduledDate",
+          "deliveredAt",
+          "dealership",
+          "customer",
+          "pboNo",
+          "orderNo",
+          "vehicle",
+          "accessories"
+        ]
+      },
+      "DeliveryPipeline": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "in_transit",
+              "received",
+              "scheduled",
+              "delivered"
+            ]
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "waiting": {
+                "type": "integer"
+              },
+              "in_transit": {
+                "type": "integer"
+              },
+              "received": {
+                "type": "integer"
+              },
+              "scheduled": {
+                "type": "integer"
+              },
+              "delivered": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "waiting",
+              "in_transit",
+              "received",
+              "scheduled",
+              "delivered"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "orderId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "orderNo": {
+                  "type": "string"
+                },
+                "pboNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "orderStatus": {
+                  "type": "string"
+                },
+                "leadId": {
+                  "type": "integer",
+                  "nullable": true,
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "dealershipId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "dealershipName": {
+                  "type": "string"
+                },
+                "customerName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "salespersonName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "model": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "variant": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "color": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "vehicleId": {
+                  "type": "integer",
+                  "nullable": true,
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "chassisNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "engineNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "vehicleStatus": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "deliveryId": {
+                  "type": "integer",
+                  "nullable": true,
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "deliveryNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "scheduledDate": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "deliveredOn": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "approvedAt": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "expectedDeliveryDate": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "expectedDeliveryByMonth": {
+                  "type": "boolean"
+                },
+                "bookedAt": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "string",
+                  "enum": [
+                    "waiting",
+                    "in_transit",
+                    "received",
+                    "scheduled",
+                    "delivered"
+                  ]
+                }
+              },
+              "required": [
+                "orderId",
+                "orderNo",
+                "pboNo",
+                "orderStatus",
+                "leadId",
+                "dealershipId",
+                "dealershipName",
+                "customerName",
+                "salespersonName",
+                "model",
+                "variant",
+                "color",
+                "vehicleId",
+                "chassisNo",
+                "engineNo",
+                "vehicleStatus",
+                "deliveryId",
+                "deliveryNo",
+                "scheduledDate",
+                "deliveredOn",
+                "approvedAt",
+                "expectedDeliveryDate",
+                "expectedDeliveryByMonth",
+                "bookedAt",
+                "stage"
+              ]
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stage",
+          "counts",
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "DeliveryReport": {
+        "type": "object",
+        "properties": {
+          "asOf": {
+            "type": "string"
+          },
+          "period": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ]
+          },
+          "dealerships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "brand": {
+                  "type": "string"
+                },
+                "thisMonth": {
+                  "type": "integer"
+                },
+                "thisYear": {
+                  "type": "integer"
+                },
+                "last30Days": {
+                  "type": "integer"
+                },
+                "allTime": {
+                  "type": "integer"
+                },
+                "inPeriod": {
+                  "type": "integer"
+                },
+                "scheduled": {
+                  "type": "integer"
+                },
+                "avgDaysToDeliver": {
+                  "type": "number",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "id",
+                "code",
+                "name",
+                "brand",
+                "thisMonth",
+                "thisYear",
+                "last30Days",
+                "allTime",
+                "inPeriod",
+                "scheduled",
+                "avgDaysToDeliver"
+              ]
+            }
+          },
+          "total": {
+            "type": "object",
+            "properties": {
+              "thisMonth": {
+                "type": "integer"
+              },
+              "thisYear": {
+                "type": "integer"
+              },
+              "last30Days": {
+                "type": "integer"
+              },
+              "allTime": {
+                "type": "integer"
+              },
+              "inPeriod": {
+                "type": "integer"
+              },
+              "scheduled": {
+                "type": "integer"
+              },
+              "avgDaysToDeliver": {
+                "type": "number",
+                "nullable": true
+              }
+            },
+            "required": [
+              "thisMonth",
+              "thisYear",
+              "last30Days",
+              "allTime",
+              "inPeriod",
+              "scheduled",
+              "avgDaysToDeliver"
+            ]
+          },
+          "byModel": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "brand": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "delivered": {
+                  "type": "integer"
+                },
+                "avgDaysToDeliver": {
+                  "type": "number",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "brand",
+                "model",
+                "delivered",
+                "avgDaysToDeliver"
+              ]
+            }
+          },
+          "byMonth": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "month": {
+                  "type": "string"
+                },
+                "booked": {
+                  "type": "integer"
+                },
+                "delivered": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "month",
+                "booked",
+                "delivered"
+              ]
+            }
+          }
+        },
+        "required": [
+          "asOf",
+          "period",
+          "dealerships",
+          "total",
+          "byModel",
+          "byMonth"
+        ]
+      },
       "LeadPage": {
         "type": "object",
         "properties": {
@@ -6413,6 +6999,13 @@
           "expectedCloseDate": {
             "type": "string",
             "nullable": true
+          },
+          "expectedDeliveryDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
           },
           "notes": {
             "type": "string",
@@ -6781,6 +7374,10 @@
           "orderNo": {
             "type": "string"
           },
+          "pboNo": {
+            "type": "string",
+            "nullable": true
+          },
           "orderType": {
             "type": "string",
             "enum": [
@@ -6865,6 +7462,9 @@
             "type": "string",
             "nullable": true
           },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
+          },
           "vehicleId": {
             "type": "integer",
             "nullable": true,
@@ -6939,6 +7539,7 @@
         "required": [
           "id",
           "orderNo",
+          "pboNo",
           "orderType",
           "dealershipId",
           "branchId",
@@ -6955,6 +7556,7 @@
           "totalAmount",
           "bookingAmount",
           "expectedDeliveryDate",
+          "expectedDeliveryByMonth",
           "vehicleId",
           "financingRef",
           "paymentReference",
@@ -6978,6 +7580,11 @@
             "nullable": true,
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "pboNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
           },
           "customerId": {
             "type": "integer",
@@ -7015,6 +7622,9 @@
             "type": "string",
             "nullable": true,
             "format": "date"
+          },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
           },
           "salespersonId": {
             "type": "integer",
@@ -7054,6 +7664,11 @@
       "SalesOrderUpdate": {
         "type": "object",
         "properties": {
+          "pboNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
           "customerId": {
             "type": "integer",
             "minimum": 0,
@@ -7090,6 +7705,9 @@
             "type": "string",
             "nullable": true,
             "format": "date"
+          },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
           },
           "salespersonId": {
             "type": "integer",
@@ -7241,6 +7859,17 @@
               "type": "string"
             }
           },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pdi_done",
+                "documents_ready",
+                "accessories_fitted"
+              ]
+            }
+          },
           "customerAcknowledged": {
             "type": "boolean"
           },
@@ -7291,6 +7920,7 @@
           "odometerKm",
           "documentsHandedOver",
           "accessoriesHandedOver",
+          "checklist",
           "customerAcknowledged",
           "customerAcknowledgedAt",
           "notes",
@@ -7489,6 +8119,10 @@
             "type": "integer",
             "nullable": true
           },
+          "deliveryPeriod": {
+            "type": "string",
+            "nullable": true
+          },
           "paymentMode": {
             "type": "string",
             "nullable": true
@@ -7548,6 +8182,7 @@
           "bookingAmount",
           "validUntil",
           "deliveryDays",
+          "deliveryPeriod",
           "paymentMode",
           "notes",
           "createdAt",
@@ -7622,6 +8257,11 @@
             "nullable": true,
             "minimum": 0,
             "maximum": 365
+          },
+          "deliveryPeriod": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
           },
           "paymentMode": {
             "type": "string",
@@ -16291,6 +16931,16 @@
             "required": false,
             "name": "isActive",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -19687,6 +20337,224 @@
         }
       }
     },
+    "/api/master/vehicle-models/for-dealership": {
+      "post": {
+        "operationId": "createDealershipModel",
+        "summary": "Add a model of the dealership's own brand (e.g. Jetour T1 at a Jetour dealership)",
+        "description": "Requires: master.models.manage_brand",
+        "tags": [
+          "VehicleModel"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealershipModelCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "brand": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "bodyType": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "brand",
+                    "name",
+                    "bodyType",
+                    "isActive",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/master/vehicle-models/{id}/for-dealership": {
+      "patch": {
+        "operationId": "updateDealershipModel",
+        "summary": "Rename or (de)activate a model of the dealership's own brand",
+        "description": "Requires: master.models.manage_brand",
+        "tags": [
+          "VehicleModel"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealershipModelUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "brand": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "bodyType": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "brand",
+                    "name",
+                    "bodyType",
+                    "isActive",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/master/vehicle-models": {
       "get": {
         "operationId": "listVehicleModels",
@@ -21077,6 +21945,13 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
                     "notes": {
                       "type": "string",
                       "nullable": true
@@ -21384,6 +22259,13 @@
                     "expectedCloseDate": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
                     },
                     "notes": {
                       "type": "string",
@@ -21713,6 +22595,10 @@
                       "type": "integer",
                       "nullable": true
                     },
+                    "deliveryPeriod": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "paymentMode": {
                       "type": "string",
                       "nullable": true
@@ -21772,6 +22658,7 @@
                     "bookingAmount",
                     "validUntil",
                     "deliveryDays",
+                    "deliveryPeriod",
                     "paymentMode",
                     "notes",
                     "createdAt",
@@ -22240,6 +23127,13 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
                     "notes": {
                       "type": "string",
                       "nullable": true
@@ -22481,6 +23375,10 @@
                     "orderNo": {
                       "type": "string"
                     },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "orderType": {
                       "type": "string",
                       "enum": [
@@ -22565,6 +23463,9 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
                     "vehicleId": {
                       "type": "integer",
                       "nullable": true,
@@ -22639,6 +23540,7 @@
                   "required": [
                     "id",
                     "orderNo",
+                    "pboNo",
                     "orderType",
                     "dealershipId",
                     "branchId",
@@ -22655,6 +23557,7 @@
                     "totalAmount",
                     "bookingAmount",
                     "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
                     "vehicleId",
                     "financingRef",
                     "paymentReference",
@@ -23572,6 +24475,10 @@
                     "orderNo": {
                       "type": "string"
                     },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "orderType": {
                       "type": "string",
                       "enum": [
@@ -23656,6 +24563,9 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
                     "vehicleId": {
                       "type": "integer",
                       "nullable": true,
@@ -23730,6 +24640,7 @@
                   "required": [
                     "id",
                     "orderNo",
+                    "pboNo",
                     "orderType",
                     "dealershipId",
                     "branchId",
@@ -23746,6 +24657,7 @@
                     "totalAmount",
                     "bookingAmount",
                     "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
                     "vehicleId",
                     "financingRef",
                     "paymentReference",
@@ -23914,6 +24826,10 @@
                     "orderNo": {
                       "type": "string"
                     },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "orderType": {
                       "type": "string",
                       "enum": [
@@ -23998,6 +24914,9 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
                     "vehicleId": {
                       "type": "integer",
                       "nullable": true,
@@ -24072,6 +24991,7 @@
                   "required": [
                     "id",
                     "orderNo",
+                    "pboNo",
                     "orderType",
                     "dealershipId",
                     "branchId",
@@ -24088,6 +25008,7 @@
                     "totalAmount",
                     "bookingAmount",
                     "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
                     "vehicleId",
                     "financingRef",
                     "paymentReference",
@@ -24173,6 +25094,10 @@
                     "orderNo": {
                       "type": "string"
                     },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "orderType": {
                       "type": "string",
                       "enum": [
@@ -24257,6 +25182,9 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
                     "vehicleId": {
                       "type": "integer",
                       "nullable": true,
@@ -24331,6 +25259,7 @@
                   "required": [
                     "id",
                     "orderNo",
+                    "pboNo",
                     "orderType",
                     "dealershipId",
                     "branchId",
@@ -24347,6 +25276,7 @@
                     "totalAmount",
                     "bookingAmount",
                     "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
                     "vehicleId",
                     "financingRef",
                     "paymentReference",
@@ -24443,6 +25373,10 @@
                     "orderNo": {
                       "type": "string"
                     },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "orderType": {
                       "type": "string",
                       "enum": [
@@ -24527,6 +25461,9 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
                     "vehicleId": {
                       "type": "integer",
                       "nullable": true,
@@ -24601,6 +25538,7 @@
                   "required": [
                     "id",
                     "orderNo",
+                    "pboNo",
                     "orderType",
                     "dealershipId",
                     "branchId",
@@ -24617,6 +25555,7 @@
                     "totalAmount",
                     "bookingAmount",
                     "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
                     "vehicleId",
                     "financingRef",
                     "paymentReference",
@@ -24784,6 +25723,17 @@
                           "type": "string"
                         }
                       },
+                      "checklist": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "pdi_done",
+                            "documents_ready",
+                            "accessories_fitted"
+                          ]
+                        }
+                      },
                       "customerAcknowledged": {
                         "type": "boolean"
                       },
@@ -24834,6 +25784,7 @@
                       "odometerKm",
                       "documentsHandedOver",
                       "accessoriesHandedOver",
+                      "checklist",
                       "customerAcknowledged",
                       "customerAcknowledgedAt",
                       "notes",
@@ -25006,6 +25957,17 @@
                         "type": "string"
                       }
                     },
+                    "checklist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pdi_done",
+                          "documents_ready",
+                          "accessories_fitted"
+                        ]
+                      }
+                    },
                     "customerAcknowledged": {
                       "type": "boolean"
                     },
@@ -25056,6 +26018,7 @@
                     "odometerKm",
                     "documentsHandedOver",
                     "accessoriesHandedOver",
+                    "checklist",
                     "customerAcknowledged",
                     "customerAcknowledgedAt",
                     "notes",
@@ -25229,6 +26192,17 @@
                         "type": "string"
                       }
                     },
+                    "checklist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pdi_done",
+                          "documents_ready",
+                          "accessories_fitted"
+                        ]
+                      }
+                    },
                     "customerAcknowledged": {
                       "type": "boolean"
                     },
@@ -25279,6 +26253,7 @@
                     "odometerKm",
                     "documentsHandedOver",
                     "accessoriesHandedOver",
+                    "checklist",
                     "customerAcknowledged",
                     "customerAcknowledgedAt",
                     "notes",
@@ -25537,6 +26512,75 @@
         }
       }
     },
+    "/api/sales/deliveries/{id}/note": {
+      "get": {
+        "operationId": "getDeliveryNote",
+        "summary": "What the delivery note prints (customer, PBO, vehicle); signed at hand-over",
+        "description": "Requires: sales.deliveries.view_all | sales.deliveries.view_own",
+        "tags": [
+          "Delivery"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryNote"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales/deliveries/{id}/complete": {
       "post": {
         "operationId": "completeDelivery",
@@ -25665,6 +26709,17 @@
                         "type": "string"
                       }
                     },
+                    "checklist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pdi_done",
+                          "documents_ready",
+                          "accessories_fitted"
+                        ]
+                      }
+                    },
                     "customerAcknowledged": {
                       "type": "boolean"
                     },
@@ -25715,6 +26770,7 @@
                     "odometerKm",
                     "documentsHandedOver",
                     "accessoriesHandedOver",
+                    "checklist",
                     "customerAcknowledged",
                     "customerAcknowledgedAt",
                     "notes",
@@ -25723,6 +26779,219 @@
                     "updatedAt",
                     "availableActions"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/delivery-pipeline": {
+      "get": {
+        "operationId": "getDeliveryPipeline",
+        "summary": "Booked orders by stage (waiting for car, in transit, received, scheduled, delivered) with a count per stage",
+        "description": "Requires: sales.orders.view_all | sales.deliveries.view_all | sales.orders.view_own | sales.deliveries.view_own | sales.leads.view_own",
+        "tags": [
+          "DeliveryPipeline"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "waiting",
+                "in_transit",
+                "received",
+                "scheduled",
+                "delivered"
+              ]
+            },
+            "required": false,
+            "name": "stage",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "overdue",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryPipeline"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/delivery-report": {
+      "get": {
+        "operationId": "getDeliveryReport",
+        "summary": "Cars delivered this month / this year / last 30 days / all time and in a chosen period, per dealership and together; per model and month",
+        "description": "Requires: sales.deliveries.view_all",
+        "tags": [
+          "DeliveryReport"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryReport"
                 }
               }
             }
@@ -25944,6 +27213,16 @@
             },
             "required": false,
             "name": "activityTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
             "in": "query"
           }
         ],
@@ -26591,6 +27870,16 @@
             "required": false,
             "name": "hasVehicle",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -27167,6 +28456,16 @@
             },
             "required": false,
             "name": "deliveredTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
             "in": "query"
           }
         ],
@@ -27804,6 +29103,16 @@
             "required": false,
             "name": "createdTo",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -28153,6 +29462,16 @@
             },
             "required": false,
             "name": "createdTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
             "in": "query"
           }
         ],
@@ -29453,6 +30772,16 @@
             },
             "required": false,
             "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
             "in": "query"
           }
         ],
@@ -30932,6 +32261,16 @@
             "required": false,
             "name": "branchId",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -31476,6 +32815,16 @@
             "required": false,
             "name": "supplierId",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -31731,6 +33080,16 @@
             },
             "required": false,
             "name": "partId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
             "in": "query"
           }
         ],
@@ -32660,6 +34019,16 @@
             "required": false,
             "name": "toBranchId",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -33512,6 +34881,16 @@
             },
             "required": false,
             "name": "reason",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
             "in": "query"
           }
         ],
@@ -36267,6 +37646,16 @@
             "required": false,
             "name": "customerId",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -37131,6 +38520,16 @@
             "required": false,
             "name": "vehicleId",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -37920,6 +39319,16 @@
             },
             "required": false,
             "name": "jobCardId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
             "in": "query"
           }
         ],

@@ -4,6 +4,16 @@ export function formatCnic(cnic: string | null | undefined): string {
   return /^\d{13}$/.test(cnic) ? `${cnic.slice(0, 5)}-${cnic.slice(5, 12)}-${cnic.slice(12)}` : cnic;
 }
 
+/**
+ * A CNIC as it is typed: digits only, formatted 14301-5305891-1 (5 - 7 - 1) as they come in.
+ * Also formats a stored 13-digit CNIC for an edit form.
+ */
+export function maskCnic(input: string | null | undefined): string {
+  const d = (input ?? '').replace(/\D/g, '').slice(0, 13);
+  if (d.length > 12) return `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}`;
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
+
 /** Best guess at what a search string is, to prefill "create" forms from a search with no results. */
 export function prefillFromQuery(q: string): { customer: Record<string, string>; vehicle: Record<string, string> } {
   const trimmed = q.trim();

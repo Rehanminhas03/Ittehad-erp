@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button, Dialog, Spinner } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { apiErrorMessage } from '@/shared/lib';
-import { useGetPpfDocumentQuery, useGetQuotationDocumentQuery } from '../salesApi';
-import { type BuiltPdf, buildPpfPdf, buildQuotationPdf } from './pdf';
+import { useGetDeliveryNoteQuery, useGetPpfDocumentQuery, useGetQuotationDocumentQuery } from '../salesApi';
+import { type BuiltPdf, buildDeliveryNotePdf, buildPpfPdf, buildQuotationPdf, usesLetterhead } from './pdf';
 
-export type DocKind = 'quotation' | 'ppf';
-export const DOC_TITLES: Record<DocKind, string> = { quotation: 'Vehicle quotation', ppf: 'PPF voucher' };
+export type DocKind = 'quotation' | 'ppf' | 'delivery_note';
+export const DOC_TITLES: Record<DocKind, string> = { quotation: 'Vehicle quotation', ppf: 'PPF voucher', delivery_note: 'Delivery note' };
 /** A drawn PDF and the bytes shown in the preview; download and print use these same bytes. */
 export type ShownPdf = BuiltPdf & { url: string; blob: Blob };
 
@@ -49,32 +49,65 @@ export function usePdf(build: (() => Promise<BuiltPdf>) | null) {
 }
 
 /** Fetches what the document shows (always the latest saved version and format) and draws its PDF. */
-function useDocumentPdf(kind: DocKind, id: number, skip: boolean) {
+function useDocumentPdf(kind: DocKind, id: number, skip: boolean, letterhead: boolean | null) {
   const q = useGetQuotationDocumentQuery({ id }, { skip: skip || kind !== 'quotation', refetchOnMountOrArgChange: true });
   const p = useGetPpfDocumentQuery({ id }, { skip: skip || kind !== 'ppf', refetchOnMountOrArgChange: true });
-  const res = kind === 'quotation' ? q : p;
+  const n = useGetDeliveryNoteQuery({ id }, { skip: skip || kind !== 'delivery_note', refetchOnMountOrArgChange: true });
+  const res = kind === 'quotation' ? q : kind === 'ppf' ? p : n;
   const [build, setBuild] = useState<(() => Promise<BuiltPdf>) | null>(null);
   useEffect(() => {
     if (skip || res.isFetching) return setBuild(null);
-    if (kind === 'quotation' && q.data) setBuild(() => () => buildQuotationPdf(q.data!));
+    if (kind === 'quotation' && q.data) {
+      const onPaper = letterhead ?? usesLetterhead(q.data.dealership.code);
+      setBuild(() => () => buildQuotationPdf(q.data!, { letterhead: onPaper }));
+    }
     if (kind === 'ppf' && p.data) setBuild(() => () => buildPpfPdf(p.data!));
-  }, [skip, kind, q.data, p.data, res.isFetching]);
+    if (kind === 'delivery_note' && n.data) setBuild(() => () => buildDeliveryNotePdf(n.data!));
+  }, [skip, kind, q.data, p.data, n.data, res.isFetching, letterhead]);
   const pdf = usePdf(build);
-  return { pdf, error: res.error, loading: res.isFetching || (!!res.data && !pdf) };
+  const letterheadDefault = kind === 'quotation' && !!q.data && usesLetterhead(q.data.dealership.code);
+  return { pdf, error: res.error, loading: res.isFetching || (!!res.data && !pdf), letterheadDefault };
 }
 
 /**
  * Shows the document as it will print, so it can be checked before it goes to the customer, then
- * downloads or prints it. Used for quotations and PPF vouchers.
+ * downloads or prints it. Used for quotations, PPF vouchers and delivery notes.
  */
 export function DocumentPreview({ kind, id, open, onClose }: { kind: DocKind; id: number; open: boolean; onClose: () => void }) {
-  const { pdf, error, loading } = useDocumentPdf(kind, id, !open);
+  // Quotations of Hyundai / Jetour print on their letterhead paper (no header / footer) by default;
+  // untick for the full page (e.g. to send it on WhatsApp).
+  const [letterhead, setLetterhead] = useState<boolean | null>(null);
+  const { pdf, error, loading, letterheadDefault } = useDocumentPdf(kind, id, !open, letterhead);
   const title = pdf ? `${DOC_TITLES[kind]} — ${pdf.fileName.replace(/\.pdf$/, '')}` : DOC_TITLES[kind];
-  return <PdfDialog open={open} onClose={onClose} title={title} pdf={pdf} error={error} loading={loading} />;
+  const extra =
+    kind === 'quotation' ? (
+      <label className="mr-auto flex items-center gap-2 text-sm text-slate-700" title="No logos, header or footer: they are printed on the letterhead paper">
+        <input type="checkbox" checked={letterhead ?? letterheadDefault} onChange={(e) => setLetterhead(e.target.checked)} />
+        For letterhead paper
+      </label>
+    ) : undefined;
+  return <PdfDialog open={open} onClose={onClose} title={title} pdf={pdf} error={error} loading={loading} extra={extra} />;
 }
 
 /** A drawn PDF in a dialog: shown as it will print, then downloaded or printed. */
-export function PdfDialog({ open, onClose, title, pdf, error, loading }: { open: boolean; onClose: () => void; title: string; pdf: ShownPdf | null; error?: unknown; loading?: boolean }) {
+export function PdfDialog({
+  open,
+  onClose,
+  title,
+  pdf,
+  error,
+  loading,
+  extra,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  pdf: ShownPdf | null;
+  error?: unknown;
+  loading?: boolean;
+  /** Shown at the start of the footer (e.g. the letterhead paper option). */
+  extra?: ReactNode;
+}) {
   const toast = useToast();
   const frame = useRef<HTMLIFrameElement>(null);
   // Printing is offered once the PDF has loaded in the preview (earlier, the browser would print a blank page).
@@ -108,6 +141,7 @@ export function PdfDialog({ open, onClose, title, pdf, error, loading }: { open:
       title={title}
       footer={
         <>
+          {extra}
           <Button variant="secondary" onClick={onClose}>
             Close
           </Button>
@@ -139,5 +173,19 @@ export function PdfDialog({ open, onClose, title, pdf, error, loading }: { open:
         )}
       </div>
     </Dialog>
+  );
+}
+
+/** A button that opens the delivery note (view, download, print) — signed by the customer at hand-over. */
+export function DeliveryNoteButton({ deliveryId, size = 'sm', label = 'Delivery note' }: { deliveryId: number; size?: 'sm' | 'md'; label?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="inline-flex">
+      <Button size={size} variant="secondary" onClick={() => setOpen(true)}>
+        <PrintIcon />
+        {label}
+      </Button>
+      {open && <DocumentPreview kind="delivery_note" id={deliveryId} open onClose={() => setOpen(false)} />}
+    </span>
   );
 }

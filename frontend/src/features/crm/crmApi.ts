@@ -14,6 +14,8 @@ export const crmApi = enhancedApi.enhanceEndpoints({
     linkVehicle: { invalidatesTags: ['Vehicle', 'Search'] },
     recordVehicleOwnership: { invalidatesTags: ['Vehicle', 'Customer', 'Search'] },
     updateVehicleModel: { invalidatesTags: ['VehicleModel', 'Vehicle'] },
+    createDealershipModel: { invalidatesTags: ['VehicleModel'] },
+    updateDealershipModel: { invalidatesTags: ['VehicleModel', 'Vehicle'] },
   },
 });
 

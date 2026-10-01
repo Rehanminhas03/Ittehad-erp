@@ -20,15 +20,18 @@ export function entityRoutes<T extends { id: number }>(
 ) {
   const view = config.permissions.view;
   const guard = (codes: readonly string[], el: ReactNode) => <RequirePermission any={codes}>{el}</RequirePermission>;
+  // Keyed by entity: moving between two entities' pages (e.g. Quotations → PPF vouchers) mounts a fresh
+  // view. Without it React reuses the previous one, whose data hook still belongs to the other entity.
+  const key = config.basePath;
   return (
     <>
-      <Route path={path} element={guard(view, overrides.list ?? <EntityListView config={config} />)} />
+      <Route path={path} element={guard(view, overrides.list ?? <EntityListView key={key} config={config} />)} />
       {config.form && config.permissions.create && (
-        <Route path={`${path}/new`} element={guard([config.permissions.create], overrides.create ?? <EntityFormView config={config} mode="create" />)} />
+        <Route path={`${path}/new`} element={guard([config.permissions.create], overrides.create ?? <EntityFormView key={`${key}/new`} config={config} mode="create" />)} />
       )}
-      <Route path={`${path}/:id`} element={guard(view, overrides.detail ?? <EntityDetailView config={config} />)} />
+      <Route path={`${path}/:id`} element={guard(view, overrides.detail ?? <EntityDetailView key={key} config={config} />)} />
       {config.form && config.permissions.update && (
-        <Route path={`${path}/:id/edit`} element={guard(config.permissions.update, overrides.edit ?? <EntityFormView config={config} mode="edit" />)} />
+        <Route path={`${path}/:id/edit`} element={guard(config.permissions.update, overrides.edit ?? <EntityFormView key={`${key}/edit`} config={config} mode="edit" />)} />
       )}
     </>
   );

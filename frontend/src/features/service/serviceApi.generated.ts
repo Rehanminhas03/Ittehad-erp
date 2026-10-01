@@ -258,6 +258,7 @@ const injectedRtkApi = api
             visitType: queryArg.visitType,
             vehicleId: queryArg.vehicleId,
             customerId: queryArg.customerId,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["Visit"],
@@ -361,6 +362,7 @@ const injectedRtkApi = api
             status: queryArg.status,
             technicianId: queryArg.technicianId,
             vehicleId: queryArg.vehicleId,
+            dealershipId: queryArg.dealershipId,
           },
         }),
         providesTags: ["JobCard"],
@@ -459,6 +461,7 @@ const injectedRtkApi = api
               q: queryArg.q,
               status: queryArg.status,
               jobCardId: queryArg.jobCardId,
+              dealershipId: queryArg.dealershipId,
             },
           }),
           providesTags: ["Estimate"],
@@ -707,6 +710,7 @@ export type ListVisitsApiArg = {
   visitType?: string;
   vehicleId?: number;
   customerId?: number;
+  dealershipId?: number;
 };
 export type CreateVisitApiResponse = /** status 201 Success */ Visit;
 export type CreateVisitApiArg = {
@@ -768,6 +772,7 @@ export type ListJobCardsApiArg = {
   status?: "open" | "in_progress" | "completed" | "cancelled";
   technicianId?: number;
   vehicleId?: number;
+  dealershipId?: number;
 };
 export type GetJobCardWorkflowApiResponse =
   /** status 200 Success */ WorkflowDefinition;
@@ -824,6 +829,7 @@ export type ListEstimatesApiArg = {
   q?: string;
   status?: "draft" | "submitted" | "approved" | "rejected";
   jobCardId?: number;
+  dealershipId?: number;
 };
 export type GetEstimateWorkflowApiResponse =
   /** status 200 Success */ WorkflowDefinition;

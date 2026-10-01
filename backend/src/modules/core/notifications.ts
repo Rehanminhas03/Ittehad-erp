@@ -129,6 +129,10 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'create') return { title: 'New variant code added', weight: 60, href: `/sales/variants/${id}`, detail: str(c.code) };
       if (e.action === 'update') return { title: 'Variant code changed', weight: 45, href: `/sales/variants/${id}` };
       break;
+    case 'master.vehicle_model':
+      if (e.action === 'create') return { title: 'New model added', weight: 60, href: '/sales/variants', detail: str(c.name) };
+      if (e.action === 'update') return { title: 'Model changed', weight: 45, href: '/sales/variants' };
+      break;
     case 'sales.document_template':
       // The kind (quotation / PPF voucher) is filled in by the caller from the template row.
       return { title: 'Document format changed', weight: 60, href: '/sales/document-formats' };
@@ -209,6 +213,7 @@ async function audienceOf(ex: Executor, e: AuditEntry): Promise<Audience | null>
     }
     case 'sales.vehicle_variant':
     case 'sales.document_template':
+    case 'master.vehicle_model':
       return { codes: ['sales.templates.manage'] };
     case 'core.user':
       return { codes: ['core.users.view'] };

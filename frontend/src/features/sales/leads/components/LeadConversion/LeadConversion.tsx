@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Button, Field, Input, Section, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { digitsOnly } from '@/shared/components/EntityFormView/FormFieldControl';
+import { maskCnic } from '@/features/crm';
 import { apiConflict, apiFieldErrors } from '@/shared/lib';
 import { OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS } from '../../../permissions';
 import { type Lead, useConvertLeadMutation } from '../../../salesApi';
+import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
 import { LeadModelSelect } from '../LeadModelSelect';
 import { VariantPicker } from '../VariantPicker';
 
@@ -31,9 +33,14 @@ export function LeadConversion({ lead }: { lead: Lead }) {
     paymentAmount: '',
     notes: '',
   });
+  // The customer's CNIC (required): the Admin checks it against the copy when raising the order.
+  const [cnic, setCnic] = useState('');
+  const [expected, setExpected] = useState<ExpectedDeliveryValue>({ date: lead.expectedDeliveryDate ?? '', byMonth: lead.expectedDeliveryDate ? !!lead.expectedDeliveryByMonth : true });
 
   const isOpenLead = (OPEN_LEAD_STATES as readonly string[]).includes(lead.status);
-  const asOwner = lead.ownerId === perm.userId && perm.canIn(P.leadsConvertOwn, lead.dealershipId, lead.branchId);
+  // The owner, or the Assistant Manager / Manager who logged the lead (also for a salesperson).
+  const loggedIt = lead.createdById === perm.userId && lead.ownerId !== perm.userId;
+  const asOwner = (lead.ownerId === perm.userId || loggedIt) && perm.canIn(P.leadsConvertOwn, lead.dealershipId, lead.branchId);
   const asEscalation = !!lead.escalatedAt && perm.canIn(P.leadsConvertEscalated, lead.dealershipId, lead.branchId);
   if (!isOpenLead || !(asOwner || asEscalation)) return null;
 
@@ -51,6 +58,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       required('email', 'Email'),
       required('paymentInstrument', 'Payment instrument'),
       required('paymentInstrumentRef', 'Instrument number'),
+      cnic.replace(/\D/g, '').length === 13 ? null : (['customerCnic', "Enter the customer's CNIC (13 digits)"] as const),
     ].filter((x) => x !== null);
     if (missing.length) {
       setErrors(Object.fromEntries(missing));
@@ -71,6 +79,9 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           paymentInstrumentRef: v.paymentInstrumentRef,
           paymentInstrumentBank: v.paymentInstrumentBank || null,
           paymentAmount: v.paymentAmount || undefined,
+          expectedDeliveryDate: expected.date || null,
+          expectedDeliveryByMonth: !!expected.date && expected.byMonth,
+          customerCnic: cnic,
           notes: v.notes || null,
         },
       }).unwrap();
@@ -91,6 +102,11 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       title="Convert to Lead"
       actions={!open && <Button onClick={() => setOpen(true)}>Convert to Lead</Button>}
     >
+      {asOwner && loggedIt && (
+        <p className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          You logged this lead for {lead.ownerName ?? 'a salesperson'}: you can convert it; {lead.ownerName ?? 'the salesperson'} stays the owner.
+        </p>
+      )}
       {!asOwner && (
         <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Duplicate customer sent to you: you are converting it on behalf of {lead.ownerName ?? 'its salesperson'}, who stays the owner.
@@ -152,6 +168,12 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           </Field>
           <Field label="Amount (PKR)" htmlFor="cv-amount" error={errors.paymentAmount}>
             <Input id="cv-amount" inputMode="decimal" value={v.paymentAmount} onChange={set('paymentAmount')} invalid={!!errors.paymentAmount} />
+          </Field>
+          <Field label="Customer CNIC" htmlFor="cv-cnic" required error={errors.customerCnic} hint="From the customer's CNIC; the Admin checks it against the copy">
+            <Input id="cv-cnic" inputMode="numeric" value={cnic} onChange={(e) => setCnic(maskCnic(e.target.value))} placeholder="14301-5305891-1" invalid={!!errors.customerCnic} />
+          </Field>
+          <Field label="Expected delivery" htmlFor="cv-expected" className="sm:col-span-2" error={errors.expectedDeliveryDate} hint="What the customer is told: a month (some cars take 3–5 months) or an exact date. Goes on the sales order.">
+            <ExpectedDeliveryInput id="cv-expected" value={expected} onChange={setExpected} invalid={!!errors.expectedDeliveryDate} />
           </Field>
           <Field label="Notes" htmlFor="cv-notes" className="sm:col-span-2">
             <Textarea id="cv-notes" value={v.notes} onChange={set('notes')} />

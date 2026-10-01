@@ -13,7 +13,48 @@ import { classifyQuery, normalizeIdentifier } from './normalize';
 import { pakistanToday } from '../../lib/dates';
 import { MasterPerm } from './permissions';
 import { currentOwners, findVehicleByIdentifiers, isLinked, vehicleVisibility } from './repository';
-import type { VehicleCreate } from './schemas';
+import type { DealershipModelCreate, DealershipModelUpdate, VehicleCreate } from './schemas';
+
+// ---- Models of the dealership's own brand (Assistant Manager / Manager) --------------------
+const MODEL_FIELDS = { id: true, brand: true, name: true, bodyType: true, isActive: true, createdAt: true, updatedAt: true } as const;
+
+async function brandFor(ctx: EntityCtx, dealershipId: number) {
+  if (!ctx.access.canIn(MasterPerm.modelsManageBrand, { dealershipId, branchId: null })) throw forbidden();
+  const d = await ctx.tx.dealership.findFirst({ where: { id: dealershipId }, select: { brand: true } });
+  if (!d) throw notFound('Dealership');
+  return d.brand;
+}
+
+async function assertNewModelName(ctx: EntityCtx, brand: string, name: string, exceptId?: number) {
+  const same = await ctx.tx.vehicleModel.findFirst({
+    where: { brand, name: { equals: name, mode: 'insensitive' }, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    select: { id: true },
+  });
+  if (same) throw conflict(`${brand} ${name} is already in the model list`, { existingId: same.id });
+}
+
+/** Adds a model of the dealership's brand to the catalogue (e.g. Jetour T1 at Jetour Ittehad). */
+export async function createDealershipModel(ctx: EntityCtx, input: z.output<typeof DealershipModelCreate>) {
+  const brand = await brandFor(ctx, input.dealershipId);
+  await assertNewModelName(ctx, brand, input.name);
+  const row = await ctx.tx.vehicleModel.create({ data: { brand, name: input.name, createdById: ctx.access.userId, updatedById: ctx.access.userId }, select: MODEL_FIELDS });
+  await ctx.audit({ entityType: 'master.vehicle_model', entityId: row.id, action: 'create', dealershipId: input.dealershipId, changes: { brand, name: input.name } });
+  return row;
+}
+
+/** Renames or (de)activates a model of the dealership's brand; other brands' models are not theirs. */
+export async function updateDealershipModel(ctx: EntityCtx, id: number, input: z.output<typeof DealershipModelUpdate>) {
+  const brand = await brandFor(ctx, input.dealershipId);
+  const m = await ctx.tx.vehicleModel.findFirst({ where: { id }, select: { brand: true, name: true, isActive: true } });
+  if (!m) throw notFound('Vehicle model');
+  if (m.brand !== brand) throw forbidden(`Only ${brand} models can be changed here`);
+  if (input.name !== undefined && input.name !== m.name) await assertNewModelName(ctx, brand, input.name, id);
+  const data = { ...(input.name !== undefined ? { name: input.name } : {}), ...(input.isActive !== undefined ? { isActive: input.isActive } : {}) };
+  const row = await ctx.tx.vehicleModel.update({ where: { id }, data: { ...data, updatedById: ctx.access.userId }, select: MODEL_FIELDS });
+  const changes = Object.fromEntries(Object.entries(data).map(([k, to]) => [k, { from: (m as Record<string, unknown>)[k], to }]));
+  await ctx.audit({ entityType: 'master.vehicle_model', entityId: id, action: 'update', dealershipId: input.dealershipId, changes });
+  return row;
+}
 
 export const customers = new EntityService(customerEntity);
 export const vehicles = new EntityService(vehicleEntity);

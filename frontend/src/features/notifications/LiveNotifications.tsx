@@ -18,6 +18,9 @@ const MAX_ON_SCREEN = 3;
  */
 export function LiveNotifications() {
   const token = useAppSelector((s) => (s as { auth: { accessToken: string | null } }).auth.accessToken);
+  const userId = useAppSelector((s) => (s as { auth: { me: { user: { id: number } } | null } }).auth.me?.user.id ?? null);
+  const tokenRef = useRef(token);
+  const socketRef = useRef<Socket | null>(null);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [popups, setPopups] = useState<Notification[]>([]);
@@ -30,10 +33,19 @@ export function LiveNotifications() {
     timers.current.delete(id);
   };
 
-  // Reconnects whenever the access token changes (sign-in, refresh); none when signed out.
+  // The latest access token, for the next (re)connection. A refreshed token (every 15 minutes) does
+  // not tear the open socket down; only a socket the server turned away (expired token) reconnects.
   useEffect(() => {
-    if (!token) return;
-    const socket: Socket = io({ path: '/socket.io', auth: { token }, transports: ['websocket', 'polling'] });
+    tokenRef.current = token;
+    const socket = socketRef.current;
+    if (token && socket && !socket.connected && !socket.active) socket.connect();
+  }, [token]);
+
+  // One connection per signed-in person; none when signed out.
+  useEffect(() => {
+    if (!userId || !tokenRef.current) return;
+    const socket: Socket = io({ path: '/socket.io', auth: (cb) => cb({ token: tokenRef.current }), transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
     socket.on('notification:new', ({ notification }: { notification: Notification }) => {
       dispatch(enhancedApi.util.invalidateTags(['Notification']));
       setPopups((p) => [notification, ...p.filter((n) => n.id !== notification.id)].slice(0, MAX_ON_SCREEN));
@@ -45,10 +57,11 @@ export function LiveNotifications() {
     // Back online after a drop: catch up on anything missed.
     socket.on('connect', () => dispatch(enhancedApi.util.invalidateTags(['Notification'])));
     return () => {
+      socketRef.current = null;
       socket.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one connection per token
-  }, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one connection per signed-in person
+  }, [userId]);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 

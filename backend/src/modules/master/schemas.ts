@@ -24,6 +24,13 @@ export const VehicleModelCreate = z
   })
   .openapi('VehicleModelCreate');
 export const VehicleModelUpdate = VehicleModelCreate.partial().openapi('VehicleModelUpdate');
+/** A model of the dealership's own brand (the brand comes from the dealership). */
+export const DealershipModelCreate = z
+  .object({ dealershipId: Id, name: z.string().trim().min(1).max(80) })
+  .openapi('DealershipModelCreate');
+export const DealershipModelUpdate = z
+  .object({ dealershipId: Id, name: z.string().trim().min(1).max(80).optional(), isActive: z.boolean().optional() })
+  .openapi('DealershipModelUpdate');
 
 // ---- Customers --------------------------------------------------------------------
 const mobile = z

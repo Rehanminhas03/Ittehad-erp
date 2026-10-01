@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pakistanToday } from '../src/lib/dates';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo } from './helpers';
 
 useTestDb();
 
@@ -61,9 +61,9 @@ async function bookedOrder(s: Setup, mobile = '0300-5556667') {
   await api
     .post(`/api/sales/leads/${l.body.id}/convert`)
     .set(bearer(s.sales1.token))
-    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'a@example.com', paymentInstrument: 'pay_order', paymentInstrumentRef: 'PO-1' })
+    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'a@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-1' })
     .expect(200);
-  const o = await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000' });
+  const o = await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' });
   await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(s.admin.token)).send({ action: 'submit' }).expect(200);
   return { leadId: l.body.id as number, orderId: o.body.id as number };
 }
@@ -111,13 +111,24 @@ describe('Delivery workflow: approved → in transit → received → scheduled 
     const listed = await api.get('/api/sales/deliveries?pageSize=50').set(bearer(s.delivery.token));
     expect(listed.body.items.find((x: { id: number }) => x.id === d.body.id)).toMatchObject({ status: 'scheduled', scheduledDate: pakistanToday() });
 
-    // Delivered: the Delivery Team.
-    const done = await api
-      .post(`/api/sales/deliveries/${d.body.id}/complete`)
-      .set(bearer(s.delivery.token))
-      .send({ odometerKm: 5, documentsHandedOver: ['invoice'], accessoriesHandedOver: [], customerAcknowledged: true });
+    // The Deliveries page: the order is under "Scheduled"; the salesperson sees their customer's car.
+    const pipeline = (who: Login, stage: string) => api.get(`/api/sales/delivery-pipeline?stage=${stage}`).set(bearer(who.token));
+    const staffView = await pipeline(s.delivery, 'scheduled');
+    expect(staffView.body.counts).toMatchObject({ scheduled: 1, waiting: 0 });
+    expect(staffView.body.items.map((r: { orderId: number }) => r.orderId)).toEqual([orderId]);
+    expect((await pipeline(s.sales1, 'scheduled')).body.items.map((r: { leadId: number }) => r.leadId)).toEqual([leadId]);
+
+    // Delivered: the Delivery Team, with every item of the pre-delivery checklist ticked.
+    const complete = (checklist: string[]) =>
+      api
+        .post(`/api/sales/deliveries/${d.body.id}/complete`)
+        .set(bearer(s.delivery.token))
+        .send({ odometerKm: 5, documentsHandedOver: ['invoice'], accessoriesHandedOver: [], checklist, customerAcknowledged: true });
+    expect((await complete(['pdi_done', 'documents_ready'])).status).toBe(422);
+    const done = await complete(['pdi_done', 'documents_ready', 'accessories_fitted']);
     expect(done.status, JSON.stringify(done.body)).toBe(200);
-    expect(done.body.status).toBe('delivered');
+    expect(done.body).toMatchObject({ status: 'delivered', checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'] });
+    expect((await pipeline(s.delivery, 'delivered')).body.counts.delivered).toBe(1);
   });
 });
 
@@ -199,7 +210,7 @@ describe('Delivery Team: allocation, logistics and hand-over', () => {
     const done = await api
       .post(`/api/sales/deliveries/${d.body.id}/complete`)
       .set(bearer(s.delivery.token))
-      .send({ odometerKm: 8, documentsHandedOver: ['invoice', 'warranty_card'], accessoriesHandedOver: ['Floor mats'], customerAcknowledged: true });
+      .send({ odometerKm: 8, documentsHandedOver: ['invoice', 'warranty_card'], accessoriesHandedOver: ['Floor mats'], checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'], customerAcknowledged: true });
     expect(done.status).toBe(200);
     // Delivered today (Pakistan), whatever the hour.
     expect(done.body).toMatchObject({ status: 'delivered', deliveredOn: today });
@@ -225,7 +236,7 @@ describe('Delivery Team: allocation, logistics and hand-over', () => {
     const { leadId, orderId } = await approvedOrder(s);
     expect((await api.get('/api/sales/leads').set(bearer(s.delivery.token))).status).toBe(403);
     expect((await api.get(`/api/sales/leads/${leadId}`).set(bearer(s.delivery.token))).status).toBe(403);
-    expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.delivery.token)).send({ unitPrice: '1' })).status).toBe(403);
+    expect((await api.post(`/api/sales/leads/${leadId}/order`).set(bearer(s.delivery.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '1' })).status).toBe(403);
     expect((await api.post(`/api/sales/orders/${orderId}/transitions`).set(bearer(s.delivery.token)).send({ action: 'cancel', comment: 'x' })).status).toBe(403);
     expect((await api.get(`/api/sales/orders/${orderId}`).set(bearer(jet.delivery.token))).status).toBe(404);
     expect((await api.put(`/api/sales/orders/${orderId}/vehicle`).set(bearer(jet.delivery.token)).send({ vin: 'X12345' })).status).toBe(404);
@@ -246,9 +257,9 @@ describe('Delivery Team: from booking to the car arriving', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'b@example.com', paymentInstrument: 'pay_order', paymentInstrumentRef: 'PO-2' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'b@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-2' })
       .expect(200);
-    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000' })).body;
+    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     expect(o.status).toBe('draft');
 
     // The queue: booked orders waiting for a car.
@@ -290,11 +301,11 @@ describe('Mark as delivered on the order', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'h@example.com', paymentInstrument: 'pay_order', paymentInstrumentRef: 'PO-3' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'h@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-3' })
       .expect(200);
-    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000' })).body;
+    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     await api.post('/api/sales/stock').set(bearer(s.delivery.token)).send(intake(s, s.modelId, 'HANDOVER0001', { orderId: o.id })).expect(201);
-    const handOver = { odometerKm: 5, documentsHandedOver: ['invoice'], customerAcknowledged: true };
+    const handOver = { odometerKm: 5, documentsHandedOver: ['invoice'], checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'], customerAcknowledged: true };
     const deliver = () => api.post(`/api/sales/orders/${o.id}/deliver`).set(bearer(s.delivery.token)).send(handOver);
 
     // Received but not ready, and not approved: refused.
@@ -330,12 +341,12 @@ describe('Action needed', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 's@example.com', paymentInstrument: 'pay_order', paymentInstrumentRef: 'PO-9' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 's@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-9' })
       .expect(200);
     expect(await actions(s.admin)).toMatchObject({ 'raise-order': 1 });
 
     // Order raised (draft): the Manager is asked to approve; the Delivery Team to find a car.
-    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000' })).body;
+    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     expect(await actions(s.manager)).toMatchObject({ approve: 1 });
     expect(await actions(s.delivery)).toMatchObject({ 'needs-car': 1 });
 
@@ -356,9 +367,9 @@ describe('review fixes', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'r@example.com', paymentInstrument: 'pay_order', paymentInstrumentRef: 'PO-R' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'r@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-R' })
       .expect(200);
-    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ unitPrice: '9000000' })).body;
+    const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     return { leadId: l.body.id as number, orderId: o.id as number };
   };
 

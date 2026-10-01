@@ -5,6 +5,9 @@
  *   - Sales Manager: orders awaiting approval (urgent when the car is already ready).
  *   - Sales Admin: converted leads needing a sales order; draft orders to submit.
  *   - Delivery Team: cars ready to hand over (urgent), booked orders with no car, deliveries due.
+ *   - Overdue (Delivery Team, and who marks cars in transit / schedules deliveries): orders past their
+ *     expected delivery (a date, or the end of the expected month) whose car has not arrived; cars
+ *     received over 3 days ago with no delivery date.
  *   - Assistant Manager: duplicate customers sent to them.
  *   - Salesperson / CRO (own leads): new leads not followed up; customers whose car is ready.
  */
@@ -67,14 +70,43 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
       await countOf(salesOrder, and(scope, eq(salesOrder.status, 'approved'), carIs('ready_for_delivery', salesOrder.vehicleId))),
     );
     add(
-      { key: 'needs-car', title: 'Booked orders are waiting for a car', to: '/sales/orders?live=true&hasVehicle=false', urgent: false },
+      { key: 'needs-car', title: 'Booked orders are waiting for a car', to: '/sales/delivery-status?stage=waiting', urgent: false },
       await countOf(salesOrder, and(scope, sql`${salesOrder.status} in ('draft', 'submitted', 'approved')`, sql`${salesOrder.vehicleId} is null`)),
     );
   }
   if (access.hasAny([P.deliveriesComplete])) {
     add(
-      { key: 'delivery-due', title: 'Deliveries are due today (or overdue)', to: '/sales/deliveries?status=scheduled&due=true', urgent: true },
+      { key: 'delivery-due', title: 'Deliveries are due today (or overdue)', to: '/sales/delivery-status?stage=scheduled', urgent: true },
       await countOf(delivery, and(deliveries.viewCondition(access), eq(delivery.status, 'scheduled'), sql`${delivery.scheduledDate} <= ${pakistanToday()}::date`)),
+    );
+  }
+
+  // ---- Overdue deliveries ----
+  // Past the expected delivery (a month is stored as its last day) and the car has not arrived.
+  if (access.hasAny([P.ordersAllocate, P.ordersDispatch])) {
+    const notArrived = sql`(${salesOrder.vehicleId} is null or not exists (select 1 from ${vehicle} where ${vehicle.id} = ${salesOrder.vehicleId}
+      and ${vehicle.status} in ('received', 'ready_for_delivery', 'delivered')))`;
+    add(
+      { key: 'overdue-car', title: 'Orders past their expected delivery and the car has not arrived', to: '/sales/delivery-status?stage=waiting&overdue=true', urgent: true },
+      await countOf(
+        salesOrder,
+        and(orders.viewCondition(access), sql`${salesOrder.status} in ('submitted', 'approved')`, sql`${salesOrder.expectedDeliveryDate} < ${pakistanToday()}::date`, notArrived),
+      ),
+    );
+  }
+  // At the dealership for over 3 days (received, the last change to the car) with no delivery date.
+  if (access.hasAny([P.deliveriesSchedule])) {
+    add(
+      { key: 'received-not-scheduled', title: 'Cars received over 3 days ago with no delivery scheduled', to: '/sales/delivery-status?stage=received', urgent: true },
+      await countOf(
+        salesOrder,
+        and(
+          orders.viewCondition(access),
+          eq(salesOrder.status, 'approved'),
+          sql`exists (select 1 from ${vehicle} where ${vehicle.id} = ${salesOrder.vehicleId} and ${vehicle.status} = 'received' and ${vehicle.updatedAt} < now() - interval '3 days')`,
+          sql`not exists (select 1 from ${delivery} where ${delivery.salesOrderId} = ${salesOrder.id} and ${delivery.status} = 'scheduled')`,
+        ),
+      ),
     );
   }
 

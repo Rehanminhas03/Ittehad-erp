@@ -1,5 +1,5 @@
 import type { jsPDF } from 'jspdf';
-import type { DocumentTemplate, PpfDocument, QuotationDocument } from '../salesApi';
+import type { DeliveryNote, DocumentTemplate, PpfDocument, QuotationDocument } from '../salesApi';
 import { PPF_COVERAGES, PPF_FINISHES, PPF_VOUCHER_FIELDS, type PpfVoucherField } from './labels';
 
 /** Dealership brand logos (public/logo), by dealership code prefix. */
@@ -83,7 +83,7 @@ type Img = { data: string; w: number; h: number };
  * A logo ready for the PDF: scaled down to print size and flattened onto white as a JPEG, so
  * documents stay small (tens of KB) for WhatsApp / email. Null if the file is missing.
  */
-async function loadImage(src: string): Promise<Img | null> {
+async function loadImage(src: string, crop?: { x: number; y: number; w: number; h: number }): Promise<Img | null> {
   try {
     const blob = await (await fetch(src)).blob();
     if (!blob.type.startsWith('image/')) return null;
@@ -95,16 +95,21 @@ async function loadImage(src: string): Promise<Img | null> {
         i.onerror = rej;
         i.src = url;
       });
-      const scale = Math.min(1, 360 / Math.max(img.naturalWidth, img.naturalHeight));
-      const w = Math.max(1, Math.round(img.naturalWidth * scale));
-      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      // Optional crop (fractions of the image), e.g. a wordmark inside a square logo file.
+      const sx = (crop?.x ?? 0) * img.naturalWidth;
+      const sy = (crop?.y ?? 0) * img.naturalHeight;
+      const sw = (crop?.w ?? 1) * img.naturalWidth;
+      const sh = (crop?.h ?? 1) * img.naturalHeight;
+      const scale = Math.min(1, 360 / Math.max(sw, sh));
+      const w = Math.max(1, Math.round(sw * scale));
+      const h = Math.max(1, Math.round(sh * scale));
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
       const g = canvas.getContext('2d')!;
       g.fillStyle = '#ffffff';
       g.fillRect(0, 0, w, h);
-      g.drawImage(img, 0, 0, w, h);
+      g.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
       return { data: canvas.toDataURL('image/jpeg', 0.9), w, h };
     } finally {
       URL.revokeObjectURL(url);
@@ -129,7 +134,7 @@ export interface BuiltPdf {
 const fileNameOf = (kind: string, no: string, customer: string) => `${kind} ${no} - ${customer}.pdf`.replace(/[\\/:*?"<>|]/g, '');
 
 /** A page with a running cursor, a page-break helper and **bold** rich text. */
-async function newPage() {
+async function newPage(bottom = 284) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   doc.setTextColor(...ink);
@@ -138,7 +143,7 @@ async function newPage() {
     doc,
     y: 0,
     ensure(h: number) {
-      if (page.y + h > 284) {
+      if (page.y + h > bottom) {
         doc.addPage();
         page.y = 16;
       }
@@ -243,21 +248,36 @@ export function quotationRef(q: Pick<QuotationDocument, 'template' | 'variantCod
  * like the dealership's own quotation: when a format has more terms than fit, the terms text is set
  * a little smaller until it does.
  */
-export async function buildQuotationPdf(q: QuotationDocument): Promise<BuiltPdf> {
+/**
+ * Printing on the dealership's pre-printed letterhead (Hyundai Islamabad, Jetour Ittehad): no logos,
+ * address or footer; the content sits between the paper's printed header (top LETTERHEAD_TOP mm) and
+ * its printed footer (from LETTERHEAD_BOTTOM mm).
+ */
+export const LETTERHEAD_TOP = 52;
+export const LETTERHEAD_BOTTOM = 255;
+/** Whether the dealership prints its quotations on letterhead paper. */
+export const usesLetterhead = (code: string) => code.startsWith('HYD') || code.startsWith('JET');
+
+export async function buildQuotationPdf(q: QuotationDocument, opts: { letterhead?: boolean } = {}): Promise<BuiltPdf> {
   let built: BuiltPdf | null = null;
-  for (const k of [1, 0.94, 0.88, 0.82, 0.76, 0.7]) {
-    built = await drawQuotation(q, k);
+  const letterheadPaper = opts.letterhead ?? false;
+  // Jetour Ittehad prints its own quotation layout (one format for every Jetour model).
+  const draw = isJetour(q) ? drawJetourQuotation : drawQuotation;
+  for (const k of [1, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64]) {
+    built = await draw(q, k, letterheadPaper);
     if (built.doc.getNumberOfPages() === 1) break;
   }
   return built!;
 }
 
 /** Draws the quotation; `k` scales the terms text (1 = normal size). */
-async function drawQuotation(q: QuotationDocument, k: number): Promise<BuiltPdf> {
-  const p = await newPage();
+async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = false): Promise<BuiltPdf> {
+  const p = await newPage(letterheadPaper ? LETTERHEAD_BOTTOM : 284);
   const { doc } = p;
   const t = q.template;
-  await letterhead(p, q.dealership.code, t);
+  // On letterhead paper the header is already printed: start below it.
+  if (letterheadPaper) p.y = LETTERHEAD_TOP;
+  else await letterhead(p, q.dealership.code, t);
 
   const modelName = q.vehicle.model.replace(new RegExp(`^${q.dealership.brand}\\s+`, 'i'), '');
   // A variant code's description is already the full vehicle line (e.g. "TUCSON HEV 1598CC 6A/T AWD SIGNATURE").
@@ -392,19 +412,249 @@ async function drawQuotation(q: QuotationDocument, k: number): Promise<BuiltPdf>
   p.y += 4.5;
   p.ensure(12);
   const top = p.y;
-  t.signOff.forEach((l, i) => {
-    p.font(i === 0 ? 9 : 10, i === 0 ? 'normal' : 'bold');
-    doc.text(l, M, p.y);
-    p.y += 4.5;
-  });
+  // The sign-off ("Owners and Operators of Hyundai Islamabad") is printed on the letterhead paper.
+  if (!letterheadPaper) {
+    t.signOff.forEach((l, i) => {
+      p.font(i === 0 ? 9 : 10, i === 0 ? 'normal' : 'bold');
+      doc.text(l, M, p.y);
+      p.y += 4.5;
+    });
+  }
   p.font(8);
   doc.setTextColor(...muted);
   doc.text(`Prepared by: ${q.salesperson.name}${q.salesperson.phone ? `  ·  ${q.salesperson.phone}` : ''}`, W - M, top, { align: 'right' });
   if (q.orderNo) doc.text(`Order: ${q.orderNo}`, W - M, top + 4.5, { align: 'right' });
   doc.setTextColor(...ink);
 
-  footer(p, q.quotationNo);
+  if (!letterheadPaper) footer(p, q.quotationNo);
   doc.setProperties({ title: `Quotation ${q.quotationNo}`, subject: `${description} for ${q.billTo || q.customer.name}`, author: t.companyName });
+  return { doc, fileName: fileNameOf('Quotation', q.quotationNo, q.customer.name) };
+}
+
+// ---- Jetour Ittehad's quotation ------------------------------------------------------------------
+const isJetour = (q: QuotationDocument) => q.dealership.brand === 'Jetour' || q.dealership.code.startsWith('JET');
+/** The green of the Ittehad Motors logo, for the dealership name on the letterhead. */
+const ITTEHAD_GREEN = [16, 118, 56] as const;
+/** The JETOUR wordmark inside jetour-logo.png (a square file with white space around it). */
+const JETOUR_WORDMARK = { x: 0.05, y: 0.43, w: 0.89, h: 0.12 };
+/** dd-mm-yyyy, as on Jetour's quotations (Pakistan time). */
+const longDate = (d: string | Date) => {
+  const [y, m, day] = new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' }).split('-');
+  return `${day}-${m}-${y}`;
+};
+
+/**
+ * The vehicle line as Jetour writes it: "JETOUR DASHING 1.5 TCI", "JETOUR T2 i-DM PHEV" (the variant,
+ * with the model when the variant does not name it; "i-DM" keeps its case).
+ */
+export function jetourVehicleLine(model: string, variant: string | null | undefined, brand = 'Jetour') {
+  const name = model.replace(new RegExp(`^${brand}\\s+`, 'i'), '');
+  const v = variant?.trim();
+  const base = !v ? name : v.toLowerCase().startsWith(name.toLowerCase()) ? v : `${name} ${v}`;
+  return `JETOUR ${base.toUpperCase().replace(/\bI-DM\b/g, 'i-DM')}`;
+}
+
+/**
+ * Jetour Ittehad's layout (its Dashing / X70 and T2 i-DM quotations): letterhead with the contact
+ * lines and the JETOUR logo, QUOTATION with the date, the quotation's note under it, the bill-to name
+ * heading the table, "EX FACTORY (colour)" under the vehicle, an optional booking price row, the terms
+ * as paragraphs and "Owned & Operated by: Ittehad Motors" with a stamp & signature space (no stamp).
+ */
+async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPaper = false): Promise<BuiltPdf> {
+  const p = await newPage(letterheadPaper ? LETTERHEAD_BOTTOM : 284);
+  const { doc } = p;
+  const t = q.template;
+  const [wordmark, group] = letterheadPaper ? [null, null] : await Promise.all([loadImage('/logo/jetour-logo.png', JETOUR_WORDMARK), loadImage(GROUP_LOGO)]);
+
+  // ---- Letterhead (printed on the paper when using letterhead paper) -------------------------------
+  let ruleY = LETTERHEAD_TOP - 12;
+  if (!letterheadPaper) {
+  p.font(17, 'bold');
+  doc.setTextColor(...ITTEHAD_GREEN);
+  doc.text(t.companyName, M + 1, 17);
+  doc.setTextColor(...ink);
+  let y = 23;
+  const contact = [t.address, t.phone, t.email, t.tagline].filter(Boolean) as string[];
+  for (const line of contact) {
+    doc.setFillColor(70, 70, 70);
+    doc.circle(M + 2.6, y - 1.1, 1.5, 'F');
+    p.font(8.5, 'bold');
+    const parts = doc.splitTextToSize(line, 72) as string[];
+    parts.forEach((part, i) => doc.text(part, M + 6, y + i * 3.9));
+    y += parts.length * 3.9 + 0.8;
+  }
+  if (wordmark) {
+    const w = 58;
+    const h = (wordmark.h / wordmark.w) * w;
+    doc.addImage(wordmark.data, 'JPEG', W - M - w, 12, w, h);
+    p.font(9.5, 'bold');
+    doc.setTextColor(90, 90, 90);
+    doc.text('— Drive Your Future —', W - M - w / 2, 12 + h + 5, { align: 'center' });
+    doc.setTextColor(...ink);
+  }
+  ruleY = Math.max(y, 38);
+  doc.setDrawColor(...rule);
+  doc.line(M, ruleY, W - M, ruleY);
+  doc.setDrawColor(0, 0, 0);
+  }
+
+  // ---- Title, date and the quotation's note -------------------------------------------------------------
+  p.y = ruleY + 12;
+  p.font(16, 'bold');
+  doc.text('QUOTATION', W / 2, p.y, { align: 'center' });
+  const tw = doc.getTextWidth('QUOTATION');
+  doc.setLineWidth(0.5);
+  doc.line(W / 2 - tw / 2, p.y + 1.2, W / 2 + tw / 2, p.y + 1.2);
+  doc.setLineWidth(0.25);
+  p.font(9, 'bold');
+  doc.text(`Date: ${longDate(q.issuedAt)}`, W - M - 4, p.y, { align: 'right' });
+  p.y += 8;
+  if (q.notes) {
+    p.font(11.5);
+    for (const l of doc.splitTextToSize(`Note: ${q.notes}`, CW - 20) as string[]) {
+      doc.text(l, W / 2, p.y, { align: 'center' });
+      p.y += 5;
+    }
+    p.y += 1;
+  }
+
+  // ---- Table ---------------------------------------------------------------------------------------------
+  const cols = [14, 82, 18, 34, 34];
+  const xs = cols.reduce<number[]>((a, w, i) => [...a, a[i]! + w], [M]);
+  const centre = (text: string, col: number, yy: number) => doc.text(text, (xs[col]! + xs[col + 1]!) / 2, yy, { align: 'center' });
+  const rowBox = (h: number) => {
+    doc.rect(M, p.y, CW, h);
+    for (let i = 1; i < cols.length; i++) doc.line(xs[i]!, p.y, xs[i]!, p.y + h);
+  };
+
+  // Header: the bill-to name (e.g. the bank on the customer's account) heads the description column.
+  p.font(10, 'bold');
+  const who = doc.splitTextToSize(q.billTo || q.customer.name, cols[1]! - 4) as string[];
+  const headH = Math.max(11, 4 + who.length * 4.6);
+  rowBox(headH);
+  who.forEach((l, i) => centre(l, 1, p.y + (headH - who.length * 4.6) / 2 + 3.6 + i * 4.6));
+  p.font(9, 'bold');
+  const hMid = p.y + headH / 2 + 1.4;
+  centre('SR', 0, hMid);
+  centre('QTY', 2, hMid);
+  centre('UNIT PRICE (Rs.)', 3, hMid);
+  centre('TOTAL PRICE (Rs.)', 4, hMid);
+  p.y += headH;
+
+  const vehicleLine = jetourVehicleLine(q.vehicle.model, q.vehicle.variant, q.dealership.brand);
+  const qty = q.pricing.quantity;
+  const items: [string, number][] = [[vehicleLine, Number(q.pricing.unitPrice)]];
+  if (Number(q.pricing.discount) > 0) items.push(['LESS: DISCOUNT', -Number(q.pricing.discount)]);
+  if (Number(q.pricing.freightInsurance) > 0) items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
+  if (Number(q.pricing.withholdingTax) > 0) items.push(['Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
+  items.forEach(([label, unit], i) => {
+    p.font(9.5);
+    const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
+    const exFactory = i === 0; // "EX FACTORY (Black)" under the vehicle
+    const n = lines.length + (exFactory ? 1 : 0);
+    const h = Math.max(9, 3.6 + n * 4.3);
+    rowBox(h);
+    const top = p.y + h / 2 - ((n - 1) * 4.3) / 2 + 1.3;
+    lines.forEach((l, j) => centre(l, 1, top + j * 4.3));
+    if (exFactory) {
+      const yy = top + lines.length * 4.3;
+      const plain = 'EX FACTORY';
+      const colour = q.vehicle.color ? ` (${q.vehicle.color})` : '';
+      p.font(9.5);
+      const w1 = doc.getTextWidth(plain);
+      p.font(9.5, 'bold');
+      const w2 = doc.getTextWidth(colour);
+      const x0 = (xs[1]! + xs[2]!) / 2 - (w1 + w2) / 2;
+      p.font(9.5);
+      doc.text(plain, x0, yy);
+      if (colour) {
+        p.font(9.5, 'bold');
+        doc.text(colour, x0 + w1, yy);
+      }
+      p.font(9.5);
+    }
+    const mid = p.y + h / 2 + 1.3;
+    centre(String(i + 1), 0, mid);
+    centre(String(qty), 2, mid);
+    centre(num(unit), 3, mid);
+    centre(num(unit * qty), 4, mid);
+    p.y += h;
+  });
+  if (q.pricing.bookingAmount && Number(q.pricing.bookingAmount) > 0) {
+    rowBox(8);
+    p.font(10, 'bold');
+    centre(`Booking Price (${num(q.pricing.bookingAmount)})`, 1, p.y + 5.4);
+    p.y += 8;
+  }
+  rowBox(8.5);
+  p.font(10, 'bold');
+  centre('TOTAL', 1, p.y + 5.7);
+  centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + 5.7);
+  centre(num(q.pricing.total), 4, p.y + 5.7);
+  p.y += 8.5 + 7;
+
+  // ---- Terms & conditions ------------------------------------------------------------------------------
+  const issued = new Date(q.issuedAt);
+  const validityDays = Math.max(1, Math.round((Date.parse(`${q.validUntil}T00:00:00+05:00`) - Date.parse(`${issued.toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })}T00:00:00+05:00`)) / 86400_000));
+  const ctx: TemplateContext = {
+    vehicle: vehicleLine,
+    nonFilerTax: q.pricing.withholdingTaxNonFiler ? num(q.pricing.withholdingTaxNonFiler) : null,
+    validityDays,
+    deliveryStation: t.deliveryStation ?? q.dealership.name,
+    dealership: q.dealership.name,
+    // The battery warranty ("[Hybrid only]") is for the i-DM PHEV.
+    hybrid: /PHEV|\bi-DM\b|HYBRID|\bHEV\b/i.test(`${q.vehicle.model} ${q.vehicle.variant ?? ''}`),
+  };
+  const boldLine = (text: string, x: number) => p.rich(text, x, W - M - x, 9 * k, 4.6 * k, true);
+  if (t.standardEquipment) boldLine(`Standard Equipment: ${t.standardEquipment}`, M + 1);
+  boldLine('TERMS & CONDITIONS:', M + 1);
+  const deliveryDays = q.deliveryDays ?? t.defaultDeliveryDays;
+  const period = q.deliveryPeriod?.trim() || (deliveryDays != null ? `${deliveryDays} DAYS` : null);
+  if (period) boldLine(`Tentative Delivery Period: ${period}`, M + 1);
+  for (const l of t.deliveryNotes) {
+    const line = fillTemplateLine(l, ctx);
+    if (line) p.rich(line, M + 8, CW - 8, 8.6 * k, 4.2 * k);
+  }
+  const valid = `Validity of Quotation: ${String(validityDays).padStart(2, '0')} Days`;
+  for (const l of [valid, ctx.deliveryStation && `Delivery Station: ${ctx.deliveryStation}`, (q.paymentMode || t.defaultPaymentMode) && `Payment Mode: ${q.paymentMode || t.defaultPaymentMode}`, t.highlightLine].filter(Boolean) as string[]) {
+    boldLine(l, M + 2);
+  }
+  p.y += 1 * k;
+  for (const l of t.terms) {
+    const line = fillTemplateLine(l, ctx);
+    if (!line) continue;
+    p.rich(line, M + 2, CW - 4, 8.6 * k, 4 * k);
+    p.y += 1.3 * k;
+  }
+  for (const l of t.closingLines) {
+    const line = fillTemplateLine(l, ctx);
+    if (line) boldLine(line, M + 2);
+  }
+
+  // ---- Owned & operated by, and the stamp & signature space --------------------------------------------
+  p.y += 5;
+  // On letterhead paper only the stamp & signature line is drawn (the rest is printed on the paper).
+  p.ensure(letterheadPaper ? 12 : 30);
+  const top = p.y;
+  const cx = M + 22;
+  // "Owned & Operated by: Ittehad Motors" is printed on the letterhead paper.
+  if (group && !letterheadPaper) {
+    const s = Math.min(24 / group.w, 11 / group.h);
+    doc.addImage(group.data, 'JPEG', cx - (group.w * s) / 2, top, group.w * s, group.h * s);
+    p.y = top + group.h * s + 4;
+  }
+  if (!letterheadPaper) {
+    t.signOff.forEach((l, i) => {
+      p.font(i === 0 ? 8.5 : i === 1 ? 11.5 : 9.5, i === 0 ? 'italic' : 'normal');
+      doc.text(l, cx, p.y, { align: 'center' });
+      p.y += i === 0 ? 4.4 : 4.8;
+    });
+  }
+  p.font(12);
+  doc.text('STAMP & SIGNATURE', W - M - 8, top + (letterheadPaper ? 10 : 16), { align: 'right' });
+
+  if (!letterheadPaper) footer(p, q.quotationNo);
+  doc.setProperties({ title: `Quotation ${q.quotationNo}`, subject: `${vehicleLine} for ${q.billTo || q.customer.name}`, author: t.companyName });
   return { doc, fileName: fileNameOf('Quotation', q.quotationNo, q.customer.name) };
 }
 
@@ -495,4 +745,135 @@ export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   footer(p, f.formNo);
   doc.setProperties({ title: `${title} ${f.formNo}`, subject: `Paint Protection Film for ${f.customer.name}`, author: f.template.companyName });
   return { doc, fileName: fileNameOf('PPF Voucher', f.formNo, f.customer.name) };
+}
+
+// ---- Delivery note (each dealership's own; signed by the customer at hand-over) ----------------------
+/**
+ * The dealership's delivery note on one page: its own letterhead (brand logo and name, the Ittehad
+ * logo), who takes delivery (name, CNIC, on behalf of) against which PBO, the vehicle, the
+ * confirmation, signature and date & time; then, for the office, the authority letter / invoice
+ * checks and the managers' sign-offs. Known values are filled in; the rest are lines to write on.
+ */
+export async function buildDeliveryNotePdf(n: DeliveryNote): Promise<BuiltPdf> {
+  const p = await newPage();
+  const { doc } = p;
+  const L = 18;
+  const R = W - L;
+  /** A fill-in line from x to x + w with the value (if any) written on it, set smaller to fit. */
+  const blank = (x: number, y: number, w: number, value?: string | null) => {
+    doc.setDrawColor(60, 60, 60);
+    doc.line(x, y + 1.2, x + w, y + 1.2);
+    if (value) {
+      let size = 10;
+      p.font(size, 'bold');
+      while (size > 6.5 && doc.getTextWidth(value) > w - 3) p.font((size -= 0.5), 'bold');
+      doc.text((doc.splitTextToSize(value, w - 2) as string[])[0]!, x + 1.5, y);
+    }
+    doc.setDrawColor(0, 0, 0);
+  };
+  const say = (text: string, x: number, y: number, style: 'normal' | 'bold' = 'normal', size = 10.5) => {
+    p.font(size, style);
+    doc.text(text, x, y);
+    return x + doc.getTextWidth(text) + 2;
+  };
+  const para = (text: string, y: number) => {
+    p.font(10.5);
+    for (const part of doc.splitTextToSize(text, R - L) as string[]) {
+      doc.text(part, L, y);
+      y += 4.9;
+    }
+    return y;
+  };
+
+  // ---- The dealership's letterhead ----
+  const file = BRAND_LOGOS.find(([prefix]) => n.dealership.code.startsWith(prefix))?.[1];
+  const isJetour = n.dealership.code.startsWith('JET') || n.dealership.brand === 'Jetour';
+  const [logo, group] = await Promise.all([file ? loadImage(file, isJetour ? JETOUR_WORDMARK : undefined) : null, loadImage(GROUP_LOGO)]);
+  if (logo) {
+    const s = Math.min(46 / logo.w, 13 / logo.h);
+    doc.addImage(logo.data, 'JPEG', L, 10 + (13 - logo.h * s) / 2, logo.w * s, logo.h * s);
+  }
+  if (group) {
+    const s = Math.min(34 / group.w, 13 / group.h);
+    doc.addImage(group.data, 'JPEG', R - group.w * s, 10 + (13 - group.h * s) / 2, group.w * s, group.h * s);
+  }
+  p.font(12, 'bold');
+  doc.text(n.dealership.name.toUpperCase(), L, 29);
+  doc.setDrawColor(...rule);
+  doc.line(L, 32, R, 32);
+  doc.setDrawColor(0, 0, 0);
+
+  // ---- The customer's confirmation ----
+  p.font(17, 'bold');
+  doc.text('Delivery Note', W / 2, 43, { align: 'center' });
+  p.font(8.5);
+  doc.setTextColor(...muted);
+  doc.text(`${n.deliveryNo}${n.orderNo ? `  ·  ${n.orderNo}` : ''}`, W / 2, 49, { align: 'center' });
+  doc.setTextColor(...ink);
+
+  let y = 60;
+  let x = say('This is to certify that I', L, y);
+  blank(x, y, 72, n.customer.name);
+  x = say('CNIC #', x + 74, y);
+  blank(x, y, R - x, n.customer.cnic);
+  y += 9;
+  x = say('on behalf of', L, y);
+  blank(x, y, R - x);
+  y += 9;
+  x = say('have thoroughly inspected and taken delivery of the vehicle against PBO #', L, y);
+  blank(x, y, R - x, n.pboNo);
+  y += 9;
+  say('of the following vehicle:', L, y);
+
+  y += 11;
+  const col2 = W / 2 + 4;
+  const pair = (l1: string, v1: string | null | undefined, l2: string, v2: string | null | undefined) => {
+    let a = say(l1, L, y);
+    blank(a, y, col2 - a - 6, v1);
+    a = say(l2, col2, y);
+    blank(a, y, R - a, v2);
+    y += 10;
+  };
+  pair('Model:', [n.vehicle.brand, n.vehicle.model].filter(Boolean).join(' ') || null, 'Variant:', n.vehicle.variant);
+  pair('Engine #:', n.vehicle.engineNo, 'Chassis #:', n.vehicle.chassisNo);
+  pair('Color:', n.vehicle.color, 'Misc:', n.accessories.length ? n.accessories.join(', ') : null);
+
+  y += 2;
+  y = para('I hereby confirm that I have found the above vehicle and the accessories etc in proper order in all aspects.', y);
+  y = para(`Dealership will not be responsible for any claims once the vehicle leaves ${n.dealership.name} Premises.`, y + 2);
+
+  y += 12;
+  x = say('Signature:', L, y, 'bold');
+  blank(x, y, 64);
+  x = say('Date & Time:', col2 + 4, y, 'bold');
+  blank(x, y, R - x);
+
+  // ---- For the office (the back of the printed form) ----
+  y += 12;
+  doc.setDrawColor(...rule);
+  doc.setLineDashPattern([1.2, 1.2], 0);
+  doc.line(L, y, R, y);
+  doc.setLineDashPattern([], 0);
+  doc.setDrawColor(0, 0, 0);
+  y += 9;
+  const choices = (label: string, options: string[], x0: number) => {
+    const a = say(label, x0, y);
+    p.font(10.5);
+    doc.text(options.join('   /   '), a + 3, y);
+  };
+  choices('Authority Letter & CNIC:', ['YES', 'NO', 'NA'], L);
+  choices('Invoice Attached:', ['YES', 'Undertaking'], col2);
+  y += 13;
+  for (const who of ['Sales Manager:', 'Finance Manager:', 'Service Manager:']) {
+    x = say(who, L, y);
+    blank(x, y, 66 - (x - L), null);
+    x = say('Date:', L + 72, y);
+    blank(x, y, 40);
+    x = say('Time:', x + 44, y);
+    blank(x, y, R - x);
+    y += 12;
+  }
+
+  doc.setProperties({ title: `Delivery Note ${n.deliveryNo}`, subject: `${[n.vehicle.brand, n.vehicle.model].filter(Boolean).join(' ')} for ${n.customer.name ?? ''}`, author: n.dealership.name });
+  return { doc, fileName: fileNameOf('Delivery Note', n.deliveryNo, n.customer.name ?? 'customer') };
 }

@@ -99,12 +99,13 @@ export default function DocumentFormatsPage() {
     if (!previewing || !form || !dealer || !data) return null;
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
     const valid = new Date(Date.now() + (Number(form.defaultValidityDays) || 7) * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
-    const sample: QuotationDocument = {
+    const base: QuotationDocument = {
       quotationNo: `${dealer.code}-QT-SAMPLE`,
       variantCode: 'NX4FL16THAW',
       validUntil: valid,
       billTo: 'Sample Customer (Pvt) Ltd',
       deliveryDays: form.defaultDeliveryDays.trim() ? Number(form.defaultDeliveryDays) : null,
+      deliveryPeriod: null,
       paymentMode: null,
       template: { ...data, ...fromForm(form) },
       issuedAt: `${today}T09:00:00+05:00`,
@@ -119,6 +120,20 @@ export default function DocumentFormatsPage() {
       notes: null,
       pricing: { quantity: 1, unitPrice: '12240000', discount: '0', freightInsurance: '68000', withholdingTax: '246160', withholdingTaxNonFiler: '1311450', total: '12554160', bookingAmount: null },
     };
+    // Jetour: a sample like its T2 i-DM quotation (a bank on the customer's account, booking price, note).
+    const sample: QuotationDocument =
+      dealer.brand === 'Jetour'
+        ? {
+            ...base,
+            variantCode: null,
+            billTo: 'Sample Bank Limited on A/C Sample Customer',
+            deliveryDays: null,
+            deliveryPeriod: 'ONE MONTH AFTER FULL PAYMENT.',
+            notes: '(Limited Stock & Limited Time Offer Price)',
+            vehicle: { model: 'Jetour T2', variant: 'T2 i-DM PHEV', color: 'Black', vin: null, engineNo: null },
+            pricing: { quantity: 1, unitPrice: '12795000', discount: '0', freightInsurance: '75000', withholdingTax: '257400', withholdingTaxNonFiler: null, total: '13127400', bookingAmount: '2500000' },
+          }
+        : base;
     return () => buildQuotationPdf(sample);
   }, [previewing, form, dealer, data, user]);
   const pdf = usePdf(build);

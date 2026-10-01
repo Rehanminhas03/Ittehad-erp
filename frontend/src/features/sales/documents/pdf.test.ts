@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountInWords, fillTemplateLine, quotationRef } from './pdf';
+import { amountInWords, fillTemplateLine, jetourVehicleLine, quotationRef } from './pdf';
 
 describe('amountInWords (Pakistani lakh / crore)', () => {
   it('writes typical vehicle prices', () => {
@@ -40,5 +40,14 @@ describe('quotation Ref', () => {
   it('is the quotation number without a prefix or a code', () => {
     expect(quotationRef({ ...base, template: { refPrefix: null } as never })).toBe('HYD-ISB-QT-2026-00001');
     expect(quotationRef({ ...base, variantCode: null, template: { refPrefix: 'HI' } as never })).toBe('HYD-ISB-QT-2026-00001');
+  });
+});
+
+describe('jetourVehicleLine', () => {
+  it('writes the vehicle as Jetour does: the variant (with the model when it does not name it), i-DM kept', () => {
+    expect(jetourVehicleLine('Jetour Dashing', 'Dashing 1.5 TCI')).toBe('JETOUR DASHING 1.5 TCI');
+    expect(jetourVehicleLine('Jetour T2', 'T2 i-DM PHEV')).toBe('JETOUR T2 i-DM PHEV');
+    expect(jetourVehicleLine('Jetour X70 Plus', '1.5 TCI')).toBe('JETOUR X70 PLUS 1.5 TCI');
+    expect(jetourVehicleLine('Jetour T1', null)).toBe('JETOUR T1');
   });
 });

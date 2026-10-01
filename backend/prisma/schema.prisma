@@ -1286,6 +1286,7 @@ model Delivery {
   odometerKm             Int?       @map("odometer_km")
   documentsHandedOver    String[]   @default([]) @map("documents_handed_over")
   accessoriesHandedOver  String[]   @default([]) @map("accessories_handed_over")
+  checklist              String[]   @default([])
   customerAcknowledged   Boolean    @default(false) @map("customer_acknowledged")
   customerAcknowledgedAt DateTime?  @map("customer_acknowledged_at") @db.Timestamptz(6)
   notes                  String?
@@ -1374,6 +1375,8 @@ model Lead {
   variant                  String?
   preferredColor           String?        @map("preferred_color")
   expectedCloseDate        DateTime?      @map("expected_close_date") @db.Date
+  expectedDeliveryDate     DateTime?      @map("expected_delivery_date") @db.Date
+  expectedDeliveryByMonth  Boolean        @default(false) @map("expected_delivery_by_month")
   notes                    String?
   paymentInstrument        String?        @map("payment_instrument")
   paymentInstrumentRef     String?        @map("payment_instrument_ref")
@@ -1513,6 +1516,7 @@ model Quotation {
   bookingAmount          Decimal?     @map("booking_amount") @db.Decimal(14, 2)
   validUntil             DateTime     @map("valid_until") @db.Date
   deliveryDays           Int?         @map("delivery_days")
+  deliveryPeriod         String?      @map("delivery_period")
   paymentMode            String?      @map("payment_mode")
   notes                  String?
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1541,45 +1545,47 @@ model Quotation {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model SalesOrder {
-  id                   BigInt            @id @default(autoincrement())
-  dealershipId         BigInt            @map("dealership_id")
-  branchId             BigInt?           @map("branch_id")
-  legalEntityId        BigInt?           @map("legal_entity_id")
-  accountingEntityId   BigInt?           @map("accounting_entity_id")
-  orderNo              String            @unique(map: "sales_order_orderNo_unique") @map("order_no")
-  orderType            String            @default("pbo") @map("order_type")
-  leadId               BigInt?           @map("lead_id")
-  customerId           BigInt            @map("customer_id")
-  salespersonId        BigInt            @map("salesperson_id")
-  modelId              BigInt            @map("model_id")
-  variant              String?
-  color                String?
-  unitPrice            Decimal           @default(0) @map("unit_price") @db.Decimal(14, 2)
-  discount             Decimal           @default(0) @db.Decimal(14, 2)
-  totalAmount          Decimal           @default(0) @map("total_amount") @db.Decimal(14, 2)
-  bookingAmount        Decimal           @default(0) @map("booking_amount") @db.Decimal(14, 2)
-  expectedDeliveryDate DateTime?         @map("expected_delivery_date") @db.Date
-  vehicleId            BigInt?           @unique(map: "sales_order_vehicle_live_uq", where: raw("((vehicle_id IS NOT NULL) AND (status <> 'cancelled'::text))")) @map("vehicle_id")
-  financingRef         String?           @map("financing_ref")
-  paymentReference     String?           @map("payment_reference")
-  notes                String?
-  status               String            @default("draft")
-  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdById          BigInt?           @map("created_by_id")
-  updatedById          BigInt?           @map("updated_by_id")
-  delivery             Delivery?
-  accountingEntity     AccountingEntity? @relation(fields: [accountingEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_accounting_entity_id_accounting_entity_id_fk")
-  branch               Branch?           @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_branch_id_dealership_id_branch_id_dealership_id_fk")
-  createdBy            User?             @relation("sales_order_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_created_by_id_user_id_fk")
-  customer             Customer          @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_customer_id_customer_id_fk")
-  dealership           Dealership        @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_dealership_id_dealership_id_fk")
-  lead                 Lead?             @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_lead_id_lead_id_fk")
-  legalEntity          LegalEntity?      @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_legal_entity_id_legal_entity_id_fk")
-  vehicleModel         VehicleModel      @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_model_id_vehicle_model_id_fk")
-  salesperson          User              @relation("sales_order_salesperson_idTouser", fields: [salespersonId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_salesperson_id_user_id_fk")
-  updatedBy            User?             @relation("sales_order_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_updated_by_id_user_id_fk")
-  vehicle              Vehicle?          @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_vehicle_id_vehicle_id_fk")
+  id                      BigInt            @id @default(autoincrement())
+  dealershipId            BigInt            @map("dealership_id")
+  branchId                BigInt?           @map("branch_id")
+  legalEntityId           BigInt?           @map("legal_entity_id")
+  accountingEntityId      BigInt?           @map("accounting_entity_id")
+  orderNo                 String            @unique(map: "sales_order_orderNo_unique") @map("order_no")
+  pboNo                   String?           @map("pbo_no")
+  orderType               String            @default("pbo") @map("order_type")
+  leadId                  BigInt?           @map("lead_id")
+  customerId              BigInt            @map("customer_id")
+  salespersonId           BigInt            @map("salesperson_id")
+  modelId                 BigInt            @map("model_id")
+  variant                 String?
+  color                   String?
+  unitPrice               Decimal           @default(0) @map("unit_price") @db.Decimal(14, 2)
+  discount                Decimal           @default(0) @db.Decimal(14, 2)
+  totalAmount             Decimal           @default(0) @map("total_amount") @db.Decimal(14, 2)
+  bookingAmount           Decimal           @default(0) @map("booking_amount") @db.Decimal(14, 2)
+  expectedDeliveryDate    DateTime?         @map("expected_delivery_date") @db.Date
+  expectedDeliveryByMonth Boolean           @default(false) @map("expected_delivery_by_month")
+  vehicleId               BigInt?           @unique(map: "sales_order_vehicle_live_uq", where: raw("((vehicle_id IS NOT NULL) AND (status <> 'cancelled'::text))")) @map("vehicle_id")
+  financingRef            String?           @map("financing_ref")
+  paymentReference        String?           @map("payment_reference")
+  notes                   String?
+  status                  String            @default("draft")
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById             BigInt?           @map("created_by_id")
+  updatedById             BigInt?           @map("updated_by_id")
+  delivery                Delivery?
+  accountingEntity        AccountingEntity? @relation(fields: [accountingEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_accounting_entity_id_accounting_entity_id_fk")
+  branch                  Branch?           @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy               User?             @relation("sales_order_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_created_by_id_user_id_fk")
+  customer                Customer          @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_customer_id_customer_id_fk")
+  dealership              Dealership        @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_dealership_id_dealership_id_fk")
+  lead                    Lead?             @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_lead_id_lead_id_fk")
+  legalEntity             LegalEntity?      @relation(fields: [legalEntityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_legal_entity_id_legal_entity_id_fk")
+  vehicleModel            VehicleModel      @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_model_id_vehicle_model_id_fk")
+  salesperson             User              @relation("sales_order_salesperson_idTouser", fields: [salespersonId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_salesperson_id_user_id_fk")
+  updatedBy               User?             @relation("sales_order_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_updated_by_id_user_id_fk")
+  vehicle                 Vehicle?          @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_vehicle_id_vehicle_id_fk")
 
   @@index([accountingEntityId], map: "sales_order_accounting_entity_id_index")
   @@index([branchId], map: "sales_order_branch_id_index")
@@ -1592,6 +1598,7 @@ model SalesOrder {
   @@index([salespersonId], map: "sales_order_salesperson_id_index")
   @@index([updatedById], map: "sales_order_updated_by_id_index")
   @@index([vehicleId], map: "sales_order_vehicle_id_index")
+  @@index([dealershipId, pboNo], map: "sales_order_dealership_id_pbo_no_index")
   @@map("sales_order")
   @@schema("sales")
 }

@@ -69,6 +69,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'sales.leads.view_all', 'sales.leads.convert_escalated',
       'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen',
       'sales.orders.view_all', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule',
+      'master.models.manage_brand',
       'sales.quotations.view_all', 'sales.quotations.create', 'sales.quotations.update', 'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update',
       'sales.templates.manage', 'sales.variants.view',
     ],
@@ -77,7 +78,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     name: 'Sales Manager',
     description: 'Department head: everything the Assistant Manager sees, the team report and track record, all orders and stock; logs and converts own leads (with quotations and PPF vouchers); reopens exhausted leads; approves orders (draft or submitted), marks their car in transit and schedules the delivery once the car is received; hires, resets and deactivates sales staff.',
     patterns: [
-      'core.dealerships.view', 'core.branches.view', 'master.models.view', 'core.roles.view',
+      'core.dealerships.view', 'core.branches.view', 'master.models.view', 'master.models.manage_brand', 'core.roles.view',
       'core.users.view', 'core.users.create', 'core.users.update', 'core.users.assign_roles', 'sales.team.manage',
       'core.activity.view_team',
       'sales.leads.view_all', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen', 'sales.orders.view_all', 'sales.orders.approve', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',

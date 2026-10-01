@@ -22,6 +22,7 @@ import { LeadOrder } from './components/LeadOrder';
 import { LeadStatusSummary } from './components/LeadStatusSummary';
 import { VariantPicker } from './components/VariantPicker';
 import { LeadDocuments, LeadDocumentsButton } from '../documents';
+import { formatExpectedDelivery } from '../orders/components/ExpectedDelivery';
 import { useLeadOwnerOptions } from '../team/useLeadOwnerOptions';
 import { useSalespersonOptions } from '../team/useSalespersonOptions';
 import { LAST_ACTIVITY, labelOf, LEAD_SOURCES, LEAD_STATES, OPEN_LEAD_STATES, P, showsVisited } from '../permissions';
@@ -120,7 +121,7 @@ export const leadView: EntityViewConfig<Lead> = {
     // Latest activity first; the list opens on the last 30 days (an old lead converted today counts as today).
     defaultSort: '-updatedAt',
     dateRange: { label: 'Activity', fromParam: 'activityFrom', toParam: 'activityTo', defaultPreset: '30d' },
-    searchPlaceholder: 'Search by customer name or phone number (e.g. 03001234567)',
+    searchPlaceholder: 'Search by customer name, phone (e.g. 03001234567) or PBO number',
     // Total leads and the split by status for the chosen period and filters, above the search.
     header: ({ query, periodLabel }) => <LeadStatusSummary query={query} periodLabel={periodLabel} />,
     filters: [
@@ -177,6 +178,7 @@ export const leadView: EntityViewConfig<Lead> = {
         value: (l) =>
           l.escalatedAt ? `${formatDateTime(l.escalatedAt)} by ${l.escalatedByName ?? '—'}${l.escalationNote ? ` — ${l.escalationNote}` : ''}` : null,
       },
+      { label: 'Expected delivery', value: (l) => formatExpectedDelivery(l.expectedDeliveryDate, l.expectedDeliveryByMonth) },
       { label: 'Converted', value: (l) => (l.convertedAt ? `${formatDateTime(l.convertedAt)} by ${l.convertedByName ?? '—'}` : null) },
       { label: 'Notes', value: (l) => l.notes },
       { label: 'Logged', value: (l) => `${formatDateTime(l.createdAt)}${l.createdByName ? ` by ${l.createdByName}` : ''}` },

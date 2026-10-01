@@ -6,7 +6,7 @@ import { publish } from '../../../events/bus';
 import { conflict, forbidden, validationError } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
 import { DocType, nextDocumentNumber } from '../../core/documents';
-import { normalizeIdentifier } from '../../master/normalize';
+import { formatCnic, normalizeIdentifier } from '../../master/normalize';
 import { findVehicleByIdentifiers } from '../../master/repository';
 import { activateVehicle, setOwner } from '../../master/service';
 import { deliveries, deliveryEntity, orders } from '../entities';
@@ -98,6 +98,7 @@ export async function completeDelivery(ctx: EntityCtx, deliveryId: number, input
                odometer_km = ${input.odometerKm},
                documents_handed_over = ${input.documentsHandedOver}::text[],
                accessories_handed_over = ${input.accessoriesHandedOver}::text[],
+               checklist = ${input.checklist}::text[],
                customer_acknowledged = ${input.customerAcknowledged},
                customer_acknowledged_at = ${new Date()},
                notes = ${input.notes ?? (d.notes as string | null)},
@@ -150,4 +151,43 @@ export async function orderDeliveries(ctx: EntityCtx, orderId: number) {
   await orders.findVisible(ctx, orderId);
   const rows = await ctx.tx.delivery.findMany({ where: { salesOrderId: orderId }, orderBy: [{ id: 'desc' }], take: 20 });
   return deliveries.present(ctx, rows as never);
+}
+
+/**
+ * What the delivery note prints (the dealership's own form: who takes delivery, against which PBO,
+ * the vehicle, and the sign-offs on the back). Blank where not known, to be written by hand.
+ */
+export async function deliveryNote(ctx: EntityCtx, deliveryId: number) {
+  const d = await deliveries.findVisible(ctx, deliveryId);
+  const o = await ctx.tx.salesOrder.findFirst({
+    where: { id: d.salesOrderId as number },
+    select: { orderNo: true, pboNo: true, variant: true, color: true, leadId: true, modelId: true },
+  });
+  const [car, model, buyer, dealer, ppf] = await Promise.all([
+    ctx.tx.vehicle.findFirst({ where: { id: d.vehicleId as number }, select: { vin: true, engineNo: true, color: true, variant: true } }),
+    o ? ctx.tx.vehicleModel.findFirst({ where: { id: o.modelId }, select: { brand: true, name: true } }) : null,
+    ctx.tx.customer.findFirst({ where: { id: d.customerId as number }, select: { fullName: true, cnic: true } }),
+    ctx.tx.dealership.findFirst({ where: { id: d.dealershipId as number }, select: { name: true, code: true, brand: true } }),
+    // The PBO number as written on the customer's PPF voucher, when there is one.
+    o?.leadId ? ctx.tx.ppfForm.findFirst({ where: { leadId: o.leadId, pboNo: { not: null } }, select: { pboNo: true }, orderBy: { id: 'desc' } }) : null,
+  ]);
+  return {
+    deliveryNo: d.deliveryNo as string,
+    status: d.status as string,
+    scheduledDate: d.scheduledDate as string,
+    deliveredAt: d.deliveredAt ? (d.deliveredAt as Date).toISOString() : null,
+    dealership: { name: dealer?.name ?? '', code: dealer?.code ?? '', brand: dealer?.brand ?? '' },
+    customer: { name: buyer?.fullName ?? null, cnic: buyer?.cnic ? formatCnic(buyer.cnic) : null },
+    pboNo: o?.pboNo ?? ppf?.pboNo ?? o?.orderNo ?? null,
+    orderNo: o?.orderNo ?? null,
+    vehicle: {
+      brand: model?.brand ?? null,
+      model: model?.name ?? null,
+      variant: o?.variant ?? car?.variant ?? null,
+      color: o?.color ?? car?.color ?? null,
+      chassisNo: car?.vin ?? null,
+      engineNo: car?.engineNo ?? null,
+    },
+    accessories: (d.accessoriesHandedOver as string[] | null) ?? [],
+  };
 }

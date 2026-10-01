@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Button, Field, Input, Section, StatusBadge } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatDate } from '@/shared/lib';
+import { DeliveryNoteButton } from '../../../documents/DocumentPreview';
 import { P } from '../../../permissions';
 import { type SalesOrder, useListOrderDeliveriesQuery, useScheduleDeliveryMutation } from '../../../salesApi';
 
@@ -44,6 +45,7 @@ export function OrderDelivery({ order }: { order: SalesOrder }) {
               <span className="flex items-center gap-2 text-slate-500">
                 {d.deliveredOn ? `Delivered ${formatDate(d.deliveredOn)}` : `Scheduled ${formatDate(d.scheduledDate)}`}
                 <StatusBadge status={d.status} />
+                {canOpen && d.status !== 'cancelled' && <DeliveryNoteButton deliveryId={d.id} />}
               </span>
             </li>
           ))}
