@@ -168,8 +168,15 @@ export const leadEntity: EntityConfig = {
     // converted today belongs to today. updated_at moves with every change to the lead.
     activityFrom: { key: 'updatedAt', schema: z.iso.date(), where: (v) => sql`(${lead.updatedAt} at time zone 'Asia/Karachi')::date >= ${v}::date` },
     activityTo: { key: 'updatedAt', schema: z.iso.date(), where: (v) => sql`(${lead.updatedAt} at time zone 'Asia/Karachi')::date <= ${v}::date` },
+    // Appointments on one day (e.g. "today" from Action needed), and upcoming ones (from now on).
+    appointmentOn: { key: 'appointmentAt', schema: z.iso.date(), where: (v) => sql`(${lead.appointmentAt} at time zone 'Asia/Karachi')::date = ${v}::date` },
+    upcomingAppointment: {
+      key: 'appointmentAt',
+      schema: BoolQuery,
+      where: (v) => (v ? sql`${lead.appointmentAt} >= date_trunc('day', now() at time zone 'Asia/Karachi') at time zone 'Asia/Karachi'` : sql`${lead.appointmentAt} is null`),
+    },
   },
-  sort: { default: '-updatedAt', keys: ['updatedAt', 'createdAt', 'prospectName', 'status', 'followUpCount', 'convertedAt'] },
+  sort: { default: '-updatedAt', keys: ['updatedAt', 'createdAt', 'prospectName', 'status', 'followUpCount', 'convertedAt', 'appointmentAt'] },
   workflow: {
     stateKey: 'status',
     initial: 'new',
@@ -235,6 +242,7 @@ export const leadEntity: EntityConfig = {
         modelName: { key: 'interestedModelId', source: MODEL_NAME },
         escalatedByName: { key: 'escalatedById', source: USER_NAME },
         convertedByName: { key: 'convertedById', source: USER_NAME },
+        appointmentSetByName: { key: 'appointmentSetById', source: USER_NAME },
         createdByName: { key: 'createdById', source: USER_NAME },
         orderNo: { key: 'salesOrderId', source: ORDER_NO },
         // The car's progress (booked → in transit → received → ready), for the salesperson / AM.
@@ -317,6 +325,9 @@ export const salesOrderEntity: EntityConfig = {
     },
     // Orders still waiting for a vehicle (with `live`: the Delivery Team's to-do).
     hasVehicle: { key: 'vehicleId', schema: BoolQuery, where: (v) => (v ? sql`${salesOrder.vehicleId} is not null` : sql`${salesOrder.vehicleId} is null`) },
+    // Booked between two Pakistan calendar days (inclusive).
+    bookedFrom: { key: 'createdAt', schema: z.iso.date(), where: (v) => sql`(${salesOrder.createdAt} at time zone 'Asia/Karachi')::date >= ${v}::date` },
+    bookedTo: { key: 'createdAt', schema: z.iso.date(), where: (v) => sql`(${salesOrder.createdAt} at time zone 'Asia/Karachi')::date <= ${v}::date` },
   },
   sort: { default: '-createdAt', keys: ['createdAt', 'orderNo', 'totalAmount', 'expectedDeliveryDate', 'status'] },
   workflow: {
@@ -720,7 +731,9 @@ export const ppfFormEntity: EntityConfig = {
       if (patch.extraFields !== undefined) patch.extraFields = Object.fromEntries(Object.entries((patch.extraFields as Record<string, string>) ?? {}).filter(([k, v]) => k.trim() && String(v).trim()));
       return patch.amount !== undefined || patch.discount !== undefined || patch.advancePaid !== undefined ? pricePpf(patch, row) : patch;
     },
-    decorate: (ctx, rows) => withNames(ctx.tx, rows, docTrailNames),
+    // The customer's name as written on the voucher; older vouchers: the lead's.
+    decorate: async (ctx, rows) =>
+      (await withNames(ctx.tx, rows, docTrailNames)).map((r, i) => ({ ...r, customerName: (rows[i]!.customerName as string | null) || r.customerName })),
   },
 };
 

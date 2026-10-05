@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { api, bearer, createDealership, createUser, owner, PASSWORD, roleByName, useTestDb } from './helpers';
+import { api, bearer, createDealership, createUser, leadVehicle, owner, PASSWORD, roleByName, useTestDb } from './helpers';
 
 useTestDb();
 
@@ -15,6 +15,7 @@ const NEW_PASSWORD = 'NewPassw0rd-2026';
 const newUser = (email: string, roleId: number, dealershipId: number) => ({
   email,
   fullName: 'New Hire',
+  phone: '0300-1234567',
   password: 'Welcome-2026x',
   roles: [{ roleId, dealershipId }],
 });
@@ -30,8 +31,11 @@ describe('Sales Manager: managing the sales team', () => {
       expect(res.status, name).toBe(201);
       expect(res.body.roles[0]).toMatchObject({ roleName: name, dealershipId: d.id });
     }
-    // Not another manager, not an admin, not at another dealership, not without a role.
-    for (const name of ['Sales Manager', 'System Admin', 'Dealership Manager', 'Accountant']) {
+    // Another Sales Manager (a peer: no more rights) — yes.
+    const peer = await api.post('/api/core/users').set(bearer(manager.token)).send(newUser('peer@hyd.test', await roleByName('Sales Manager'), d.id));
+    expect(peer.status, JSON.stringify(peer.body)).toBe(201);
+    // Not an admin or the Dealership Manager, not at another dealership, not without a role.
+    for (const name of ['System Admin', 'Dealership Manager', 'Accountant']) {
       const res = await api.post('/api/core/users').set(bearer(manager.token)).send(newUser(`x-${name.length}@hyd.test`, await roleByName(name), d.id));
       expect(res.status, name).toBe(403);
     }
@@ -47,7 +51,7 @@ describe('Sales Manager: managing the sales team', () => {
     const manager = await staff('Sales Manager', d.id);
     const res = await api.get(`/api/core/roles/assignable?dealershipId=${d.id}`).set(bearer(manager.token));
     expect(res.status).toBe(200);
-    expect(res.body.map((r: { name: string }) => r.name).sort()).toEqual(['Assistant Manager', 'CRO', 'Delivery Team', 'Sales Admin', 'Salesperson']);
+    expect(res.body.map((r: { name: string }) => r.name).sort()).toEqual(['Assistant Manager', 'CRO', 'Delivery Team', 'Sales Admin', 'Sales Manager', 'Salesperson']);
     const other = await createDealership('JET');
     expect((await api.get(`/api/core/roles/assignable?dealershipId=${other.id}`).set(bearer(manager.token))).body).toEqual([]);
   });
@@ -73,7 +77,7 @@ describe('Sales Manager: managing the sales team', () => {
     expect((await api.post('/api/auth/login').send({ email: leaver.user.email, password: NEW_PASSWORD })).status).toBe(200);
   });
 
-  it('changes a staff member\'s role, but cannot touch managers, admins or other dealerships', async () => {
+  it('changes a staff member\'s role and manages a fellow Sales Manager, but cannot touch the Dealership Manager or other dealerships', async () => {
     const d = await createDealership('HYD');
     const other = await createDealership('JET');
     const manager = await staff('Sales Manager', d.id);
@@ -88,13 +92,65 @@ describe('Sales Manager: managing the sales team', () => {
     const old = promoted.body.roles.find((r: { roleName: string }) => r.roleName === 'Salesperson');
     expect((await api.delete(`/api/core/users/${sp.user.id}/roles/${old.id}`).set(bearer(manager.token))).status).toBe(200);
 
-    for (const target of [peer, boss]) {
-      expect((await api.patch(`/api/core/users/${target.user.id}`).set(bearer(manager.token)).send({ password: NEW_PASSWORD })).status).toBe(403);
-      expect((await api.patch(`/api/core/users/${target.user.id}`).set(bearer(manager.token)).send({ isActive: false })).status).toBe(403);
-    }
+    // A fellow Sales Manager: yes (a peer). The Dealership Manager: no.
+    expect((await api.patch(`/api/core/users/${peer.user.id}`).set(bearer(manager.token)).send({ password: NEW_PASSWORD })).status).toBe(200);
+    expect((await api.patch(`/api/core/users/${peer.user.id}`).set(bearer(manager.token)).send({ isActive: false })).status).toBe(200);
+    expect((await api.patch(`/api/core/users/${boss.user.id}`).set(bearer(manager.token)).send({ password: NEW_PASSWORD })).status).toBe(403);
+    expect((await api.patch(`/api/core/users/${boss.user.id}`).set(bearer(manager.token)).send({ isActive: false })).status).toBe(403);
     const bossRole = (await api.get(`/api/core/users/${boss.user.id}`).set(bearer(manager.token))).body.roles[0];
     expect((await api.delete(`/api/core/users/${boss.user.id}/roles/${bossRole.id}`).set(bearer(manager.token))).status).toBe(403);
     expect((await api.patch(`/api/core/users/${elsewhere.user.id}`).set(bearer(manager.token)).send({ isActive: false })).status).toBe(404);
+  });
+
+  it('makes a new or reset user choose their own password; employee codes are unique; filters staff not signed in', async () => {
+    const d = await createDealership('HYD');
+    const manager = await staff('Sales Manager', d.id);
+    const salesperson = await roleByName('Salesperson');
+
+    const created = await api.post('/api/core/users').set(bearer(manager.token)).send({ ...newUser('fresh@hyd.test', salesperson, d.id), employeeCode: 'hyd-0042', cnic: '14301-5305891-1' });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    expect(created.body).toMatchObject({ employeeCode: 'HYD-0042', cnic: '1430153058911', mustChangePassword: true });
+    const dup = await api.post('/api/core/users').set(bearer(manager.token)).send({ ...newUser('dup2@hyd.test', salesperson, d.id), employeeCode: 'HYD-0042' });
+    expect(dup.status).toBe(409);
+    expect((await api.post('/api/core/users').set(bearer(manager.token)).send({ ...newUser('cnic@hyd.test', salesperson, d.id), cnic: '12345' })).status).toBe(422);
+
+    // Never signed in: listed under "not signed in for 7+ days".
+    const stale = await api.get(`/api/core/users?inactiveDays=7&dealershipId=${d.id}`).set(bearer(manager.token));
+    expect(stale.body.items.map((u: { email: string }) => u.email)).toContain('fresh@hyd.test');
+
+    // First sign-in: told to choose a password; choosing it clears the flag.
+    const first = await api.post('/api/auth/login').send({ email: 'fresh@hyd.test', password: 'Welcome-2026x' });
+    expect(first.body.me.user.mustChangePassword).toBe(true);
+    const changed = await api.post('/api/auth/change-password').set(bearer(first.body.accessToken)).send({ currentPassword: 'Welcome-2026x', newPassword: NEW_PASSWORD });
+    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    expect(changed.body.me.user.mustChangePassword).toBe(false);
+
+    // A reset by the manager sets it again.
+    await api.patch(`/api/core/users/${created.body.id}`).set(bearer(manager.token)).send({ password: 'Temporary-2026' }).expect(200);
+    expect((await api.post('/api/auth/login').send({ email: 'fresh@hyd.test', password: 'Temporary-2026' })).body.me.user.mustChangePassword).toBe(true);
+  });
+
+  it('hands a leaver\'s leads (with their quotations) to another salesperson', async () => {
+    const d = await createDealership('HYD');
+    const manager = await staff('Sales Manager', d.id);
+    const leaver = await staff('Salesperson', d.id);
+    const taker = await staff('Salesperson', d.id);
+    const lead = await api
+      .post('/api/sales/leads')
+      .set(bearer(leaver.token))
+      .send({ dealershipId: d.id, prospectName: 'Walk-in', prospectMobile: '0300-7654321', source: 'walk_in', ...(await leadVehicle()) });
+    expect(lead.status, JSON.stringify(lead.body)).toBe(201);
+
+    expect((await api.get(`/api/sales/team/hand-over?dealershipId=${d.id}&userId=${leaver.user.id}`).set(bearer(manager.token))).body).toEqual({ open: 1, inProgress: 0 });
+    // Only the Sales Manager; only to an active member of the team.
+    expect((await api.post('/api/sales/team/hand-over').set(bearer(taker.token)).send({ dealershipId: d.id, fromUserId: leaver.user.id, toUserId: taker.user.id })).status).toBe(403);
+    expect((await api.post('/api/sales/team/hand-over').set(bearer(manager.token)).send({ dealershipId: d.id, fromUserId: leaver.user.id, toUserId: leaver.user.id })).status).toBe(422);
+
+    const res = await api.post('/api/sales/team/hand-over').set(bearer(manager.token)).send({ dealershipId: d.id, fromUserId: leaver.user.id, toUserId: taker.user.id });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body).toEqual({ moved: 1, toName: taker.user.fullName });
+    expect((await api.get(`/api/sales/leads/${lead.body.id}`).set(bearer(taker.token))).body.ownerId).toBe(taker.user.id);
+    expect((await api.get(`/api/sales/leads/${lead.body.id}`).set(bearer(leaver.token))).status).toBe(404);
   });
 
   it('is the Sales Manager\'s right alone among the sales roles', async () => {

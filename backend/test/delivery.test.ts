@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pakistanToday } from '../src/lib/dates';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo, PPF_CUSTOMER } from './helpers';
 
 useTestDb();
 
@@ -403,7 +403,7 @@ describe('review fixes', () => {
     const s = await setup();
     const own = await api.post('/api/sales/leads').set(bearer(s.manager.token)).send({ dealershipId: s.d.id, prospectName: 'Mgr', prospectMobile: '0300-6660004', interestedModelId: s.modelId });
     expect((await api.post(`/api/sales/leads/${own.body.id}/quotations`).set(bearer(s.manager.token)).send({ unitPrice: '9000000' })).status).toBe(201);
-    expect((await api.post(`/api/sales/leads/${own.body.id}/ppf-forms`).set(bearer(s.manager.token)).send({ coverage: 'full_body', amount: '100000' })).status).toBe(201);
+    expect((await api.post(`/api/sales/leads/${own.body.id}/ppf-forms`).set(bearer(s.manager.token)).send({ ...PPF_CUSTOMER, coverage: 'full_body', amount: '100000' })).status).toBe(201);
 
     const l = await api.post('/api/sales/leads').set(bearer(s.sales1.token)).send({ dealershipId: s.d.id, prospectName: 'Gone cold', prospectMobile: '0300-6660005', interestedModelId: s.modelId });
     for (let i = 0; i < 3; i++) await api.post(`/api/sales/leads/${l.body.id}/follow-ups`).set(bearer(s.sales1.token)).send({ outcome: 'not_interested' }).expect(201);

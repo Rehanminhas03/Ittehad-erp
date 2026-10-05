@@ -103,7 +103,7 @@ function LeadsToOrderKpi() {
 function OrdersAwaitingVehicleKpi() {
   const { data, isLoading, error } = useListSalesOrdersQuery({ pageSize: 1, status: 'approved', hasVehicle: 'false' });
   return (
-    <DashboardWidget kind="kpi" title="Orders waiting for a vehicle" value={data?.total} loading={isLoading} error={error && apiErrorMessage(error)} to="/sales/orders?status=approved&hasVehicle=false" />
+    <DashboardWidget kind="kpi" title="Orders waiting for a vehicle" value={data?.total} loading={isLoading} error={error && apiErrorMessage(error)} to="/sales/orders?range=all&status=approved&hasVehicle=false" />
   );
 }
 
@@ -148,7 +148,7 @@ function AwaitingApprovalKpi() {
       value={data?.total}
       loading={isLoading}
       error={error && apiErrorMessage(error)}
-      to="/sales/orders?status=submitted"
+      to="/sales/orders?range=all&status=submitted"
     />
   );
 }

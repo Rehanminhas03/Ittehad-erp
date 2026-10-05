@@ -108,6 +108,27 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Lead"],
       }),
+      setLeadAppointment: build.mutation<
+        SetLeadAppointmentApiResponse,
+        SetLeadAppointmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/${queryArg.id}/appointment`,
+          method: "PUT",
+          body: queryArg.leadAppointmentRequest,
+        }),
+        invalidatesTags: ["Lead"],
+      }),
+      reassignLead: build.mutation<ReassignLeadApiResponse, ReassignLeadApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/sales/leads/${queryArg.id}/reassign`,
+            method: "POST",
+            body: queryArg.reassignLeadRequest,
+          }),
+          invalidatesTags: ["Lead"],
+        },
+      ),
       convertLead: build.mutation<ConvertLeadApiResponse, ConvertLeadApiArg>({
         query: (queryArg) => ({
           url: `/api/sales/leads/${queryArg.id}/convert`,
@@ -245,6 +266,30 @@ const injectedRtkApi = api
           },
         }),
         providesTags: ["SalesTeam"],
+      }),
+      getLeadsToHandOver: build.query<
+        GetLeadsToHandOverApiResponse,
+        GetLeadsToHandOverApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/team/hand-over`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            userId: queryArg.userId,
+          },
+        }),
+        providesTags: ["SalesTeam"],
+      }),
+      handOverLeads: build.mutation<
+        HandOverLeadsApiResponse,
+        HandOverLeadsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/team/hand-over`,
+          method: "POST",
+          body: queryArg.handOverLeadsRequest,
+        }),
+        invalidatesTags: ["SalesTeam"],
       }),
       setOrderVehicle: build.mutation<
         SetOrderVehicleApiResponse,
@@ -389,6 +434,8 @@ const injectedRtkApi = api
             dealershipId: queryArg.dealershipId,
             q: queryArg.q,
             overdue: queryArg.overdue,
+            from: queryArg["from"],
+            to: queryArg.to,
             page: queryArg.page,
             pageSize: queryArg.pageSize,
           },
@@ -429,6 +476,8 @@ const injectedRtkApi = api
             createdOn: queryArg.createdOn,
             activityFrom: queryArg.activityFrom,
             activityTo: queryArg.activityTo,
+            appointmentOn: queryArg.appointmentOn,
+            upcomingAppointment: queryArg.upcomingAppointment,
             dealershipId: queryArg.dealershipId,
           },
         }),
@@ -502,6 +551,8 @@ const injectedRtkApi = api
             awaitingApproval: queryArg.awaitingApproval,
             vehicleStage: queryArg.vehicleStage,
             hasVehicle: queryArg.hasVehicle,
+            bookedFrom: queryArg.bookedFrom,
+            bookedTo: queryArg.bookedTo,
             dealershipId: queryArg.dealershipId,
           },
         }),
@@ -844,6 +895,10 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   escalatedById: number | null;
   escalatedByName?: string | null;
   escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -907,6 +962,10 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   escalatedById: number | null;
   escalatedByName?: string | null;
   escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -989,6 +1048,9 @@ export type CreateLeadPpfFormApiResponse = /** status 201 Success */ {
   engineNo: string | null;
   coverage: "full_body" | "front_package" | "partial" | "custom";
   coverageDetails: string | null;
+  protectionPackage: ("nenotek_prime" | "proskin_platinum" | null) | null;
+  customerEmail: string | null;
+  customerAddress: string | null;
   filmBrand: string | null;
   finish: "gloss" | "matte";
   warrantyYears: number | null;
@@ -1011,6 +1073,140 @@ export type CreateLeadPpfFormApiResponse = /** status 201 Success */ {
 export type CreateLeadPpfFormApiArg = {
   id: number;
   ppfFormCreate: PpfFormCreate;
+};
+export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
+  id: number;
+  dealershipId: number;
+  branchId: number | null;
+  ownerId: number;
+  ownerName?: string | null;
+  customerId: number | null;
+  prospectName: string;
+  prospectMobile: string;
+  email: string | null;
+  source:
+    "walk_in" | "phone" | "website" | "social" | "referral" | "event" | "other";
+  interestedModelId: number | null;
+  modelName?: string | null;
+  variant: string | null;
+  preferredColor: string | null;
+  expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
+  notes: string | null;
+  paymentInstrument:
+    | (
+        | "pay_order"
+        | "bank_draft"
+        | "cheque"
+        | "online_transfer"
+        | "cash"
+        | null
+      )
+    | null;
+  paymentInstrumentRef: string | null;
+  paymentInstrumentBank: string | null;
+  paymentAmount: string | null;
+  followUpCount: number;
+  lastFollowUpAt: string | null;
+  escalatedAt: string | null;
+  escalatedById: number | null;
+  escalatedByName?: string | null;
+  escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
+  convertedAt: string | null;
+  convertedById: number | null;
+  convertedByName?: string | null;
+  status:
+    | "new"
+    | "follow_up"
+    | "visited"
+    | "converted"
+    | "processing"
+    | "completed"
+    | "exhausted";
+  salesOrderId: number | null;
+  orderNo?: string | null;
+  vehicleStage?: string | null;
+  createdById: number | null;
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type SetLeadAppointmentApiArg = {
+  id: number;
+  leadAppointmentRequest: LeadAppointmentRequest;
+};
+export type ReassignLeadApiResponse = /** status 200 Success */ {
+  id: number;
+  dealershipId: number;
+  branchId: number | null;
+  ownerId: number;
+  ownerName?: string | null;
+  customerId: number | null;
+  prospectName: string;
+  prospectMobile: string;
+  email: string | null;
+  source:
+    "walk_in" | "phone" | "website" | "social" | "referral" | "event" | "other";
+  interestedModelId: number | null;
+  modelName?: string | null;
+  variant: string | null;
+  preferredColor: string | null;
+  expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
+  notes: string | null;
+  paymentInstrument:
+    | (
+        | "pay_order"
+        | "bank_draft"
+        | "cheque"
+        | "online_transfer"
+        | "cash"
+        | null
+      )
+    | null;
+  paymentInstrumentRef: string | null;
+  paymentInstrumentBank: string | null;
+  paymentAmount: string | null;
+  followUpCount: number;
+  lastFollowUpAt: string | null;
+  escalatedAt: string | null;
+  escalatedById: number | null;
+  escalatedByName?: string | null;
+  escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
+  convertedAt: string | null;
+  convertedById: number | null;
+  convertedByName?: string | null;
+  status:
+    | "new"
+    | "follow_up"
+    | "visited"
+    | "converted"
+    | "processing"
+    | "completed"
+    | "exhausted";
+  salesOrderId: number | null;
+  orderNo?: string | null;
+  vehicleStage?: string | null;
+  createdById: number | null;
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type ReassignLeadApiArg = {
+  id: number;
+  reassignLeadRequest: ReassignLeadRequest;
 };
 export type ConvertLeadApiResponse = /** status 200 Success */ {
   id: number;
@@ -1051,6 +1247,10 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   escalatedById: number | null;
   escalatedByName?: string | null;
   escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -1189,6 +1389,16 @@ export type GetSalesTrackRecordApiArg = {
   userId?: number;
   group?: "salespeople" | "cros";
   details?: "true" | "false";
+};
+export type GetLeadsToHandOverApiResponse =
+  /** status 200 Success */ LeadsToHandOver;
+export type GetLeadsToHandOverApiArg = {
+  dealershipId: number;
+  userId: number;
+};
+export type HandOverLeadsApiResponse = /** status 200 Success */ HandOverResult;
+export type HandOverLeadsApiArg = {
+  handOverLeadsRequest: HandOverLeadsRequest;
 };
 export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   id: number;
@@ -1598,6 +1808,8 @@ export type GetDeliveryPipelineApiArg = {
   dealershipId?: number;
   q?: string;
   overdue?: "true" | "false";
+  from?: string;
+  to?: string;
   page?: number;
   pageSize?: number;
 };
@@ -1642,6 +1854,8 @@ export type ListLeadsApiArg = {
   createdOn?: string;
   activityFrom?: string;
   activityTo?: string;
+  appointmentOn?: string;
+  upcomingAppointment?: "true" | "false";
   dealershipId?: number;
 };
 export type CreateLeadApiResponse = /** status 201 Success */ Lead;
@@ -1698,6 +1912,8 @@ export type ListSalesOrdersApiArg = {
     | "transferred"
     | "hold";
   hasVehicle?: "true" | "false";
+  bookedFrom?: string;
+  bookedTo?: string;
   dealershipId?: number;
 };
 export type CreateSalesOrderApiResponse = /** status 201 Success */ SalesOrder;
@@ -1935,6 +2151,10 @@ export type PpfFormCreate = {
   engineNo?: string | null;
   coverage: "full_body" | "front_package" | "partial" | "custom";
   coverageDetails?: string | null;
+  protectionPackage: "nenotek_prime" | "proskin_platinum";
+  customerName: string;
+  customerEmail: string;
+  customerAddress: string;
   filmBrand?: string | null;
   finish?: "gloss" | "matte";
   warrantyYears?: number | null;
@@ -1946,6 +2166,14 @@ export type PpfFormCreate = {
   extraFields?: {
     [key: string]: string;
   };
+};
+export type LeadAppointmentRequest = {
+  appointmentAt: string | null;
+  note?: string | null;
+};
+export type ReassignLeadRequest = {
+  ownerId: number;
+  note?: string | null;
 };
 export type ConvertLeadRequest = {
   prospectName?: string;
@@ -2036,6 +2264,7 @@ export type QuotationDocument = {
     name: string;
     mobile: string;
     email: string | null;
+    address?: string | null;
   };
   salesperson: {
     name: string;
@@ -2086,6 +2315,7 @@ export type PpfDocument = {
     name: string;
     mobile: string;
     email: string | null;
+    address?: string | null;
   };
   salesperson: {
     name: string;
@@ -2106,6 +2336,7 @@ export type PpfDocument = {
   notes: string | null;
   coverage: "full_body" | "front_package" | "partial" | "custom";
   coverageDetails: string | null;
+  protectionPackage: ("nenotek_prime" | "proskin_platinum" | null) | null;
   filmBrand: string | null;
   finish: "gloss" | "matte";
   warrantyYears: number | null;
@@ -2333,6 +2564,20 @@ export type TrackRecord = {
       unpaid: string;
     }[];
   };
+};
+export type LeadsToHandOver = {
+  open: number;
+  inProgress: number;
+};
+export type HandOverResult = {
+  moved: number;
+  toName: string;
+};
+export type HandOverLeadsRequest = {
+  dealershipId: number;
+  fromUserId: number;
+  toUserId: number;
+  includeInProgress?: boolean;
 };
 export type OrderVehicleRequest = {
   vin?: string | null;
@@ -2571,6 +2816,10 @@ export type Lead = {
   escalatedById: number | null;
   escalatedByName?: string | null;
   escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -2884,6 +3133,9 @@ export type PpfForm = {
   engineNo: string | null;
   coverage: "full_body" | "front_package" | "partial" | "custom";
   coverageDetails: string | null;
+  protectionPackage: ("nenotek_prime" | "proskin_platinum" | null) | null;
+  customerEmail: string | null;
+  customerAddress: string | null;
   filmBrand: string | null;
   finish: "gloss" | "matte";
   warrantyYears: number | null;
@@ -2915,6 +3167,10 @@ export type PpfFormUpdate = {
   engineNo?: string | null;
   coverage?: "full_body" | "front_package" | "partial" | "custom";
   coverageDetails?: string | null;
+  protectionPackage?: "nenotek_prime" | "proskin_platinum";
+  customerName?: string;
+  customerEmail?: string;
+  customerAddress?: string;
   filmBrand?: string | null;
   finish?: "gloss" | "matte";
   warrantyYears?: number | null;
@@ -2969,6 +3225,8 @@ export const {
   useGetLeadOrderVehicleQuery,
   useLazyGetLeadOrderVehicleQuery,
   useCreateLeadPpfFormMutation,
+  useSetLeadAppointmentMutation,
+  useReassignLeadMutation,
   useConvertLeadMutation,
   useRaiseSalesOrderMutation,
   useGetQuotationDocumentQuery,
@@ -2989,6 +3247,9 @@ export const {
   useLazyGetSalesTeamReportQuery,
   useGetSalesTrackRecordQuery,
   useLazyGetSalesTrackRecordQuery,
+  useGetLeadsToHandOverQuery,
+  useLazyGetLeadsToHandOverQuery,
+  useHandOverLeadsMutation,
   useSetOrderVehicleMutation,
   useListAllocatableVehiclesQuery,
   useLazyListAllocatableVehiclesQuery,

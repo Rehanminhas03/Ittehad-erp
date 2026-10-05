@@ -1,6 +1,6 @@
 import type { jsPDF } from 'jspdf';
 import type { DeliveryNote, DocumentTemplate, PpfDocument, QuotationDocument } from '../salesApi';
-import { PPF_COVERAGES, PPF_FINISHES, PPF_VOUCHER_FIELDS, type PpfVoucherField } from './labels';
+import { PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES, PPF_VOUCHER_FIELDS, type PpfVoucherField } from './labels';
 
 /** Dealership brand logos (public/logo), by dealership code prefix. */
 const BRAND_LOGOS: [prefix: string, file: string][] = [
@@ -680,18 +680,19 @@ export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   doc.setTextColor(...ink);
   p.y += 18;
 
+  // Coverage, the protection package (older vouchers: the panels written in), finish and film brand.
   const film = [
     labelOf(PPF_COVERAGES, f.coverage).replace(/ \(.*\)$/, ''),
-    f.coverageDetails,
+    f.protectionPackage ? labelOf(PPF_PACKAGES, f.protectionPackage) : f.coverageDetails,
     labelOf(PPF_FINISHES, f.finish),
     f.filmBrand,
-    f.warrantyYears ? `${f.warrantyYears} year${f.warrantyYears > 1 ? 's' : ''} warranty` : null,
   ].filter(Boolean).join(' · ');
   const discount = Number(f.pricing.discount) > 0 ? `   (${pkr(f.pricing.amount)} less discount ${pkr(f.pricing.discount)})` : '';
   const values: Record<PpfVoucherField, [string | null, boolean?]> = {
     pbo: [f.pboNo],
     customerName: [f.customer.name],
     email: [f.customer.email],
+    address: [f.customer.address ?? null],
     phone: [f.customer.mobile],
     chassis: [f.vehicle.vin],
     engine: [f.vehicle.engineNo],

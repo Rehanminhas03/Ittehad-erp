@@ -188,10 +188,18 @@ export class EntityService {
     if (!perm) throw forbidden();
     let data: Record<string, unknown> = { ...input };
 
+    // No branch chosen, by someone who works at one branch of that dealership only: it is their branch.
+    const branchKey = config.tenant && !config.tenant.root ? config.tenant.branchKey : undefined;
+    if (branchKey && data[branchKey] == null && !ctx.access.canIn(perm, this.targetOf(data))) {
+      const dealershipId = data[config.tenant!.dealershipKey] as number;
+      const own = ctx.access.scope(perm).branches.filter((b) => b.dealershipId === dealershipId);
+      if (own.length === 1) data[branchKey] = own[0]!.branchId;
+    }
+
     if (!config.tenant || config.tenant.root) {
       if (!ctx.access.hasGlobal(perm)) throw forbidden();
     } else if (!ctx.access.canIn(perm, this.targetOf(data))) {
-      throw forbidden('You cannot create records in this dealership/branch');
+      throw forbidden('You cannot add records for this dealership or branch. Ask your Manager to check your role (dealership and branch) under Users & staff.');
     }
 
     if (config.hooks?.beforeCreate) data = (await config.hooks.beforeCreate(ctx, data)) ?? data;

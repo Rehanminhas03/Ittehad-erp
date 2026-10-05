@@ -24,6 +24,12 @@ import {
   DeliverySchema,
   EscalateDuplicateBody,
   EscalationResultSchema,
+  HandOverLeadsBody,
+  HandOverLeadsQuery,
+  HandOverResultSchema,
+  LeadAppointmentBody,
+  LeadsToHandOverSchema,
+  ReassignLeadBody,
   LeadDetailsBody,
   LeadOrderVehicleSchema,
   LeadFollowUpCreate,
@@ -148,6 +154,28 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     response: PpfFormSchema,
     status: 201,
     handler: (ctx) => svc.createPpfForm(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'put',
+    path: '/:id/appointment',
+    operationId: 'setLeadAppointment',
+    summary: "Set (or clear) the customer's appointment; everyone following the lead is reminded on the day",
+    permission: [P.leadsUpdateOwn, P.leadsAppointment],
+    params: IdParam,
+    body: LeadAppointmentBody,
+    response: LeadRead,
+    handler: (ctx) => svc.setLeadAppointment(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/reassign',
+    operationId: 'reassignLead',
+    summary: 'Give the lead (with its quotations and PPF vouchers) to another salesperson',
+    permission: P.leadsReassign,
+    params: IdParam,
+    body: ReassignLeadBody,
+    response: LeadRead,
+    handler: (ctx) => svc.reassignLead(ctx, ctx.params.id, ctx.body),
   })
   .route({
     method: 'post',
@@ -286,6 +314,26 @@ const teamActions = new ApiRouter('/sales/team', 'SalesTeam')
     query: TrackRecordQuery,
     response: TrackRecordSchema,
     handler: (ctx) => svc.trackRecord(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/hand-over',
+    operationId: 'getLeadsToHandOver',
+    summary: "How many leads a staff member still owns at the dealership (open; converted / in progress)",
+    permission: P.teamManage,
+    query: HandOverLeadsQuery,
+    response: LeadsToHandOverSchema,
+    handler: (ctx) => svc.leadsToHandOver(ctx, ctx.query.userId, ctx.query.dealershipId),
+  })
+  .route({
+    method: 'post',
+    path: '/hand-over',
+    operationId: 'handOverLeads',
+    summary: "Give a staff member's leads (with their quotations and PPF vouchers) to someone else in the sales team",
+    permission: P.teamManage,
+    body: HandOverLeadsBody,
+    response: HandOverResultSchema,
+    handler: (ctx) => svc.handOverLeads(ctx, ctx.body),
   });
 
 // ---- Orders: vehicle identifiers, stock allocation, deliveries ----

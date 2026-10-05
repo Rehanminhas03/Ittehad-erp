@@ -5,7 +5,7 @@ import { apiFieldErrors } from '@/shared/lib';
 import { type Lead, useCreateLeadPpfFormMutation, useCreateLeadQuotationMutation, useGetDocumentTemplateQuery, useGetLeadOrderVehicleQuery, useListVariantCodesQuery } from '../salesApi';
 import { LeadModelSelect } from '../leads/components/LeadModelSelect';
 import { VariantPicker } from '../leads/components/VariantPicker';
-import { PPF_COVERAGES, PPF_FINISHES } from './labels';
+import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } from './labels';
 
 /** Jetour's usual tentative delivery period (its quotations print a sentence, not a number of days). */
 const P_QUOTATIONS_CREATE = 'sales.quotations.create';
@@ -222,7 +222,24 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
 export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
   const [create, { isLoading }] = useCreateLeadPpfFormMutation();
   const { errors, setErrors, run } = useSubmit();
-  const [v, setV] = useState({ pboNo: '', chassisNo: '', engineNo: '', coverage: 'full_body', coverageDetails: '', filmBrand: '', finish: 'gloss', warrantyYears: '', amount: '', discount: '', advancePaid: '', installationDate: '', notes: '' });
+  // The customer as printed on the voucher: name and email from the lead (check them), the address typed.
+  const [v, setV] = useState({
+    customerName: lead.prospectName,
+    customerEmail: lead.email ?? '',
+    customerAddress: '',
+    pboNo: '',
+    chassisNo: '',
+    engineNo: '',
+    coverage: 'full_body',
+    protectionPackage: '',
+    filmBrand: '',
+    finish: 'gloss',
+    amount: '',
+    discount: '',
+    advancePaid: '',
+    installationDate: '',
+    notes: '',
+  });
   // Processing / vehicle received / delivered: the sales order already has these.
   const { data: fromOrder } = useGetLeadOrderVehicleQuery({ id: lead.id }, { refetchOnMountOrArgChange: true });
   useEffect(() => {
@@ -234,7 +251,6 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
   const hasOrder = !!lead.salesOrderId;
   const locked = { pboNo: !!fromOrder?.orderNo, chassisNo: !!fromOrder?.chassisNo, engineNo: !!fromOrder?.engineNo };
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
-  const needsPanels = v.coverage === 'partial' || v.coverage === 'custom';
   // The dealership's own voucher fields (PPF format).
   const { data: format } = useGetDocumentTemplateQuery({ kind: 'ppf', dealershipId: lead.dealershipId });
   const customFields = format?.customFields ?? [];
@@ -246,6 +262,10 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
     if (hasOrder && !v.pboNo.trim()) missing.pboNo = 'Enter the PBO / CBO number';
     if (hasOrder && !v.chassisNo.trim()) missing.chassisNo = 'Enter the chassis number';
     if (hasOrder && !v.engineNo.trim()) missing.engineNo = 'Enter the engine number';
+    if (!v.customerName.trim()) missing.customerName = 'Enter the customer name';
+    if (!/^\S+@\S+\.\S+$/.test(v.customerEmail.trim())) missing.customerEmail = 'Enter a valid email address';
+    if (!v.customerAddress.trim()) missing.customerAddress = 'Enter the address';
+    if (!v.protectionPackage) missing.protectionPackage = 'Choose the protection package';
     if (!v.amount.trim()) missing.amount = 'Enter the PPF price';
     if (Object.keys(missing).length) return setErrors(missing);
     return run(
@@ -256,11 +276,13 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
             pboNo: blank(v.pboNo),
             chassisNo: blank(v.chassisNo),
             engineNo: blank(v.engineNo),
+            customerName: v.customerName.trim(),
+            customerEmail: v.customerEmail.trim(),
+            customerAddress: v.customerAddress.trim(),
             coverage: v.coverage as 'full_body',
-            coverageDetails: blank(v.coverageDetails),
+            protectionPackage: v.protectionPackage as 'nenotek_prime',
             filmBrand: blank(v.filmBrand),
             finish: v.finish as 'gloss',
-            warrantyYears: v.warrantyYears.trim() ? Number(v.warrantyYears) : null,
             amount: v.amount.trim(),
             discount: v.discount.trim() || '0',
             advancePaid: v.advancePaid.trim() || '0',
@@ -291,10 +313,16 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
       }
     >
       <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:col-span-2">
-          <span className="font-medium">{lead.prospectName}</span> · {lead.prospectMobile}
-          {lead.email ? ` · ${lead.email}` : ''} <span className="text-slate-500">— from the lead</span>
-        </p>
+        <Field label="Customer name" htmlFor="ppf-name" required error={errors.customerName} hint="From the lead; correct it if needed">
+          <Input id="ppf-name" value={v.customerName} onChange={set('customerName')} invalid={!!errors.customerName} />
+        </Field>
+        <Field label="Email" htmlFor="ppf-email" required error={errors.customerEmail}>
+          <Input id="ppf-email" type="email" value={v.customerEmail} onChange={set('customerEmail')} invalid={!!errors.customerEmail} placeholder="customer@example.com" />
+        </Field>
+        <Field label="Address" htmlFor="ppf-address" required className="sm:col-span-2" error={errors.customerAddress}>
+          <Input id="ppf-address" value={v.customerAddress} onChange={set('customerAddress')} invalid={!!errors.customerAddress} placeholder="House, street, sector, city" />
+        </Field>
+        <p className="text-sm text-slate-500 sm:col-span-2">Phone: {lead.prospectMobile} (from the lead)</p>
         <p className="text-sm text-slate-600 sm:col-span-2">
           {fromOrder?.orderNo
             ? 'PBO, chassis and engine are taken from the sales order; enter anything the order does not have yet.'
@@ -332,14 +360,18 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
             ))}
           </Select>
         </Field>
-        <Field label="Panels covered" htmlFor="ppf-panels" className="sm:col-span-2" error={errors.coverageDetails} hint={needsPanels ? 'List the panels the film goes on' : undefined}>
-          <Input id="ppf-panels" value={v.coverageDetails} onChange={set('coverageDetails')} placeholder="e.g. Bonnet, front bumper, fenders, mirrors" />
+        <Field label="Protection package" htmlFor="ppf-package" required error={errors.protectionPackage}>
+          <Select id="ppf-package" value={v.protectionPackage} onChange={set('protectionPackage')} invalid={!!errors.protectionPackage}>
+            <option value="">Choose the package…</option>
+            {PPF_PACKAGES.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
         </Field>
         <Field label="Film brand" htmlFor="ppf-brand">
-          <Input id="ppf-brand" value={v.filmBrand} onChange={set('filmBrand')} placeholder="e.g. XPEL, 3M, STEK" />
-        </Field>
-        <Field label="Warranty (years)" htmlFor="ppf-warranty" error={errors.warrantyYears}>
-          <Input id="ppf-warranty" type="number" min={0} max={15} value={v.warrantyYears} onChange={set('warrantyYears')} />
+          <Input id="ppf-brand" value={v.filmBrand} onChange={set('filmBrand')} placeholder={FILM_BRAND_PLACEHOLDER} />
         </Field>
         <Field label="Price (PKR)" htmlFor="ppf-amount" required error={errors.amount}>
           <Input id="ppf-amount" inputMode="decimal" value={v.amount} onChange={set('amount')} invalid={!!errors.amount} placeholder="e.g. 350000" />

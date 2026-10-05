@@ -17,7 +17,7 @@ export function DuplicateLeadNotice({ details, values }: { details: Record<strin
 
   return (
     <div className="space-y-2">
-      <p className="font-medium">Duplicate lead already exists.</p>
+      <p className="font-medium">This customer (phone number) is already entered as a lead.</p>
       {typeof details.existingId === 'number' ? (
         <p>
           {typeof details.ownerName === 'string' ? <>It is already with <span className="font-medium">{details.ownerName}</span>. </> : null}
@@ -29,7 +29,10 @@ export function DuplicateLeadNotice({ details, values }: { details: Record<strin
         <p>This customer has been sent to the Assistant Manager, who can open the lead and convert it if its salesperson is unavailable.</p>
       ) : (
         <>
-          <p>It belongs to another salesperson. If the customer is waiting, send it to the Assistant Manager.</p>
+          <p>
+            It belongs to another salesperson, so you cannot enter it again. Please ask your <b>Assistant Manager</b> or <b>Manager</b> to check this lead. If the
+            customer is waiting, send it to the Assistant Manager now:
+          </p>
           <div className="flex flex-wrap gap-2">
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note for the Assistant Manager (optional)" className="min-w-64 flex-1" aria-label="Note for the Assistant Manager" />
             <Button

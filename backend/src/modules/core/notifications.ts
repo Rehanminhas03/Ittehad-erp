@@ -87,6 +87,13 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'follow_up') return { title: 'Follow-up recorded on a lead', weight: 35, href };
       if (e.action === 'details.update') return { title: 'Customer details corrected', weight: 40, href };
       if (e.action === 'escalate') return { title: 'Duplicate customer sent to the Assistant Manager', weight: 65, href };
+      if (e.action === 'appointment') {
+        const at = typeof c.appointmentAt === 'string' ? new Date(c.appointmentAt) : null;
+        const when = at ? at.toLocaleString('en-PK', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) : undefined;
+        return { title: 'Appointment set with a customer', weight: 55, href, detail: [when, str(c.note)].filter(Boolean).join(' · ') || undefined };
+      }
+      if (e.action === 'appointment.cancel') return { title: 'Appointment cancelled', weight: 40, href };
+      if (e.action === 'reassign') return { title: 'Lead reassigned', weight: 60, href, detail: str(c.toName) ? `to ${str(c.toName)}` : undefined };
       if (step && LEAD_STEPS[step]) return { title: LEAD_STEPS[step][0], weight: LEAD_STEPS[step][1], href };
       break;
     }

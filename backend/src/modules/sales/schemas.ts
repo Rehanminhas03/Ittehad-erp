@@ -16,6 +16,7 @@ import {
   PPF_VOUCHER_FIELDS,
   PPF_COVERAGES,
   PPF_FINISHES,
+  PPF_PACKAGES,
   VEHICLE_PIPELINE,
 } from './models';
 
@@ -60,6 +61,11 @@ export const LeadSchema = z.object({
   escalatedById: Id.nullable(),
   escalatedByName: z.string().nullable().optional(),
   escalationNote: z.string().nullable(),
+  /** An appointment with the customer (showroom visit, test drive…) and who set it. */
+  appointmentAt: Timestamp.nullable().optional(),
+  appointmentNote: z.string().nullable().optional(),
+  appointmentSetById: Id.nullable().optional(),
+  appointmentSetByName: z.string().nullable().optional(),
   convertedAt: Timestamp.nullable(),
   convertedById: Id.nullable(),
   convertedByName: z.string().nullable().optional(),
@@ -260,6 +266,10 @@ export const PpfFormSchema = z.object({
   engineNo: z.string().nullable(),
   coverage: z.enum(PPF_COVERAGES),
   coverageDetails: z.string().nullable(),
+  protectionPackage: z.enum(PPF_PACKAGES).nullable(),
+  /** The customer as printed on the voucher (older vouchers: null, the lead's details print). */
+  customerEmail: z.string().nullable(),
+  customerAddress: z.string().nullable(),
   filmBrand: z.string().nullable(),
   finish: z.enum(PPF_FINISHES),
   warrantyYears: z.number().int().nullable(),
@@ -279,8 +289,14 @@ const ppfFields = {
   engineNo: optionalText(40),
   coverage: z.enum(PPF_COVERAGES),
   coverageDetails: optionalText(500),
+  protectionPackage: z.enum(PPF_PACKAGES, { error: 'Choose the protection package' }),
+  /** The customer as printed on the voucher: name, email and address are required. */
+  customerName: requiredText('Customer name'),
+  customerEmail: email,
+  customerAddress: requiredText('Address', 300),
   filmBrand: optionalText(80),
   finish: z.enum(PPF_FINISHES),
+  /** No longer on the form; kept for older vouchers. */
   warrantyYears: z.number().int().min(0).max(15).nullish(),
   amount: Money,
   discount: Money,
@@ -300,7 +316,7 @@ export const PpfFormUpdate = z.object(ppfFields).partial().openapi('PpfFormUpdat
 const documentParties = {
   issuedAt: Timestamp,
   dealership: z.object({ name: z.string(), code: z.string(), brand: z.string(), address: z.string().nullable(), city: z.string().nullable(), phone: z.string().nullable() }),
-  customer: z.object({ name: z.string(), mobile: z.string(), email: z.string().nullable() }),
+  customer: z.object({ name: z.string(), mobile: z.string(), email: z.string().nullable(), address: z.string().nullable().optional() }),
   salesperson: z.object({ name: z.string(), phone: z.string().nullable(), email: z.string() }),
   vehicle: z.object({ model: z.string(), variant: z.string().nullable(), color: z.string().nullable(), vin: z.string().nullable(), engineNo: z.string().nullable() }),
   orderNo: z.string().nullable(),
@@ -397,6 +413,7 @@ export const PpfDocumentSchema = z
     ...documentParties,
     coverage: z.enum(PPF_COVERAGES),
     coverageDetails: z.string().nullable(),
+    protectionPackage: z.enum(PPF_PACKAGES).nullable(),
     filmBrand: z.string().nullable(),
     finish: z.enum(PPF_FINISHES),
     warrantyYears: z.number().int().nullable(),
@@ -446,6 +463,13 @@ export const ConvertLeadBody = z
     notes: optionalText(2000),
   })
   .openapi('ConvertLeadRequest');
+
+/** An appointment with the customer: when, and a note (e.g. "test drive"). appointmentAt null clears it. */
+export const LeadAppointmentBody = z
+  .object({ appointmentAt: z.iso.datetime({ offset: true }).nullable(), note: optionalText(500) })
+  .openapi('LeadAppointmentRequest');
+/** The Assistant Manager / Manager give the lead to another salesperson. */
+export const ReassignLeadBody = z.object({ ownerId: Id, note: optionalText(500) }).openapi('ReassignLeadRequest');
 
 /** A salesperson hit a duplicate phone number: flag the existing lead for the Assistant Manager. */
 export const EscalateDuplicateBody = z
@@ -518,6 +542,9 @@ export const DeliveryPipelineQuery = z
     q: z.string().trim().max(100).optional(),
     /** Only orders past their expected delivery whose car has not arrived. */
     overdue: BoolQuery.optional(),
+    /** Period (Pakistan days, inclusive): booked then — for delivered cars, delivered then. */
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(25),
   })
@@ -695,6 +722,21 @@ export const TeamReportSchema = z
     daily: z.array(z.object({ date: z.string(), walkIns: z.number().int(), leads: z.number().int(), converted: z.number().int() })),
   })
   .openapi('SalesTeamReport');
+export const HandOverLeadsBody = z
+  .object({
+    dealershipId: Id,
+    /** The person leaving (or moving on): their leads at the dealership. */
+    fromUserId: Id,
+    /** Who takes them: an active member of the sales team there. */
+    toUserId: Id,
+    /** Also the converted / in-progress leads (the customer's contact until delivery). */
+    includeInProgress: z.boolean().default(false),
+  })
+  .openapi('HandOverLeadsRequest');
+export const HandOverLeadsQuery = z.object({ dealershipId: z.coerce.number().int().positive(), userId: z.coerce.number().int().positive() });
+export const LeadsToHandOverSchema = z.object({ open: z.number().int(), inProgress: z.number().int() }).openapi('LeadsToHandOver');
+export const HandOverResultSchema = z.object({ moved: z.number().int(), toName: z.string() }).openapi('HandOverResult');
+
 export const TeamMemberSchema = z
   .object({ id: Id, fullName: z.string(), /** A salesperson: converts and sees only their own leads; not a CRO or a manager. */ sellsCars: z.boolean(),
     /** Can be given a lead by a team leader (Salesperson, CRO). */ takesLeads: z.boolean() })

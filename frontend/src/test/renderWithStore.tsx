@@ -21,7 +21,7 @@ export function renderWithStore(ui: ReactNode, { me, route = '/' }: { me: Me | n
 
 export function meWith(codes: string[]): Me {
   return {
-    user: { id: 1, email: 'u@test', fullName: 'Test User', phone: null },
+    user: { id: 1, email: 'u@test', fullName: 'Test User', phone: null, mustChangePassword: false },
     dealerships: [{ id: 1, code: 'HYD', name: 'Hyundai Islamabad', brand: 'Hyundai' }],
     branches: [],
     permissions: codes.map((code) => ({ code, global: true, dealershipIds: [], branchIds: [] })),

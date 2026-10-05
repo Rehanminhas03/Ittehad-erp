@@ -100,6 +100,16 @@ export function describeActivity(e: ActivityLike): Described {
       return { title: `Issued a vehicle quotation to ${x}`, detail: detail || undefined, kind: 'lead', href };
     }
     if (e.action === 'details.update') return { title: `Corrected the details of ${x}`, kind: 'lead', href };
+    if (e.action === 'reassign') {
+      const detail = [typeof c.fromName === 'string' && typeof c.toName === 'string' ? `${c.fromName} → ${c.toName}` : undefined, typeof c.note === 'string' && c.note ? `“${c.note}”` : undefined].filter(Boolean).join(' · ');
+      return { title: `Reassigned lead ${x}`, detail: detail || undefined, kind: 'lead', href };
+    }
+    if (e.action === 'appointment') {
+      const when = typeof c.appointmentAt === 'string' ? new Date(c.appointmentAt).toLocaleString('en-PK', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) : undefined;
+      return { title: `Set an appointment with ${x}`, detail: [when, typeof c.note === 'string' && c.note ? `“${c.note}”` : undefined].filter(Boolean).join(' · ') || undefined, kind: 'lead', href };
+    }
+    if (e.action === 'appointment.cancel') return { title: `Cancelled the appointment with ${x}`, kind: 'lead', href };
+    if (e.action === 'hand_over') return { title: `Handed over lead ${x}`, detail: typeof c.toName === 'string' ? `to ${c.toName}` : undefined, kind: 'lead', href };
     if (e.action === 'escalate') return { title: `Sent duplicate customer ${x} to the Assistant Manager`, detail: typeof c.note === 'string' ? c.note : undefined, kind: 'lead', href };
     if (step && LEAD_STEPS[step]) return { title: fill(LEAD_STEPS[step]!, x), kind: 'lead', href };
   }

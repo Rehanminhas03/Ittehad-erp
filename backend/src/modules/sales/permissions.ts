@@ -27,6 +27,8 @@ export const SalesPerm = definePermissions('sales', {
   leadsUpdateConverted: ['sales.leads.update_converted', 'Correct customer details (name, phone, email, colour) on converted leads'],
   leadsConvertOwn: ['sales.leads.convert_own', 'Convert own leads (capture the qualifying details)'],
   leadsReopen: ['sales.leads.reopen', 'Reopen an exhausted lead (back to follow-up)'],
+  leadsReassign: ['sales.leads.reassign', 'Give a lead (with its quotations and PPF vouchers) to another salesperson'],
+  leadsAppointment: ['sales.leads.appointment', 'Set appointments on any lead in scope (own leads: with edit own leads)'],
   leadsConvertEscalated: ['sales.leads.convert_escalated', 'Convert a duplicate customer a salesperson sent to the Assistant Manager (its salesperson unavailable)'],
   teamManage: ['sales.team.manage', 'Manage the sales team: create staff in sales roles, reset passwords, deactivate leavers'],
   reportsView: ['sales.reports.view', 'Sales team report: track record per person, walk-ins, orders'],

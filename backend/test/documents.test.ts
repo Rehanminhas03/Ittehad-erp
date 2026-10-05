@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo, PPF_CUSTOMER } from './helpers';
 
 useTestDb();
 
@@ -46,7 +46,7 @@ async function convert(s: Setup, id: number) {
 const quote = (who: Login, id: number, body: Record<string, unknown> = {}) => api.post(`/api/sales/leads/${id}/quotations`).set(bearer(who.token)).send(body);
 // PBO, chassis and engine are required on a voucher; tests that are not about them get placeholders.
 const VOUCHER_IDS = { pboNo: 'PBO-T1', chassisNo: 'CHASSIST1', engineNo: 'ENGINET1' };
-const ppf = (who: Login, id: number, body: Record<string, unknown>) => api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(who.token)).send({ ...VOUCHER_IDS, ...body });
+const ppf = (who: Login, id: number, body: Record<string, unknown>) => api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(who.token)).send({ ...PPF_CUSTOMER, ...VOUCHER_IDS, ...body });
 const get = (who: Login, path: string) => api.get(`/api/sales/${path}`).set(bearer(who.token));
 const patch = (who: Login, path: string, body: Record<string, unknown>) => api.patch(`/api/sales/${path}`).set(bearer(who.token)).send(body);
 
@@ -182,6 +182,8 @@ describe('PPF (Paint Protection Film) forms', () => {
       finish: 'matte',
       warrantyYears: 5,
       installationDate: '2026-10-05',
+      protectionPackage: 'nenotek_prime',
+      customer: { name: 'Ayesha Khan', email: 'ayesha@example.com', address: PPF_CUSTOMER.customerAddress },
       vehicle: { model: 'Hyundai Tucson' },
       pricing: { amount: '350000.00', discount: '20000.00', total: '330000.00', advancePaid: '100000.00', balance: '230000.00' },
     });
@@ -193,6 +195,13 @@ describe('PPF (Paint Protection Film) forms', () => {
     expect((await ppf(s.sales1, id, { coverage: 'partial', amount: '100000', discount: '200000' })).status).toBe(422);
     expect((await ppf(s.sales1, id, { coverage: 'partial', amount: '100000', advancePaid: '200000' })).status).toBe(422);
     expect((await ppf(s.sales1, id, { coverage: 'nose', amount: '100000' })).status).toBe(422);
+    // Name, email, address and the protection package are required.
+    for (const missing of ['customerName', 'customerEmail', 'customerAddress', 'protectionPackage']) {
+      const res = await ppf(s.sales1, id, { coverage: 'partial', amount: '100000', [missing]: undefined });
+      expect(res.status, missing).toBe(422);
+      expect(JSON.stringify(res.body), missing).toContain(missing);
+    }
+    expect((await ppf(s.sales1, id, { coverage: 'partial', amount: '100000', protectionPackage: 'unknown' })).status).toBe(422);
     expect((await ppf(s.manager, id, { coverage: 'partial', amount: '100000' })).status).toBe(403);
     const f = (await ppf(s.sales1, id, { coverage: 'front_package', amount: '120000' })).body;
     expect(f).toMatchObject({ finish: 'gloss', discount: '0.00', totalAmount: '120000.00' });
@@ -299,13 +308,13 @@ describe('PPF voucher', () => {
     const pboNo = nextPbo();
     await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo, unitPrice: '9000000' }).expect(201);
     // Not typed: taken from the sales order (PBO) and its vehicle (chassis / engine); none known yet -> required.
-    const noVehicle = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ coverage: 'partial', amount: '100000' });
+    const noVehicle = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ ...PPF_CUSTOMER, coverage: 'partial', amount: '100000' });
     expect(noVehicle.status).toBe(422);
     expect(JSON.stringify(noVehicle.body)).toContain('chassisNo');
     expect(JSON.stringify(noVehicle.body)).not.toContain('pboNo'); // the order has a number
     const orderId = (await get(s.sales1, `leads/${id}`)).body.salesOrderId;
     await api.put(`/api/sales/orders/${orderId}/vehicle`).set(bearer(s.admin.token)).send({ vin: 'ORDERVIN0001', engineNo: 'ORDERENG1' }).expect(200);
-    const fromOrder = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ coverage: 'partial', amount: '100000' });
+    const fromOrder = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ ...PPF_CUSTOMER, coverage: 'partial', amount: '100000' });
     expect(fromOrder.status).toBe(201);
     expect(fromOrder.body).toMatchObject({ pboNo, chassisNo: 'ORDERVIN0001', engineNo: 'ORDERENG1' });
   });
@@ -480,7 +489,7 @@ describe('PPF voucher: required fields and its own format', () => {
     const s = await setup();
     // No order yet: the voucher can be issued without them.
     const early = await lead(s, '03001234599');
-    const blankEarly = await api.post(`/api/sales/leads/${early}/ppf-forms`).set(bearer(s.sales1.token)).send({ coverage: 'full_body', amount: '300000' });
+    const blankEarly = await api.post(`/api/sales/leads/${early}/ppf-forms`).set(bearer(s.sales1.token)).send({ ...PPF_CUSTOMER, coverage: 'full_body', amount: '300000' });
     expect(blankEarly.status, JSON.stringify(blankEarly.body)).toBe(201);
     expect((await patch(s.sales1, `ppf-forms/${blankEarly.body.id}`, { chassisNo: null })).status).toBe(200);
 
@@ -488,7 +497,7 @@ describe('PPF voucher: required fields and its own format', () => {
     const id = await lead(s);
     await convert(s, id);
     await api.post(`/api/sales/leads/${id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' }).expect(201);
-    const none = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ coverage: 'full_body', amount: '300000' });
+    const none = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ ...PPF_CUSTOMER, coverage: 'full_body', amount: '300000' });
     expect(none.status).toBe(422);
     for (const f of ['chassisNo', 'engineNo']) expect(JSON.stringify(none.body)).toContain(f);
 

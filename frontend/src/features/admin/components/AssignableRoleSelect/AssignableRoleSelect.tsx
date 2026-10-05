@@ -28,7 +28,7 @@ export function AssignableRoleSelect({
 
   return (
     <Select id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} invalid={invalid} disabled={isFetching}>
-      <option value="">{roles && !roles.length ? 'No roles you can assign here' : 'Select role…'}</option>
+      <option value="">{isFetching ? 'Loading roles…' : roles && !roles.length ? 'No roles you can assign here' : 'Select role…'}</option>
       {roles?.map((r) => (
         <option key={r.id} value={r.id} title={r.description ?? undefined}>
           {r.name}

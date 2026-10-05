@@ -2,10 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { type ReactNode, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { Button, ErrorState, PageHeader, PageSpinner, Section } from '@/shared/components/ui';
+import { Button, Dialog, ErrorState, PageHeader, PageSpinner, Section } from '@/shared/components/ui';
 import type { EntityViewConfig, FormField } from '@/shared/entity';
 import { usePermission, useToast } from '@/shared/hooks';
-import { apiConflict, apiErrorMessage, apiFieldErrors } from '@/shared/lib';
+import { apiConflict, apiErrorMessage, apiErrorStatus, apiFieldErrors } from '@/shared/lib';
 import { FormFieldControl, type FormValues } from './FormFieldControl';
 
 /**
@@ -31,7 +31,10 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
   const [search] = useSearchParams();
   const toast = useToast();
   const perm = usePermission();
+  // A duplicate (409) or a refusal (403): shown in a popup, so it cannot be missed.
   const [conflictNotice, setConflictNotice] = useState<ReactNode>(null);
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const [popupOpen, setPopupOpen] = useState(false);
   const schema = (mode === 'edit' ? (form.updateSchema ?? form.createSchema) : form.createSchema) as never;
   const fields = form.fields.filter((f) => ((f.mode ?? 'both') === 'both' || f.mode === mode) && (!f.visible || f.visible(perm)));
 
@@ -58,6 +61,11 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
       toast.success(`${config.singular} saved`);
       navigate(`${config.basePath}/${(saved as T).id}`);
     } catch (e) {
+      // Not allowed (e.g. outside the user's dealership or branch): a popup saying what to do.
+      if (apiErrorStatus(e) === 403) {
+        setBlocked(apiErrorMessage(e));
+        return;
+      }
       const conflict = apiConflict(e);
       if (conflict) {
         setConflictNotice(
@@ -72,6 +80,7 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
             </>
           ),
         );
+        setPopupOpen(true);
         return;
       }
       for (const i of apiFieldErrors(e)) if (fields.some((f) => f.name === i.path)) rhf.setError(i.path, { message: i.message });
@@ -97,11 +106,28 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
               <FormFieldControl key={f.name} field={f} form={rhf} perm={perm} fallbackScope={config.permissions.create} />
             ))}
           </div>
-          {conflictNotice && (
+          {/* After the popup is closed, the notice stays above the buttons. */}
+          {conflictNotice && !popupOpen && (
             <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">
               {conflictNotice}
             </div>
           )}
+          <Dialog
+            open={!!conflictNotice && popupOpen}
+            onClose={() => setPopupOpen(false)}
+            title={`This ${config.singular.toLowerCase()} is already entered`}
+            footer={<Button onClick={() => setPopupOpen(false)}>OK</Button>}
+          >
+            <div className="text-sm text-slate-800">{conflictNotice}</div>
+          </Dialog>
+          <Dialog
+            open={!!blocked}
+            onClose={() => setBlocked(null)}
+            title={`Cannot save this ${config.singular.toLowerCase()}`}
+            footer={<Button onClick={() => setBlocked(null)}>OK</Button>}
+          >
+            <p className="text-sm text-slate-800">{blocked}</p>
+          </Dialog>
           <div className="mt-8 flex gap-2 border-t border-slate-100 pt-5">
             <Button type="submit" loading={createState.isLoading || updateState.isLoading}>
               {mode === 'create' ? `Create ${config.singular.toLowerCase()}` : 'Save changes'}

@@ -143,20 +143,20 @@ export function SalesDashboard() {
     manager: [
       { label: 'Leads today', value: leads?.loggedToday, icon: 'today', tone: 'blue', to: links.today, hint: 'Logged today' },
       { label: 'Open leads', value: leads?.open, icon: 'leads', tone: 'aqua', to: links.open, hint: `of ${leads?.total ?? 0} total leads` },
-      { label: 'Awaiting your approval', value: (orders?.byStatus.submitted ?? 0) + (orders?.byStatus.draft ?? 0), icon: 'order', tone: 'orange', to: '/sales/orders?awaitingApproval=true', hint: 'Draft or submitted' },
+      { label: 'Awaiting your approval', value: (orders?.byStatus.submitted ?? 0) + (orders?.byStatus.draft ?? 0), icon: 'order', tone: 'orange', to: '/sales/orders?range=all&awaitingApproval=true', hint: 'Draft or submitted' },
       { label: 'Delivered', value: data?.deliveries?.deliveredInPeriod, icon: 'truck', tone: 'violet', to: links.delivered, hint: periodLabel },
     ],
     admin: [
       { label: 'Leads to order', value: leads?.byStatus.converted ?? 0, icon: 'check', tone: 'blue', to: '/sales/leads?status=converted&range=all', hint: 'Converted, no order yet' },
-      { label: 'Draft orders', value: orders?.byStatus.draft ?? 0, icon: 'order', tone: 'aqua', to: '/sales/orders?status=draft' },
-      { label: 'Awaiting approval', value: orders?.byStatus.submitted ?? 0, icon: 'clock', tone: 'orange', to: '/sales/orders?status=submitted' },
-      { label: 'Approved', value: orders?.byStatus.approved ?? 0, icon: 'car', tone: 'violet', to: '/sales/orders?status=approved' },
+      { label: 'Draft orders', value: orders?.byStatus.draft ?? 0, icon: 'order', tone: 'aqua', to: '/sales/orders?range=all&status=draft' },
+      { label: 'Awaiting approval', value: orders?.byStatus.submitted ?? 0, icon: 'clock', tone: 'orange', to: '/sales/orders?range=all&status=submitted' },
+      { label: 'Approved', value: orders?.byStatus.approved ?? 0, icon: 'car', tone: 'violet', to: '/sales/orders?range=all&status=approved' },
     ],
     delivery: [
-      { label: 'Waiting for a vehicle', value: orders?.awaitingVehicle, icon: 'order', tone: 'orange', to: '/sales/delivery-status?stage=waiting', hint: 'Booked, car not dispatched yet' },
+      { label: 'Waiting for a vehicle', value: orders?.awaitingVehicle, icon: 'order', tone: 'orange', to: '/sales/delivery-status?range=all&stage=waiting', hint: 'Booked, car not dispatched yet' },
       { label: 'Free stock', value: stock?.free, icon: 'car', tone: 'blue', to: '/sales/stock?allocated=false' },
       { label: 'Ready for delivery', value: stock?.byStatus.ready_for_delivery ?? 0, icon: 'check', tone: 'aqua', to: '/sales/stock?status=ready_for_delivery' },
-      { label: 'Deliveries scheduled', value: data?.deliveries?.scheduled, icon: 'truck', tone: 'violet', to: '/sales/delivery-status?stage=scheduled' },
+      { label: 'Deliveries scheduled', value: data?.deliveries?.scheduled, icon: 'truck', tone: 'violet', to: '/sales/delivery-status?range=all&stage=scheduled' },
     ],
   };
   const tiles = byLayout[layout];
@@ -168,7 +168,7 @@ export function SalesDashboard() {
     value: leads?.byStatus[s] ?? 0,
     to: `/sales/leads?status=${s}&range=all`,
   }));
-  const ordersByStatus = ORDER_STATES.map((s) => ({ label: humanize(s), value: orders?.byStatus[s] ?? 0, to: `/sales/orders?status=${s}` }));
+  const ordersByStatus = ORDER_STATES.map((s) => ({ label: humanize(s), value: orders?.byStatus[s] ?? 0, to: `/sales/orders?range=all&status=${s}` }));
   const stockByStage = STOCK_STAGES.map((s) => ({ label: humanize(s), value: stock?.byStatus[s] ?? 0, to: `/sales/stock?status=${s}` }));
 
   const trend =
@@ -272,7 +272,7 @@ export function SalesDashboard() {
         <Panel
           title={layout === 'delivery' ? 'Delivery queue' : 'Orders awaiting your approval'}
           subtitle={layout === 'delivery' ? 'Booked orders, oldest first' : 'Draft or submitted, oldest first; the Vehicle column shows when the car is ready'}
-          to={layout === 'delivery' ? '/sales/delivery-status' : '/sales/orders?awaitingApproval=true'}
+          to={layout === 'delivery' ? '/sales/delivery-status?range=all' : '/sales/orders?range=all&awaitingApproval=true'}
         >
           <RecordsTable
             rows={recordsOrders.data?.items}

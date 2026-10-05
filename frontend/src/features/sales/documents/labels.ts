@@ -9,12 +9,19 @@ export const PPF_FINISHES = [
   { value: 'gloss', label: 'Gloss' },
   { value: 'matte', label: 'Matte' },
 ] as const;
+/** Mirrors backend PPF_PACKAGES: the protection packages (film products) offered. */
+export const PPF_PACKAGES = [
+  { value: 'nenotek_prime', label: 'Nenotek Prime' },
+  { value: 'proskin_platinum', label: 'ProSkin (Platinum)' },
+] as const;
+export const FILM_BRAND_PLACEHOLDER = 'Gold, Platinum, Hyper, Ultra, Matte';
 
 /** The PPF voucher's standard fields, in print order, with their default labels (the dealership's PPF format can rename them). */
 export const PPF_VOUCHER_FIELDS = [
   { key: 'pbo', label: 'PBO', hideable: false },
   { key: 'customerName', label: 'Customer Name', hideable: false },
   { key: 'email', label: 'Email', hideable: true },
+  { key: 'address', label: 'Address', hideable: false },
   { key: 'phone', label: 'Phone #', hideable: true },
   { key: 'chassis', label: 'Chassis', hideable: false },
   { key: 'engine', label: 'Engine', hideable: false },

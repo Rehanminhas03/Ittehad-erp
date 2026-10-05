@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import type { EntityViewConfig } from '@/shared/entity';
 import { usePermission } from '@/shared/hooks';
 import { apiErrorMessage, cn } from '@/shared/lib';
-import { DateRangePicker, karachiToday, lastDays, rangeLabel, type RangePreset, shiftDays } from '../DateRangePicker';
+import { DateRangePicker, LIST_RANGES as RANGES, rangeLabel } from '../DateRangePicker';
 import {
   Button,
   EmptyState,
@@ -16,21 +16,6 @@ import {
 } from '@/shared/components/ui';
 
 const PAGE_SIZE = 25;
-
-/** Quick ranges for list date filters; "Custom" in the picker allows any from / to. */
-const RANGES: RangePreset[] = [
-  { key: 'today', label: 'Today', range: () => ({ from: karachiToday(), to: karachiToday() }) },
-  { key: 'yesterday', label: 'Yesterday', range: () => ({ from: shiftDays(karachiToday(), -1), to: shiftDays(karachiToday(), -1) }) },
-  { key: '7d', label: '1 week', range: () => lastDays(7) },
-  { key: '14d', label: '2 weeks', range: () => lastDays(14) },
-  { key: '21d', label: '3 weeks', range: () => lastDays(21) },
-  { key: '28d', label: '4 weeks', range: () => lastDays(28) },
-  { key: '30d', label: 'Last 30 days', range: () => lastDays(30) },
-  { key: '60d', label: '2 months', range: () => lastDays(60) },
-  { key: '90d', label: '3 months', range: () => lastDays(90) },
-  { key: '365d', label: '1 year', range: () => lastDays(365) },
-  { key: 'all', label: 'All time', range: () => ({}) },
-];
 
 /** Options of a filter loaded from the API (its own component so the hook runs unconditionally). */
 function RemoteOptions({ useOptions }: { useOptions: () => { value: string; label: string }[] }) {

@@ -67,6 +67,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     description: "Oversees every lead of the dealership; logs leads for a salesperson or themselves and converts their own; converts other salespeople's leads only when sent to them as a duplicate customer; reopens exhausted leads; follows orders: marks an approved order's car in transit and schedules the delivery once the car is received.",
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'sales.leads.view_all', 'sales.leads.convert_escalated',
+      'sales.leads.reassign', 'sales.leads.appointment',
       'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen',
       'sales.orders.view_all', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule',
       'master.models.manage_brand',
@@ -76,12 +77,15 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   },
   {
     name: 'Sales Manager',
+    // A Sales Manager may appoint another Sales Manager at their dealership (a peer: no more rights).
+    delegatedBy: SALES_TEAM,
     description: 'Department head: everything the Assistant Manager sees, the team report and track record, all orders and stock; logs and converts own leads (with quotations and PPF vouchers); reopens exhausted leads; approves orders (draft or submitted), marks their car in transit and schedules the delivery once the car is received; hires, resets and deactivates sales staff.',
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'master.models.manage_brand', 'core.roles.view',
       'core.users.view', 'core.users.create', 'core.users.update', 'core.users.assign_roles', 'sales.team.manage',
       'core.activity.view_team',
-      'sales.leads.view_all', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen', 'sales.orders.view_all', 'sales.orders.approve', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
+      'sales.leads.view_all', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen',
+      'sales.leads.reassign', 'sales.leads.appointment', 'sales.orders.view_all', 'sales.orders.approve', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
       'sales.quotations.view_all', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.templates.manage', 'sales.variants.view',
       'sales.reports.view',

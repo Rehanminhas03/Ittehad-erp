@@ -32,19 +32,19 @@ describe('users & role assignment', () => {
       [salesRole.rows[0]!.id],
     );
 
-    const noRole = await api.post('/api/core/users').set(bearer(admin.token)).send({ email: 'n@test.local', fullName: 'New Person', password: PASSWORD });
+    const noRole = await api.post('/api/core/users').set(bearer(admin.token)).send({ email: 'n@test.local', fullName: 'New Person', phone: '0300-1234567', password: PASSWORD });
     expect(noRole.status).toBe(422);
 
     const escalate = await api
       .post('/api/core/users')
       .set(bearer(admin.token))
-      .send({ email: 'e@test.local', fullName: 'Escalate', password: PASSWORD, roles: [{ roleId: viewerRole, dealershipId: a.id }] });
+      .send({ email: 'e@test.local', fullName: 'Escalate', phone: '0300-1234567', password: PASSWORD, roles: [{ roleId: viewerRole, dealershipId: a.id }] });
     expect(escalate.status).toBe(403);
 
     const ok = await api
       .post('/api/core/users')
       .set(bearer(admin.token))
-      .send({ email: 'OK@Test.local', fullName: 'Okay Person', password: PASSWORD, roles: [{ roleId: salesRole.rows[0]!.id, dealershipId: a.id }] });
+      .send({ email: 'OK@Test.local', fullName: 'Okay Person', phone: '0300-1234567', password: PASSWORD, roles: [{ roleId: salesRole.rows[0]!.id, dealershipId: a.id }] });
     expect(ok.status).toBe(201);
     expect(ok.body.email).toBe('ok@test.local');
     expect(ok.body.roles).toHaveLength(1);
@@ -55,10 +55,13 @@ describe('users & role assignment', () => {
 
   it('rejects weak passwords and duplicate emails', async () => {
     const admin = await createUser([{ permissions: ADMIN }]);
-    const weak = await api.post('/api/core/users').set(bearer(admin.token)).send({ email: 'w@test.local', fullName: 'Weak Pw', password: 'short' });
+    const noPhone = await api.post('/api/core/users').set(bearer(admin.token)).send({ email: 'p@test.local', fullName: 'No Phone', password: PASSWORD });
+    expect(noPhone.status).toBe(422);
+    expect(JSON.stringify(noPhone.body)).toContain('phone');
+    const weak = await api.post('/api/core/users').set(bearer(admin.token)).send({ email: 'w@test.local', fullName: 'Weak Pw', phone: '0300-1234567', password: 'short' });
     expect(weak.status).toBe(422);
     await createUser([], { email: 'dup@test.local' });
-    const dup = await api.post('/api/core/users').set(bearer(admin.token)).send({ email: 'DUP@test.local', fullName: 'Dup User', password: PASSWORD });
+    const dup = await api.post('/api/core/users').set(bearer(admin.token)).send({ email: 'DUP@test.local', fullName: 'Dup User', phone: '0300-1234567', password: PASSWORD });
     expect(dup.status).toBe(409);
   });
 

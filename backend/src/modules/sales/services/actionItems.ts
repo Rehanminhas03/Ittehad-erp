@@ -70,13 +70,13 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
       await countOf(salesOrder, and(scope, eq(salesOrder.status, 'approved'), carIs('ready_for_delivery', salesOrder.vehicleId))),
     );
     add(
-      { key: 'needs-car', title: 'Booked orders are waiting for a car', to: '/sales/delivery-status?stage=waiting', urgent: false },
+      { key: 'needs-car', title: 'Booked orders are waiting for a car', to: '/sales/delivery-status?range=all&stage=waiting', urgent: false },
       await countOf(salesOrder, and(scope, sql`${salesOrder.status} in ('draft', 'submitted', 'approved')`, sql`${salesOrder.vehicleId} is null`)),
     );
   }
   if (access.hasAny([P.deliveriesComplete])) {
     add(
-      { key: 'delivery-due', title: 'Deliveries are due today (or overdue)', to: '/sales/delivery-status?stage=scheduled', urgent: true },
+      { key: 'delivery-due', title: 'Deliveries are due today (or overdue)', to: '/sales/delivery-status?range=all&stage=scheduled', urgent: true },
       await countOf(delivery, and(deliveries.viewCondition(access), eq(delivery.status, 'scheduled'), sql`${delivery.scheduledDate} <= ${pakistanToday()}::date`)),
     );
   }
@@ -87,7 +87,7 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
     const notArrived = sql`(${salesOrder.vehicleId} is null or not exists (select 1 from ${vehicle} where ${vehicle.id} = ${salesOrder.vehicleId}
       and ${vehicle.status} in ('received', 'ready_for_delivery', 'delivered')))`;
     add(
-      { key: 'overdue-car', title: 'Orders past their expected delivery and the car has not arrived', to: '/sales/delivery-status?stage=waiting&overdue=true', urgent: true },
+      { key: 'overdue-car', title: 'Orders past their expected delivery and the car has not arrived', to: '/sales/delivery-status?range=all&stage=waiting&overdue=true', urgent: true },
       await countOf(
         salesOrder,
         and(orders.viewCondition(access), sql`${salesOrder.status} in ('submitted', 'approved')`, sql`${salesOrder.expectedDeliveryDate} < ${pakistanToday()}::date`, notArrived),
@@ -97,7 +97,7 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
   // At the dealership for over 3 days (received, the last change to the car) with no delivery date.
   if (access.hasAny([P.deliveriesSchedule])) {
     add(
-      { key: 'received-not-scheduled', title: 'Cars received over 3 days ago with no delivery scheduled', to: '/sales/delivery-status?stage=received', urgent: true },
+      { key: 'received-not-scheduled', title: 'Cars received over 3 days ago with no delivery scheduled', to: '/sales/delivery-status?range=all&stage=received', urgent: true },
       await countOf(
         salesOrder,
         and(
@@ -115,6 +115,22 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
     add(
       { key: 'duplicates', title: 'Duplicate customers sent to you by salespeople', to: '/sales/leads?escalated=true&open=true&range=all', urgent: false },
       await countOf(lead, and(leads.viewCondition(access), sql`${lead.escalatedAt} is not null`, sql`${lead.status} in ('new', 'follow_up', 'visited')`)),
+    );
+  }
+
+  // ---- Appointments today: the salesperson (own leads), the Assistant Manager and the Manager ----
+  if (access.hasAny([P.leadsViewAll, P.leadsViewOwn])) {
+    const today = pakistanToday();
+    add(
+      { key: 'appointments-today', title: 'Customer appointments today', to: `/sales/leads?appointmentOn=${today}&range=all`, urgent: true },
+      await countOf(
+        lead,
+        and(
+          leads.viewCondition(access),
+          sql`(${lead.appointmentAt} at time zone 'Asia/Karachi')::date = ${today}::date`,
+          sql`${lead.status} not in ('completed', 'exhausted')`,
+        ),
+      ),
     );
   }
 

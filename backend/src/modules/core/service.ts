@@ -178,7 +178,7 @@ export async function changePassword(
   if (input.currentPassword === input.newPassword) {
     throw validationError([{ in: 'body', path: 'newPassword', message: 'Choose a different password' }]);
   }
-  await tx.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(input.newPassword) }, select: { id: true } });
+  await tx.user.update({ where: { id: u.id }, data: { passwordHash: await hashPassword(input.newPassword), mustChangePassword: false }, select: { id: true } });
   await revokeSessions(tx, u.id);
   await writeAudit(tx, { actorId: u.id, ip: meta.ip, requestId: meta.requestId }, { entityType: 'core.user', entityId: u.id, action: 'password.change' });
   // Reuses the request's own access (unaffected by the password change) instead of re-querying
@@ -218,8 +218,8 @@ export async function buildMe(tx: Executor, access: Access) {
          where ${branch.isActive} = true and ${scopeWhere(all, { dealership: branch.dealershipId, branch: branch.id })}
          order by ${branch.name}`,
   );
-  const profile = await tx.user.findUnique({ where: { id: access.userId }, select: { id: true, email: true, fullName: true, phone: true } });
-  return { user: profile ?? { ...access.user, phone: null }, permissions, dealerships, branches };
+  const profile = await tx.user.findUnique({ where: { id: access.userId }, select: { id: true, email: true, fullName: true, phone: true, mustChangePassword: true } });
+  return { user: profile ?? { ...access.user, phone: null, mustChangePassword: false }, permissions, dealerships, branches };
 }
 
 // =============================================================================
@@ -238,6 +238,7 @@ function userVisibility(access: Access, code: string): SQL {
 
 /** The public user columns (publicUserColumns) for hand-written SQL, under their API names. */
 const PUBLIC_USER_SQL = sql`${user.id} as "id", ${user.email} as "email", ${user.fullName} as "fullName", ${user.phone} as "phone",
+  ${user.employeeCode} as "employeeCode", ${user.cnic} as "cnic", ${user.mustChangePassword} as "mustChangePassword",
   ${user.isActive} as "isActive", ${user.lastLoginAt} as "lastLoginAt", ${user.createdAt} as "createdAt", ${user.updatedAt} as "updatedAt"`;
 
 type PublicUser = {
@@ -245,6 +246,9 @@ type PublicUser = {
   email: string;
   fullName: string;
   phone: string | null;
+  employeeCode: string | null;
+  cnic: string | null;
+  mustChangePassword: boolean;
   isActive: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
@@ -271,9 +275,13 @@ export async function listUsers(ctx: EntityCtx, q: PageQuery, f: z.output<typeof
   const conds: SQL[] = [userVisibility(ctx.access, CorePerm.usersView)];
   if (q.q) {
     const p = `%${escapeLike(q.q)}%`;
-    conds.push(or(ilike(user.email, p), ilike(user.fullName, p))!);
+    conds.push(or(ilike(user.email, p), ilike(user.fullName, p), ilike(user.employeeCode, p), ilike(user.phone, p))!);
   }
   if (f.isActive !== undefined) conds.push(eq(user.isActive, f.isActive));
+  if (f.inactiveDays) {
+    // Still active but not signed in for that long (or never).
+    conds.push(sql`${user.isActive} and (${user.lastLoginAt} is null or ${user.lastLoginAt} < now() - make_interval(days => ${f.inactiveDays}::int))`);
+  }
   if (f.dealershipId || f.roleId) {
     const c: SQL[] = [sql`${userRole.userId} = ${user.id}`];
     if (f.dealershipId) c.push(eq(userRole.dealershipId, f.dealershipId));
@@ -316,18 +324,34 @@ const USER_ADMIN_CODES: string[] = [CorePerm.usersCreate, CorePerm.usersUpdate, 
  * Permissions of a role the caller could not hand out at `target` (empty: they may). They may if
  * they hold every permission of the role there, or the role is delegated to a permission they hold
  * there (role.delegatedBy, e.g. a Sales Manager and the Salesperson role).
- * Roles that administer users are appointed by a global administrator only: a dealership-scoped
- * manager can never create, reset or deactivate a peer (or anyone else who manages users).
+ * Roles that administer users are appointed by a global administrator only, except a role delegated
+ * to a permission the caller holds that grants nothing the caller lacks there: a Sales Manager may
+ * create, reset or deactivate another Sales Manager of their dealership, never a Dealership Manager.
  */
 async function undelegablePermissions(ctx: EntityCtx, roleId: number, target: ScopeTarget | null): Promise<string[]> {
-  const covers = (code: string) => (target ? ctx.access.canIn(code, target) : ctx.access.hasGlobal(code));
   const codes = await permissionCodesOfRole(ctx.tx, roleId);
+  return undelegableOf(ctx, codes, target, async () => (await ctx.tx.role.findUnique({ where: { id: roleId }, select: { delegatedBy: true } }))?.delegatedBy ?? null);
+}
+
+/** undelegablePermissions for a role whose permission codes are already loaded. */
+async function undelegableOf(
+  ctx: EntityCtx,
+  codes: string[],
+  target: ScopeTarget | null,
+  delegatedBy: () => Promise<string | null> | string | null,
+): Promise<string[]> {
+  const covers = (code: string) => (target ? ctx.access.canIn(code, target) : ctx.access.hasGlobal(code));
   const administers = codes.filter((c) => USER_ADMIN_CODES.includes(c));
-  if (administers.length && !administers.every((c) => ctx.access.hasGlobal(c))) return administers;
   const missing = codes.filter((c) => !covers(c));
+  if (administers.length && !administers.every((c) => ctx.access.hasGlobal(c))) {
+    // A role that manages users, delegated to a permission the caller holds there (the Sales Manager
+    // role, to Sales Managers): only a peer may grant it, holding its every permission in that scope.
+    const by = target && !missing.length ? await delegatedBy() : null;
+    return by && covers(by) ? [] : administers;
+  }
   if (!missing.length) return [];
-  const r = await ctx.tx.role.findUnique({ where: { id: roleId }, select: { delegatedBy: true } });
-  return r?.delegatedBy && covers(r.delegatedBy) ? [] : missing;
+  const by = await delegatedBy();
+  return by && covers(by) ? [] : missing;
 }
 
 /**
@@ -410,9 +434,17 @@ async function assignRole(ctx: EntityCtx, userId: number, input: AssignmentInput
 export async function assignableRoles(ctx: EntityCtx, dealershipId?: number) {
   const target: ScopeTarget | null = dealershipId ? { dealershipId, branchId: null } : null;
   if (!(target ? ctx.access.canIn(CorePerm.usersAssignRoles, target) : ctx.access.hasGlobal(CorePerm.usersAssignRoles))) return [];
-  const roles = await ctx.tx.role.findMany({ select: { id: true, name: true, description: true }, orderBy: { name: 'asc' }, take: 200 });
-  const out: typeof roles = [];
-  for (const r of roles) if (!(await undelegablePermissions(ctx, r.id, target)).length) out.push(r);
+  // Every role with its permission codes in one query (a query per role took seconds on a hosted database).
+  const roles = await ctx.tx.role.findMany({
+    select: { id: true, name: true, description: true, delegatedBy: true, rolePermissions: { select: { permission: { select: { code: true } } } } },
+    orderBy: { name: 'asc' },
+    take: 200,
+  });
+  const out: { id: number; name: string; description: string | null }[] = [];
+  for (const { rolePermissions, delegatedBy, ...r } of roles) {
+    const codes = rolePermissions.map((p) => p.permission.code);
+    if (!(await undelegableOf(ctx, codes, target, () => delegatedBy)).length) out.push(r);
+  }
   return out;
 }
 
@@ -426,19 +458,35 @@ export async function createUser(ctx: EntityCtx, input: UserCreateInput) {
       }
     }
   }
+  if (input.employeeCode) await assertNewEmployeeCode(ctx, input.employeeCode);
   const row = await tx.user.create({
-    data: { email: input.email, fullName: input.fullName, phone: input.phone ?? null, passwordHash: await hashPassword(input.password) },
+    data: {
+      email: input.email,
+      fullName: input.fullName,
+      phone: input.phone ?? null,
+      employeeCode: input.employeeCode ?? null,
+      cnic: input.cnic ?? null,
+      passwordHash: await hashPassword(input.password),
+      // The person who created the account knows the password: the new user picks their own at first sign-in.
+      mustChangePassword: true,
+    },
     select: { id: true },
   });
   await ctx.audit({
     entityType: 'core.user',
     entityId: row.id,
     action: 'create',
-    changes: { email: input.email, fullName: input.fullName, phone: input.phone },
+    changes: { email: input.email, fullName: input.fullName, phone: input.phone, employeeCode: input.employeeCode ?? null },
   });
   for (const a of input.roles) await assignRole(ctx, row.id, a);
   const created = await tx.user.findUnique({ where: { id: row.id }, select: publicUserColumns });
   return (await presentUsers(ctx, [created!]))[0]!;
+}
+
+/** Employee codes are unique across the group. */
+async function assertNewEmployeeCode(ctx: EntityCtx, code: string, exceptUserId?: number) {
+  const taken = await ctx.tx.user.findFirst({ where: { employeeCode: code, ...(exceptUserId ? { id: { not: exceptUserId } } : {}) }, select: { fullName: true } });
+  if (taken) throw conflict(`Employee code ${code} already belongs to ${taken.fullName}`);
 }
 
 async function revokeSessions(tx: Tx, userId: number) {
@@ -460,10 +508,17 @@ export async function updateUser(ctx: EntityCtx, id: number, input: UserUpdateIn
   }
   if (input.fullName !== undefined) patch.fullName = input.fullName;
   if (input.phone !== undefined) patch.phone = input.phone;
+  if (input.employeeCode !== undefined && input.employeeCode !== before.employeeCode) {
+    if (input.employeeCode) await assertNewEmployeeCode(ctx, input.employeeCode, id);
+    patch.employeeCode = input.employeeCode;
+  }
+  if (input.cnic !== undefined) patch.cnic = input.cnic;
   if (input.isActive !== undefined) patch.isActive = input.isActive;
   const changes: Record<string, unknown> = diffChanges(before, patch);
   if (input.password) {
     patch.passwordHash = await hashPassword(input.password);
+    // Reset by someone else: the user picks their own at next sign-in.
+    patch.mustChangePassword = id !== access.userId;
     changes.password = 'reset';
   }
   if (Object.keys(changes).length) {

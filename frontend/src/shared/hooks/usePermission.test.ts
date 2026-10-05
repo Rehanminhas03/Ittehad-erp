@@ -3,7 +3,7 @@ import type { Me } from '@/features/auth/authApi.generated';
 import { buildPermissionApi } from './usePermission';
 
 const me: Me = {
-  user: { id: 1, email: 'a@b.c', fullName: 'A', phone: null },
+  user: { id: 1, email: 'a@b.c', fullName: 'A', phone: null, mustChangePassword: false },
   dealerships: [
     { id: 1, code: 'HYD', name: 'Hyundai Islamabad', brand: 'Hyundai' },
     { id: 2, code: 'JET', name: 'Jetour Ittehad', brand: 'Jetour' },

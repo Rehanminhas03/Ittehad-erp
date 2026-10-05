@@ -27,6 +27,7 @@ const injectedRtkApi = api
             isActive: queryArg.isActive,
             dealershipId: queryArg.dealershipId,
             roleId: queryArg.roleId,
+            inactiveDays: queryArg.inactiveDays,
           },
         }),
         providesTags: ["User"],
@@ -444,6 +445,7 @@ export type ListUsersApiArg = {
   isActive?: "true" | "false";
   dealershipId?: number;
   roleId?: number;
+  inactiveDays?: number;
 };
 export type CreateUserApiResponse = /** status 201 Success */ User;
 export type CreateUserApiArg = {
@@ -690,6 +692,9 @@ export type User = {
   email: string;
   fullName: string;
   phone: string | null;
+  employeeCode: string | null;
+  cnic: string | null;
+  mustChangePassword: boolean;
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
@@ -717,14 +722,18 @@ export type RoleAssignmentInput = {
 export type UserCreate = {
   email: string;
   fullName: string;
-  phone?: string | null;
+  phone: string;
+  employeeCode?: string | null;
+  cnic?: string | null;
   password: string;
   roles?: RoleAssignmentInput[];
 };
 export type UserUpdate = {
   email?: string;
   fullName?: string;
-  phone?: string | null;
+  phone?: string;
+  employeeCode?: string | null;
+  cnic?: string | null;
   isActive?: boolean;
   password?: string;
 };

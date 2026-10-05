@@ -121,16 +121,19 @@ function AssignRoleForm({ userId }: { userId: number }) {
           ))}
         </Select>
       </Field>
-      <Field label="Branch" htmlFor="as-branch">
-        <Select id="as-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)} disabled={!dealershipId}>
-          <option value="">Whole dealership</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      {/* Sales staff work for the whole dealership: only a System Admin limits a role to one branch. */}
+      {perm.isGlobal(P.usersAssignRoles) && (
+        <Field label="Branch" htmlFor="as-branch">
+          <Select id="as-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)} disabled={!dealershipId}>
+            <option value="">Whole dealership</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
       <Button onClick={onAssign} loading={isLoading} disabled={!roleId || (!global && !dealershipId)}>
         Assign role
       </Button>

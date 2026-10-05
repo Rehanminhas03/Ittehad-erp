@@ -3,6 +3,28 @@ import { Id, Timestamp, z } from '../../lib/zod';
 const code = z.string().trim().min(2).max(20).regex(/^[A-Z0-9_-]+$/, 'Uppercase letters, digits, - and _ only');
 const name = z.string().trim().min(2).max(120);
 const optionalText = (max = 200) => z.string().trim().max(max).nullish();
+/** A staff member's phone (required): 10–15 digits, written any way (0300-1234567, +92 300 1234567). */
+const staffPhone = z
+  .string({ error: 'Phone number is required' })
+  .trim()
+  .max(30)
+  .refine((v) => /^[+\d][\d\s()-]*$/.test(v) && /^\d{10,15}$/.test(v.replace(/\D/g, '')), 'Enter a valid phone number, e.g. 03001234567');
+/** HR employee code (optional, unique), stored in capitals; '' clears it. */
+const employeeCode = z
+  .string()
+  .trim()
+  .max(30)
+  .regex(/^[A-Za-z0-9/_-]*$/, 'Letters, digits, - / and _ only')
+  .transform((v) => v.toUpperCase() || null)
+  .nullish();
+/** Employee CNIC (optional), typed with or without dashes; stored as its 13 digits. '' clears it. */
+const staffCnic = z
+  .string()
+  .trim()
+  .max(20)
+  .transform((v) => v.replace(/\D/g, '') || null)
+  .refine((v) => v === null || v.length === 13, 'CNIC must be 13 digits, e.g. 14301-5305891-1')
+  .nullish();
 
 // ---- Dealership --------------------------------------------------------------
 export const DealershipSchema = z.object({
@@ -138,6 +160,11 @@ export const UserSchema = z
     email: z.string(),
     fullName: z.string(),
     phone: z.string().nullable(),
+    employeeCode: z.string().nullable(),
+    /** 13 digits. */
+    cnic: z.string().nullable(),
+    /** Must choose their own password at next sign-in (set by someone else). */
+    mustChangePassword: z.boolean(),
     isActive: z.boolean(),
     lastLoginAt: Timestamp.nullable(),
     createdAt: Timestamp,
@@ -158,7 +185,9 @@ export const UserCreate = z
   .object({
     email: z.email().trim().toLowerCase().max(200),
     fullName: name,
-    phone: optionalText(30),
+    phone: staffPhone,
+    employeeCode,
+    cnic: staffCnic,
     password,
     roles: z.array(RoleAssignmentInput).max(20).default([]),
   })
@@ -169,7 +198,10 @@ export const UserUpdate = z
     /** Sign-in email; must stay unique. */
     email: z.email().trim().toLowerCase().max(200).optional(),
     fullName: name.optional(),
-    phone: optionalText(30),
+    /** Cannot be cleared once set (every staff member has a phone). */
+    phone: staffPhone.optional(),
+    employeeCode,
+    cnic: staffCnic,
     isActive: z.boolean().optional(),
     password: password.optional(),
   })
@@ -182,6 +214,8 @@ export const UserListQuery = z.object({
     .optional(),
   dealershipId: z.coerce.number().int().positive().optional(),
   roleId: z.coerce.number().int().positive().optional(),
+  /** Active users not signed in for this many days (or never). */
+  inactiveDays: z.coerce.number().int().min(1).max(365).optional(),
 });
 
 // ---- Auth ---------------------------------------------------------------------
@@ -191,7 +225,14 @@ export const LoginBody = z
 
 export const MeSchema = z
   .object({
-    user: z.object({ id: Id, email: z.string(), fullName: z.string(), phone: z.string().nullable() }),
+    user: z.object({
+      id: Id,
+      email: z.string(),
+      fullName: z.string(),
+      phone: z.string().nullable(),
+      /** Someone else chose the password (new user, reset): the app asks for a new one first. */
+      mustChangePassword: z.boolean(),
+    }),
     permissions: z.array(
       z.object({
         code: z.string(),

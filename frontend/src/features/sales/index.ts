@@ -12,3 +12,4 @@
 export { P as SalesPermissions } from './permissions';
 export { SalesDashboard } from './dashboard/SalesDashboard';
 export { ActionBell } from './actions';
+export { HandOverLeads } from './team/HandOverLeads';

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { karachiToday, shiftDays } from '@/shared/components';
+import { DateRangePicker, karachiToday, LIST_RANGES, rangeLabel, shiftDays } from '@/shared/components';
 import { EmptyState, ErrorState, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
 import { apiErrorMessage, cn, formatDate } from '@/shared/lib';
@@ -20,6 +20,7 @@ const STAGES: { key: Stage; label: string; hint: string }[] = [
   { key: 'delivered', label: 'Delivered', hint: 'Handed over (latest first)' },
 ];
 const PAGE_SIZE = 25;
+const DEFAULT_RANGE = '30d';
 
 /** Scheduled deliveries by day: overdue, today, tomorrow, the next 7 days, later. */
 function scheduleGroups(rows: Row[]) {
@@ -59,6 +60,15 @@ export default function DeliveryStatusPage() {
   const [search, setSearch] = useState(q);
   const staffDealers = [P.ordersViewAll, P.deliveriesViewAll].flatMap((c) => perm.dealershipsFor(c)).filter((d, i, all) => all.findIndex((x) => x.id === d.id) === i);
   const staff = staffDealers.length > 0;
+  // The period: booked then (delivered cars: delivered then). The last 30 days unless another range,
+  // or custom dates, are picked; links for work to do (dashboard, action needed) open "All time".
+  const rangeKey = params.get('range') ?? (params.get('from') ? 'custom' : DEFAULT_RANGE);
+  const period =
+    rangeKey === 'custom'
+      ? { from: params.get('from') ?? undefined, to: params.get('to') ?? undefined }
+      : (LIST_RANGES.find((r) => r.key === rangeKey) ?? LIST_RANGES[LIST_RANGES.length - 1]!).range();
+  const periodText =
+    rangeKey === 'custom' ? rangeLabel({ from: period.from, to: period.to }) || 'the chosen dates' : (LIST_RANGES.find((r) => r.key === rangeKey)?.label.toLowerCase() ?? '');
 
   const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -76,7 +86,16 @@ export default function DeliveryStatusPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  const { data, isLoading, isFetching, error, refetch } = useGetDeliveryPipelineQuery({ stage, dealershipId, q: q || undefined, overdue: overdue ? 'true' : undefined, page, pageSize: PAGE_SIZE });
+  const { data, isLoading, isFetching, error, refetch } = useGetDeliveryPipelineQuery({
+    stage,
+    dealershipId,
+    q: q || undefined,
+    overdue: overdue ? 'true' : undefined,
+    from: period.from,
+    to: period.to,
+    page,
+    pageSize: PAGE_SIZE,
+  });
   const today = karachiToday();
   const open = (r: Row) => {
     if (perm.canIn(P.ordersViewAll, r.dealershipId)) navigate(`/sales/orders/${r.orderId}`);
@@ -176,6 +195,24 @@ export default function DeliveryStatusPage() {
               ))}
             </Select>
           )}
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-slate-600" title="Booked in this period; on the Delivered tab, delivered in it">
+              {stage === 'delivered' ? 'Delivered' : 'Booked'}
+            </span>
+            <DateRangePicker
+              presets={LIST_RANGES}
+              value={rangeKey}
+              custom={rangeKey === 'custom' ? period : undefined}
+              onChange={(key, r) =>
+                update({
+                  range: key === DEFAULT_RANGE ? null : key,
+                  from: key === 'custom' ? (r.from ?? null) : null,
+                  to: key === 'custom' ? (r.to ?? null) : null,
+                  page: null,
+                })
+              }
+            />
+          </div>
           {(stage === 'waiting' || stage === 'in_transit') && (
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" checked={overdue} onChange={(e) => update({ overdue: e.target.checked ? 'true' : null, page: null })} />
@@ -194,7 +231,17 @@ export default function DeliveryStatusPage() {
         </div>
       ) : !data.items.length ? (
         <div className="surface p-8">
-          <EmptyState title={overdue ? 'Nothing overdue here' : `No orders ${STAGES.find((s) => s.key === stage)!.label.toLowerCase()}`} description={STAGES.find((s) => s.key === stage)!.hint} />
+          <EmptyState
+            title={overdue ? 'Nothing overdue here' : `No orders ${STAGES.find((s) => s.key === stage)!.label.toLowerCase()}`}
+            description={rangeKey === 'all' ? STAGES.find((s) => s.key === stage)!.hint : `${stage === 'delivered' ? 'Delivered' : 'Booked'}: ${periodText}.`}
+          />
+          {rangeKey !== 'all' && (
+            <div className="mt-2 flex justify-center">
+              <button type="button" onClick={() => update({ range: 'all', from: null, to: null, page: null })} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+                Show all time
+              </button>
+            </div>
+          )}
         </div>
       ) : stage === 'scheduled' ? (
         <div className="space-y-4">

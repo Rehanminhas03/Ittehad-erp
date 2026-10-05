@@ -58,6 +58,8 @@ export const orderView: EntityViewConfig<SalesOrder> = {
   list: {
     defaultSort: '-createdAt',
     searchPlaceholder: 'Search order or PBO number (or its last digits)',
+    // Booked between two days; the last 30 days unless another range (or custom dates) is picked.
+    dateRange: { label: 'Booked', fromParam: 'bookedFrom', toParam: 'bookedTo', defaultPreset: '30d' },
     filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Open (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, dealershipFilter],
     columns: [
       { key: 'orderNo', header: 'Order', sortKey: 'orderNo', render: (o) => mono(o.orderNo) },

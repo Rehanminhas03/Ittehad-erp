@@ -50,7 +50,7 @@ function ProfileSection() {
 }
 
 /** Password section: changing it signs out every other session (this one stays signed in). */
-function PasswordSection() {
+export function PasswordSection({ title = 'Password', currentLabel = 'Current password' }: { title?: string; currentLabel?: string }) {
   const dispatch = useAppDispatch();
   const toast = useToast();
   const [currentPassword, setCurrentPassword] = useState('');
@@ -68,9 +68,9 @@ function PasswordSection() {
   };
 
   return (
-    <Section title="Password" className="max-w-md">
+    <Section title={title} className="max-w-md">
       <div className="grid grid-cols-1 gap-4">
-        <Field label="Current password" htmlFor="currentPassword" required error={errors.currentPassword}>
+        <Field label={currentLabel} htmlFor="currentPassword" required error={errors.currentPassword}>
           <Input id="currentPassword" type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
         </Field>
         <Field label="New password" htmlFor="newPassword" required hint="At least 10 characters, with a letter and a digit." error={errors.newPassword}>

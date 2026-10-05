@@ -103,6 +103,7 @@ export type Me = {
     email: string;
     fullName: string;
     phone: string | null;
+    mustChangePassword: boolean;
   };
   permissions: {
     code: string;

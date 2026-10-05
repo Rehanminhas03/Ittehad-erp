@@ -87,6 +87,12 @@ export async function deliveryPipeline(ctx: EntityCtx, q: z.output<typeof Delive
     conds.push(sql`${salesOrder.expectedDeliveryDate} < ${pakistanToday()}::date and ${salesOrder.status} <> 'delivered'
       and (${vehicle.status} is null or ${vehicle.status} not in ('received', 'ready_for_delivery', 'delivered'))`);
   }
+  // The period: when the order was booked; a delivered car, when it was delivered.
+  const day = sql`(case when ${STAGE} = 'delivered'
+      then coalesce(${delivery.deliveredOn}, (${salesOrder.updatedAt} at time zone 'Asia/Karachi')::date)
+      else (${salesOrder.createdAt} at time zone 'Asia/Karachi')::date end)`;
+  if (q.from) conds.push(sql`${day} >= ${q.from}::date`);
+  if (q.to) conds.push(sql`${day} <= ${q.to}::date`);
   if (q.q?.trim()) {
     const p = `%${escapeLike(q.q.trim())}%`;
     conds.push(or(ilike(salesOrder.orderNo, p), ilike(salesOrder.pboNo, p), ilike(customer.fullName, p), ilike(vehicle.vin, p), ilike(vehicle.engineNo, p)));

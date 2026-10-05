@@ -349,6 +349,7 @@ export const resultExtension = {
     expectedDeliveryDate: { needs: { expectedDeliveryDate: true }, compute: (r: { expectedDeliveryDate: Date | null }) => fromDate(r.expectedDeliveryDate) },
     paymentAmount: { needs: { paymentAmount: true }, compute: (r: { paymentAmount: { toFixed(dp: number): string } | null }) => fromDecimal(r.paymentAmount, 2) },
     escalatedById: { needs: { escalatedById: true }, compute: (r: { escalatedById: bigint | null }) => fromBigInt(r.escalatedById) },
+    appointmentSetById: { needs: { appointmentSetById: true }, compute: (r: { appointmentSetById: bigint | null }) => fromBigInt(r.appointmentSetById) },
     convertedById: { needs: { convertedById: true }, compute: (r: { convertedById: bigint | null }) => fromBigInt(r.convertedById) },
     salesOrderId: { needs: { salesOrderId: true }, compute: (r: { salesOrderId: bigint | null }) => fromBigInt(r.salesOrderId) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },

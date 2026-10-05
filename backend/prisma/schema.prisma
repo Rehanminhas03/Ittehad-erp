@@ -594,6 +594,12 @@ model User {
   email                                                          String
   fullName                                                       String                   @map("full_name")
   phone                                                          String?
+  /// HR employee code, unique across the group (e.g. HYD-0042).
+  employeeCode                                                   String?                  @unique(map: "user_employee_code_unique") @map("employee_code")
+  /// Employee's CNIC, 13 digits.
+  cnic                                                           String?
+  /// Set when someone else chose the password (new user, reset): the user picks their own at next sign-in.
+  mustChangePassword                                             Boolean                  @default(false) @map("must_change_password")
   passwordHash                                                   String                   @map("password_hash")
   isActive                                                       Boolean                  @default(true) @map("is_active")
   tokenVersion                                                   Int                      @default(0) @map("token_version")
@@ -1387,6 +1393,12 @@ model Lead {
   escalatedAt              DateTime?      @map("escalated_at") @db.Timestamptz(6)
   escalatedById            BigInt?        @map("escalated_by_id")
   escalationNote           String?        @map("escalation_note")
+  /// An appointment with the customer (showroom visit, test drive…), set by the salesperson / AM / Manager.
+  appointmentAt            DateTime?      @map("appointment_at") @db.Timestamptz(6)
+  appointmentNote          String?        @map("appointment_note")
+  appointmentSetById       BigInt?        @map("appointment_set_by_id")
+  /// When the "appointment today" reminder went out (once per appointment).
+  appointmentRemindedAt    DateTime?      @map("appointment_reminded_at") @db.Timestamptz(6)
   convertedAt              DateTime?      @map("converted_at") @db.Timestamptz(6)
   convertedById            BigInt?        @map("converted_by_id")
   status                   String         @default("new")
@@ -1411,6 +1423,7 @@ model Lead {
 
   @@unique([dealershipId, prospectMobileNormalized], map: "lead_active_mobile_uq", where: raw("(status = ANY (ARRAY['new'::text, 'follow_up'::text, 'visited'::text, 'converted'::text, 'processing'::text]))"))
   @@index([branchId], map: "lead_branch_id_index")
+  @@index([appointmentAt], map: "lead_appointment_at_index")
   @@index([convertedById], map: "lead_converted_by_id_index")
   @@index([createdById], map: "lead_created_by_id_index")
   @@index([customerId], map: "lead_customer_id_index")
@@ -1450,37 +1463,43 @@ model LeadFollowUp {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model PpfForm {
-  id               BigInt     @id @default(autoincrement())
-  dealershipId     BigInt     @map("dealership_id")
-  branchId         BigInt?    @map("branch_id")
-  formNo           String     @unique(map: "ppf_form_formNo_unique") @map("form_no")
-  leadId           BigInt     @map("lead_id")
-  ownerId          BigInt     @map("owner_id")
-  pboNo            String?    @map("pbo_no")
-  chassisNo        String?    @map("chassis_no")
-  engineNo         String?    @map("engine_no")
-  coverage         String
-  coverageDetails  String?    @map("coverage_details")
-  filmBrand        String?    @map("film_brand")
-  finish           String     @default("gloss")
-  warrantyYears    Int?       @map("warranty_years")
-  amount           Decimal    @db.Decimal(14, 2)
-  discount         Decimal    @default(0) @db.Decimal(14, 2)
-  totalAmount      Decimal    @map("total_amount") @db.Decimal(14, 2)
-  advancePaid      Decimal    @default(0) @map("advance_paid") @db.Decimal(14, 2)
-  installationDate DateTime?  @map("installation_date") @db.Date
-  notes            String?
-  extraFields      Json       @default("{}") @map("extra_fields")
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdById      BigInt?    @map("created_by_id")
-  updatedById      BigInt?    @map("updated_by_id")
-  branch           Branch?    @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_branch_id_dealership_id_branch_id_dealership_id_fk")
-  createdBy        User?      @relation("ppf_form_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_created_by_id_user_id_fk")
-  dealership       Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_dealership_id_dealership_id_fk")
-  lead             Lead       @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_lead_id_lead_id_fk")
-  owner            User       @relation("ppf_form_owner_idTouser", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_owner_id_user_id_fk")
-  updatedBy        User?      @relation("ppf_form_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_updated_by_id_user_id_fk")
+  id                BigInt     @id @default(autoincrement())
+  dealershipId      BigInt     @map("dealership_id")
+  branchId          BigInt?    @map("branch_id")
+  formNo            String     @unique(map: "ppf_form_formNo_unique") @map("form_no")
+  leadId            BigInt     @map("lead_id")
+  ownerId           BigInt     @map("owner_id")
+  pboNo             String?    @map("pbo_no")
+  chassisNo         String?    @map("chassis_no")
+  engineNo          String?    @map("engine_no")
+  coverage          String
+  coverageDetails   String?    @map("coverage_details")
+  /// The film package (PPF_PACKAGES, e.g. nenotek_prime).
+  protectionPackage String?    @map("protection_package")
+  /// The customer as printed on the voucher (required when issued; from the lead / customer, checked by the salesperson).
+  customerName      String?    @map("customer_name")
+  customerEmail     String?    @map("customer_email")
+  customerAddress   String?    @map("customer_address")
+  filmBrand         String?    @map("film_brand")
+  finish            String     @default("gloss")
+  warrantyYears     Int?       @map("warranty_years")
+  amount            Decimal    @db.Decimal(14, 2)
+  discount          Decimal    @default(0) @db.Decimal(14, 2)
+  totalAmount       Decimal    @map("total_amount") @db.Decimal(14, 2)
+  advancePaid       Decimal    @default(0) @map("advance_paid") @db.Decimal(14, 2)
+  installationDate  DateTime?  @map("installation_date") @db.Date
+  notes             String?
+  extraFields       Json       @default("{}") @map("extra_fields")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById       BigInt?    @map("created_by_id")
+  updatedById       BigInt?    @map("updated_by_id")
+  branch            Branch?    @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_branch_id_dealership_id_branch_id_dealership_id_fk")
+  createdBy         User?      @relation("ppf_form_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_created_by_id_user_id_fk")
+  dealership        Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_dealership_id_dealership_id_fk")
+  lead              Lead       @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_lead_id_lead_id_fk")
+  owner             User       @relation("ppf_form_owner_idTouser", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_owner_id_user_id_fk")
+  updatedBy         User?      @relation("ppf_form_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_updated_by_id_user_id_fk")
 
   @@index([branchId], map: "ppf_form_branch_id_index")
   @@index([createdById], map: "ppf_form_created_by_id_index")

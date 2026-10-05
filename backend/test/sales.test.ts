@@ -689,3 +689,62 @@ describe('leads summary above the list', () => {
     expect((await summary(s.manager, `?activityFrom=${today}&activityTo=${from30}`)).status).toBe(422);
   });
 });
+
+describe('Appointments and reassigning', () => {
+  it('the salesperson, AM and Manager set appointments; everyone following the lead is reminded on the day', async () => {
+    const s = await setup();
+    const lead = (await api.post('/api/sales/leads').set(bearer(s.sales1.token)).send(walkIn(s.d.id, '0300-7300001'))).body;
+    const appoint = (who: Login, at: string | null, note?: string) =>
+      api.put(`/api/sales/leads/${lead.id}/appointment`).set(bearer(who.token)).send({ appointmentAt: at, note });
+    const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+
+    // Not another salesperson, not in the past.
+    expect((await appoint(s.sales2, inHours(2))).status).toBe(404);
+    expect((await appoint(s.sales1, inHours(-3))).status).toBe(422);
+    const set = await appoint(s.sales1, inHours(48), 'Test drive');
+    expect(set.status, JSON.stringify(set.body)).toBe(200);
+    expect(set.body).toMatchObject({ appointmentNote: 'Test drive', appointmentSetById: s.sales1.user.id, appointmentSetByName: s.sales1.user.fullName });
+    // The Assistant Manager moves it to later today (still in the future).
+    const later = new Date(Math.min(Date.now() + 60_000 * 5, Date.parse(`${pakistanToday()}T23:59:00+05:00`))).toISOString();
+    expect((await appoint(s.am, later, 'Showroom visit')).status).toBe(200);
+
+    // Today's reminder: the salesperson, the AM and the Manager; once.
+    const { sendAppointmentReminders } = await import('../src/modules/sales/services/appointmentReminders');
+    expect(await sendAppointmentReminders()).toBeGreaterThanOrEqual(1);
+    const reminders = async (who: Login) =>
+      ((await api.get('/api/notifications').set(bearer(who.token))).body.items as { title: string; href: string }[]).filter((n) => n.title === 'Customer appointment today');
+    for (const who of [s.sales1, s.am, s.manager]) expect(await reminders(who)).toEqual([expect.objectContaining({ href: `/sales/leads/${lead.id}` })]);
+    expect(await reminders(s.sales2)).toEqual([]);
+    await sendAppointmentReminders();
+    expect(await reminders(s.manager)).toHaveLength(1);
+
+    // "Action needed" and the leads list (appointments today).
+    const items = (await api.get('/api/sales/dashboard/actions').set(bearer(s.manager.token))).body as { key: string; count: number }[];
+    expect(items.find((i) => i.key === 'appointments-today')?.count).toBe(1);
+    const today = (await api.get(`/api/sales/leads?appointmentOn=${pakistanToday()}`).set(bearer(s.manager.token))).body;
+    expect(today.items.map((l: { id: number }) => l.id)).toEqual([lead.id]);
+
+    // Cancelled.
+    expect((await appoint(s.manager, null)).body).toMatchObject({ appointmentAt: null, appointmentNote: null });
+  });
+
+  it('the Assistant Manager and the Manager reassign a lead (with its quotations) to another salesperson', async () => {
+    const s = await setup();
+    const lead = (await api.post('/api/sales/leads').set(bearer(s.sales1.token)).send(walkIn(s.d.id, '0300-7300002'))).body;
+    const reassign = (who: Login, ownerId: number) => api.post(`/api/sales/leads/${lead.id}/reassign`).set(bearer(who.token)).send({ ownerId, note: 'On leave' });
+
+    expect((await reassign(s.sales1, s.sales2.user.id)).status).toBe(403);
+    expect((await reassign(s.am, s.sales1.user.id)).status).toBe(422); // already theirs
+    expect((await reassign(s.am, s.admin.user.id)).status).toBe(422); // not in the sales team
+    const moved = await reassign(s.am, s.sales2.user.id);
+    expect(moved.status, JSON.stringify(moved.body)).toBe(200);
+    expect(moved.body).toMatchObject({ ownerId: s.sales2.user.id, ownerName: s.sales2.user.fullName });
+    expect((await api.get(`/api/sales/leads/${lead.id}`).set(bearer(s.sales2.token))).status).toBe(200);
+    expect((await api.get(`/api/sales/leads/${lead.id}`).set(bearer(s.sales1.token))).status).toBe(404);
+    // The new salesperson is notified.
+    const titles = ((await api.get('/api/notifications').set(bearer(s.sales2.token))).body.items as { title: string }[]).map((n) => n.title);
+    expect(titles).toContain('Lead reassigned');
+    // The Manager gives it back.
+    expect((await reassign(s.manager, s.sales1.user.id)).body.ownerId).toBe(s.sales1.user.id);
+  });
+});

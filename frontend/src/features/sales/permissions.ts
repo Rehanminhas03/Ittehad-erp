@@ -23,6 +23,8 @@ export const P = {
   leadsRecordVisit: 'sales.leads.record_visit',
   leadsConvertOwn: 'sales.leads.convert_own',
   leadsConvertEscalated: 'sales.leads.convert_escalated',
+  leadsReassign: 'sales.leads.reassign',
+  leadsAppointment: 'sales.leads.appointment',
   reportsView: 'sales.reports.view',
   teamManage: 'sales.team.manage',
   stockView: 'sales.stock.view',

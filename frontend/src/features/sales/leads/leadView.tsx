@@ -14,11 +14,13 @@ import {
 } from '@/shared/entity';
 import { formatDate, formatDateTime, humanize } from '@/shared/lib';
 import { DuplicateLeadNotice } from './components/DuplicateLeadNotice';
+import { formatAppointment, LeadAppointment } from './components/LeadAppointment';
 import { LeadConversion } from './components/LeadConversion';
 import { LeadDetailsEditor } from './components/LeadDetailsEditor';
 import { LeadFollowUps } from './components/LeadFollowUps';
 import { LeadModelSelect } from './components/LeadModelSelect';
 import { LeadOrder } from './components/LeadOrder';
+import { LeadReassign } from './components/LeadReassign';
 import { LeadStatusSummary } from './components/LeadStatusSummary';
 import { VariantPicker } from './components/VariantPicker';
 import { LeadDocuments, LeadDocumentsButton } from '../documents';
@@ -129,6 +131,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { param: 'source', label: 'Source', type: 'select', options: LEAD_SOURCES },
       { param: 'ownerId', label: 'Salesperson', type: 'select', useOptions: useSalespersonOptions, visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted]) },
       { param: 'escalated', label: 'Sent to AM', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
+      { param: 'upcomingAppointment', label: 'Appointment (today on)', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       dealershipFilter,
       // Set by dashboard tiles and "Action needed" links (shown as removable chips).
       { param: 'open', label: 'Open leads only', type: 'hidden', chip: (v) => (v === 'true' ? 'Open leads only' : 'Closed leads only') },
@@ -137,6 +140,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { param: 'convertedFrom', label: 'Converted from', type: 'hidden', chip: (v) => `Converted from ${day(v)}` },
       { param: 'convertedTo', label: 'Converted to', type: 'hidden', chip: (v) => `Converted up to ${day(v)}` },
       { param: 'vehicleStage', label: 'Car', type: 'hidden', chip: (v) => `Car: ${humanize(v).toLowerCase()}` },
+      { param: 'appointmentOn', label: 'Appointment on', type: 'hidden', chip: (v) => `Appointment on ${day(v)}` },
     ],
     columns: [
       {
@@ -147,6 +151,7 @@ export const leadView: EntityViewConfig<Lead> = {
           <span className="inline-flex items-center gap-2">
             {strong(l.prospectName)}
             {l.escalatedAt && (OPEN_LEAD_STATES as readonly string[]).includes(l.status) && <Badge tone="amber">Sent to AM</Badge>}
+            {l.appointmentAt && new Date(l.appointmentAt).getTime() >= Date.now() - 3_600_000 && <Badge tone="blue">{formatAppointment(l.appointmentAt)}</Badge>}
           </span>
         ),
       },
@@ -173,6 +178,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Interested in', value: (l) => [l.modelName, l.variant, l.preferredColor].filter(Boolean).join(' · ') || null },
       { label: 'Expected close', value: (l) => formatDate(l.expectedCloseDate) },
       { label: 'Last follow-up', value: (l) => formatDateTime(l.lastFollowUpAt) },
+      { label: 'Appointment', value: (l) => (l.appointmentAt ? `${formatAppointment(l.appointmentAt)}${l.appointmentNote ? ` — ${l.appointmentNote}` : ''}` : null) },
       {
         label: 'Sent to AM',
         value: (l) =>
@@ -186,6 +192,8 @@ export const leadView: EntityViewConfig<Lead> = {
     sections: (l) => (
       <>
         <LeadConversion lead={l} />
+        <LeadAppointment lead={l} />
+        <LeadReassign lead={l} />
         <LeadDetailsEditor lead={l} />
         <LeadOrder lead={l} />
         <LeadDocuments lead={l} />

@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { z } from 'zod';
 import { Button, Input } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
-import { type CustomFieldProps, dealershipFilter, type EntityViewConfig, type FilterDef, mono, money, muted, optionalDate, optionalText, strong } from '@/shared/entity';
+import { type CustomFieldProps, dealershipFilter, type EntityViewConfig, type FilterDef, mono, money, muted, optionalDate, optionalText, requiredText, strong } from '@/shared/entity';
 import { formatDate, formatDateTime, formatMoney } from '@/shared/lib';
 import { P } from '../permissions';
 import {
@@ -22,7 +22,7 @@ import {
   useUpdateQuotationMutation,
 } from '../salesApi';
 import { type DocKind, DocumentPreview, DownloadIcon, EyeIcon, PrintIcon } from './DocumentPreview';
-import { PPF_COVERAGES, PPF_FINISHES } from './labels';
+import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } from './labels';
 
 /** Jetour staff: their quotations print a delivery period sentence instead of a number of days. */
 const isJetourStaff = (perm: ReturnType<typeof usePermission>) =>
@@ -255,15 +255,16 @@ export const ppfView: EntityViewConfig<PpfForm> = {
     subtitle: (f) => `${f.customerName ?? ''} · Paint Protection Film`,
     fields: [
       { label: 'Customer', value: (f) => f.customerName },
+      { label: 'Email', value: (f) => f.customerEmail },
+      { label: 'Address', value: (f) => f.customerAddress },
       { label: 'Sales executive', value: (f) => f.ownerName },
       { label: 'PBO / CBO no.', value: (f) => f.pboNo },
       { label: 'Chassis', value: (f) => f.chassisNo },
       { label: 'Engine', value: (f) => f.engineNo },
       { label: 'Coverage', value: (f) => PPF_COVERAGES.find((c) => c.value === f.coverage)?.label },
-      { label: 'Panels', value: (f) => f.coverageDetails },
+      { label: 'Protection package', value: (f) => PPF_PACKAGES.find((p) => p.value === f.protectionPackage)?.label ?? f.coverageDetails },
       { label: 'Finish', value: (f) => PPF_FINISHES.find((c) => c.value === f.finish)?.label },
       { label: 'Film brand', value: (f) => f.filmBrand },
-      { label: 'Warranty', value: (f) => (f.warrantyYears != null ? `${f.warrantyYears} years` : null) },
       { label: 'Amount', value: (f) => formatMoney(f.amount) },
       { label: 'Discount', value: (f) => formatMoney(f.discount) },
       { label: 'Price', value: (f) => <span className="font-semibold">{formatMoney(f.totalAmount)}</span> },
@@ -289,11 +290,13 @@ export const ppfView: EntityViewConfig<PpfForm> = {
       { name: 'chassisNo', label: 'Chassis', type: 'text', hint: 'Required once the sales order is raised' },
       { name: 'engineNo', label: 'Engine', type: 'text', hint: 'Required once the sales order is raised' },
       { name: 'extraFields', label: 'Other voucher fields', type: 'custom', span: 2, render: (p) => <ExtraFieldsInput {...p} /> },
+      { name: 'customerName', label: 'Customer name', type: 'text', required: true },
+      { name: 'customerEmail', label: 'Email', type: 'email', required: true },
+      { name: 'customerAddress', label: 'Address', type: 'text', required: true, span: 2 },
       { name: 'coverage', label: 'Coverage', type: 'select', required: true, options: [...PPF_COVERAGES] },
       { name: 'finish', label: 'Finish', type: 'select', required: true, options: [...PPF_FINISHES] },
-      { name: 'coverageDetails', label: 'Panels covered', type: 'text', span: 2 },
-      { name: 'filmBrand', label: 'Film brand', type: 'text' },
-      { name: 'warrantyYears', label: 'Warranty (years)', type: 'number' },
+      { name: 'protectionPackage', label: 'Protection package', type: 'select', required: true, options: [...PPF_PACKAGES] },
+      { name: 'filmBrand', label: 'Film brand', type: 'text', placeholder: FILM_BRAND_PLACEHOLDER },
       { name: 'amount', label: 'Price before discount (PKR)', type: 'money', required: true },
       { name: 'discount', label: 'Discount (PKR)', type: 'money' },
       { name: 'advancePaid', label: 'Paid (PKR)', type: 'money' },
@@ -306,11 +309,13 @@ export const ppfView: EntityViewConfig<PpfForm> = {
       chassisNo: optionalText(40),
       engineNo: optionalText(40),
       extraFields: z.record(z.string(), z.string()).optional(),
+      customerName: requiredText(),
+      customerEmail: z.email('Enter a valid email').trim(),
+      customerAddress: requiredText(),
       coverage: z.enum(PPF_COVERAGES.map((c) => c.value) as [string, ...string[]]),
       finish: z.enum(PPF_FINISHES.map((c) => c.value) as [string, ...string[]]),
-      coverageDetails: optionalText(500),
+      protectionPackage: z.enum(PPF_PACKAGES.map((c) => c.value) as [string, ...string[]], { error: 'Choose the protection package' }),
       filmBrand: optionalText(80),
-      warrantyYears: z.union([z.literal('').transform(() => null), z.coerce.number().int().min(0, '0-15 years').max(15, '0-15 years')]).nullish(),
       amount: money('PPF amount'),
       discount: money('Discount'),
       advancePaid: money('Advance'),

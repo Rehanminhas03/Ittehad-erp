@@ -24,6 +24,12 @@ export const salesApi = enhancedApi
       importVariantCodes: { invalidatesTags: ['Variant code'] },
       correctLeadDetails: { invalidatesTags: ['Lead', 'SalesOrder', 'Customer'] },
       escalateDuplicateLead: { invalidatesTags: ['Lead'] },
+      setLeadAppointment: { invalidatesTags: ['Lead'] },
+      // The lead's quotations and PPF vouchers move with it (and the track record of both people).
+      reassignLead: { invalidatesTags: ['Lead', 'Quotation', 'PPF form', 'SalesTeam'] },
+      getLeadsToHandOver: { providesTags: ['Lead'] },
+      // A leaver's leads (with their quotations and PPF vouchers) go to someone else.
+      handOverLeads: { invalidatesTags: ['Lead', 'Quotation', 'PPF form', 'SalesTeam'] },
       raiseSalesOrder: { invalidatesTags: ['Lead', 'SalesOrder'] },
       setOrderVehicle: { invalidatesTags: ['SalesOrder', 'Vehicle', 'StockVehicle'] },
       transitionSalesOrder: { invalidatesTags: ['SalesOrder', 'Delivery', 'Lead', 'StockVehicle'] },
