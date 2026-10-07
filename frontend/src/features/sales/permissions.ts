@@ -41,6 +41,10 @@ export const P = {
   deliveriesViewOwn: 'sales.deliveries.view_own',
   deliveriesSchedule: 'sales.deliveries.schedule',
   deliveriesComplete: 'sales.deliveries.complete',
+  paymentsManage: 'sales.payments.manage',
+  ordersClear: 'sales.orders.clear',
+  leaveApply: 'sales.leave.apply',
+  leaveApprove: 'sales.leave.approve',
   quotationsViewAll: 'sales.quotations.view_all',
   quotationsViewOwn: 'sales.quotations.view_own',
   quotationsCreate: 'sales.quotations.create',
@@ -55,7 +59,7 @@ export const P = {
   ppfUpdateOwn: 'sales.ppf.update_own',
 } as const;
 
-export const LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing', 'completed', 'exhausted'] as const;
+export const LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing', 'completed', 'exhausted', 'lost'] as const;
 /** Open leads: still with the salesperson (follow-ups, conversion). */
 export const OPEN_LEAD_STATES = ['new', 'follow_up', 'visited'] as const;
 export const ORDER_STATES = ['draft', 'submitted', 'approved', 'delivered', 'cancelled'] as const;
@@ -123,7 +127,28 @@ export const LAST_ACTIVITY: Record<string, string> = {
   processing: 'Order raised',
   completed: 'Delivered',
   exhausted: 'Exhausted',
+  lost: 'Lost',
 };
+
+export const CUSTOMER_TYPES = [
+  { value: 'individual', label: 'Individual' },
+  { value: 'corporate', label: 'Corporate (company)' },
+];
+export const ORDER_PAYMENT_KINDS = [
+  { value: 'booking', label: 'Booking amount' },
+  { value: 'partial', label: 'Part payment' },
+  { value: 'final', label: 'Final payment' },
+];
+export const CLEARANCE_LABELS: Record<string, { label: string; tone: 'gray' | 'amber' | 'green' | 'red' }> = {
+  none: { label: 'Not requested', tone: 'gray' },
+  requested: { label: 'Clearance requested', tone: 'amber' },
+  approved: { label: 'Cleared for delivery', tone: 'green' },
+  rejected: { label: 'Clearance rejected', tone: 'red' },
+};
+export const LEAVE_TYPES = [
+  { value: 'sick', label: 'Sick leave' },
+  { value: 'emergency', label: 'Emergency leave' },
+];
 
 export const labelOf = (list: { value: string; label: string }[], v: string | null | undefined) =>
   v ? (list.find((x) => x.value === v)?.label ?? v) : null;

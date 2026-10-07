@@ -6,6 +6,7 @@ import { P } from '../permissions';
 import { type DocumentTemplate, type QuotationDocument, useGetDocumentTemplateQuery, useSaveDocumentTemplateMutation } from '../salesApi';
 import { EyeIcon, PdfDialog, usePdf } from './DocumentPreview';
 import { buildQuotationPdf } from './pdf';
+import { LeaveFormatEditor } from './LeaveFormatEditor';
 import { PpfFormatEditor } from './PpfFormatEditor';
 
 type Form = {
@@ -83,7 +84,7 @@ export default function DocumentFormatsPage() {
   const dealerships = perm.dealershipsFor(P.templatesManage);
   const [dealershipId, setDealershipId] = useState<number | undefined>(dealerships[0]?.id);
   const dealer = dealerships.find((d) => d.id === dealershipId);
-  const [tab, setTab] = useState<'quotation' | 'ppf'>('quotation');
+  const [tab, setTab] = useState<'quotation' | 'ppf' | 'leave'>('quotation');
   const { data, isLoading, error, refetch } = useGetDocumentTemplateQuery({ kind: 'quotation', dealershipId: dealershipId! }, { skip: !dealershipId, refetchOnMountOrArgChange: true });
   const [save, { isLoading: saving }] = useSaveDocumentTemplateMutation();
   const [form, setForm] = useState<Form | null>(null);
@@ -153,12 +154,13 @@ export default function DocumentFormatsPage() {
 
   return (
     <div>
-      <PageHeader title="Document formats" subtitle="How the quotation and the PPF voucher print. Every document of the dealership prints with the saved format." />
+      <PageHeader title="Document formats" subtitle="How the quotation, the PPF voucher and the leave application form print. Every document of the dealership prints with the saved format." />
       <div className="glass-soft mb-5 inline-flex rounded-xl p-1" role="tablist" aria-label="Document">
         {(
           [
             ['quotation', 'Quotation'],
             ['ppf', 'PPF voucher'],
+            ['leave', 'Leave form'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -194,6 +196,8 @@ export default function DocumentFormatsPage() {
 
       {tab === 'ppf' ? (
         dealer && <PpfFormatEditor key={dealer.id} dealer={dealer} />
+      ) : tab === 'leave' ? (
+        dealer && <LeaveFormatEditor key={dealer.id} dealer={dealer} />
       ) : error ? (
         <ErrorState message={apiErrorMessage(error)} onRetry={refetch} />
       ) : isLoading || !form ? (

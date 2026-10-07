@@ -37,6 +37,7 @@ const LEAD_STEPS: Record<string, [string, number]> = {
   convert: ['Lead converted', 90],
   visit: ['Lead marked as visited', 45],
   exhaust: ['Lead marked as exhausted', 60],
+  mark_lost: ['Lead lost: customer not interested', 60],
   reopen: ['Lead reopened', 60],
   follow_up: ['Lead moved to follow-up', 20],
   raise_order: ['Sales order raised for a lead', 20],
@@ -85,6 +86,7 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'create') return { title: 'New lead added', weight: 60, href };
       if (e.action === 'update') return { title: 'Lead updated', weight: 30, href };
       if (e.action === 'follow_up') return { title: 'Follow-up recorded on a lead', weight: 35, href };
+      if (e.action === 'follow_up.comment') return { title: 'New comment on a follow-up', weight: 65, href };
       if (e.action === 'details.update') return { title: 'Customer details corrected', weight: 40, href };
       if (e.action === 'escalate') return { title: 'Duplicate customer sent to the Assistant Manager', weight: 65, href };
       if (e.action === 'appointment') {
@@ -105,6 +107,11 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'create') return { title: 'PPF voucher created', weight: 60, href: `/sales/ppf-forms/${id}`, detail: str(c.formNo) };
       if (e.action === 'update') return { title: 'PPF voucher updated', weight: 40, href: `/sales/ppf-forms/${id}` };
       break;
+    case 'sales.leave':
+      if (e.action === 'create') return { title: 'Leave application submitted: please approve or reject', weight: 70, href: `/sales/leave/${id}`, detail: str(c.applicationNo) };
+      if (e.action === 'approve') return { title: 'Leave application approved', weight: 70, href: `/sales/leave/${id}`, detail: str(c.applicationNo) };
+      if (e.action === 'reject') return { title: 'Leave application rejected', weight: 70, href: `/sales/leave/${id}`, detail: str(c.note) };
+      break;
     case 'sales.order': {
       const href = `/sales/orders/${id}`;
       if (e.action === 'create') return { title: 'Sales order raised', weight: 70, href, detail: str(c.orderNo) };
@@ -112,6 +119,11 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'vehicle.set') return { title: 'Car entered on a sales order', weight: 50, href, detail: str(c.vin) };
       if (e.action === 'allocate') return { title: 'Car allocated to a sales order', weight: 55, href };
       if (e.action === 'release') return { title: 'Car released back to stock', weight: 50, href };
+      if (e.action === 'payment.add') return { title: 'Payment received on a sales order', weight: 45, href, detail: str(c.amount) ? `Rs ${str(c.amount)}` : undefined };
+      if (e.action === 'payment.remove') return { title: 'Payment removed from a sales order', weight: 40, href };
+      if (e.action === 'clearance.request') return { title: 'Delivery clearance requested: check the payments', weight: 75, href, detail: str(c.note) };
+      if (e.action === 'clearance.approve') return { title: 'Car cleared for delivery', weight: 75, href };
+      if (e.action === 'clearance.reject') return { title: 'Delivery clearance rejected', weight: 75, href, detail: str(c.note) };
       if (step && ORDER_STEPS[step]) return { title: ORDER_STEPS[step][0], weight: ORDER_STEPS[step][1], href };
       break;
     }
@@ -210,6 +222,11 @@ async function audienceOf(ex: Executor, e: AuditEntry): Promise<Audience | null>
     }
     case 'sales.stock_vehicle':
       return { codes: ['sales.stock.view'] };
+    // Leave: the approvers (Assistant Manager / Manager) and the employee who applied.
+    case 'sales.leave': {
+      const l = await one<{ ownerId: number | null }>(sql`select employee_id as "ownerId" from sales.leave_application where id = ${id}`);
+      return { codes: ['sales.leave.approve'], ownerCodes: ['sales.leave.apply'], ownerId: l?.ownerId };
+    }
     case 'sales.quotation': {
       const q = await one<{ ownerId: number | null }>(sql`select owner_id as "ownerId" from sales.quotation where id = ${id}`);
       return { codes: ['sales.quotations.view_all'], ownerCodes: ['sales.quotations.view_own'], ownerId: q?.ownerId };

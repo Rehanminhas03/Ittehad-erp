@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { subscribe } from '../src/events/bus';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo, clearForDelivery } from './helpers';
 import { pakistanToday } from '../src/lib/dates';
 
 useTestDb();
@@ -111,6 +111,7 @@ async function deliver(s: Setup, orderId: number) {
   await carArrived(orderId);
   const d = await api.post(`/api/sales/orders/${orderId}/deliveries`).set(bearer(s.desk.token)).send({ scheduledDate: today });
   expect(d.status, JSON.stringify(d.body)).toBe(201);
+  await clearForDelivery();
   await api.post(`/api/sales/deliveries/${d.body.id}/complete`).set(bearer(s.desk.token)).send({ odometerKm: 5, checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'], customerAcknowledged: true }).expect(200);
   return d.body.id as number;
 }
@@ -514,6 +515,7 @@ describe('delivery (hand-over)', () => {
     const today = pakistanToday();
     await carArrived(orderId);
     const d = await api.post(`/api/sales/orders/${orderId}/deliveries`).set(bearer(s.desk.token)).send({ scheduledDate: today });
+    await clearForDelivery();
     const complete = (body: Record<string, unknown>) => api.post(`/api/sales/deliveries/${d.body.id}/complete`).set(bearer(s.desk.token)).send(body);
     expect((await complete({ odometerKm: 3, customerAcknowledged: false })).status).toBe(422);
     failActivation = true;

@@ -2,7 +2,17 @@ import { useEffect, useState } from 'react';
 import { Button, Dialog, Field, Input, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { apiFieldErrors } from '@/shared/lib';
-import { type Lead, useCreateLeadPpfFormMutation, useCreateLeadQuotationMutation, useGetDocumentTemplateQuery, useGetLeadOrderVehicleQuery, useListVariantCodesQuery } from '../salesApi';
+import { digitsOnly } from '@/shared/components';
+import {
+  type Lead,
+  useCreateLeadPpfFormMutation,
+  useCreateLeadQuotationMutation,
+  useCreateStandalonePpfFormMutation,
+  useCreateStandaloneQuotationMutation,
+  useGetDocumentTemplateQuery,
+  useGetLeadOrderVehicleQuery,
+  useListVariantCodesQuery,
+} from '../salesApi';
 import { LeadModelSelect } from '../leads/components/LeadModelSelect';
 import { VariantPicker } from '../leads/components/VariantPicker';
 import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } from './labels';
@@ -12,7 +22,8 @@ const P_QUOTATIONS_CREATE = 'sales.quotations.create';
 
 export const JETOUR_DELIVERY_PERIOD = 'ONE MONTH AFTER FULL PAYMENT.';
 
-type Props = { lead: Lead; open: boolean; onClose: () => void; onCreated: (id: number) => void };
+/** From a lead's page (lead), or on its own from the Quotations / PPF vouchers list (dealershipId: no lead, the customer is typed in). */
+type Props = { lead?: Lead; dealershipId?: number; open: boolean; onClose: () => void; onCreated: (id: number) => void };
 const blank = (s: string) => s.trim() || null;
 
 /** Shared submit handling: server field errors next to the fields, anything else as a toast. */
@@ -36,16 +47,21 @@ function useSubmit() {
  * Issue a vehicle quotation: the price quoted (prefilled from the sales order once one exists). It is
  * saved and numbered, then opened in the preview to check before it is downloaded or printed.
  */
-export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
-  const [create, { isLoading }] = useCreateLeadQuotationMutation();
+export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onCreated }: Props) {
+  const [create, { isLoading: creating }] = useCreateLeadQuotationMutation();
+  const [createStandalone, { isLoading: creatingStandalone }] = useCreateStandaloneQuotationMutation();
+  const isLoading = creating || creatingStandalone;
+  const dealershipId = lead?.dealershipId ?? dealer ?? 0;
   const { errors, setErrors, run } = useSubmit();
-  const hasOrder = !!lead.salesOrderId;
+  const hasOrder = !!lead?.salesOrderId;
+  // Without a lead: the customer written on the quotation.
+  const [customer, setCustomer] = useState({ name: '', mobile: '', email: '' });
   // Jetour's quotation: a delivery period sentence, the note under the title, no non-filer tax line.
   const perm = usePermission();
-  const jetour = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === lead.dealershipId)?.brand === 'Jetour';
+  const jetour = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === dealershipId)?.brand === 'Jetour';
   const [v, setV] = useState({
     // From the lead; the customer may now want another model or variant.
-    modelId: lead.interestedModelId ? String(lead.interestedModelId) : '',
+    modelId: lead?.interestedModelId ? String(lead.interestedModelId) : '',
     variantCode: '',
     billTo: '',
     quantity: '1',
@@ -55,8 +71,8 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
     withholdingTax: '',
     withholdingTaxNonFiler: '',
     bookingAmount: '',
-    variant: lead.variant ?? '',
-    color: lead.preferredColor ?? '',
+    variant: lead?.variant ?? '',
+    color: lead?.preferredColor ?? '',
     validDays: '7',
     deliveryDays: '',
     deliveryPeriod: '',
@@ -64,7 +80,7 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
     notes: '',
   });
   // Validity, delivery period and payment mode start from the dealership's quotation format.
-  const { data: format } = useGetDocumentTemplateQuery({ kind: 'quotation', dealershipId: lead.dealershipId });
+  const { data: format } = useGetDocumentTemplateQuery({ kind: 'quotation', dealershipId }, { skip: !dealershipId });
   useEffect(() => {
     if (!format) return;
     setV((s) => ({
@@ -80,20 +96,18 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
   // Hyundai (a Ref prefix): the chosen model's variant codes; the code goes in the Ref (HI/<code>/<date>).
   // A typed variant ("Other") is allowed too; its Ref is then the quotation number.
   const { data: modelCodes } = useListVariantCodesQuery(
-    { dealershipId: lead.dealershipId, modelId: Number(v.modelId) || 0, isActive: 'true', pageSize: 1 },
+    { dealershipId, modelId: Number(v.modelId) || 0, isActive: 'true', pageSize: 1 },
     { skip: !v.modelId },
   );
   const needsVariant = !!format?.refPrefix && (modelCodes?.total ?? 0) > 0;
 
   const submit = () => {
+    if (!lead && !customer.name.trim()) return setErrors({ customerName: 'Enter the customer name' });
+    if (!lead && digitsOnly(customer.mobile).replace(/\D/g, '').length < 10) return setErrors({ customerMobile: 'Enter a valid phone number, e.g. 03001234567' });
     if (!v.modelId) return setErrors({ modelId: 'Choose the model' });
     if (needsVariant && !v.variantCode && !v.variant.trim()) return setErrors({ variantCode: 'Choose the variant code (it goes in the Ref), or type it under "Other"' });
     if (!hasOrder && !v.unitPrice.trim()) return setErrors({ unitPrice: 'Enter the price to quote' });
-    return run(
-      () =>
-        create({
-          id: lead.id,
-          quotationCreate: {
+    const quotationCreate = {
             unitPrice: v.unitPrice.trim() || undefined,
             discount: v.discount.trim() || undefined,
             bookingAmount: v.bookingAmount.trim() || undefined,
@@ -112,8 +126,21 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
             deliveryDays: jetour ? null : v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
             deliveryPeriod: jetour ? blank(v.deliveryPeriod) : null,
             paymentMode: blank(v.paymentMode),
-          },
-        }).unwrap(),
+          };
+    return run(
+      () =>
+        lead
+          ? create({ id: lead.id, quotationCreate }).unwrap()
+          : createStandalone({
+              standaloneQuotationCreate: {
+                ...quotationCreate,
+                dealershipId,
+                modelId: Number(v.modelId),
+                customerName: customer.name.trim(),
+                customerMobile: customer.mobile,
+                customerEmail: customer.email.trim() || null,
+              },
+            }).unwrap(),
       onCreated,
     );
   };
@@ -123,7 +150,7 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
       open={open}
       onClose={onClose}
       size="lg"
-      title={`New vehicle quotation — ${lead.prospectName}`}
+      title={lead ? `New vehicle quotation — ${lead.prospectName}` : 'New vehicle quotation'}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -136,9 +163,26 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
       }
     >
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+          {!lead && (
+            <>
+              <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 sm:col-span-2">
+                A quotation without a lead: write the customer's details. It is not added to the leads list.
+              </p>
+              <Field label="Customer name" htmlFor="qt-cname" required error={errors.customerName}>
+                <Input id="qt-cname" value={customer.name} onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))} invalid={!!errors.customerName} />
+              </Field>
+              <Field label="Phone" htmlFor="qt-cphone" required error={errors.customerMobile} hint="Digits only">
+                <Input id="qt-cphone" type="tel" inputMode="tel" maxLength={16} placeholder="03001234567" value={customer.mobile} onChange={(e) => setCustomer((c) => ({ ...c, mobile: digitsOnly(e.target.value) }))} invalid={!!errors.customerMobile} />
+              </Field>
+              <Field label="Email" htmlFor="qt-cemail" error={errors.customerEmail}>
+                <Input id="qt-cemail" type="email" value={customer.email} onChange={(e) => setCustomer((c) => ({ ...c, email: e.target.value }))} invalid={!!errors.customerEmail} />
+              </Field>
+              <div className="hidden sm:block" />
+            </>
+          )}
           <p className="text-sm text-slate-600 sm:col-span-2">
-            The model and variant start from the lead; change them if the customer wants a quotation for another vehicle.
-            {hasOrder ? ' Leave the price empty to use the sales order price.' : ' Enter the price you are quoting.'}
+            {lead ? 'The model and variant start from the lead; change them if the customer wants a quotation for another vehicle.' : 'Choose the vehicle and enter the price you are quoting.'}
+            {lead ? (hasOrder ? ' Leave the price empty to use the sales order price.' : ' Enter the price you are quoting.') : null}
           </p>
           <Field label="Model" htmlFor="qt-model" required error={errors.modelId}>
             <LeadModelSelect
@@ -146,7 +190,7 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
               value={v.modelId}
               onChange={(modelId) => setV((s) => ({ ...s, modelId }))}
               invalid={!!errors.modelId}
-              dealershipId={lead.dealershipId}
+              dealershipId={dealershipId}
             />
           </Field>
           <Field
@@ -163,11 +207,11 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
               onCode={(code) => setV((s) => ({ ...s, variantCode: code ?? '' }))}
               invalid={!!(errors.variantCode ?? errors.variant)}
               modelId={Number(v.modelId) || null}
-              dealershipId={lead.dealershipId}
+              dealershipId={dealershipId}
             />
           </Field>
           <Field label="To" htmlFor="qt-billto" className="sm:col-span-2" error={errors.billTo} hint="Leave empty for the customer's name; e.g. a bank A/C the customer">
-            <Input id="qt-billto" value={v.billTo} onChange={set('billTo')} placeholder={lead.prospectName} />
+            <Input id="qt-billto" value={v.billTo} onChange={set('billTo')} placeholder={lead?.prospectName ?? (customer.name || "The customer's name")} />
           </Field>
           <Field label="Price (PKR)" htmlFor="qt-price" required={!hasOrder} error={errors.unitPrice}>
             <Input id="qt-price" inputMode="decimal" value={v.unitPrice} onChange={set('unitPrice')} invalid={!!errors.unitPrice} placeholder={hasOrder ? 'From the sales order' : 'e.g. 9500000'} />
@@ -219,13 +263,18 @@ export function QuotationDialog({ lead, open, onClose, onCreated }: Props) {
 }
 
 /** The customer agreed to Paint Protection Film: what is covered and what it costs. */
-export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
-  const [create, { isLoading }] = useCreateLeadPpfFormMutation();
+export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated }: Props) {
+  const [create, { isLoading: creating }] = useCreateLeadPpfFormMutation();
+  const [createStandalone, { isLoading: creatingStandalone }] = useCreateStandalonePpfFormMutation();
+  const isLoading = creating || creatingStandalone;
+  const dealershipId = lead?.dealershipId ?? dealer ?? 0;
+  // Without a lead: the customer's phone and the vehicle written on the voucher.
+  const [standalone, setStandalone] = useState({ mobile: '', modelId: '', variant: '', color: '' });
   const { errors, setErrors, run } = useSubmit();
   // The customer as printed on the voucher: name and email from the lead (check them), the address typed.
   const [v, setV] = useState({
-    customerName: lead.prospectName,
-    customerEmail: lead.email ?? '',
+    customerName: lead?.prospectName ?? '',
+    customerEmail: lead?.email ?? '',
     customerAddress: '',
     pboNo: '',
     chassisNo: '',
@@ -241,18 +290,18 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
     notes: '',
   });
   // Processing / vehicle received / delivered: the sales order already has these.
-  const { data: fromOrder } = useGetLeadOrderVehicleQuery({ id: lead.id }, { refetchOnMountOrArgChange: true });
+  const { data: fromOrder } = useGetLeadOrderVehicleQuery({ id: lead?.id ?? 0 }, { skip: !lead, refetchOnMountOrArgChange: true });
   useEffect(() => {
     if (!fromOrder) return;
     setV((s) => ({ ...s, pboNo: fromOrder.orderNo ?? s.pboNo, chassisNo: fromOrder.chassisNo ?? s.chassisNo, engineNo: fromOrder.engineNo ?? s.engineNo }));
   }, [fromOrder]);
   // Required once the lead has a sales order; before that they may be left blank (the voucher shows the
   // order's numbers as soon as it exists).
-  const hasOrder = !!lead.salesOrderId;
+  const hasOrder = !!lead?.salesOrderId;
   const locked = { pboNo: !!fromOrder?.orderNo, chassisNo: !!fromOrder?.chassisNo, engineNo: !!fromOrder?.engineNo };
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   // The dealership's own voucher fields (PPF format).
-  const { data: format } = useGetDocumentTemplateQuery({ kind: 'ppf', dealershipId: lead.dealershipId });
+  const { data: format } = useGetDocumentTemplateQuery({ kind: 'ppf', dealershipId }, { skip: !dealershipId });
   const customFields = format?.customFields ?? [];
   const [extra, setExtra] = useState<Record<string, string>>({});
 
@@ -267,12 +316,10 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
     if (!v.customerAddress.trim()) missing.customerAddress = 'Enter the address';
     if (!v.protectionPackage) missing.protectionPackage = 'Choose the protection package';
     if (!v.amount.trim()) missing.amount = 'Enter the PPF price';
+    if (!lead && standalone.mobile.replace(/\D/g, '').length < 10) missing.customerMobile = 'Enter a valid phone number, e.g. 03001234567';
+    if (!lead && !standalone.modelId) missing.modelId = 'Choose the model';
     if (Object.keys(missing).length) return setErrors(missing);
-    return run(
-      () =>
-        create({
-          id: lead.id,
-          ppfFormCreate: {
+    const ppfFormCreate = {
             pboNo: blank(v.pboNo),
             chassisNo: blank(v.chassisNo),
             engineNo: blank(v.engineNo),
@@ -289,8 +336,21 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
             installationDate: v.installationDate || null,
             notes: blank(v.notes),
             extraFields: extra,
-          },
-        }).unwrap(),
+          };
+    return run(
+      () =>
+        lead
+          ? create({ id: lead.id, ppfFormCreate }).unwrap()
+          : createStandalone({
+              standalonePpfCreate: {
+                ...ppfFormCreate,
+                dealershipId,
+                customerMobile: standalone.mobile,
+                modelId: Number(standalone.modelId),
+                variant: blank(standalone.variant),
+                color: blank(standalone.color),
+              },
+            }).unwrap(),
       onCreated,
     );
   };
@@ -300,7 +360,7 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
       open={open}
       onClose={onClose}
       size="lg"
-      title={`New PPF voucher — ${lead.prospectName}`}
+      title={lead ? `New PPF voucher — ${lead.prospectName}` : 'New PPF voucher'}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -313,7 +373,12 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
       }
     >
       <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-        <Field label="Customer name" htmlFor="ppf-name" required error={errors.customerName} hint="From the lead; correct it if needed">
+        {!lead && (
+          <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 sm:col-span-2">
+            A PPF voucher without a lead (e.g. a customer who bought the car elsewhere): write the customer's and the vehicle's details. It is not added to the leads list.
+          </p>
+        )}
+        <Field label="Customer name" htmlFor="ppf-name" required error={errors.customerName} hint={lead ? 'From the lead; correct it if needed' : undefined}>
           <Input id="ppf-name" value={v.customerName} onChange={set('customerName')} invalid={!!errors.customerName} />
         </Field>
         <Field label="Email" htmlFor="ppf-email" required error={errors.customerEmail}>
@@ -322,9 +387,28 @@ export function PpfDialog({ lead, open, onClose, onCreated }: Props) {
         <Field label="Address" htmlFor="ppf-address" required className="sm:col-span-2" error={errors.customerAddress}>
           <Input id="ppf-address" value={v.customerAddress} onChange={set('customerAddress')} invalid={!!errors.customerAddress} placeholder="House, street, sector, city" />
         </Field>
-        <p className="text-sm text-slate-500 sm:col-span-2">Phone: {lead.prospectMobile} (from the lead)</p>
+        {lead ? (
+          <p className="text-sm text-slate-500 sm:col-span-2">Phone: {lead.prospectMobile} (from the lead)</p>
+        ) : (
+          <>
+            <Field label="Phone" htmlFor="ppf-phone" required error={errors.customerMobile} hint="Digits only">
+              <Input id="ppf-phone" type="tel" inputMode="tel" maxLength={16} placeholder="03001234567" value={standalone.mobile} onChange={(e) => setStandalone((s) => ({ ...s, mobile: digitsOnly(e.target.value) }))} invalid={!!errors.customerMobile} />
+            </Field>
+            <Field label="Model" htmlFor="ppf-model" required error={errors.modelId}>
+              <LeadModelSelect id="ppf-model" value={standalone.modelId} onChange={(modelId) => setStandalone((s) => ({ ...s, modelId }))} invalid={!!errors.modelId} dealershipId={dealershipId} />
+            </Field>
+            <Field label="Variant" htmlFor="ppf-variant">
+              <Input id="ppf-variant" value={standalone.variant} onChange={(e) => setStandalone((s) => ({ ...s, variant: e.target.value }))} />
+            </Field>
+            <Field label="Colour" htmlFor="ppf-color">
+              <Input id="ppf-color" value={standalone.color} onChange={(e) => setStandalone((s) => ({ ...s, color: e.target.value }))} />
+            </Field>
+          </>
+        )}
         <p className="text-sm text-slate-600 sm:col-span-2">
-          {fromOrder?.orderNo
+          {!lead
+            ? 'Fill in the PBO / CBO, chassis and engine if you have them.'
+            : fromOrder?.orderNo
             ? 'PBO, chassis and engine are taken from the sales order; enter anything the order does not have yet.'
             : 'No sales order yet: fill in the PBO / CBO, chassis and engine if you have them. Otherwise leave them blank; the voucher shows the order’s numbers once it is raised.'}
         </p>

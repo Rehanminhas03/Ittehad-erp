@@ -55,7 +55,17 @@ const trail = (d: Quotation | PpfForm) => (
 const whoFields = <T extends Quotation | PpfForm>() => [
   { label: 'Created', value: (d: T) => `${formatDateTime(d.createdAt)} by ${d.createdByName ?? '—'}` },
   { label: 'Last changed', value: (d: T) => (d.updatedAt !== d.createdAt ? `${formatDateTime(d.updatedAt)} by ${d.updatedByName ?? '—'}` : 'Not changed since it was created') },
-  { label: 'Lead', value: (d: T) => <Link to={`/sales/leads/${d.leadId}`} className="text-brand-700 hover:underline">{d.customerName ?? 'Open lead'}</Link> },
+  {
+    label: 'Lead',
+    value: (d: T) =>
+      d.leadId ? (
+        <Link to={`/sales/leads/${d.leadId}`} className="text-brand-700 hover:underline">
+          {d.customerName ?? 'Open lead'}
+        </Link>
+      ) : (
+        <span className="text-slate-600">No lead · {[d.customerName, d.customerMobile].filter(Boolean).join(' · ')}</span>
+      ),
+  },
 ];
 
 /** View (check before it goes out), then download or print — on the document's own page. */
@@ -111,10 +121,13 @@ export const quotationView: EntityViewConfig<Quotation> = {
   basePath: '/sales/quotations',
   entityType: 'sales.quotation',
   // Issued from a lead (Quotations & PPF on the lead); corrected here.
-  permissions: { view: [P.quotationsViewAll, P.quotationsViewOwn], update: [P.quotationsUpdate, P.quotationsUpdateOwn] },
+  // Issued from a lead, or here without one ("Create quotation": the customer is written on it).
+  permissions: { view: [P.quotationsViewAll, P.quotationsViewOwn], create: P.quotationsCreate, update: [P.quotationsUpdate, P.quotationsUpdateOwn] },
   scope: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'ownerId',
   list: {
+    createPath: '/sales/quotations/new',
+    createLabel: 'Create quotation',
     defaultSort: '-createdAt',
     dateRange,
     searchPlaceholder: 'Search quotation number',
@@ -229,10 +242,13 @@ export const ppfView: EntityViewConfig<PpfForm> = {
   plural: 'PPF vouchers',
   basePath: '/sales/ppf-forms',
   entityType: 'sales.ppf_form',
-  permissions: { view: [P.ppfViewAll, P.ppfViewOwn], update: [P.ppfUpdate, P.ppfUpdateOwn] },
+  // Issued from a lead, or here without one ("Create PPF voucher": the customer and the vehicle are written on it).
+  permissions: { view: [P.ppfViewAll, P.ppfViewOwn], create: P.ppfCreate, update: [P.ppfUpdate, P.ppfUpdateOwn] },
   scope: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'ownerId',
   list: {
+    createPath: '/sales/ppf-forms/new',
+    createLabel: 'Create PPF voucher',
     defaultSort: '-createdAt',
     dateRange,
     searchPlaceholder: 'Search PPF voucher number',

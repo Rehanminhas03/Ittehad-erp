@@ -21,9 +21,9 @@ type LoginValues = z.infer<typeof LoginSchema>;
  * Logos in public/logo/. To replace one, drop the new file there and update its name here; `crop`
  * trims the empty margin baked into each image (see BrandLogo). A missing file shows the name.
  */
-const GROUP_LOGO: LogoAsset = { file: 'Ittehadmotors-logo.png', name: 'Ittehad Motors', crop: 'inset(7% 11% 10% 10%)' };
+const GROUP_LOGO: LogoAsset = { file: 'Ittehad-logo.png', name: 'Ittehad Automotive' };
 
-/** The dealerships under Ittehad Motors, all served by this one login. */
+/** The dealerships under Ittehad Automotive, all served by this one login. */
 const DEALERSHIPS: LogoAsset[] = [
   { file: 'Hyundai-logo.png', name: 'Hyundai Islamabad', crop: 'inset(23% 10.5% 16.5% 10.5%)' },
   { file: 'jetour-logo.png', name: 'Jetour Ittehad', crop: 'inset(44% 5% 44% 5%)' },
@@ -55,7 +55,7 @@ const inputClass = (invalid: boolean) =>
   );
 
 /**
- * Sign-in for every dealership under Ittehad Motors. Glass ("liquid glass") surfaces float over a
+ * Sign-in for every dealership under Ittehad Automotive. Glass ("liquid glass") surfaces float over a
  * soft, continuous backdrop of light; the styles live in index.css (.glass, .glass-soft, ...).
  */
 export default function LoginPage() {
@@ -100,13 +100,13 @@ export default function LoginPage() {
               <BrandLogo logo={GROUP_LOGO} className="h-11 short:h-9 sm:h-20 lg:short:h-14" />
             </div>
             <h1 className="font-[family-name:var(--font-display)] text-[28px] leading-[1.05] font-bold tracking-tight text-slate-900 short:text-2xl sm:text-6xl xl:text-7xl lg:short:text-5xl">
-              Ittehad Motors
+              Ittehad Automotive
             </h1>
             <p className="mt-1.5 text-[11px] font-semibold tracking-[0.16em] text-brand-700 uppercase sm:mt-5 sm:text-sm sm:tracking-[0.18em] lg:short:mt-3">
               Dealership Management Platform
             </p>
             <p className="mt-5 hidden text-lg leading-relaxed text-slate-600 sm:block lg:short:mt-3 lg:short:text-base">
-              One unified platform built for every dealership under Ittehad Motors — connecting sales, service, parts and delivery across
+              One unified platform built for every dealership under Ittehad Automotive — connecting sales, service, parts and delivery across
               all three brands from a single, secure login.
             </p>
             <DealershipLogos className="mt-8 hidden sm:grid lg:mt-10 lg:short:mt-6" />
@@ -206,7 +206,7 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <p className="mt-6 text-center text-xs text-slate-500 short:mt-3 sm:mt-8 lg:short:mt-4">Ittehad Motors — internal use only</p>
+              <p className="mt-6 text-center text-xs text-slate-500 short:mt-3 sm:mt-8 lg:short:mt-4">Ittehad Automotive — internal use only</p>
             </div>
           </div>
           {/* Phones: the dealership logos sit below the sign-in card. */}

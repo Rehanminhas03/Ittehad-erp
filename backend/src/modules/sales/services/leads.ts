@@ -67,7 +67,14 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
     changes: { outcome: input.outcome, remarks: input.remarks ?? null },
   });
 
-  if (input.outcome === 'visited') {
+  if (input.markLost) {
+    // Not interested: the lead is lost (hidden from the leads list; the same phone can come back as a new lead).
+    await ctx.tx.lead.update({
+      where: { id: leadId },
+      data: { lostAt: new Date(), lostById: ctx.access.userId, lostReason: input.remarks ?? 'Not interested' },
+    });
+    await leads.transition(ctx, leadId, 'mark_lost', input.remarks ?? 'Not interested', { system: true });
+  } else if (input.outcome === 'visited') {
     if (l.status !== 'visited') await leads.transition(ctx, leadId, 'visit', input.remarks ?? undefined, { system: true });
   } else if (l.status === 'new') {
     await leads.transition(ctx, leadId, 'follow_up', input.remarks ?? undefined, { system: true });
@@ -78,7 +85,35 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
 export async function listFollowUps(ctx: EntityCtx, leadId: number) {
   await leads.findVisible(ctx, leadId);
   const rows = await ctx.tx.leadFollowUp.findMany({ where: { leadId }, orderBy: { createdAt: 'desc' }, take: 100 });
-  return withNames(ctx.tx, rows as never, { createdByName: { key: 'createdById', source: USER_NAME } });
+  const named = await withNames(ctx.tx, rows as never, { createdByName: { key: 'createdById', source: USER_NAME } });
+  // Each follow-up with its comments (oldest first): questions from the Manager / AM and the answers.
+  const comments = await withNames(
+    ctx.tx,
+    (await ctx.tx.leadFollowUpComment.findMany({ where: { leadId }, orderBy: { createdAt: 'asc' }, take: 500 })) as never,
+    { createdByName: { key: 'createdById', source: USER_NAME } },
+  );
+  return named.map((f) => ({
+    ...f,
+    comments: comments
+      .filter((c) => c.followUpId === f.id)
+      .map((c) => ({ id: c.id as number, body: c.body as string, createdById: c.createdById as number, createdByName: (c.createdByName as string | null) ?? null, createdAt: c.createdAt })),
+  }));
+}
+
+/**
+ * A comment on a follow-up: anyone who sees the lead (the Manager, the Assistant Manager, later the
+ * CEO) asks to clarify what the customer said, and the salesperson answers. Everyone following the
+ * lead is notified and sees the thread under the follow-up.
+ */
+export async function commentOnFollowUp(ctx: EntityCtx, leadId: number, followUpId: number, input: { body: string }) {
+  const l = await leads.findVisible(ctx, leadId);
+  const f = await ctx.tx.leadFollowUp.findFirst({ where: { id: followUpId, leadId }, select: { id: true } });
+  if (!f) throw notFound('Follow-up');
+  await ctx.tx.leadFollowUpComment.create({
+    data: { dealershipId: l.dealershipId as number, leadId, followUpId, body: input.body, createdById: ctx.access.userId },
+  });
+  await ctx.audit({ entityType: 'sales.lead', entityId: leadId, action: 'follow_up.comment', ...targetOf(l), changes: { followUpId, comment: input.body } });
+  return listFollowUps(ctx, leadId);
 }
 
 // ---- Convert to Lead ------------------------------------------------------------
@@ -165,6 +200,11 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
       paymentInstrumentRef: input.paymentInstrumentRef,
       paymentInstrumentBank: input.paymentInstrumentBank ?? null,
       paymentAmount: input.paymentAmount ?? null,
+      // Individual or corporate (the company is the billing name on the order's documents).
+      customerType: input.customerType,
+      companyName: input.customerType === 'corporate' ? (input.companyName ?? null) : null,
+      contactDesignation: input.customerType === 'corporate' ? (input.contactDesignation ?? null) : null,
+      purchaseOrderNo: input.customerType === 'corporate' ? (input.purchaseOrderNo ?? null) : null,
       // Told to the customer; copied to the sales order when the Admin raises it.
       ...expectedDelivery(input.expectedDeliveryDate ?? (l.expectedDeliveryDate as string | null), input.expectedDeliveryDate ? input.expectedDeliveryByMonth : (l.expectedDeliveryByMonth as boolean)),
       notes: input.notes ?? (l.notes as string | null),

@@ -13,8 +13,11 @@ import { stockView } from './stock/stockView';
 const TeamReportPage = lazy(() => import('./team/TeamReportPage'));
 const TrackRecordPage = lazy(() => import('./team/TrackRecordPage'));
 const DocumentFormatsPage = lazy(() => import('./documents/DocumentFormatsPage'));
+const StandaloneDocumentPage = lazy(() => import('./documents/StandaloneDocumentPage'));
 const DeliveryReportPage = lazy(() => import('./deliveries/DeliveryReportPage'));
 const DeliveryStatusPage = lazy(() => import('./deliveries/DeliveryStatusPage'));
+const LeaveListPage = lazy(() => import('./leave/LeaveListPage'));
+const LeaveDetailPage = lazy(() => import('./leave/LeaveDetailPage'));
 
 /** Sales module routes (lazy-loaded as one chunk from the app router). */
 export default function SalesRoutes() {
@@ -25,8 +28,8 @@ export default function SalesRoutes() {
       {entityRoutes('orders', orderView)}
       {entityRoutes('deliveries', deliveryView)}
       {entityRoutes('stock', stockView)}
-      {entityRoutes('quotations', quotationView)}
-      {entityRoutes('ppf-forms', ppfView)}
+      {entityRoutes('quotations', quotationView, { create: <Suspense fallback={<PageSpinner />}><StandaloneDocumentPage kind="quotation" /></Suspense> })}
+      {entityRoutes('ppf-forms', ppfView, { create: <Suspense fallback={<PageSpinner />}><StandaloneDocumentPage kind="ppf" /></Suspense> })}
       {entityRoutes('variants', variantView)}
       <Route
         path="document-formats"
@@ -64,6 +67,26 @@ export default function SalesRoutes() {
           <RequirePermission any={[P.ppfViewAll, P.ppfViewOwn, P.reportsView]}>
             <Suspense fallback={<PageSpinner />}>
               <TrackRecordPage />
+            </Suspense>
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="leave"
+        element={
+          <RequirePermission any={[P.leaveApply, P.leaveApprove]}>
+            <Suspense fallback={<PageSpinner />}>
+              <LeaveListPage />
+            </Suspense>
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="leave/:id"
+        element={
+          <RequirePermission any={[P.leaveApply, P.leaveApprove]}>
+            <Suspense fallback={<PageSpinner />}>
+              <LeaveDetailPage />
             </Suspense>
           </RequirePermission>
         }

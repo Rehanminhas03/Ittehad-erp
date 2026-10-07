@@ -3,7 +3,7 @@ import { useAuth } from '@/shared/hooks';
 import { PasswordSection } from '../../pages/AccountPage/AccountPage';
 import { BrandLogo, type LogoAsset } from '../BrandLogo';
 
-const GROUP_LOGO: LogoAsset = { file: 'Ittehadmotors-logo.png', name: 'Ittehad Motors', crop: 'inset(7% 11% 10% 10%)' };
+const GROUP_LOGO: LogoAsset = { file: 'Ittehad-logo.png', name: 'Ittehad Automotive' };
 
 /**
  * Shown instead of the app when someone else chose this user's password (a new account, or a

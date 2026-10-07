@@ -28,6 +28,7 @@ const LEAD_STEPS: Record<string, string> = {
   raise_order: 'Sales order raised for {x}',
   complete: 'Lead {x} completed (vehicle delivered)',
   exhaust: 'Marked {x} as exhausted',
+  mark_lost: 'Marked {x} as lost (not interested)',
   reopen: 'Reopened {x}',
   order_cancelled: 'Order cancelled; {x} back to Converted',
 };
@@ -100,6 +101,7 @@ export function describeActivity(e: ActivityLike): Described {
       return { title: `Issued a vehicle quotation to ${x}`, detail: detail || undefined, kind: 'lead', href };
     }
     if (e.action === 'details.update') return { title: `Corrected the details of ${x}`, kind: 'lead', href };
+    if (e.action === 'follow_up.comment') return { title: `Commented on a follow-up of ${x}`, detail: typeof c.comment === 'string' ? `“${c.comment}”` : undefined, kind: 'lead', href };
     if (e.action === 'reassign') {
       const detail = [typeof c.fromName === 'string' && typeof c.toName === 'string' ? `${c.fromName} → ${c.toName}` : undefined, typeof c.note === 'string' && c.note ? `“${c.note}”` : undefined].filter(Boolean).join(' · ');
       return { title: `Reassigned lead ${x}`, detail: detail || undefined, kind: 'lead', href };
@@ -150,6 +152,13 @@ export function describeActivity(e: ActivityLike): Described {
       return { title: `Entered the vehicle for ${x}`, detail: detail || undefined, kind: 'order', href };
     }
     if (e.action === 'allocate') return { title: `Allocated a stock vehicle to ${x}`, kind: 'order', href };
+    if (e.action === 'payment.add') {
+      return { title: `Recorded a payment on ${x}`, detail: [typeof c.kind === 'string' ? humanize(c.kind) : undefined, c.amount ? `PKR ${Number(c.amount).toLocaleString('en-PK')}` : undefined].filter(Boolean).join(' · ') || undefined, kind: 'order', href };
+    }
+    if (e.action === 'payment.remove') return { title: `Removed a payment from ${x}`, kind: 'order', href };
+    if (e.action === 'clearance.request') return { title: `Requested delivery clearance for ${x}`, detail: typeof c.note === 'string' && c.note ? c.note : undefined, kind: 'order', href };
+    if (e.action === 'clearance.approve') return { title: `Cleared ${x} for delivery`, kind: 'order', href };
+    if (e.action === 'clearance.reject') return { title: `Rejected delivery clearance for ${x}`, detail: typeof c.note === 'string' && c.note ? c.note : undefined, kind: 'order', href };
     if (e.action === 'release') return { title: `Released the vehicle from ${x}`, kind: 'order', href };
     if (step && ORDER_STEPS[step]) return { title: fill(ORDER_STEPS[step]!, x), kind: 'order', href };
   }

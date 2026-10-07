@@ -166,6 +166,8 @@ export interface EntityViewConfig<T extends { id: number }> {
     searchPlaceholder?: string;
     /** Custom create screen (instead of the generated form), shown to holders of `permissions.create`. */
     createPath?: string;
+    /** The create button's text (default: "New <singular>"). */
+    createLabel?: string;
     /** Rendered above the search (e.g. a summary of totals). */
     /** Above the list; gets the list's current query (filters, dates) and its period, e.g. "last 30 days". */
     header?: (ctx: { query: Record<string, unknown>; periodLabel: string }) => ReactNode;

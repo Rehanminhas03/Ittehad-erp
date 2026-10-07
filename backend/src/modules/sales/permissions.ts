@@ -66,4 +66,8 @@ export const SalesPerm = definePermissions('sales', {
   deliveriesViewOwn: ['sales.deliveries.view_own', 'View own deliveries'],
   deliveriesSchedule: ['sales.deliveries.schedule', 'Schedule and cancel deliveries'],
   deliveriesComplete: ['sales.deliveries.complete', 'Complete deliveries (hands over and activates the vehicle)'],
+  paymentsManage: ['sales.payments.manage', 'Record payments against sales orders (booking, part and final payments)'],
+  ordersClear: ['sales.orders.clear', 'Clear a car for delivery (all payments clear) when the Delivery Team asks'],
+  leaveApply: ['sales.leave.apply', 'Apply for leave (sick / emergency) and print the application'],
+  leaveApprove: ['sales.leave.approve', "Approve or reject the team's leave applications"],
 });

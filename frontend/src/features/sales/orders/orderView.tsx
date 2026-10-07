@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Link } from 'react-router';
 import { SourceInvoice } from '@/features/accounts';
 import { useVehicleModelOptions, VEHICLE_STATUSES } from '@/features/crm';
-import { StatusBadge } from '@/shared/components/ui';
+import { Badge, StatusBadge } from '@/shared/components/ui';
 import { isModuleEnabled } from '@/shared/config';
 import {
   dealershipFilter,
@@ -17,10 +17,12 @@ import {
 } from '@/shared/entity';
 import { formatDateTime, formatMoney } from '@/shared/lib';
 import { ExpectedDeliveryInput, formatExpectedDelivery, type ExpectedDeliveryValue } from './components/ExpectedDelivery';
+import { OrderClearance } from './components/OrderClearance';
 import { OrderDelivery } from './components/OrderDelivery';
+import { OrderPayments } from './components/OrderPayments';
 import { OrderLogistics } from './components/OrderLogistics';
 import { OrderVehicle } from './components/OrderVehicle';
-import { labelOf, ORDER_STATES, ORDER_TYPES, P } from '../permissions';
+import { CLEARANCE_LABELS, labelOf, ORDER_STATES, ORDER_TYPES, P } from '../permissions';
 import {
   type SalesOrder,
   useGetSalesOrderHistoryQuery,
@@ -60,7 +62,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
     searchPlaceholder: 'Search order or PBO number (or its last digits)',
     // Booked between two days; the last 30 days unless another range (or custom dates) is picked.
     dateRange: { label: 'Booked', fromParam: 'bookedFrom', toParam: 'bookedTo', defaultPreset: '30d' },
-    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Open (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, dealershipFilter],
+    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Open (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
     columns: [
       { key: 'orderNo', header: 'Order', sortKey: 'orderNo', render: (o) => mono(o.orderNo) },
       { key: 'pboNo', header: 'PBO', render: (o) => mono(o.pboNo) },
@@ -68,8 +70,19 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { key: 'customerName', header: 'Customer', render: (o) => strong(o.customerName) },
       { key: 'modelName', header: 'Model', render: (o) => [o.modelName, o.variant].filter(Boolean).join(' ') },
       { key: 'totalAmount', header: 'Total', sortKey: 'totalAmount', className: 'text-right tabular-nums', render: (o) => formatMoney(o.totalAmount) },
+      { key: 'balanceDue', header: 'Balance due', className: 'text-right tabular-nums', render: (o) => (o.status === 'delivered' || o.status === 'cancelled' ? muted(o.status === 'delivered' ? 'Delivered' : '—') : Number(o.balanceDue ?? 0) > 0 ? <span className="font-medium text-amber-700">{formatMoney(o.balanceDue ?? '0')}</span> : <span className="text-emerald-700">Paid</span>) },
       { key: 'salespersonName', header: 'Salesperson', render: (o) => muted(o.salespersonName) },
-      { key: 'status', header: 'Status', sortKey: 'status', render: (o) => <StatusBadge status={o.status} /> },
+      {
+        key: 'status',
+        header: 'Status',
+        sortKey: 'status',
+        render: (o) => (
+          <span className="inline-flex flex-wrap gap-1">
+            <StatusBadge status={o.status} />
+            {o.clearanceStatus && o.clearanceStatus !== 'none' && <Badge tone={CLEARANCE_LABELS[o.clearanceStatus]!.tone}>{CLEARANCE_LABELS[o.clearanceStatus]!.label}</Badge>}
+          </span>
+        ),
+      },
       { key: 'expectedDeliveryDate', header: 'Expected delivery', sortKey: 'expectedDeliveryDate', render: (o) => formatExpectedDelivery(o.expectedDeliveryDate, o.expectedDeliveryByMonth) },
     ],
   },
@@ -81,12 +94,14 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { label: 'PBO number', value: (o) => o.pboNo },
       { label: 'Order type', value: (o) => labelOf(ORDER_TYPES, o.orderType) },
       { label: 'Customer', value: (o) => o.customerName },
+      { label: 'Company (corporate)', value: (o) => (o.customerType === 'corporate' ? [o.companyName, o.contactDesignation && `contact: ${o.contactDesignation}`, o.purchaseOrderNo ? `PO ${o.purchaseOrderNo}` : 'no purchase order'].filter(Boolean).join(' · ') : null) },
       { label: 'Salesperson', value: (o) => o.salespersonName },
       { label: 'Model', value: (o) => [o.modelName, o.variant, o.color].filter(Boolean).join(' · ') },
       { label: 'Price', value: (o) => formatMoney(o.unitPrice) },
       { label: 'Discount', value: (o) => formatMoney(o.discount) },
       { label: 'Total', value: (o) => <span className="font-semibold">{formatMoney(o.totalAmount)}</span> },
       { label: 'Booking amount', value: (o) => formatMoney(o.bookingAmount) },
+      { label: 'Received / balance', value: (o) => `${formatMoney(o.amountReceived ?? '0')} received · ${Number(o.balanceDue ?? 0) > 0 ? `${formatMoney(o.balanceDue ?? '0')} due` : 'fully paid'}` },
       { label: 'Expected delivery', value: (o) => formatExpectedDelivery(o.expectedDeliveryDate, o.expectedDeliveryByMonth) },
       { label: 'Payment reference', value: (o) => o.paymentReference },
       { label: 'Financing reference', value: (o) => o.financingRef },
@@ -96,8 +111,10 @@ export const orderView: EntityViewConfig<SalesOrder> = {
     ],
     sections: (o) => (
       <>
+        <OrderPayments order={o} />
         <OrderVehicle order={o} />
         <OrderLogistics order={o} />
+        <OrderClearance order={o} />
         <OrderDelivery order={o} />
         {isModuleEnabled('accounts') && (
           <SourceInvoice sourceType="sales_order" sourceId={o.id} dealershipId={o.dealershipId} ready={['approved', 'delivered'].includes(o.status)} />

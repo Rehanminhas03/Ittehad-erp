@@ -11,7 +11,7 @@ import { DocType, nextDocumentNumber } from '../core/documents';
 import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
-import { vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
+import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
 import { CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
@@ -168,6 +168,8 @@ export const leadEntity: EntityConfig = {
     // converted today belongs to today. updated_at moves with every change to the lead.
     activityFrom: { key: 'updatedAt', schema: z.iso.date(), where: (v) => sql`(${lead.updatedAt} at time zone 'Asia/Karachi')::date >= ${v}::date` },
     activityTo: { key: 'updatedAt', schema: z.iso.date(), where: (v) => sql`(${lead.updatedAt} at time zone 'Asia/Karachi')::date <= ${v}::date` },
+    // "Lost leads": only the lost ones (true) — otherwise they are hidden (see listDefault).
+    lost: { key: 'status', schema: BoolQuery, where: (v) => (v ? sql`${lead.status} = 'lost'` : sql`${lead.status} <> 'lost'`) },
     // Appointments on one day (e.g. "today" from Action needed), and upcoming ones (from now on).
     appointmentOn: { key: 'appointmentAt', schema: z.iso.date(), where: (v) => sql`(${lead.appointmentAt} at time zone 'Asia/Karachi')::date = ${v}::date` },
     upcomingAppointment: {
@@ -176,7 +178,9 @@ export const leadEntity: EntityConfig = {
       where: (v) => (v ? sql`${lead.appointmentAt} >= date_trunc('day', now() at time zone 'Asia/Karachi') at time zone 'Asia/Karachi'` : sql`${lead.appointmentAt} is null`),
     },
   },
-  sort: { default: '-updatedAt', keys: ['updatedAt', 'createdAt', 'prospectName', 'status', 'followUpCount', 'convertedAt', 'appointmentAt'] },
+  // Lost leads are out of the way: listed only when asked for (Lost leads, or the Lost status).
+  listDefault: (f) => (f.status === undefined && f.lost === undefined ? sql`${lead.status} <> 'lost'` : undefined),
+  sort: { default: '-updatedAt', keys: ['updatedAt', 'createdAt', 'prospectName', 'status', 'followUpCount', 'convertedAt', 'appointmentAt', 'lostAt'] },
   workflow: {
     stateKey: 'status',
     initial: 'new',
@@ -188,6 +192,7 @@ export const leadEntity: EntityConfig = {
       { key: 'processing', label: 'Processing' },
       { key: 'completed', label: 'Completed', terminal: true },
       { key: 'exhausted', label: 'Exhausted', terminal: true },
+      { key: 'lost', label: 'Lost', terminal: true },
     ],
     transitions: [
       {
@@ -203,7 +208,9 @@ export const leadEntity: EntityConfig = {
             ? `At least ${MIN_FOLLOW_UPS_TO_EXHAUST} follow-ups are required before a lead is exhausted (${row.followUpCount as number} recorded)`
             : null,
       },
-      { action: 'reopen', label: 'Reopen', from: ['exhausted'], to: 'follow_up', permission: P.leadsReopen },
+      // Not interested (any follow-up): lost, out of the leads list. Recorded with the follow-up.
+      { action: 'mark_lost', label: 'Mark as lost', from: ['new', 'follow_up', 'visited'], to: 'lost', permission: P.leadsUpdate, ownPermission: P.leadsUpdateOwn, system: true },
+      { action: 'reopen', label: 'Reopen', from: ['exhausted', 'lost'], to: 'follow_up', permission: P.leadsReopen },
       // Set by the server: follow-ups, conversion and the order lifecycle.
       { action: 'follow_up', label: 'Follow-up', from: ['new'], to: 'follow_up', permission: P.leadsUpdateOwn, system: true },
       { action: 'visit', label: 'Visited', from: ['new', 'follow_up', 'visited'], to: 'visited', permission: P.leadsUpdateOwn, system: true },
@@ -236,20 +243,41 @@ export const leadEntity: EntityConfig = {
       }
       return patch;
     },
-    decorate: (ctx, rows) =>
-      withNames(ctx.tx, rows, {
+    decorate: async (ctx, rows) => withPreviousPurchases(ctx, await withNames(ctx.tx, rows, {
         ownerName: { key: 'ownerId', source: USER_NAME },
         modelName: { key: 'interestedModelId', source: MODEL_NAME },
         escalatedByName: { key: 'escalatedById', source: USER_NAME },
         convertedByName: { key: 'convertedById', source: USER_NAME },
         appointmentSetByName: { key: 'appointmentSetById', source: USER_NAME },
+        lostByName: { key: 'lostById', source: USER_NAME },
         createdByName: { key: 'createdById', source: USER_NAME },
         orderNo: { key: 'salesOrderId', source: ORDER_NO },
         // The car's progress (booked → in transit → received → ready), for the salesperson / AM.
         vehicleStage: { key: 'salesOrderId', source: ORDER_VEHICLE_STAGE },
-      }),
+      })),
   },
 };
+
+/**
+ * A returning customer: cars this customer bought before at the dealership (delivered orders of the
+ * same customer record, or of a customer with the same phone), not counting this lead's own order.
+ */
+async function withPreviousPurchases(ctx: EntityCtx, rows: Row[]): Promise<Row[]> {
+  const ids = rows.map((r) => r.id as number);
+  if (!ids.length) return rows;
+  const counts = await query<{ id: number; n: number }>(
+    ctx.tx,
+    sql`select l.id::int as id, count(distinct o.id)::int as n
+          from ${lead} l
+          join ${salesOrder} o on o.dealership_id = l.dealership_id and o.status = 'delivered' and o.id is distinct from l.sales_order_id
+          left join ${customer} c on c.id = o.customer_id
+         where ${inArray(sql`l.id`, ids)}
+           and (o.customer_id = l.customer_id or c.mobile_normalized = l.prospect_mobile_normalized)
+         group by l.id`,
+  );
+  const byId = new Map(counts.map((c) => [c.id, c.n]));
+  return rows.map((r) => ({ ...r, previousPurchases: byId.get(r.id as number) ?? 0 }));
+}
 
 // =============================================================================
 // Sales orders (raised by the Admin from a converted lead)
@@ -325,6 +353,8 @@ export const salesOrderEntity: EntityConfig = {
     },
     // Orders still waiting for a vehicle (with `live`: the Delivery Team's to-do).
     hasVehicle: { key: 'vehicleId', schema: BoolQuery, where: (v) => (v ? sql`${salesOrder.vehicleId} is not null` : sql`${salesOrder.vehicleId} is null`) },
+    // Delivery clearance (e.g. requested: waiting for the Sales Admin).
+    clearanceStatus: { key: 'clearanceStatus', schema: z.enum(['none', 'requested', 'approved', 'rejected']) },
     // Booked between two Pakistan calendar days (inclusive).
     bookedFrom: { key: 'createdAt', schema: z.iso.date(), where: (v) => sql`(${salesOrder.createdAt} at time zone 'Asia/Karachi')::date >= ${v}::date` },
     bookedTo: { key: 'createdAt', schema: z.iso.date(), where: (v) => sql`(${salesOrder.createdAt} at time zone 'Asia/Karachi')::date <= ${v}::date` },
@@ -434,12 +464,41 @@ export const salesOrderEntity: EntityConfig = {
         modelName: { key: 'modelId', source: MODEL_NAME },
         vehicleLabel: { key: 'vehicleId', source: VEHICLE_LABEL },
         vehicleStatus: { key: 'vehicleId', source: VEHICLE_STATUS },
+        clearanceRequestedByName: { key: 'clearanceRequestedById', source: USER_NAME },
+        clearanceDecidedByName: { key: 'clearanceDecidedById', source: USER_NAME },
       });
-      const ids = rows.map((r) => r.vehicleId).filter((x): x is number => typeof x === 'number');
-      if (!ids.length) return named;
-      const vs = await ctx.tx.vehicle.findMany({ where: { id: { in: ids } }, select: { id: true, vin: true, engineNo: true } });
-      const byId = new Map(vs.map((v) => [v.id, v]));
-      return named.map((r) => ({ ...r, vehicleVin: byId.get(r.vehicleId as number)?.vin ?? null, vehicleEngineNo: byId.get(r.vehicleId as number)?.engineNo ?? null }));
+      const orderIds = rows.map((r) => r.id as number);
+      const leadIds = rows.map((r) => r.leadId).filter((x): x is number => typeof x === 'number');
+      const vehicleIds = rows.map((r) => r.vehicleId).filter((x): x is number => typeof x === 'number');
+      const [vs, paid, ls] = await Promise.all([
+        vehicleIds.length ? ctx.tx.vehicle.findMany({ where: { id: { in: vehicleIds } }, select: { id: true, vin: true, engineNo: true } }) : [],
+        // Payments received so far (the balance is what is still due).
+        orderIds.length
+          ? query<{ id: number; received: string }>(ctx.tx, sql`select sales_order_id::int as id, sum(amount)::text as received from sales.order_payment where ${inArray(sql`sales_order_id`, orderIds)} group by sales_order_id`)
+          : [],
+        // Corporate customer details, from the lead.
+        leadIds.length
+          ? ctx.tx.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, customerType: true, companyName: true, contactDesignation: true, purchaseOrderNo: true } })
+          : [],
+      ]);
+      const vById = new Map(vs.map((v) => [v.id, v]));
+      const paidById = new Map(paid.map((p) => [p.id, p.received]));
+      const lById = new Map(ls.map((l) => [l.id, l]));
+      return named.map((r) => {
+        const received = money2(paidById.get(r.id as number) ?? '0');
+        const l = lById.get(r.leadId as number);
+        return {
+          ...r,
+          vehicleVin: vById.get(r.vehicleId as number)?.vin ?? null,
+          vehicleEngineNo: vById.get(r.vehicleId as number)?.engineNo ?? null,
+          amountReceived: received,
+          balanceDue: subMoney(money2(r.totalAmount), received),
+          customerType: l?.customerType ?? 'individual',
+          companyName: l?.companyName ?? null,
+          contactDesignation: l?.contactDesignation ?? null,
+          purchaseOrderNo: l?.purchaseOrderNo ?? null,
+        };
+      });
     },
   },
 };
@@ -685,7 +744,12 @@ export const quotationEntity: EntityConfig = {
       }
       return ['unitPrice', 'discount', 'quantity', 'freightInsurance', 'withholdingTax'].some((k) => patch[k] !== undefined) ? priceQuotation(patch, row) : patch;
     },
-    decorate: (ctx, rows) => withNames(ctx.tx, rows, { ...docTrailNames, modelName: { key: 'modelId', source: MODEL_NAME } }),
+    // The lead's customer; a quotation without a lead: the customer written on it.
+    decorate: async (ctx, rows) =>
+      (await withNames(ctx.tx, rows, { ...docTrailNames, modelName: { key: 'modelId', source: MODEL_NAME } })).map((r, i) => ({
+        ...r,
+        customerName: r.customerName ?? ((rows[i]!.customerName as string | null) || null),
+      })),
   },
 };
 
@@ -723,7 +787,7 @@ export const ppfFormEntity: EntityConfig = {
     beforeUpdate: async (ctx, row, patch) => {
       // PBO, chassis and engine stay filled in once the lead has a sales order (before, they may be blank).
       const blank = (['pboNo', 'chassisNo', 'engineNo'] as const).filter((k) => k in patch && !patch[k]);
-      const owning = blank.length ? await ctx.tx.lead.findUnique({ where: { id: row.leadId as number }, select: { salesOrderId: true } }) : null;
+      const owning = blank.length && row.leadId ? await ctx.tx.lead.findUnique({ where: { id: row.leadId as number }, select: { salesOrderId: true } }) : null;
       if (blank.length && owning?.salesOrderId) {
         const names = { pboNo: 'PBO number', chassisNo: 'chassis number', engineNo: 'engine number' };
         throw validationError(blank.map((k) => ({ in: 'body' as const, path: k, message: `Enter the ${names[k]}` })));
@@ -733,7 +797,7 @@ export const ppfFormEntity: EntityConfig = {
     },
     // The customer's name as written on the voucher; older vouchers: the lead's.
     decorate: async (ctx, rows) =>
-      (await withNames(ctx.tx, rows, docTrailNames)).map((r, i) => ({ ...r, customerName: (rows[i]!.customerName as string | null) || r.customerName })),
+      (await withNames(ctx.tx, rows, { ...docTrailNames, modelName: { key: 'modelId', source: MODEL_NAME } })).map((r, i) => ({ ...r, customerName: (rows[i]!.customerName as string | null) || r.customerName })),
   },
 };
 

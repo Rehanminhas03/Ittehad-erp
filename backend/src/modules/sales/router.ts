@@ -27,12 +27,27 @@ import {
   HandOverLeadsBody,
   HandOverLeadsQuery,
   HandOverResultSchema,
+  ClearanceDecisionBody,
+  ClearanceRequestBody,
+  OrderPaymentCreate,
+  OrderPaymentsSchema,
+  StandalonePpfCreate,
+  StandaloneQuotationCreate,
+  LeaveApplicationCreate,
+  LeaveApplicationSchema,
+  LeaveDecisionBody,
+  LeaveDocumentSchema,
+  LeaveListQuery,
+  LeavePageSchema,
+  TodayQuery,
+  TodaySchema,
   LeadAppointmentBody,
   LeadsToHandOverSchema,
   ReassignLeadBody,
   LeadDetailsBody,
   LeadOrderVehicleSchema,
   LeadFollowUpCreate,
+  FollowUpCommentBody,
   LeadFollowUpSchema,
   LeadSchema,
   LeadSummaryQuery,
@@ -109,6 +124,18 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     response: LeadRead,
     status: 201,
     handler: (ctx) => svc.recordFollowUp(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/follow-ups/:followUpId/comments',
+    operationId: 'commentOnFollowUp',
+    summary: 'Comment on a follow-up (e.g. the Manager asks to clarify; the salesperson answers); everyone following the lead sees it',
+    permission: [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted],
+    params: IdParam.extend({ followUpId: z.coerce.number().int().positive() }),
+    body: FollowUpCommentBody,
+    response: z.array(LeadFollowUpSchema),
+    status: 201,
+    handler: (ctx) => svc.commentOnFollowUp(ctx, ctx.params.id, ctx.params.followUpId, ctx.body),
   })
   .route({
     method: 'patch',
@@ -202,7 +229,19 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
   });
 
 // ---- Printable documents (what the PDF shows) ----
-const quotationActions = new ApiRouter('/sales/quotations', 'Quotation').route({
+const quotationActions = new ApiRouter('/sales/quotations', 'Quotation')
+  .route({
+    method: 'post',
+    path: '/standalone',
+    operationId: 'createStandaloneQuotation',
+    summary: 'Issue a quotation without a lead (a price asked for on the spot): the customer and the model are written on it',
+    permission: P.quotationsCreate,
+    body: StandaloneQuotationCreate,
+    response: QuotationSchema,
+    status: 201,
+    handler: (ctx) => svc.createStandaloneQuotation(ctx, ctx.body),
+  })
+  .route({
   method: 'get',
   path: '/:id/document',
   operationId: 'getQuotationDocument',
@@ -212,7 +251,19 @@ const quotationActions = new ApiRouter('/sales/quotations', 'Quotation').route({
   response: QuotationDocumentSchema,
   handler: (ctx) => svc.quotationDocument(ctx, ctx.params.id),
 });
-const ppfActions = new ApiRouter('/sales/ppf-forms', 'PPF form').route({
+const ppfActions = new ApiRouter('/sales/ppf-forms', 'PPF form')
+  .route({
+    method: 'post',
+    path: '/standalone',
+    operationId: 'createStandalonePpfForm',
+    summary: 'Issue a PPF voucher without a lead: the customer and the vehicle are written on it',
+    permission: P.ppfCreate,
+    body: StandalonePpfCreate,
+    response: PpfFormSchema,
+    status: 201,
+    handler: (ctx) => svc.createStandalonePpf(ctx, ctx.body),
+  })
+  .route({
   method: 'get',
   path: '/:id/document',
   operationId: 'getPpfDocument',
@@ -221,7 +272,7 @@ const ppfActions = new ApiRouter('/sales/ppf-forms', 'PPF form').route({
   params: IdParam,
   response: PpfDocumentSchema,
   handler: (ctx) => svc.ppfDocument(ctx, ctx.params.id),
-});
+  });
 
 // ---- Document formats (letterhead, terms, sign-off) per dealership ----
 const templateActions = new ApiRouter('/sales/document-templates', 'DocumentTemplate')
@@ -281,6 +332,16 @@ const dashboardActions = new ApiRouter('/sales/dashboard', 'SalesDashboard')
     permission: SALES_VIEWERS,
     response: z.array(ActionItemSchema),
     handler: (ctx) => svc.actionItems(ctx),
+  })
+  .route({
+    method: 'get',
+    path: '/today',
+    operationId: 'getSalesToday',
+    summary: 'Today and tomorrow at a glance: customer appointments and car deliveries (within your own view scope)',
+    permission: SALES_VIEWERS,
+    query: TodayQuery,
+    response: TodaySchema,
+    handler: (ctx) => svc.todayAtAGlance(ctx, ctx.query.dealershipId),
   });
 
 // ---- Team (Assistant Manager / Sales Manager) ----
@@ -338,6 +399,60 @@ const teamActions = new ApiRouter('/sales/team', 'SalesTeam')
 
 // ---- Orders: vehicle identifiers, stock allocation, deliveries ----
 const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
+  .route({
+    method: 'get',
+    path: '/:id/payments',
+    operationId: 'listOrderPayments',
+    summary: "The order's payments (booking, part, final) with its total, received and balance",
+    permission: [P.ordersViewAll, P.ordersViewOwn],
+    params: IdParam,
+    response: OrderPaymentsSchema,
+    handler: (ctx) => svc.orderPayments(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/payments',
+    operationId: 'addOrderPayment',
+    summary: 'Sales Admin: record a payment received against the order',
+    permission: P.paymentsManage,
+    params: IdParam,
+    body: OrderPaymentCreate,
+    response: OrderPaymentsSchema,
+    status: 201,
+    handler: (ctx) => svc.addOrderPayment(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'delete',
+    path: '/:id/payments/:paymentId',
+    operationId: 'removeOrderPayment',
+    summary: 'Sales Admin: remove a payment entered by mistake (not once the car is cleared)',
+    permission: P.paymentsManage,
+    params: IdParam.extend({ paymentId: z.coerce.number().int().positive() }),
+    response: OrderPaymentsSchema,
+    handler: (ctx) => svc.removeOrderPayment(ctx, ctx.params.id, ctx.params.paymentId),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/clearance-request',
+    operationId: 'requestDeliveryClearance',
+    summary: 'Delivery Team: ask the Sales Admin to clear the car for delivery (all payments clear)',
+    permission: [P.deliveriesComplete, P.deliveriesSchedule],
+    params: IdParam,
+    body: ClearanceRequestBody,
+    response: OrderRead,
+    handler: (ctx) => svc.requestClearance(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/clearance-decision',
+    operationId: 'decideDeliveryClearance',
+    summary: 'Sales Admin: approve (everything clear) or reject the delivery clearance request',
+    permission: P.ordersClear,
+    params: IdParam,
+    body: ClearanceDecisionBody,
+    response: OrderRead,
+    handler: (ctx) => svc.decideClearance(ctx, ctx.params.id, ctx.body),
+  })
   .route({
     method: 'put',
     path: '/:id/vehicle',
@@ -485,7 +600,64 @@ const deliveryReportActions = new ApiRouter('/sales/delivery-report', 'DeliveryR
   handler: (ctx) => svc.deliveryReport(ctx, ctx.query),
 });
 
+// ---- Leave applications (every member of the sales department; the AM / Manager decide) ----
+const LEAVE_USERS = [P.leaveApply, P.leaveApprove];
+const leaveActions = new ApiRouter('/sales/leave', 'LeaveApplication')
+  .route({
+    method: 'get',
+    path: '/',
+    operationId: 'listLeaveApplications',
+    summary: "Leave applications: your own, and (Assistant Manager / Manager) the team's",
+    permission: LEAVE_USERS,
+    query: LeaveListQuery,
+    response: LeavePageSchema,
+    handler: (ctx) => svc.listLeave(ctx, ctx.query),
+  })
+  .route({
+    method: 'post',
+    path: '/',
+    operationId: 'applyForLeave',
+    summary: 'Apply for sick / emergency leave (the Assistant Manager / Manager are notified)',
+    permission: P.leaveApply,
+    body: LeaveApplicationCreate,
+    response: LeaveApplicationSchema,
+    status: 201,
+    handler: (ctx) => svc.applyForLeave(ctx, ctx.body),
+  })
+  .route({
+    method: 'get',
+    path: '/:id',
+    operationId: 'getLeaveApplication',
+    summary: 'One leave application',
+    permission: LEAVE_USERS,
+    params: IdParam,
+    response: LeaveApplicationSchema,
+    handler: (ctx) => svc.getLeave(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/decision',
+    operationId: 'decideLeaveApplication',
+    summary: 'Assistant Manager / Manager: approve or reject (the employee is notified)',
+    permission: P.leaveApprove,
+    params: IdParam,
+    body: LeaveDecisionBody,
+    response: LeaveApplicationSchema,
+    handler: (ctx) => svc.decideLeave(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'get',
+    path: '/:id/document',
+    operationId: 'getLeaveDocument',
+    summary: "What the printed leave form shows (the application and the dealership's leave format)",
+    permission: LEAVE_USERS,
+    params: IdParam,
+    response: LeaveDocumentSchema,
+    handler: (ctx) => svc.leaveDocument(ctx, ctx.params.id),
+  });
+
 export const salesRouters = [
+  leaveActions,
   dashboardActions,
   deliveryPipelineActions,
   deliveryReportActions,

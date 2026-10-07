@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pakistanToday } from '../src/lib/dates';
-import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo, PPF_CUSTOMER } from './helpers';
+import { api, bearer, createDealership, createUser, owner, roleByName, useTestDb, nextCnic, nextPbo, PPF_CUSTOMER, clearForDelivery } from './helpers';
 
 useTestDb();
 
@@ -119,6 +119,7 @@ describe('Delivery workflow: approved → in transit → received → scheduled 
     expect((await pipeline(s.sales1, 'scheduled')).body.items.map((r: { leadId: number }) => r.leadId)).toEqual([leadId]);
 
     // Delivered: the Delivery Team, with every item of the pre-delivery checklist ticked.
+    await clearForDelivery();
     const complete = (checklist: string[]) =>
       api
         .post(`/api/sales/deliveries/${d.body.id}/complete`)
@@ -207,6 +208,7 @@ describe('Delivery Team: allocation, logistics and hand-over', () => {
     const today = pakistanToday();
     const d = await api.post(`/api/sales/orders/${orderId}/deliveries`).set(bearer(s.delivery.token)).send({ scheduledDate: today });
     expect(d.status).toBe(201);
+    await clearForDelivery();
     const done = await api
       .post(`/api/sales/deliveries/${d.body.id}/complete`)
       .set(bearer(s.delivery.token))
@@ -306,7 +308,10 @@ describe('Mark as delivered on the order', () => {
     const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     await api.post('/api/sales/stock').set(bearer(s.delivery.token)).send(intake(s, s.modelId, 'HANDOVER0001', { orderId: o.id })).expect(201);
     const handOver = { odometerKm: 5, documentsHandedOver: ['invoice'], checklist: ['pdi_done', 'documents_ready', 'accessories_fitted'], customerAcknowledged: true };
-    const deliver = () => api.post(`/api/sales/orders/${o.id}/deliver`).set(bearer(s.delivery.token)).send(handOver);
+    const deliver = async () => {
+      await clearForDelivery();
+      return api.post(`/api/sales/orders/${o.id}/deliver`).set(bearer(s.delivery.token)).send(handOver);
+    };
 
     // Received but not ready, and not approved: refused.
     expect((await deliver()).status).toBe(409);

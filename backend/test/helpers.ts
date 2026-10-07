@@ -117,3 +117,8 @@ export const nextPbo = () => `PBO-${10000 + ++pboSeq}`;
 
 /** Required on every PPF voucher: the customer as printed (name, email, address) and the protection package. */
 export const PPF_CUSTOMER = { customerName: 'Ayesha Khan', customerEmail: 'ayesha@example.com', customerAddress: 'House 1, Street 2, F-10/2, Islamabad', protectionPackage: 'nenotek_prime' };
+
+/** The Sales Admin's delivery clearance (all payments clear), as a test shortcut: every approved order is cleared. */
+export async function clearForDelivery() {
+  await owner.db.salesOrder.updateMany({ where: { status: 'approved', clearanceStatus: { not: 'approved' } }, data: { clearanceStatus: 'approved' } });
+}

@@ -11,7 +11,9 @@
  *   - Assistant Manager: duplicate customers sent to them.
  *   - Salesperson / CRO (own leads): new leads not followed up; customers whose car is ready.
  */
+import { scopeWhere } from '../../../auth/access';
 import { query } from '../../../db/client';
+import { leaveApplication } from '../../../db/tables.generated';
 import { and, eq, sql, type SQL } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { pakistanToday } from '../../../lib/dates';
@@ -116,6 +118,30 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
       { key: 'duplicates', title: 'Duplicate customers sent to you by salespeople', to: '/sales/leads?escalated=true&open=true&range=all', urgent: false },
       await countOf(lead, and(leads.viewCondition(access), sql`${lead.escalatedAt} is not null`, sql`${lead.status} in ('new', 'follow_up', 'visited')`)),
     );
+  }
+
+  // ---- Delivery clearance: the Sales Admin checks the payments; the Delivery Team hands over once cleared ----
+  if (access.hasAny([P.ordersClear])) {
+    add(
+      { key: 'clearance-requested', title: 'Delivery clearance requested: check the payments and clear the car', to: '/sales/orders?range=all&clearanceStatus=requested', urgent: true },
+      await countOf(salesOrder, and(orders.viewCondition(access), eq(salesOrder.status, 'approved'), eq(salesOrder.clearanceStatus, 'requested'))),
+    );
+  }
+  if (access.hasAny([P.deliveriesComplete])) {
+    add(
+      { key: 'clearance-rejected', title: 'Delivery clearance rejected by the Sales Admin: see why', to: '/sales/orders?range=all&clearanceStatus=rejected', urgent: true },
+      await countOf(salesOrder, and(orders.viewCondition(access), eq(salesOrder.status, 'approved'), eq(salesOrder.clearanceStatus, 'rejected'))),
+    );
+  }
+
+  // ---- Leave applications waiting for the Assistant Manager / Manager ----
+  if (access.hasAny([P.leaveApprove])) {
+    const scope = scopeWhere(access.scope(P.leaveApprove), { dealership: leaveApplication.dealershipId });
+    const [row] = await query<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as "n" from ${leaveApplication} where ${scope} and ${leaveApplication.status} = 'submitted' and ${leaveApplication.employeeId} <> ${access.userId}`,
+    );
+    add({ key: 'leave-pending', title: 'Leave applications waiting for your approval', to: '/sales/leave?status=submitted', urgent: false }, row?.n ?? 0);
   }
 
   // ---- Appointments today: the salesperson (own leads), the Assistant Manager and the Manager ----

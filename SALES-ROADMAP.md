@@ -11,7 +11,7 @@ Status: proposal, 1 October 2026.
 | 4 | Targets and performance | Manager sees each salesperson against target | Medium |
 | 5 | Cancellation and refund steps | Cancellations get a reason, approval and refund record | Medium |
 | 6 | Follow-up after delivery | Customer satisfaction; leads into the Service module | Low |
-| 7 | Bank / leasing cases | Many quotations already go to banks; track them to the DO | Low |
+| 7 | Bank / leasing cases | Many quotations already go to banks; track them to the DO | Low |git
 
 ---
 

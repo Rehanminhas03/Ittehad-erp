@@ -1,5 +1,5 @@
 import type { jsPDF } from 'jspdf';
-import type { DeliveryNote, DocumentTemplate, PpfDocument, QuotationDocument } from '../salesApi';
+import type { DeliveryNote, DocumentTemplate, LeaveDocument, PpfDocument, QuotationDocument } from '../salesApi';
 import { PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES, PPF_VOUCHER_FIELDS, type PpfVoucherField } from './labels';
 
 /** Dealership brand logos (public/logo), by dealership code prefix. */
@@ -819,7 +819,7 @@ export async function buildDeliveryNotePdf(n: DeliveryNote): Promise<BuiltPdf> {
   blank(x, y, R - x, n.customer.cnic);
   y += 9;
   x = say('on behalf of', L, y);
-  blank(x, y, R - x);
+  blank(x, y, R - x, n.onBehalfOf ?? undefined);
   y += 9;
   x = say('have thoroughly inspected and taken delivery of the vehicle against PBO #', L, y);
   blank(x, y, R - x, n.pboNo);
@@ -877,4 +877,138 @@ export async function buildDeliveryNotePdf(n: DeliveryNote): Promise<BuiltPdf> {
 
   doc.setProperties({ title: `Delivery Note ${n.deliveryNo}`, subject: `${[n.vehicle.brand, n.vehicle.model].filter(Boolean).join(' ')} for ${n.customer.name ?? ''}`, author: n.dealership.name });
   return { doc, fileName: fileNameOf('Delivery Note', n.deliveryNo, n.customer.name ?? 'customer') };
+}
+
+// ---- Leave application form (every dealership's own: Document formats → Leave form) ----------------
+/**
+ * Urdu (right-to-left, joined script) drawn on a canvas, which shapes it with the system's Urdu
+ * font, and returned as an image for the PDF (jsPDF's built-in fonts cannot shape Urdu).
+ */
+function urduImage(text: string, widthMm: number, sizePx = 30): { data: string; heightMm: number } | null {
+  if (typeof document === 'undefined') return null;
+  const pxPerMm = 8;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const font = `${sizePx}px "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", "Noto Naskh Arabic", "Segoe UI", Tahoma, Arial, sans-serif`;
+  const width = Math.round(widthMm * pxPerMm);
+  ctx.font = font;
+  // Wrap the words to the width (right to left).
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const next = line ? `${line} ${word}` : word;
+    if (ctx.measureText(next).width > width && line) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  const lineH = Math.round(sizePx * 1.9);
+  canvas.width = width;
+  canvas.height = lineH * lines.length + Math.round(sizePx * 0.4);
+  ctx.font = font;
+  ctx.fillStyle = '#111827';
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, width, i * lineH + Math.round(sizePx * 0.2)));
+  return { data: canvas.toDataURL('image/png'), heightMm: canvas.height / pxPerMm };
+}
+
+/** The printed leave application: the dealership's heading, the details, signatures, then the rules (English and Urdu). */
+export async function buildLeavePdf(l: LeaveDocument): Promise<BuiltPdf> {
+  const p = await newPage();
+  const { doc } = p;
+  const t = l.template;
+  const L = 22;
+  const R = W - 22;
+  // A label, then the value on a line to the given width.
+  const fieldAt = (label: string, value: string | null | undefined, x: number, y: number, w: number) => {
+    p.font(9.5);
+    doc.text(`${label}:`, x, y);
+    const lx = x + doc.getTextWidth(`${label}: `) + 1;
+    doc.setDrawColor(...rule);
+    doc.line(lx, y + 1, x + w, y + 1);
+    if (value) {
+      p.font(10.5, 'bold');
+      doc.text(value, lx + 1, y - 0.4);
+    }
+  };
+  const d = (s: string) => shortDate(s);
+
+  p.y = 34;
+  p.font(16);
+  doc.text(t.companyName || l.dealershipName.toUpperCase(), W / 2, p.y, { align: 'center' });
+  p.y += 14;
+  p.font(13);
+  doc.text(t.title || 'APPLICATION FORM', W / 2, p.y, { align: 'center' });
+  p.y += 14;
+
+  const half = (R - L) / 2 - 6;
+  fieldAt('APPLICATION NO', l.applicationNo, L, p.y, half);
+  fieldAt('DATE', d(l.createdAt), L + half + 12, p.y, half);
+  p.y += 11;
+  fieldAt('EMPLOYEE NAME', l.employeeName, L, p.y, half);
+  fieldAt('EMPLOYEE NO', l.employeeNo ?? '', L + half + 12, p.y, half);
+  p.y += 11;
+  fieldAt('DEPARTMENT', l.department, L, p.y, half);
+  fieldAt('STATUS', l.status === 'approved' ? 'Approved' : l.status === 'rejected' ? 'Rejected' : 'Submitted', L + half + 12, p.y, half);
+  p.y += 15;
+
+  // The leave asked for: only its own line is filled in (as ticked on the paper form).
+  const leaveLine = (label: string, on: boolean) => {
+    const third = (R - L - 60) / 2;
+    p.font(10.5, on ? 'bold' : 'normal');
+    doc.text(label, L, p.y);
+    fieldAt('FROM', on ? d(l.fromDate) : '', L + 52, p.y, third);
+    fieldAt('TO', on ? d(l.toDate) : '', L + 56 + third, p.y, third - 4);
+    fieldAt('DAYS', on ? String(l.days) : '', R - 22, p.y, 22);
+    p.y += 11;
+  };
+  leaveLine('SICK LEAVE', l.leaveType === 'sick');
+  leaveLine('EMERGENCY LEAVE', l.leaveType === 'emergency');
+  if (l.reason) {
+    p.y += 1;
+    p.font(9.5);
+    doc.text('REASON:', L, p.y);
+    p.rich(l.reason, L + 18, R - L - 18, 10, 5);
+  }
+  if (l.decisionNote || l.decidedByName) {
+    p.font(9);
+    doc.setTextColor(...muted);
+    doc.text(`${l.status === 'approved' ? 'Approved' : 'Decided'} by ${l.decidedByName ?? '—'}${l.decidedAt ? ` on ${d(l.decidedAt)}` : ''}${l.decisionNote ? ` — ${l.decisionNote}` : ''}`, L, p.y + 2);
+    doc.setTextColor(...ink);
+    p.y += 6;
+  }
+
+  // Signature lines, side by side.
+  p.y += 24;
+  const signs = t.signOff.length ? t.signOff : ["Applicant's Signature", 'Department Head', 'Manager'];
+  const colW = (R - L) / signs.length;
+  signs.forEach((s, i) => {
+    const x = L + i * colW;
+    doc.setDrawColor(...ink);
+    doc.line(x + 2, p.y, x + colW - 6, p.y);
+    p.font(9.5);
+    doc.text(s.toUpperCase(), x + 2, p.y + 5);
+  });
+  p.y += 22;
+
+  // The rules: English, then Urdu.
+  for (const line of t.terms) {
+    p.rich(line, L, R - L, 10.5, 5.6);
+    p.y += 4;
+  }
+  p.y += 2;
+  for (const line of t.closingLines) {
+    const img = urduImage(line, R - L);
+    if (!img) continue;
+    p.ensure(img.heightMm);
+    doc.addImage(img.data, 'PNG', L, p.y - 3, R - L, img.heightMm);
+    p.y += img.heightMm + 2;
+  }
+
+  doc.setProperties({ title: `Leave application ${l.applicationNo}`, subject: `Leave application of ${l.employeeName}` });
+  return { doc, fileName: fileNameOf('Leave Application', l.applicationNo, l.employeeName) };
 }

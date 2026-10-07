@@ -88,7 +88,7 @@ export const customerView: EntityViewConfig<Customer> = {
       { name: 'dealershipId', label: 'Dealership', type: 'dealership', required: true, mode: 'create', scopePermission: P.customersCreate },
       { name: 'kind', label: 'Type', type: 'select', required: true, options: KIND_OPTIONS },
       { name: 'fullName', label: 'Full name / company name', type: 'text', required: true },
-      { name: 'mobile', label: 'Mobile', type: 'text', required: true, placeholder: '0300-1234567', hint: 'Used to find the customer; must be unique in the dealership' },
+      { name: 'mobile', label: 'Mobile', type: 'tel', required: true, placeholder: '03001234567', hint: 'Digits only. Used to find the customer; must be unique in the dealership' },
       { name: 'altPhone', label: 'Alternate phone', type: 'text' },
       { name: 'email', label: 'Email', type: 'email' },
       {

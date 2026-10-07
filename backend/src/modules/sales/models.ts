@@ -7,8 +7,19 @@ export const LEAD_SOURCES = ['walk_in', 'phone', 'website', 'social', 'referral'
  * new → follow_up / visited (follow-ups recorded) → converted ("Convert to Lead": qualified, visible
  * to Admin) → processing (Admin raised the order) → completed (order delivered).
  * exhausted: given up after at least MIN_FOLLOW_UPS_TO_EXHAUST follow-ups.
+ * lost: the customer said they are not interested (at any follow-up); hidden from the leads list
+ * unless "Lost leads" is chosen. The same phone can be logged again as a new lead later.
  */
-export const LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing', 'completed', 'exhausted'] as const;
+export const LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing', 'completed', 'exhausted', 'lost'] as const;
+/** Individual customer, or a company (corporate order: company name, the contact's designation, purchase order). */
+export const CUSTOMER_TYPES = ['individual', 'corporate'] as const;
+/** Payments against a sales order: the booking amount, part payments, the final payment. */
+export const ORDER_PAYMENT_KINDS = ['booking', 'partial', 'final'] as const;
+/** Delivery clearance by the Sales Admin (all payments clear) before the car is handed over. */
+export const CLEARANCE_STATES = ['none', 'requested', 'approved', 'rejected'] as const;
+/** Leave applications (all staff): sick or emergency leave. */
+export const LEAVE_TYPES = ['sick', 'emergency'] as const;
+export const LEAVE_STATES = ['submitted', 'approved', 'rejected'] as const;
 /** A phone number can have only one lead in these states per dealership (duplicate control). */
 export const ACTIVE_LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing'] as const;
 export const FOLLOW_UP_OUTCOMES = ['interested', 'not_interested', 'visited'] as const;
@@ -34,4 +45,4 @@ export const PPF_VOUCHER_FIELDS = ['pbo', 'customerName', 'email', 'address', 'p
 export const PPF_HIDEABLE_FIELDS = ['email', 'phone', 'vehicle', 'salesExecutive', 'promiseDate', 'ppf', 'notes'] as const;
 // ---- Document formats (letterhead, terms) per dealership ---------------------------------------
 /** Documents whose printed format a dealership can edit.  */
-export const DOCUMENT_KINDS = ['quotation', 'ppf'] as const;
+export const DOCUMENT_KINDS = ['quotation', 'ppf', 'leave'] as const;

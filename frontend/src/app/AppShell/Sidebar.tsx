@@ -7,15 +7,15 @@ import { cn } from '@/shared/lib';
 import { NAVIGATION } from '../navigation';
 import { NavIcon } from './navIcons';
 
-/** Ittehad Motors logo from public/logo, or a text mark until it loads. */
+/** Ittehad Automotive logo from public/logo, or a text mark until it loads. */
 function BrandMark() {
   const [failed, setFailed] = useState(false);
   return (
     <div className="flex h-16 items-center gap-3 px-5">
       {failed ? (
-        <span className="text-sm font-semibold tracking-tight text-slate-900">Ittehad Motors</span>
+        <span className="text-sm font-semibold tracking-tight text-slate-900">Ittehad Automotive</span>
       ) : (
-        <img src="/logo/Ittehadmotors-logo.png" alt="Ittehad Motors" className="h-9 w-auto" onError={() => setFailed(true)} />
+        <img src="/logo/Ittehad-logo.png" alt="Ittehad Automotive" className="h-9 w-auto" onError={() => setFailed(true)} />
       )}
       <span className="rounded-full bg-brand-600/10 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-brand-700 uppercase">DMS</span>
     </div>

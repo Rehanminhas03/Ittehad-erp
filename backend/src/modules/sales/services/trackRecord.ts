@@ -182,11 +182,12 @@ export async function trackRecord(ctx: EntityCtx, q: z.output<typeof TrackRecord
   const leadsLogged = await query<LeadRow>(ctx.tx, leadRows('l.created_at', empty));
   const converted = await query<LeadRow>(ctx.tx, leadRows('l.converted_at', sql`and l.converted_at is not null`));
   const ppf = await query<{ userId: number; formNo: string; customer: string; phone: string; soldOn: string; coverage: string; price: string; paid: string; unpaid: string }>(ctx.tx, sql`
-    select p.owner_id::int as "userId", p.form_no as "formNo", l.prospect_name as customer, l.prospect_mobile as phone,
+    select p.owner_id::int as "userId", p.form_no as "formNo", coalesce(p.customer_name, l.prospect_name, '') as customer, coalesce(l.prospect_mobile, p.customer_mobile, '') as phone,
            ${day('p.created_at')} as "soldOn", p.coverage,
            p.total_amount::text as price, p.advance_paid::text as paid, (p.total_amount - p.advance_paid)::numeric(14,2)::text as unpaid
       from sales.ppf_form p
-      join sales.lead l on l.id = p.lead_id
+      -- Vouchers issued without a lead count too (their customer is on the voucher).
+      left join sales.lead l on l.id = p.lead_id
      where p.dealership_id = ${dealershipId} and p.owner_id in (${shown}) and ${inSelection('p.created_at')}
      order by p.owner_id, p.created_at
      limit 2000`);

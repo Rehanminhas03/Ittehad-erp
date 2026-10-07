@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { DateRangePicker, karachiToday, LIST_RANGES, rangeLabel, shiftDays } from '@/shared/components';
-import { EmptyState, ErrorState, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
-import { usePermission } from '@/shared/hooks';
+import { Badge, Button, EmptyState, ErrorState, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
+import { usePermission, useToast } from '@/shared/hooks';
 import { apiErrorMessage, cn, formatDate } from '@/shared/lib';
 import { DeliveryNoteButton } from '../../documents/DocumentPreview';
 import { formatExpectedDelivery } from '../../orders/components/ExpectedDelivery';
-import { P } from '../../permissions';
-import { type DeliveryPipeline, useGetDeliveryPipelineQuery } from '../../salesApi';
+import { CLEARANCE_LABELS, P } from '../../permissions';
+import { type DeliveryPipeline, useGetDeliveryPipelineQuery, useRequestDeliveryClearanceMutation } from '../../salesApi';
 
 type Row = DeliveryPipeline['items'][number];
 type Stage = DeliveryPipeline['stage'];
@@ -97,6 +97,13 @@ export default function DeliveryStatusPage() {
     pageSize: PAGE_SIZE,
   });
   const today = karachiToday();
+  const toast = useToast();
+  const [requestClearance, { isLoading: requesting }] = useRequestDeliveryClearanceMutation();
+  // Received / scheduled cars: the Sales Admin clears them (all payments clear) before the hand-over.
+  const showsClearance = stage === 'received' || stage === 'scheduled';
+  const canRequest = (r: Row) =>
+    (r.clearanceStatus === 'none' || r.clearanceStatus === 'rejected') &&
+    (perm.canIn(P.deliveriesComplete, r.dealershipId) || perm.canIn(P.deliveriesSchedule, r.dealershipId));
   const open = (r: Row) => {
     if (perm.canIn(P.ordersViewAll, r.dealershipId)) navigate(`/sales/orders/${r.orderId}`);
     else if (r.leadId) navigate(`/sales/leads/${r.leadId}`);
@@ -118,6 +125,7 @@ export default function DeliveryStatusPage() {
             <th className="px-3 py-2 text-left">Chassis</th>
             <th className="px-3 py-2 text-left">Expected delivery</th>
             <th className="px-3 py-2 text-left">{stage === 'scheduled' ? 'Delivery date' : stage === 'delivered' ? 'Delivered on' : 'Approved'}</th>
+            {showsClearance && <th className="px-3 py-2 text-left">Payments / clearance</th>}
             {canNote && <th className="px-3 py-2" />}
           </tr>
         </thead>
@@ -150,6 +158,33 @@ export default function DeliveryStatusPage() {
                       ? formatDate(r.approvedAt)
                       : <span className="text-amber-700">{r.orderStatus === 'draft' ? 'Draft' : 'Awaiting approval'}</span>}
               </td>
+              {showsClearance && (
+                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex flex-col items-start gap-1">
+                    <span className={Number(r.balanceDue) > 0 ? 'text-xs font-medium text-amber-700' : 'text-xs text-emerald-700'}>
+                      {Number(r.balanceDue) > 0 ? `Balance due Rs ${Number(r.balanceDue).toLocaleString('en-PK')}` : 'Fully paid'}
+                    </span>
+                    <Badge tone={CLEARANCE_LABELS[r.clearanceStatus]?.tone ?? 'gray'}>{CLEARANCE_LABELS[r.clearanceStatus]?.label ?? r.clearanceStatus}</Badge>
+                    {canRequest(r) && r.orderStatus === 'approved' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={requesting}
+                        onClick={async () => {
+                          try {
+                            await requestClearance({ id: r.orderId, clearanceRequest: { note: null } }).unwrap();
+                            toast.success('Clearance requested: the Sales Admin is notified');
+                          } catch (e) {
+                            toast.error(e);
+                          }
+                        }}
+                      >
+                        Request clearance
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              )}
               {canNote && <td className="px-3 py-2 text-right">{r.deliveryId && <DeliveryNoteButton deliveryId={r.deliveryId} label="Note" />}</td>}
             </tr>
           ))}

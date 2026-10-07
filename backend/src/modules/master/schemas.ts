@@ -38,7 +38,9 @@ const mobile = z
   .trim()
   .min(1, 'Mobile number is required')
   .max(30)
-  .refine((v) => normalizeMobile(v) !== null, 'Enter a valid mobile number, e.g. 0300-1234567');
+  .refine((v) => normalizeMobile(v) !== null, 'Enter a valid mobile number, e.g. 03001234567')
+  // Stored as digits only (no dashes or spaces; a leading + kept), so numbers match when searched.
+  .transform((v) => (v.startsWith('+') ? '+' : '') + v.replace(/\D/g, ''));
 const cnic = z
   .string()
   .trim()

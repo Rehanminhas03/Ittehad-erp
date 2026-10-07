@@ -14,6 +14,7 @@ export const salesApi = enhancedApi
       receiveStockVehicle: { invalidatesTags: ['StockVehicle', 'SalesOrder', 'Vehicle', 'Lead'] },
       convertLead: { invalidatesTags: ['Lead', 'Customer', 'Search'] },
       recordLeadFollowUp: { invalidatesTags: ['Lead'] },
+      commentOnFollowUp: { invalidatesTags: ['Lead'] },
       // Documents feed the monthly track record (SalesTeam).
       createLeadQuotation: { invalidatesTags: ['Quotation', 'SalesTeam'] },
       createLeadPpfForm: { invalidatesTags: ['PPF form', 'SalesTeam'] },
@@ -31,6 +32,15 @@ export const salesApi = enhancedApi
       // A leaver's leads (with their quotations and PPF vouchers) go to someone else.
       handOverLeads: { invalidatesTags: ['Lead', 'Quotation', 'PPF form', 'SalesTeam'] },
       raiseSalesOrder: { invalidatesTags: ['Lead', 'SalesOrder'] },
+      // Payments change the order's received / balance; clearance gates the hand-over.
+      listOrderPayments: { providesTags: ['SalesOrder'] },
+      addOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },
+      removeOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },
+      requestDeliveryClearance: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline', 'Delivery'] },
+      decideDeliveryClearance: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline', 'Delivery'] },
+      applyForLeave: { invalidatesTags: ['LeaveApplication'] },
+      decideLeaveApplication: { invalidatesTags: ['LeaveApplication'] },
+      getSalesToday: { providesTags: ['Lead', 'SalesOrder', 'Delivery'] },
       setOrderVehicle: { invalidatesTags: ['SalesOrder', 'Vehicle', 'StockVehicle'] },
       transitionSalesOrder: { invalidatesTags: ['SalesOrder', 'Delivery', 'Lead', 'StockVehicle'] },
       allocateVehicle: { invalidatesTags: ['SalesOrder', 'Vehicle', 'StockVehicle'] },

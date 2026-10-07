@@ -76,6 +76,8 @@ export interface PipelineRow {
   expectedDeliveryDate: string | null;
   expectedDeliveryByMonth: boolean;
   bookedAt: string;
+  clearanceStatus: string;
+  balanceDue: string;
   stage: (typeof PIPELINE_STAGES)[number];
 }
 
@@ -118,7 +120,8 @@ export async function deliveryPipeline(ctx: EntityCtx, q: z.output<typeof Delive
                  ${vehicle.id} as "vehicleId", ${vehicle.vin} as "chassisNo", ${vehicle.engineNo} as "engineNo", ${vehicle.status} as "vehicleStatus",
                  ${delivery.id} as "deliveryId", ${delivery.deliveryNo} as "deliveryNo",
                  ${delivery.scheduledDate}::text as "scheduledDate", ${delivery.deliveredOn}::text as "deliveredOn",
-                 ${APPROVED_AT} as "approvedAt", ${salesOrder.expectedDeliveryDate}::text as "expectedDeliveryDate", ${salesOrder.expectedDeliveryByMonth} as "expectedDeliveryByMonth", ${salesOrder.createdAt} as "bookedAt",
+                 ${APPROVED_AT} as "approvedAt", ${salesOrder.expectedDeliveryDate}::text as "expectedDeliveryDate", ${salesOrder.expectedDeliveryByMonth} as "expectedDeliveryByMonth", ${salesOrder.createdAt} as "bookedAt", ${salesOrder.clearanceStatus} as "clearanceStatus",
+                 (${salesOrder.totalAmount} - coalesce((select sum(op.amount) from sales.order_payment op where op.sales_order_id = ${salesOrder.id}), 0))::text as "balanceDue",
                  ${STAGE} as "stage", count(*) over ()::int as "total"
             from ${FROM}
            where ${where} and ${STAGE} = ${stage}

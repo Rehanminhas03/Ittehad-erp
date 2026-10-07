@@ -1399,6 +1399,15 @@ model Lead {
   appointmentSetById       BigInt?        @map("appointment_set_by_id")
   /// When the "appointment today" reminder went out (once per appointment).
   appointmentRemindedAt    DateTime?      @map("appointment_reminded_at") @db.Timestamptz(6)
+  /// Lost: the customer is not interested (any follow-up); hidden from the leads list unless asked for.
+  lostAt                   DateTime?      @map("lost_at") @db.Timestamptz(6)
+  lostById                 BigInt?        @map("lost_by_id")
+  lostReason               String?        @map("lost_reason")
+  /// individual | corporate (captured at conversion). Corporate: the company, the contact's designation, the PO.
+  customerType             String         @default("individual") @map("customer_type")
+  companyName              String?        @map("company_name")
+  contactDesignation       String?        @map("contact_designation")
+  purchaseOrderNo          String?        @map("purchase_order_no")
   convertedAt              DateTime?      @map("converted_at") @db.Timestamptz(6)
   convertedById            BigInt?        @map("converted_by_id")
   status                   String         @default("new")
@@ -1467,7 +1476,12 @@ model PpfForm {
   dealershipId      BigInt     @map("dealership_id")
   branchId          BigInt?    @map("branch_id")
   formNo            String     @unique(map: "ppf_form_formNo_unique") @map("form_no")
-  leadId            BigInt     @map("lead_id")
+  leadId            BigInt?    @map("lead_id")
+  /// Without a lead: the customer's phone and the vehicle as written on the voucher.
+  customerMobile    String?    @map("customer_mobile")
+  modelId           BigInt?    @map("model_id")
+  variant           String?
+  color             String?
   ownerId           BigInt     @map("owner_id")
   pboNo             String?    @map("pbo_no")
   chassisNo         String?    @map("chassis_no")
@@ -1497,7 +1511,7 @@ model PpfForm {
   branch            Branch?    @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_branch_id_dealership_id_branch_id_dealership_id_fk")
   createdBy         User?      @relation("ppf_form_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_created_by_id_user_id_fk")
   dealership        Dealership @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_dealership_id_dealership_id_fk")
-  lead              Lead       @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_lead_id_lead_id_fk")
+  lead              Lead?      @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_lead_id_lead_id_fk")
   owner             User       @relation("ppf_form_owner_idTouser", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_owner_id_user_id_fk")
   updatedBy         User?      @relation("ppf_form_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ppf_form_updated_by_id_user_id_fk")
 
@@ -1518,7 +1532,11 @@ model Quotation {
   dealershipId           BigInt       @map("dealership_id")
   branchId               BigInt?      @map("branch_id")
   quotationNo            String       @unique(map: "quotation_quotationNo_unique") @map("quotation_no")
-  leadId                 BigInt       @map("lead_id")
+  leadId                 BigInt?      @map("lead_id")
+  /// Without a lead (a price asked for on the spot): the customer as written on the quotation.
+  customerName           String?      @map("customer_name")
+  customerMobile         String?      @map("customer_mobile")
+  customerEmail          String?      @map("customer_email")
   ownerId                BigInt       @map("owner_id")
   modelId                BigInt       @map("model_id")
   variantCode            String?      @map("variant_code")
@@ -1545,7 +1563,7 @@ model Quotation {
   branch                 Branch?      @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "quotation_branch_id_dealership_id_branch_id_dealership_id_fk")
   createdBy              User?        @relation("quotation_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_created_by_id_user_id_fk")
   dealership             Dealership   @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_dealership_id_dealership_id_fk")
-  lead                   Lead         @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_lead_id_lead_id_fk")
+  lead                   Lead?        @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_lead_id_lead_id_fk")
   vehicleModel           VehicleModel @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_model_id_vehicle_model_id_fk")
   owner                  User         @relation("quotation_owner_idTouser", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_owner_id_user_id_fk")
   updatedBy              User?        @relation("quotation_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "quotation_updated_by_id_user_id_fk")
@@ -1586,6 +1604,15 @@ model SalesOrder {
   expectedDeliveryByMonth Boolean           @default(false) @map("expected_delivery_by_month")
   vehicleId               BigInt?           @unique(map: "sales_order_vehicle_live_uq", where: raw("((vehicle_id IS NOT NULL) AND (status <> 'cancelled'::text))")) @map("vehicle_id")
   financingRef            String?           @map("financing_ref")
+  /// Delivery clearance: none → requested (Delivery Team) → approved / rejected (Sales Admin: all payments clear).
+  clearanceStatus         String            @default("none") @map("clearance_status")
+  clearanceRequestedAt    DateTime?         @map("clearance_requested_at") @db.Timestamptz(6)
+  clearanceRequestedById  BigInt?           @map("clearance_requested_by_id")
+  clearanceRequestNote    String?           @map("clearance_request_note")
+  clearanceDecidedAt      DateTime?         @map("clearance_decided_at") @db.Timestamptz(6)
+  clearanceDecidedById    BigInt?           @map("clearance_decided_by_id")
+  clearanceDecisionNote   String?           @map("clearance_decision_note")
+  payments                OrderPayment[]
   paymentReference        String?           @map("payment_reference")
   notes                   String?
   status                  String            @default("draft")
@@ -1618,6 +1645,7 @@ model SalesOrder {
   @@index([updatedById], map: "sales_order_updated_by_id_index")
   @@index([vehicleId], map: "sales_order_vehicle_id_index")
   @@index([dealershipId, pboNo], map: "sales_order_dealership_id_pbo_no_index")
+  @@index([dealershipId, clearanceStatus], map: "sales_order_dealership_id_clearance_status_index")
   @@map("sales_order")
   @@schema("sales")
 }
@@ -1955,4 +1983,74 @@ model Visit {
   @@index([vehicleId], map: "visit_vehicle_id_index")
   @@map("visit")
   @@schema("service")
+}
+
+/// A payment received against a sales order: the booking amount, part payments, the final payment.
+model OrderPayment {
+  id           BigInt     @id @default(autoincrement())
+  dealershipId BigInt     @map("dealership_id")
+  salesOrderId BigInt     @map("sales_order_id")
+  /// booking | partial | final
+  kind         String
+  amount       Decimal    @db.Decimal(14, 2)
+  /// PAYMENT_INSTRUMENTS (pay order, bank draft, cheque, online transfer, cash)
+  instrument   String
+  reference    String?
+  bank         String?
+  receivedOn   DateTime   @map("received_on") @db.Date
+  note         String?
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt?    @map("created_by_id")
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "order_payment_sales_order_id_fk")
+
+  @@index([salesOrderId], map: "order_payment_sales_order_id_index")
+  @@index([dealershipId, receivedOn], map: "order_payment_dealership_id_received_on_index")
+  @@map("order_payment")
+  @@schema("sales")
+}
+
+/// A staff member's leave application (sick / emergency leave), approved by the department head.
+model LeaveApplication {
+  id            BigInt    @id @default(autoincrement())
+  dealershipId  BigInt    @map("dealership_id")
+  applicationNo String    @unique(map: "leave_application_no_unique") @map("application_no")
+  employeeId    BigInt    @map("employee_id")
+  employeeNo    String?   @map("employee_no")
+  department    String
+  /// sick | emergency
+  leaveType     String    @map("leave_type")
+  fromDate      DateTime  @map("from_date") @db.Date
+  toDate        DateTime  @map("to_date") @db.Date
+  days          Int
+  reason        String?
+  /// submitted | approved | rejected
+  status        String    @default("submitted")
+  decidedAt     DateTime? @map("decided_at") @db.Timestamptz(6)
+  decidedById   BigInt?   @map("decided_by_id")
+  decisionNote  String?   @map("decision_note")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById   BigInt?   @map("created_by_id")
+  updatedById   BigInt?   @map("updated_by_id")
+
+  @@index([dealershipId, createdAt], map: "leave_application_dealership_id_created_at_index")
+  @@index([employeeId], map: "leave_application_employee_id_index")
+  @@map("leave_application")
+  @@schema("sales")
+}
+
+/// A comment on a follow-up (e.g. the Manager: "please explain what the customer said"); everyone who sees the lead reads it.
+model LeadFollowUpComment {
+  id           BigInt   @id @default(autoincrement())
+  dealershipId BigInt   @map("dealership_id")
+  leadId       BigInt   @map("lead_id")
+  followUpId   BigInt   @map("follow_up_id")
+  body         String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt   @map("created_by_id")
+
+  @@index([followUpId], map: "lead_follow_up_comment_follow_up_id_index")
+  @@index([leadId], map: "lead_follow_up_comment_lead_id_index")
+  @@map("lead_follow_up_comment")
+  @@schema("sales")
 }

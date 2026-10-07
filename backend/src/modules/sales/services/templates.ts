@@ -147,7 +147,32 @@ function ppfDefaults(d: Dealer): Fields {
     customFields: [],
   };
 }
-const defaultsFor = (d: Dealer, kind: Kind): Fields => (kind === 'ppf' ? ppfDefaults(d) : quotationDefaults(d));
+/**
+ * The leave application form as the dealership prints it: its name as the heading, "APPLICATION FORM",
+ * the rules (English in `terms`, Urdu in `closingLines`) and the signature lines.
+ */
+function leaveDefaults(d: Dealer): Fields {
+  return {
+    ...quotationDefaults(d),
+    companyName: d.name.toUpperCase(),
+    deliveryNotes: [],
+    highlightLine: null,
+    terms: [
+      'A legitimate emergency qualifies for a day off. Examples include illness, illness of a family member, childbirth, or other genuine emergencies.',
+      'Anyone found abusing the system will receive an immediate warning. There will be no second warning.',
+    ],
+    closingLines: [
+      'ایک حقیقی اور جائز ایمرجنسی کی صورت میں ایک دن کی چھٹی قابل قبول ہوگی۔ اس میں بیماری، خاندان کے کسی فرد کی بیماری، بچے کی پیدائش، یا دیگر حقیقی ہنگامی حالات شامل ہیں۔',
+      'جو شخص اس سہولت کا غلط استعمال کرتے ہوئے پایا گیا، اسے صرف ایک مرتبہ تنبیہ کی جائے گی۔ دوسری مرتبہ کوئی تنبیہ نہیں دی جائے گی۔',
+    ],
+    signOff: ["Applicant's Signature", 'Department Head', 'Manager'],
+    title: 'APPLICATION FORM',
+    fieldLabels: {},
+    hiddenFields: [],
+    customFields: [],
+  };
+}
+const defaultsFor = (d: Dealer, kind: Kind): Fields => (kind === 'ppf' ? ppfDefaults(d) : kind === 'leave' ? leaveDefaults(d) : quotationDefaults(d));
 
 async function dealer(ctx: EntityCtx, dealershipId: number): Promise<Dealer> {
   const d = await ctx.tx.dealership.findUnique({
@@ -191,7 +216,7 @@ export async function loadTemplate(ctx: EntityCtx, dealershipId: number, kind: K
 
 /** Anyone who issues or reads the dealership's documents may read its format (the forms use its defaults). */
 export async function getTemplate(ctx: EntityCtx, kind: Kind, dealershipId: number) {
-  const readers = [P.templatesManage, P.quotationsCreate, P.quotationsViewAll, P.quotationsViewOwn, P.ppfCreate, P.ppfViewAll, P.ppfViewOwn];
+  const readers = [P.templatesManage, P.quotationsCreate, P.quotationsViewAll, P.quotationsViewOwn, P.ppfCreate, P.ppfViewAll, P.ppfViewOwn, P.leaveApply, P.leaveApprove];
   if (!readers.some((c) => ctx.access.canIn(c, { dealershipId }))) throw forbidden();
   return loadTemplate(ctx, dealershipId, kind);
 }

@@ -17,6 +17,11 @@ import {
   PPF_COVERAGES,
   PPF_FINISHES,
   PPF_PACKAGES,
+  CUSTOMER_TYPES,
+  ORDER_PAYMENT_KINDS,
+  CLEARANCE_STATES,
+  LEAVE_TYPES,
+  LEAVE_STATES,
   VEHICLE_PIPELINE,
 } from './models';
 
@@ -27,7 +32,9 @@ const mobile = z
   .string({ error: 'Phone number is required' })
   .trim()
   .max(30)
-  .refine((v) => normalizeMobile(v) !== null, 'Enter a valid phone number, e.g. 03001234567');
+  .refine((v) => normalizeMobile(v) !== null, 'Enter a valid phone number, e.g. 03001234567')
+  // Stored as digits only (no dashes or spaces; a leading + kept), so numbers match when searched.
+  .transform((v) => (v.startsWith('+') ? '+' : '') + v.replace(/\D/g, ''));
 const email = z.email('Enter a valid email address').trim().toLowerCase().max(200);
 
 // ---- Leads --------------------------------------------------------------------
@@ -66,6 +73,18 @@ export const LeadSchema = z.object({
   appointmentNote: z.string().nullable().optional(),
   appointmentSetById: Id.nullable().optional(),
   appointmentSetByName: z.string().nullable().optional(),
+  /** Lost (not interested): when, by whom, why. */
+  lostAt: Timestamp.nullable().optional(),
+  lostById: Id.nullable().optional(),
+  lostByName: z.string().nullable().optional(),
+  lostReason: z.string().nullable().optional(),
+  /** Individual or corporate (company, the contact's designation, purchase order no.). */
+  customerType: z.enum(CUSTOMER_TYPES).optional(),
+  companyName: z.string().nullable().optional(),
+  contactDesignation: z.string().nullable().optional(),
+  purchaseOrderNo: z.string().nullable().optional(),
+  /** A returning customer: cars bought before (delivered orders of the same customer / phone at the dealership). */
+  previousPurchases: z.number().int().optional(),
   convertedAt: Timestamp.nullable(),
   convertedById: Id.nullable(),
   convertedByName: z.string().nullable().optional(),
@@ -143,8 +162,11 @@ export const QuotationSchema = z.object({
   dealershipId: Id,
   branchId: Id.nullable(),
   quotationNo: z.string(),
-  leadId: Id,
+  /** Null: issued without a lead (the customer written on the quotation). */
+  leadId: Id.nullable(),
   customerName: z.string().nullable().optional(),
+  customerMobile: z.string().nullable().optional(),
+  customerEmail: z.string().nullable().optional(),
   ownerId: Id,
   ownerName: z.string().nullable().optional(),
   modelId: Id,
@@ -235,6 +257,14 @@ export const QuotationCreate = z
     withholdingTax: Money.default('0'),
   })
   .openapi('QuotationCreate');
+/** A quotation without a lead (a price asked for on the spot): the dealership, the customer and the model. */
+export const StandaloneQuotationCreate = QuotationCreate.extend({
+  dealershipId: Id,
+  customerName: requiredText('Customer name'),
+  customerMobile: mobile,
+  customerEmail: email.nullish(),
+  modelId: Id,
+}).openapi('StandaloneQuotationCreate');
 export const QuotationUpdate = z
   .object({
     unitPrice: Money,
@@ -257,8 +287,14 @@ export const PpfFormSchema = z.object({
   dealershipId: Id,
   branchId: Id.nullable(),
   formNo: z.string(),
-  leadId: Id,
+  /** Null: issued without a lead (the customer and the vehicle written on the voucher). */
+  leadId: Id.nullable(),
   customerName: z.string().nullable().optional(),
+  customerMobile: z.string().nullable().optional(),
+  modelId: Id.nullable().optional(),
+  modelName: z.string().nullable().optional(),
+  variant: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
   ownerId: Id,
   ownerName: z.string().nullable().optional(),
   pboNo: z.string().nullable(),
@@ -311,6 +347,14 @@ export const PpfFormCreate = z
   .object({ ...ppfFields, finish: ppfFields.finish.default('gloss'), discount: Money.default('0'), advancePaid: Money.default('0') })
   .openapi('PpfFormCreate');
 export const PpfFormUpdate = z.object(ppfFields).partial().openapi('PpfFormUpdate');
+/** A PPF voucher without a lead: the dealership, the customer's phone and the vehicle (model, variant, colour). */
+export const StandalonePpfCreate = PpfFormCreate.extend({
+  dealershipId: Id,
+  customerMobile: mobile,
+  modelId: Id,
+  variant: optionalText(160),
+  color: optionalText(40),
+}).openapi('StandalonePpfCreate');
 
 /** Everything printed on a document (dealership, customer, consultant, vehicle, who created / changed it). */
 const documentParties = {
@@ -431,10 +475,23 @@ export const LeadFollowUpSchema = z
     createdById: Id,
     createdByName: z.string().nullable(),
     createdAt: Timestamp,
+    /** Questions on the follow-up (Manager, AM…) and the answers, oldest first. */
+    comments: z
+      .array(z.object({ id: Id, body: z.string(), createdById: Id, createdByName: z.string().nullable(), createdAt: Timestamp }))
+      .optional(),
   })
   .openapi('LeadFollowUp');
+export const FollowUpCommentBody = z
+  .object({ body: z.string({ error: 'Write the comment' }).trim().min(1, 'Write the comment').max(1000) })
+  .openapi('FollowUpCommentRequest');
 export const LeadFollowUpCreate = z
-  .object({ outcome: z.enum(FOLLOW_UP_OUTCOMES), remarks: optionalText(2000) })
+  .object({
+    outcome: z.enum(FOLLOW_UP_OUTCOMES),
+    remarks: optionalText(2000),
+    /** With "not interested": the lead is lost (out of the leads list); the remarks are the reason. */
+    markLost: z.boolean().optional(),
+  })
+  .refine((v) => !v.markLost || v.outcome === 'not_interested', { message: 'Only a "not interested" follow-up marks the lead lost', path: ['markLost'] })
   .openapi('LeadFollowUpCreate');
 
 /** "Convert to Lead": the qualifying details required before the Admin can raise the order. */
@@ -460,7 +517,17 @@ export const ConvertLeadBody = z
       .trim()
       .max(20)
       .refine((v) => normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+    /** Individual, or corporate: the company (billing name), the contact's designation, and a purchase order if they brought one. */
+    customerType: z.enum(CUSTOMER_TYPES).default('individual'),
+    companyName: optionalText(160),
+    contactDesignation: optionalText(80),
+    purchaseOrderNo: optionalText(60),
     notes: optionalText(2000),
+  })
+  .superRefine((v, c) => {
+    if (v.customerType !== 'corporate') return;
+    if (!v.companyName) c.addIssue({ code: 'custom', path: ['companyName'], message: 'Company name is required for a corporate customer' });
+    if (!v.contactDesignation) c.addIssue({ code: 'custom', path: ['contactDesignation'], message: "The contact's designation is required for a corporate customer" });
   })
   .openapi('ConvertLeadRequest');
 
@@ -579,6 +646,9 @@ export const DeliveryPipelineSchema = z
         expectedDeliveryDate: z.string().nullable(),
         expectedDeliveryByMonth: z.boolean(),
         bookedAt: z.string(),
+        /** Delivery clearance by the Sales Admin (none, requested, approved, rejected). */
+        clearanceStatus: z.enum(CLEARANCE_STATES),
+        balanceDue: z.string(),
         stage: PIPELINE_STAGE,
       }),
     ),
@@ -845,9 +915,142 @@ export const SalesOrderSchema = z.object({
   vehicleEngineNo: z.string().nullable().optional(),
   notes: z.string().nullable(),
   status: z.enum(ORDER_STATES),
+  /** Payments received against the order, and what is still due. */
+  amountReceived: z.string().optional(),
+  balanceDue: z.string().optional(),
+  /** Delivery clearance by the Sales Admin (all payments clear) before the car is handed over. */
+  clearanceStatus: z.enum(CLEARANCE_STATES).optional(),
+  clearanceRequestedAt: Timestamp.nullable().optional(),
+  clearanceRequestedByName: z.string().nullable().optional(),
+  clearanceRequestNote: z.string().nullable().optional(),
+  clearanceDecidedAt: Timestamp.nullable().optional(),
+  clearanceDecidedByName: z.string().nullable().optional(),
+  clearanceDecisionNote: z.string().nullable().optional(),
+  /** Corporate customer (from the lead): billed to the company. */
+  customerType: z.enum(CUSTOMER_TYPES).optional(),
+  companyName: z.string().nullable().optional(),
+  contactDesignation: z.string().nullable().optional(),
+  purchaseOrderNo: z.string().nullable().optional(),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 });
+
+// ---- Leave applications ---------------------------------------------------------------------
+export const LeaveApplicationSchema = z
+  .object({
+    id: Id,
+    dealershipId: Id,
+    dealershipName: z.string(),
+    applicationNo: z.string(),
+    employeeId: Id,
+    employeeName: z.string(),
+    employeeNo: z.string().nullable(),
+    department: z.string(),
+    leaveType: z.enum(LEAVE_TYPES),
+    fromDate: z.string(),
+    toDate: z.string(),
+    days: z.number().int(),
+    reason: z.string().nullable(),
+    status: z.enum(LEAVE_STATES),
+    decidedAt: Timestamp.nullable(),
+    decidedByName: z.string().nullable(),
+    decisionNote: z.string().nullable(),
+    createdAt: Timestamp,
+  })
+  .openapi('LeaveApplication');
+export const LeaveApplicationCreate = z
+  .object({
+    dealershipId: Id,
+    leaveType: z.enum(LEAVE_TYPES),
+    fromDate: isoDate,
+    toDate: isoDate,
+    department: requiredText('Department', 80),
+    employeeNo: optionalText(30),
+    reason: optionalText(1000),
+  })
+  .openapi('LeaveApplicationCreate');
+export const LeaveDecisionBody = z.object({ approve: z.boolean(), note: optionalText(500) }).openapi('LeaveDecision');
+export const LeaveListQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  status: z.enum(LEAVE_STATES).optional(),
+  /** Only my own applications. */
+  mine: BoolQuery.optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+});
+export const LeavePageSchema = z
+  .object({ items: z.array(LeaveApplicationSchema), total: z.number().int(), page: z.number().int(), pageSize: z.number().int() })
+  .openapi('LeaveApplicationPage');
+export const LeaveDocumentSchema = LeaveApplicationSchema.extend({ template: DocumentTemplateSchema }).openapi('LeaveDocument');
+
+// ---- Today at a glance (dashboard) ------------------------------------------------------------
+const TodayAppointment = z.object({
+  leadId: Id,
+  customerName: z.string(),
+  mobile: z.string(),
+  at: Timestamp,
+  note: z.string().nullable(),
+  salespersonName: z.string().nullable(),
+  status: z.string(),
+});
+const TodayDelivery = z.object({
+  orderId: Id,
+  orderNo: z.string(),
+  leadId: Id.nullable(),
+  customerName: z.string().nullable(),
+  model: z.string().nullable(),
+  scheduledDate: z.string(),
+  deliveryId: Id,
+  clearanceStatus: z.enum(CLEARANCE_STATES),
+  salespersonName: z.string().nullable(),
+});
+export const TodayQuery = z.object({ dealershipId: z.coerce.number().int().positive().optional() });
+export const TodaySchema = z
+  .object({
+    today: z.string(),
+    tomorrow: z.string(),
+    appointmentsToday: z.array(TodayAppointment),
+    appointmentsTomorrow: z.array(TodayAppointment),
+    deliveriesToday: z.array(TodayDelivery),
+    deliveriesTomorrow: z.array(TodayDelivery),
+  })
+  .openapi('SalesToday');
+
+// ---- Payments and delivery clearance -------------------------------------------------------
+export const OrderPaymentCreate = z
+  .object({
+    kind: z.enum(ORDER_PAYMENT_KINDS),
+    amount: Money.refine((v) => Number(v) > 0, 'Enter the amount received'),
+    instrument: z.enum(PAYMENT_INSTRUMENTS),
+    reference: optionalText(60),
+    bank: optionalText(80),
+    receivedOn: isoDate,
+    note: optionalText(500),
+  })
+  .openapi('OrderPaymentCreate');
+export const OrderPaymentsSchema = z
+  .object({
+    total: z.string(),
+    received: z.string(),
+    balance: z.string(),
+    items: z.array(
+      z.object({
+        id: Id,
+        kind: z.enum(ORDER_PAYMENT_KINDS),
+        amount: z.string(),
+        instrument: z.enum(PAYMENT_INSTRUMENTS),
+        reference: z.string().nullable(),
+        bank: z.string().nullable(),
+        receivedOn: z.string(),
+        note: z.string().nullable(),
+        createdAt: Timestamp,
+        createdByName: z.string().nullable(),
+      }),
+    ),
+  })
+  .openapi('OrderPayments');
+export const ClearanceRequestBody = z.object({ note: optionalText(500) }).openapi('ClearanceRequest');
+export const ClearanceDecisionBody = z.object({ approve: z.boolean(), note: optionalText(500) }).openapi('ClearanceDecision');
 
 const orderFields = {
   pboNo: optionalText(40),
@@ -999,6 +1202,8 @@ export const DeliveryNoteSchema = z
     deliveredAt: z.string().nullable(),
     dealership: z.object({ name: z.string(), code: z.string(), brand: z.string() }),
     customer: z.object({ name: z.string().nullable(), cnic: z.string().nullable() }),
+    /** Corporate customer: the company the car is taken on behalf of. */
+    onBehalfOf: z.string().nullable().optional(),
     pboNo: z.string().nullable(),
     orderNo: z.string().nullable(),
     vehicle: z.object({

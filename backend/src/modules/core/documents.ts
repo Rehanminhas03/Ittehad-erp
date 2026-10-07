@@ -18,6 +18,7 @@ export const DocType = {
   stockAdjustment: 'SA',
   journal: 'JV',
   invoice: 'INV',
+  leaveApplication: 'LV',
   receipt: 'RC',
   disbursement: 'PV',
 } as const;

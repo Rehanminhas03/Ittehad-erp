@@ -12,6 +12,7 @@ export const addTagTypes = [
   "Delivery",
   "DeliveryPipeline",
   "DeliveryReport",
+  "LeaveApplication",
 ] as const;
 const injectedRtkApi = api
   .enhanceEndpoints({
@@ -63,6 +64,17 @@ const injectedRtkApi = api
           url: `/api/sales/leads/${queryArg.id}/follow-ups`,
           method: "POST",
           body: queryArg.leadFollowUpCreate,
+        }),
+        invalidatesTags: ["Lead"],
+      }),
+      commentOnFollowUp: build.mutation<
+        CommentOnFollowUpApiResponse,
+        CommentOnFollowUpApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/${queryArg.id}/follow-ups/${queryArg.followUpId}/comments`,
+          method: "POST",
+          body: queryArg.followUpCommentRequest,
         }),
         invalidatesTags: ["Lead"],
       }),
@@ -148,6 +160,17 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Lead"],
       }),
+      createStandaloneQuotation: build.mutation<
+        CreateStandaloneQuotationApiResponse,
+        CreateStandaloneQuotationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/quotations/standalone`,
+          method: "POST",
+          body: queryArg.standaloneQuotationCreate,
+        }),
+        invalidatesTags: ["Quotation"],
+      }),
       getQuotationDocument: build.query<
         GetQuotationDocumentApiResponse,
         GetQuotationDocumentApiArg
@@ -156,6 +179,17 @@ const injectedRtkApi = api
           url: `/api/sales/quotations/${queryArg.id}/document`,
         }),
         providesTags: ["Quotation"],
+      }),
+      createStandalonePpfForm: build.mutation<
+        CreateStandalonePpfFormApiResponse,
+        CreateStandalonePpfFormApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/ppf-forms/standalone`,
+          method: "POST",
+          body: queryArg.standalonePpfCreate,
+        }),
+        invalidatesTags: ["PPF form"],
       }),
       getPpfDocument: build.query<
         GetPpfDocumentApiResponse,
@@ -222,6 +256,17 @@ const injectedRtkApi = api
         query: () => ({ url: `/api/sales/dashboard/actions` }),
         providesTags: ["SalesDashboard"],
       }),
+      getSalesToday: build.query<GetSalesTodayApiResponse, GetSalesTodayApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/sales/dashboard/today`,
+            params: {
+              dealershipId: queryArg.dealershipId,
+            },
+          }),
+          providesTags: ["SalesDashboard"],
+        },
+      ),
       listSalesTeamMembers: build.query<
         ListSalesTeamMembersApiResponse,
         ListSalesTeamMembersApiArg
@@ -290,6 +335,58 @@ const injectedRtkApi = api
           body: queryArg.handOverLeadsRequest,
         }),
         invalidatesTags: ["SalesTeam"],
+      }),
+      listOrderPayments: build.query<
+        ListOrderPaymentsApiResponse,
+        ListOrderPaymentsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/payments`,
+        }),
+        providesTags: ["SalesOrder"],
+      }),
+      addOrderPayment: build.mutation<
+        AddOrderPaymentApiResponse,
+        AddOrderPaymentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/payments`,
+          method: "POST",
+          body: queryArg.orderPaymentCreate,
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
+      removeOrderPayment: build.mutation<
+        RemoveOrderPaymentApiResponse,
+        RemoveOrderPaymentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/payments/${queryArg.paymentId}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
+      requestDeliveryClearance: build.mutation<
+        RequestDeliveryClearanceApiResponse,
+        RequestDeliveryClearanceApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/clearance-request`,
+          method: "POST",
+          body: queryArg.clearanceRequest,
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
+      decideDeliveryClearance: build.mutation<
+        DecideDeliveryClearanceApiResponse,
+        DecideDeliveryClearanceApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/clearance-decision`,
+          method: "POST",
+          body: queryArg.clearanceDecision,
+        }),
+        invalidatesTags: ["SalesOrder"],
       }),
       setOrderVehicle: build.mutation<
         SetOrderVehicleApiResponse,
@@ -456,6 +553,60 @@ const injectedRtkApi = api
         }),
         providesTags: ["DeliveryReport"],
       }),
+      listLeaveApplications: build.query<
+        ListLeaveApplicationsApiResponse,
+        ListLeaveApplicationsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leave`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            status: queryArg.status,
+            mine: queryArg.mine,
+            page: queryArg.page,
+            pageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["LeaveApplication"],
+      }),
+      applyForLeave: build.mutation<
+        ApplyForLeaveApiResponse,
+        ApplyForLeaveApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leave`,
+          method: "POST",
+          body: queryArg.leaveApplicationCreate,
+        }),
+        invalidatesTags: ["LeaveApplication"],
+      }),
+      getLeaveApplication: build.query<
+        GetLeaveApplicationApiResponse,
+        GetLeaveApplicationApiArg
+      >({
+        query: (queryArg) => ({ url: `/api/sales/leave/${queryArg.id}` }),
+        providesTags: ["LeaveApplication"],
+      }),
+      decideLeaveApplication: build.mutation<
+        DecideLeaveApplicationApiResponse,
+        DecideLeaveApplicationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leave/${queryArg.id}/decision`,
+          method: "POST",
+          body: queryArg.leaveDecision,
+        }),
+        invalidatesTags: ["LeaveApplication"],
+      }),
+      getLeaveDocument: build.query<
+        GetLeaveDocumentApiResponse,
+        GetLeaveDocumentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leave/${queryArg.id}/document`,
+        }),
+        providesTags: ["LeaveApplication"],
+      }),
       listLeads: build.query<ListLeadsApiResponse, ListLeadsApiArg>({
         query: (queryArg) => ({
           url: `/api/sales/leads`,
@@ -476,6 +627,7 @@ const injectedRtkApi = api
             createdOn: queryArg.createdOn,
             activityFrom: queryArg.activityFrom,
             activityTo: queryArg.activityTo,
+            lost: queryArg.lost,
             appointmentOn: queryArg.appointmentOn,
             upcomingAppointment: queryArg.upcomingAppointment,
             dealershipId: queryArg.dealershipId,
@@ -551,6 +703,7 @@ const injectedRtkApi = api
             awaitingApproval: queryArg.awaitingApproval,
             vehicleStage: queryArg.vehicleStage,
             hasVehicle: queryArg.hasVehicle,
+            clearanceStatus: queryArg.clearanceStatus,
             bookedFrom: queryArg.bookedFrom,
             bookedTo: queryArg.bookedTo,
             dealershipId: queryArg.dealershipId,
@@ -899,6 +1052,15 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   appointmentNote?: string | null;
   appointmentSetById?: number | null;
   appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -909,7 +1071,8 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
     | "converted"
     | "processing"
     | "completed"
-    | "exhausted";
+    | "exhausted"
+    | "lost";
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
@@ -922,6 +1085,13 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
 export type RecordLeadFollowUpApiArg = {
   id: number;
   leadFollowUpCreate: LeadFollowUpCreate;
+};
+export type CommentOnFollowUpApiResponse =
+  /** status 201 Success */ LeadFollowUp[];
+export type CommentOnFollowUpApiArg = {
+  id: number;
+  followUpId: number;
+  followUpCommentRequest: FollowUpCommentRequest;
 };
 export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   id: number;
@@ -966,6 +1136,15 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   appointmentNote?: string | null;
   appointmentSetById?: number | null;
   appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -976,7 +1155,8 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
     | "converted"
     | "processing"
     | "completed"
-    | "exhausted";
+    | "exhausted"
+    | "lost";
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
@@ -995,8 +1175,10 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   dealershipId: number;
   branchId: number | null;
   quotationNo: string;
-  leadId: number;
+  leadId: number | null;
   customerName?: string | null;
+  customerMobile?: string | null;
+  customerEmail?: string | null;
   ownerId: number;
   ownerName?: string | null;
   modelId: number;
@@ -1039,8 +1221,13 @@ export type CreateLeadPpfFormApiResponse = /** status 201 Success */ {
   dealershipId: number;
   branchId: number | null;
   formNo: string;
-  leadId: number;
+  leadId: number | null;
   customerName?: string | null;
+  customerMobile?: string | null;
+  modelId?: number | null;
+  modelName?: string | null;
+  variant?: string | null;
+  color?: string | null;
   ownerId: number;
   ownerName?: string | null;
   pboNo: string | null;
@@ -1117,6 +1304,15 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   appointmentNote?: string | null;
   appointmentSetById?: number | null;
   appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -1127,7 +1323,8 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
     | "converted"
     | "processing"
     | "completed"
-    | "exhausted";
+    | "exhausted"
+    | "lost";
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
@@ -1184,6 +1381,15 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   appointmentNote?: string | null;
   appointmentSetById?: number | null;
   appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -1194,7 +1400,8 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
     | "converted"
     | "processing"
     | "completed"
-    | "exhausted";
+    | "exhausted"
+    | "lost";
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
@@ -1251,6 +1458,15 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   appointmentNote?: string | null;
   appointmentSetById?: number | null;
   appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -1261,7 +1477,8 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
     | "converted"
     | "processing"
     | "completed"
-    | "exhausted";
+    | "exhausted"
+    | "lost";
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
@@ -1321,6 +1538,19 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   vehicleEngineNo?: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1329,10 +1559,94 @@ export type RaiseSalesOrderApiArg = {
   id: number;
   raiseOrderRequest: RaiseOrderRequest;
 };
+export type CreateStandaloneQuotationApiResponse = /** status 201 Success */ {
+  id: number;
+  dealershipId: number;
+  branchId: number | null;
+  quotationNo: string;
+  leadId: number | null;
+  customerName?: string | null;
+  customerMobile?: string | null;
+  customerEmail?: string | null;
+  ownerId: number;
+  ownerName?: string | null;
+  modelId: number;
+  modelName?: string | null;
+  variantCode: string | null;
+  billTo: string | null;
+  variant: string | null;
+  color: string | null;
+  quantity: number;
+  unitPrice: string;
+  discount: string;
+  freightInsurance: string;
+  withholdingTax: string;
+  withholdingTaxNonFiler: string | null;
+  totalAmount: string;
+  bookingAmount: string | null;
+  validUntil: string;
+  deliveryDays: number | null;
+  deliveryPeriod: string | null;
+  paymentMode: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdById: number | null;
+  createdByName?: string | null;
+  updatedById: number | null;
+  updatedByName?: string | null;
+};
+export type CreateStandaloneQuotationApiArg = {
+  standaloneQuotationCreate: StandaloneQuotationCreate;
+};
 export type GetQuotationDocumentApiResponse =
   /** status 200 Success */ QuotationDocument;
 export type GetQuotationDocumentApiArg = {
   id: number;
+};
+export type CreateStandalonePpfFormApiResponse = /** status 201 Success */ {
+  id: number;
+  dealershipId: number;
+  branchId: number | null;
+  formNo: string;
+  leadId: number | null;
+  customerName?: string | null;
+  customerMobile?: string | null;
+  modelId?: number | null;
+  modelName?: string | null;
+  variant?: string | null;
+  color?: string | null;
+  ownerId: number;
+  ownerName?: string | null;
+  pboNo: string | null;
+  chassisNo: string | null;
+  engineNo: string | null;
+  coverage: "full_body" | "front_package" | "partial" | "custom";
+  coverageDetails: string | null;
+  protectionPackage: ("nenotek_prime" | "proskin_platinum" | null) | null;
+  customerEmail: string | null;
+  customerAddress: string | null;
+  filmBrand: string | null;
+  finish: "gloss" | "matte";
+  warrantyYears: number | null;
+  amount: string;
+  discount: string;
+  totalAmount: string;
+  advancePaid: string;
+  installationDate: string | null;
+  notes: string | null;
+  extraFields: {
+    [key: string]: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  createdById: number | null;
+  createdByName?: string | null;
+  updatedById: number | null;
+  updatedByName?: string | null;
+};
+export type CreateStandalonePpfFormApiArg = {
+  standalonePpfCreate: StandalonePpfCreate;
 };
 export type GetPpfDocumentApiResponse = /** status 200 Success */ PpfDocument;
 export type GetPpfDocumentApiArg = {
@@ -1341,13 +1655,13 @@ export type GetPpfDocumentApiArg = {
 export type GetDocumentTemplateApiResponse =
   /** status 200 Success */ DocumentTemplate;
 export type GetDocumentTemplateApiArg = {
-  kind: "quotation" | "ppf";
+  kind: "quotation" | "ppf" | "leave";
   dealershipId: number;
 };
 export type SaveDocumentTemplateApiResponse =
   /** status 200 Success */ DocumentTemplate;
 export type SaveDocumentTemplateApiArg = {
-  kind: "quotation" | "ppf";
+  kind: "quotation" | "ppf" | "leave";
   documentTemplateUpdate: DocumentTemplateUpdate;
 };
 export type ImportVariantCodesApiResponse =
@@ -1366,6 +1680,10 @@ export type GetSalesDashboardApiArg = {
 export type GetSalesActionItemsApiResponse =
   /** status 200 Success */ ActionItem[];
 export type GetSalesActionItemsApiArg = void;
+export type GetSalesTodayApiResponse = /** status 200 Success */ SalesToday;
+export type GetSalesTodayApiArg = {
+  dealershipId?: number;
+};
 export type ListSalesTeamMembersApiResponse =
   /** status 200 Success */ SalesTeamMember[];
 export type ListSalesTeamMembersApiArg = {
@@ -1399,6 +1717,157 @@ export type GetLeadsToHandOverApiArg = {
 export type HandOverLeadsApiResponse = /** status 200 Success */ HandOverResult;
 export type HandOverLeadsApiArg = {
   handOverLeadsRequest: HandOverLeadsRequest;
+};
+export type ListOrderPaymentsApiResponse =
+  /** status 200 Success */ OrderPayments;
+export type ListOrderPaymentsApiArg = {
+  id: number;
+};
+export type AddOrderPaymentApiResponse =
+  /** status 201 Success */ OrderPayments;
+export type AddOrderPaymentApiArg = {
+  id: number;
+  orderPaymentCreate: OrderPaymentCreate;
+};
+export type RemoveOrderPaymentApiResponse =
+  /** status 200 Success */ OrderPayments;
+export type RemoveOrderPaymentApiArg = {
+  id: number;
+  paymentId: number;
+};
+export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
+  id: number;
+  orderNo: string;
+  pboNo: string | null;
+  orderType: "pbo" | "cbo";
+  dealershipId: number;
+  branchId: number | null;
+  legalEntityId: number | null;
+  accountingEntityId: number | null;
+  leadId: number | null;
+  customerId: number;
+  customerName?: string;
+  salespersonId: number;
+  salespersonName?: string;
+  modelId: number;
+  modelName?: string;
+  variant: string | null;
+  color: string | null;
+  unitPrice: string;
+  discount: string;
+  totalAmount: string;
+  bookingAmount: string;
+  expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
+  vehicleId: number | null;
+  vehicleLabel?: string | null;
+  vehicleStatus?:
+    | (
+        | "available"
+        | "reserved"
+        | "booked"
+        | "in_transit"
+        | "received"
+        | "ready_for_delivery"
+        | "delivered"
+        | "transferred"
+        | "hold"
+        | null
+      )
+    | null;
+  financingRef: string | null;
+  paymentReference: string | null;
+  vehicleVin?: string | null;
+  vehicleEngineNo?: string | null;
+  notes: string | null;
+  status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type RequestDeliveryClearanceApiArg = {
+  id: number;
+  clearanceRequest: ClearanceRequest;
+};
+export type DecideDeliveryClearanceApiResponse = /** status 200 Success */ {
+  id: number;
+  orderNo: string;
+  pboNo: string | null;
+  orderType: "pbo" | "cbo";
+  dealershipId: number;
+  branchId: number | null;
+  legalEntityId: number | null;
+  accountingEntityId: number | null;
+  leadId: number | null;
+  customerId: number;
+  customerName?: string;
+  salespersonId: number;
+  salespersonName?: string;
+  modelId: number;
+  modelName?: string;
+  variant: string | null;
+  color: string | null;
+  unitPrice: string;
+  discount: string;
+  totalAmount: string;
+  bookingAmount: string;
+  expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
+  vehicleId: number | null;
+  vehicleLabel?: string | null;
+  vehicleStatus?:
+    | (
+        | "available"
+        | "reserved"
+        | "booked"
+        | "in_transit"
+        | "received"
+        | "ready_for_delivery"
+        | "delivered"
+        | "transferred"
+        | "hold"
+        | null
+      )
+    | null;
+  financingRef: string | null;
+  paymentReference: string | null;
+  vehicleVin?: string | null;
+  vehicleEngineNo?: string | null;
+  notes: string | null;
+  status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type DecideDeliveryClearanceApiArg = {
+  id: number;
+  clearanceDecision: ClearanceDecision;
 };
 export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   id: number;
@@ -1446,6 +1915,19 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   vehicleEngineNo?: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1505,6 +1987,19 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   vehicleEngineNo?: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1559,6 +2054,19 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   vehicleEngineNo?: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1612,6 +2120,19 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   vehicleEngineNo?: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1820,6 +2341,36 @@ export type GetDeliveryReportApiArg = {
   from?: string;
   to?: string;
 };
+export type ListLeaveApplicationsApiResponse =
+  /** status 200 Success */ LeaveApplicationPage;
+export type ListLeaveApplicationsApiArg = {
+  dealershipId?: number;
+  status?: "submitted" | "approved" | "rejected";
+  mine?: "true" | "false";
+  page?: number;
+  pageSize?: number;
+};
+export type ApplyForLeaveApiResponse =
+  /** status 201 Success */ LeaveApplication;
+export type ApplyForLeaveApiArg = {
+  leaveApplicationCreate: LeaveApplicationCreate;
+};
+export type GetLeaveApplicationApiResponse =
+  /** status 200 Success */ LeaveApplication;
+export type GetLeaveApplicationApiArg = {
+  id: number;
+};
+export type DecideLeaveApplicationApiResponse =
+  /** status 200 Success */ LeaveApplication;
+export type DecideLeaveApplicationApiArg = {
+  id: number;
+  leaveDecision: LeaveDecision;
+};
+export type GetLeaveDocumentApiResponse =
+  /** status 200 Success */ LeaveDocument;
+export type GetLeaveDocumentApiArg = {
+  id: number;
+};
 export type ListLeadsApiResponse = /** status 200 Success */ LeadPage;
 export type ListLeadsApiArg = {
   page?: number;
@@ -1833,7 +2384,8 @@ export type ListLeadsApiArg = {
     | "converted"
     | "processing"
     | "completed"
-    | "exhausted";
+    | "exhausted"
+    | "lost";
   ownerId?: number;
   source?: string;
   escalated?: "true" | "false";
@@ -1854,6 +2406,7 @@ export type ListLeadsApiArg = {
   createdOn?: string;
   activityFrom?: string;
   activityTo?: string;
+  lost?: "true" | "false";
   appointmentOn?: string;
   upcomingAppointment?: "true" | "false";
   dealershipId?: number;
@@ -1912,6 +2465,7 @@ export type ListSalesOrdersApiArg = {
     | "transferred"
     | "hold";
   hasVehicle?: "true" | "false";
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
   bookedFrom?: string;
   bookedTo?: string;
   dealershipId?: number;
@@ -2107,10 +2661,21 @@ export type LeadFollowUp = {
   createdById: number;
   createdByName: string | null;
   createdAt: string;
+  comments?: {
+    id: number;
+    body: string;
+    createdById: number;
+    createdByName: string | null;
+    createdAt: string;
+  }[];
 };
 export type LeadFollowUpCreate = {
   outcome: "interested" | "not_interested" | "visited";
   remarks?: string | null;
+  markLost?: boolean;
+};
+export type FollowUpCommentRequest = {
+  body: string;
 };
 export type LeadDetailsRequest = {
   prospectName?: string;
@@ -2190,6 +2755,10 @@ export type ConvertLeadRequest = {
   expectedDeliveryDate?: string | null;
   expectedDeliveryByMonth?: boolean;
   customerCnic: string;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
   notes?: string | null;
 };
 export type RaiseOrderRequest = {
@@ -2205,9 +2774,15 @@ export type RaiseOrderRequest = {
   expectedDeliveryByMonth?: boolean;
   notes?: string | null;
 };
+export type StandaloneQuotationCreate = QuotationCreate & {
+  dealershipId: number;
+  customerName: string;
+  customerMobile: string;
+  customerEmail?: string | null;
+};
 export type DocumentTemplate = {
   dealershipId: number;
-  kind: "quotation" | "ppf";
+  kind: "quotation" | "ppf" | "leave";
   companyName: string;
   refPrefix?: string | null;
   tagline?: string | null;
@@ -2293,6 +2868,13 @@ export type QuotationDocument = {
     total: string;
     bookingAmount: string | null;
   };
+};
+export type StandalonePpfCreate = PpfFormCreate & {
+  dealershipId: number;
+  customerMobile: string;
+  modelId: number;
+  variant?: string | null;
+  color?: string | null;
 };
 export type PpfDocument = {
   formNo: string;
@@ -2440,6 +3022,50 @@ export type ActionItem = {
   to: string;
   urgent: boolean;
 };
+export type SalesToday = {
+  today: string;
+  tomorrow: string;
+  appointmentsToday: {
+    leadId: number;
+    customerName: string;
+    mobile: string;
+    at: string;
+    note: string | null;
+    salespersonName: string | null;
+    status: string;
+  }[];
+  appointmentsTomorrow: {
+    leadId: number;
+    customerName: string;
+    mobile: string;
+    at: string;
+    note: string | null;
+    salespersonName: string | null;
+    status: string;
+  }[];
+  deliveriesToday: {
+    orderId: number;
+    orderNo: string;
+    leadId: number | null;
+    customerName: string | null;
+    model: string | null;
+    scheduledDate: string;
+    deliveryId: number;
+    clearanceStatus: "none" | "requested" | "approved" | "rejected";
+    salespersonName: string | null;
+  }[];
+  deliveriesTomorrow: {
+    orderId: number;
+    orderNo: string;
+    leadId: number | null;
+    customerName: string | null;
+    model: string | null;
+    scheduledDate: string;
+    deliveryId: number;
+    clearanceStatus: "none" | "requested" | "approved" | "rejected";
+    salespersonName: string | null;
+  }[];
+};
 export type SalesTeamMember = {
   id: number;
   fullName: string;
@@ -2579,6 +3205,41 @@ export type HandOverLeadsRequest = {
   toUserId: number;
   includeInProgress?: boolean;
 };
+export type OrderPayments = {
+  total: string;
+  received: string;
+  balance: string;
+  items: {
+    id: number;
+    kind: "booking" | "partial" | "final";
+    amount: string;
+    instrument:
+      "pay_order" | "bank_draft" | "cheque" | "online_transfer" | "cash";
+    reference: string | null;
+    bank: string | null;
+    receivedOn: string;
+    note: string | null;
+    createdAt: string;
+    createdByName: string | null;
+  }[];
+};
+export type OrderPaymentCreate = {
+  kind: "booking" | "partial" | "final";
+  amount: string;
+  instrument:
+    "pay_order" | "bank_draft" | "cheque" | "online_transfer" | "cash";
+  reference?: string | null;
+  bank?: string | null;
+  receivedOn: string;
+  note?: string | null;
+};
+export type ClearanceRequest = {
+  note?: string | null;
+};
+export type ClearanceDecision = {
+  approve: boolean;
+  note?: string | null;
+};
 export type OrderVehicleRequest = {
   vin?: string | null;
   engineNo?: string | null;
@@ -2685,6 +3346,7 @@ export type DeliveryNote = {
     name: string | null;
     cnic: string | null;
   };
+  onBehalfOf?: string | null;
   pboNo: string | null;
   orderNo: string | null;
   vehicle: {
@@ -2731,6 +3393,8 @@ export type DeliveryPipeline = {
     expectedDeliveryDate: string | null;
     expectedDeliveryByMonth: boolean;
     bookedAt: string;
+    clearanceStatus: "none" | "requested" | "approved" | "rejected";
+    balanceDue: string;
     stage: "waiting" | "in_transit" | "received" | "scheduled" | "delivered";
   }[];
   total: number;
@@ -2777,6 +3441,48 @@ export type DeliveryReport = {
     delivered: number;
   }[];
 };
+export type LeaveApplication = {
+  id: number;
+  dealershipId: number;
+  dealershipName: string;
+  applicationNo: string;
+  employeeId: number;
+  employeeName: string;
+  employeeNo: string | null;
+  department: string;
+  leaveType: "sick" | "emergency";
+  fromDate: string;
+  toDate: string;
+  days: number;
+  reason: string | null;
+  status: "submitted" | "approved" | "rejected";
+  decidedAt: string | null;
+  decidedByName: string | null;
+  decisionNote: string | null;
+  createdAt: string;
+};
+export type LeaveApplicationPage = {
+  items: LeaveApplication[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+export type LeaveApplicationCreate = {
+  dealershipId: number;
+  leaveType: "sick" | "emergency";
+  fromDate: string;
+  toDate: string;
+  department: string;
+  employeeNo?: string | null;
+  reason?: string | null;
+};
+export type LeaveDecision = {
+  approve: boolean;
+  note?: string | null;
+};
+export type LeaveDocument = LeaveApplication & {
+  template: DocumentTemplate;
+};
 export type Lead = {
   id: number;
   dealershipId: number;
@@ -2820,6 +3526,15 @@ export type Lead = {
   appointmentNote?: string | null;
   appointmentSetById?: number | null;
   appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
   convertedByName?: string | null;
@@ -2830,7 +3545,8 @@ export type Lead = {
     | "converted"
     | "processing"
     | "completed"
-    | "exhausted";
+    | "exhausted"
+    | "lost";
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
@@ -2964,6 +3680,19 @@ export type SalesOrder = {
   vehicleEngineNo?: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -3065,8 +3794,10 @@ export type Quotation = {
   dealershipId: number;
   branchId: number | null;
   quotationNo: string;
-  leadId: number;
+  leadId: number | null;
   customerName?: string | null;
+  customerMobile?: string | null;
+  customerEmail?: string | null;
   ownerId: number;
   ownerName?: string | null;
   modelId: number;
@@ -3124,8 +3855,13 @@ export type PpfForm = {
   dealershipId: number;
   branchId: number | null;
   formNo: string;
-  leadId: number;
+  leadId: number | null;
   customerName?: string | null;
+  customerMobile?: string | null;
+  modelId?: number | null;
+  modelName?: string | null;
+  variant?: string | null;
+  color?: string | null;
   ownerId: number;
   ownerName?: string | null;
   pboNo: string | null;
@@ -3220,6 +3956,7 @@ export const {
   useListLeadFollowUpsQuery,
   useLazyListLeadFollowUpsQuery,
   useRecordLeadFollowUpMutation,
+  useCommentOnFollowUpMutation,
   useCorrectLeadDetailsMutation,
   useCreateLeadQuotationMutation,
   useGetLeadOrderVehicleQuery,
@@ -3229,8 +3966,10 @@ export const {
   useReassignLeadMutation,
   useConvertLeadMutation,
   useRaiseSalesOrderMutation,
+  useCreateStandaloneQuotationMutation,
   useGetQuotationDocumentQuery,
   useLazyGetQuotationDocumentQuery,
+  useCreateStandalonePpfFormMutation,
   useGetPpfDocumentQuery,
   useLazyGetPpfDocumentQuery,
   useGetDocumentTemplateQuery,
@@ -3241,6 +3980,8 @@ export const {
   useLazyGetSalesDashboardQuery,
   useGetSalesActionItemsQuery,
   useLazyGetSalesActionItemsQuery,
+  useGetSalesTodayQuery,
+  useLazyGetSalesTodayQuery,
   useListSalesTeamMembersQuery,
   useLazyListSalesTeamMembersQuery,
   useGetSalesTeamReportQuery,
@@ -3250,6 +3991,12 @@ export const {
   useGetLeadsToHandOverQuery,
   useLazyGetLeadsToHandOverQuery,
   useHandOverLeadsMutation,
+  useListOrderPaymentsQuery,
+  useLazyListOrderPaymentsQuery,
+  useAddOrderPaymentMutation,
+  useRemoveOrderPaymentMutation,
+  useRequestDeliveryClearanceMutation,
+  useDecideDeliveryClearanceMutation,
   useSetOrderVehicleMutation,
   useListAllocatableVehiclesQuery,
   useLazyListAllocatableVehiclesQuery,
@@ -3270,6 +4017,14 @@ export const {
   useLazyGetDeliveryPipelineQuery,
   useGetDeliveryReportQuery,
   useLazyGetDeliveryReportQuery,
+  useListLeaveApplicationsQuery,
+  useLazyListLeaveApplicationsQuery,
+  useApplyForLeaveMutation,
+  useGetLeaveApplicationQuery,
+  useLazyGetLeaveApplicationQuery,
+  useDecideLeaveApplicationMutation,
+  useGetLeaveDocumentQuery,
+  useLazyGetLeaveDocumentQuery,
   useListLeadsQuery,
   useLazyListLeadsQuery,
   useCreateLeadMutation,

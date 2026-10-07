@@ -110,6 +110,8 @@ export interface EntityConfig {
   /** Exact-match query filters: query param -> column key + zod parser. */
   /** Query filters: exact match on `key` by default, or a custom condition via `where`. */
   filters?: Record<string, { key: string; schema: ZodType; where?: (value: unknown) => SQL }>;
+  /** A condition the list applies unless the filters ask otherwise (e.g. leads: lost ones hidden). */
+  listDefault?: (filters: Record<string, unknown>) => SQL | undefined;
   sort: { default: string; keys: readonly string[] };
   workflow?: WorkflowDef;
   hooks?: EntityHooks;

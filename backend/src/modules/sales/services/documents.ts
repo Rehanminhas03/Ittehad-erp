@@ -1,5 +1,6 @@
 /**
- * Customer documents issued from a lead:
+ * Customer documents, issued from a lead or on their own (no lead: a price or PPF asked for on the
+ * spot; the customer — and for PPF the vehicle — is written on the document):
  *   - Vehicle quotation (e.g. HYD-ISB-QT-2026-00001): the model and the quoted price.
  *   - Paint Protection Film form (e.g. HYD-ISB-PF-2026-00001): filled in when the customer agrees to PPF.
  * Both are stored, so they can be corrected later (salesperson / Assistant Manager) and viewed,
@@ -14,7 +15,7 @@ import { DocType, nextDocumentNumber } from '../../core/documents';
 import { assertActiveModel } from '../../master/entities';
 import { assertVariantCodeGiven, leads, money2, ppfForms, pricePpf, priceQuotation, quotations, resolveVariant } from '../entities';
 import { SalesPerm as P } from '../permissions';
-import type { PpfFormCreate, QuotationCreate } from '../schemas';
+import type { PpfFormCreate, QuotationCreate, StandalonePpfCreate, StandaloneQuotationCreate } from '../schemas';
 import { loadTemplate } from './templates';
 import { pakistanToday } from '../../../lib/dates';
 
@@ -53,20 +54,36 @@ async function leadOrder(ctx: EntityCtx, l: Record<string, unknown>) {
   return o ?? undefined;
 }
 
+type Target = { dealershipId: number; branchId: number | null };
+type Customer = { customerName: string; customerMobile: string; customerEmail: string | null };
+
 export async function createQuotation(ctx: EntityCtx, leadId: number, input: z.output<typeof QuotationCreate>) {
   const { l, target } = await issuingLead(ctx, leadId, P.quotationsUpdate);
+  return issueQuotation(ctx, target, l.ownerId as number, l, null, input);
+}
+
+/** A quotation without a lead: whoever issues quotations at the dealership; it is theirs. */
+export async function createStandaloneQuotation(ctx: EntityCtx, input: z.output<typeof StandaloneQuotationCreate>) {
+  const target = { dealershipId: input.dealershipId, branchId: null };
+  if (!ctx.access.canIn(P.quotationsCreate, target)) throw forbidden('You cannot issue quotations at this dealership');
+  const { dealershipId: _d, customerName, customerMobile, customerEmail, ...rest } = input;
+  return issueQuotation(ctx, target, ctx.access.userId, null, { customerName, customerMobile, customerEmail: customerEmail ?? null }, rest);
+}
+
+async function issueQuotation(ctx: EntityCtx, target: Target, ownerId: number, l: Row | null, customer: Customer | null, input: z.output<typeof QuotationCreate>) {
+  const leadId = l ? (l.id as number) : null;
   // The vehicle quoted: a picked variant code's model, else the model chosen on the quotation (the
   // customer may now want another model), else the lead's. A picked code also sets the printed
   // description and goes in the Ref.
   const picked = input.variantCode ? await resolveVariant(ctx, target.dealershipId, input.variantCode) : { variantCode: null };
   if (input.modelId) await assertActiveModel(ctx, input.modelId);
-  const modelId = ('modelId' in picked ? picked.modelId : null) ?? input.modelId ?? (l.interestedModelId as number | null);
+  const modelId = ('modelId' in picked ? picked.modelId : null) ?? input.modelId ?? ((l?.interestedModelId as number | null) ?? null);
   if (!modelId) throw validationError([{ in: 'body', path: 'modelId', message: 'Choose the model' }]);
   // Hyundai (Ref prefix): a code, unless the model has none or the variant is typed ("Other"; the Ref
   // is then the quotation number).
   if (!picked.variantCode && !input.variant) await assertVariantCodeGiven(ctx, target.dealershipId, null, modelId);
   // Once the Admin has raised the order, its price is the default.
-  const order = await leadOrder(ctx, l);
+  const order = l ? await leadOrder(ctx, l) : undefined;
   const unitPrice = input.unitPrice ?? order?.unitPrice;
   if (!unitPrice) throw validationError([{ in: 'body', path: 'unitPrice', message: 'Enter the price to quote' }]);
   const discount = input.discount ?? order?.discount ?? '0';
@@ -77,19 +94,20 @@ export async function createQuotation(ctx: EntityCtx, leadId: number, input: z.o
     freightInsurance: money2(input.freightInsurance),
     withholdingTax: money2(input.withholdingTax),
   });
-  const booking = input.bookingAmount !== undefined ? input.bookingAmount : (order?.bookingAmount ?? ((l.paymentAmount as string | null) ?? null));
+  const booking = input.bookingAmount !== undefined ? input.bookingAmount : (order?.bookingAmount ?? ((l?.paymentAmount as string | null) ?? null));
 
   return quotations.create(ctx, {
     ...target,
     ...priced,
     quotationNo: await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.quotation),
     leadId,
-    ownerId: l.ownerId,
+    ownerId,
+    ...(customer ?? {}),
     modelId,
     // A typed variant belongs to the quoted model; the lead's variant only when the model is the lead's.
-    variant: ('variant' in picked ? picked.variant : null) ?? input.variant ?? (modelId === l.interestedModelId ? l.variant : null) ?? null,
+    variant: ('variant' in picked ? picked.variant : null) ?? input.variant ?? (l && modelId === l.interestedModelId ? l.variant : null) ?? null,
     variantCode: picked.variantCode,
-    color: input.color ?? l.preferredColor ?? null,
+    color: input.color ?? l?.preferredColor ?? null,
     bookingAmount: booking == null ? null : money2(booking),
     validUntil: karachiDay(input.validDays),
     notes: input.notes ?? null,
@@ -103,14 +121,35 @@ export async function createQuotation(ctx: EntityCtx, leadId: number, input: z.o
 
 export async function createPpfForm(ctx: EntityCtx, leadId: number, input: z.output<typeof PpfFormCreate>) {
   const { l, target } = await issuingLead(ctx, leadId, P.ppfUpdate);
+  return issuePpf(ctx, target, l.ownerId as number, l, null, input);
+}
+
+/** A PPF voucher without a lead (e.g. a customer who bought elsewhere): the vehicle is written on it. */
+export async function createStandalonePpf(ctx: EntityCtx, input: z.output<typeof StandalonePpfCreate>) {
+  const target = { dealershipId: input.dealershipId, branchId: null };
+  if (!ctx.access.canIn(P.ppfCreate, target)) throw forbidden('You cannot issue PPF vouchers at this dealership');
+  await assertActiveModel(ctx, input.modelId);
+  const { dealershipId: _d, customerMobile, modelId, variant, color, ...rest } = input;
+  return issuePpf(ctx, target, ctx.access.userId, null, { customerMobile, modelId, variant: variant ?? null, color: color ?? null }, rest);
+}
+
+async function issuePpf(
+  ctx: EntityCtx,
+  target: Target,
+  ownerId: number,
+  l: Row | null,
+  standalone: { customerMobile: string; modelId: number; variant: string | null; color: string | null } | null,
+  input: z.output<typeof PpfFormCreate>,
+) {
+  const leadId = l ? (l.id as number) : null;
   // PBO, chassis and engine: typed on the voucher, or taken from the lead's sales order. Required
   // once the lead has an order; before that they may be blank (the voucher shows the order's numbers
   // as soon as it exists).
-  const order = await leadOrderVehicle(ctx, leadId);
+  const order = leadId ? await leadOrderVehicle(ctx, leadId) : { orderNo: null, pboNo: null, chassisNo: null, engineNo: null };
   const pboNo = input.pboNo || order.pboNo || order.orderNo;
   const chassisNo = input.chassisNo || order.chassisNo;
   const engineNo = input.engineNo || order.engineNo;
-  const missing = !l.salesOrderId ? [] : [
+  const missing = !l?.salesOrderId ? [] : [
     !pboNo && { in: 'body' as const, path: 'pboNo', message: 'Enter the PBO number' },
     !chassisNo && { in: 'body' as const, path: 'chassisNo', message: 'Enter the chassis number' },
     !engineNo && { in: 'body' as const, path: 'engineNo', message: 'Enter the engine number' },
@@ -122,7 +161,8 @@ export async function createPpfForm(ctx: EntityCtx, leadId: number, input: z.out
     ...priced,
     formNo: await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.ppfForm),
     leadId,
-    ownerId: l.ownerId,
+    ownerId,
+    ...(standalone ?? {}),
     pboNo,
     chassisNo,
     engineNo,
@@ -148,7 +188,7 @@ export function cleanExtraFields(values: Record<string, string> | undefined) {
 
 /** Dealership, customer (as on the lead), salesperson and vehicle printed on a document. */
 async function parties(ctx: EntityCtx, doc: Row, modelId: number | null) {
-  const lr = await ctx.tx.lead.findUnique({
+  const lr = !doc.leadId ? null : await ctx.tx.lead.findUnique({
     where: { id: doc.leadId as number },
     select: { prospectName: true, prospectMobile: true, email: true, variant: true, preferredColor: true, interestedModelId: true, salesOrderId: true },
   });
@@ -170,7 +210,12 @@ async function parties(ctx: EntityCtx, doc: Row, modelId: number | null) {
     issuedAt: doc.createdAt as Date,
     updatedAt: doc.updatedAt as Date,
     dealership: d!,
-    customer: { name: l?.name ?? '', mobile: l?.mobile ?? '', email: l?.email ?? null },
+    // Without a lead: the customer written on the document.
+    customer: {
+      name: l?.name ?? ((doc.customerName as string | null) ?? ''),
+      mobile: l?.mobile ?? ((doc.customerMobile as string | null) ?? ''),
+      email: l?.email ?? ((doc.customerEmail as string | null) ?? null),
+    },
     salesperson: sp!,
     vehicle: {
       model: m?.name ?? 'Vehicle',
@@ -217,7 +262,8 @@ export async function quotationDocument(ctx: EntityCtx, id: number) {
 export async function ppfDocument(ctx: EntityCtx, id: number) {
   const f = await ppfForms.get(ctx, id);
   const total = f.totalAmount as string;
-  const p = await parties(ctx, f, null);
+  // A voucher without a lead names its own vehicle model.
+  const p = await parties(ctx, f, (f.modelId as number | null) ?? null);
   return {
     formNo: f.formNo as string,
     pboNo: (f.pboNo as string | null) || p.orderNo,

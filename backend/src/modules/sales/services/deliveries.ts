@@ -13,6 +13,7 @@ import { deliveries, deliveryEntity, orders } from '../entities';
 import { delivery } from '../models';
 import { pakistanToday } from '../../../lib/dates';
 import { SalesPerm as P } from '../permissions';
+import { assertCleared } from './orderPayments';
 import { setVehicleStatus } from './orders';
 import type { CompleteDeliveryBody, ScheduleDeliveryBody } from '../schemas';
 
@@ -75,6 +76,8 @@ export async function completeDelivery(ctx: EntityCtx, deliveryId: number, input
   // Authorised through the delivery; the completer need not have rights on sales orders.
   const o = await orders.findById(ctx, d.salesOrderId as number, { lock: true });
   if (o.status !== 'approved' || o.vehicleId !== d.vehicleId) throw conflict('The order is no longer approved for this vehicle');
+  // The Sales Admin must have cleared the car (all payments clear) before it is handed over.
+  assertCleared(o);
 
   const deliveredOn = input.deliveredOn ?? today();
   if (deliveredOn > today()) throw validationError([{ in: 'body', path: 'deliveredOn', message: 'Delivery date cannot be in the future' }]);
@@ -171,6 +174,8 @@ export async function deliveryNote(ctx: EntityCtx, deliveryId: number) {
     // The PBO number as written on the customer's PPF voucher, when there is one.
     o?.leadId ? ctx.tx.ppfForm.findFirst({ where: { leadId: o.leadId, pboNo: { not: null } }, select: { pboNo: true }, orderBy: { id: 'desc' } }) : null,
   ]);
+  // A corporate customer: the person takes delivery on behalf of the company.
+  const corp = o?.leadId ? await ctx.tx.lead.findFirst({ where: { id: o.leadId }, select: { customerType: true, companyName: true } }) : null;
   return {
     deliveryNo: d.deliveryNo as string,
     status: d.status as string,
@@ -178,6 +183,7 @@ export async function deliveryNote(ctx: EntityCtx, deliveryId: number) {
     deliveredAt: d.deliveredAt ? (d.deliveredAt as Date).toISOString() : null,
     dealership: { name: dealer?.name ?? '', code: dealer?.code ?? '', brand: dealer?.brand ?? '' },
     customer: { name: buyer?.fullName ?? null, cnic: buyer?.cnic ? formatCnic(buyer.cnic) : null },
+    onBehalfOf: corp?.customerType === 'corporate' ? (corp.companyName ?? null) : null,
     pboNo: o?.pboNo ?? ppf?.pboNo ?? o?.orderNo ?? null,
     orderNo: o?.orderNo ?? null,
     vehicle: {

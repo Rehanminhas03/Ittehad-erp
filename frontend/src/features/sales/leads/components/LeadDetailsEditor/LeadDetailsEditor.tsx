@@ -20,7 +20,7 @@ export function LeadDetailsEditor({ lead }: { lead: Lead }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const initial = {
     prospectName: lead.prospectName,
-    prospectMobile: lead.prospectMobile,
+    prospectMobile: digitsOnly(lead.prospectMobile),
     email: lead.email ?? '',
     preferredColor: lead.preferredColor ?? '',
     variant: lead.variant ?? '',
@@ -80,7 +80,7 @@ export function LeadDetailsEditor({ lead }: { lead: Lead }) {
             <Input id="ld-name" value={v.prospectName} onChange={set('prospectName')} invalid={!!errors.prospectName} />
           </Field>
           <Field label="Phone" htmlFor="ld-phone" required error={errors.prospectMobile} hint="Digits only">
-            <Input id="ld-phone" type="tel" inputMode="tel" value={v.prospectMobile} onChange={set('prospectMobile')} invalid={!!errors.prospectMobile} />
+            <Input id="ld-phone" type="tel" inputMode="tel" maxLength={16} placeholder="03001234567" value={v.prospectMobile} onChange={(e) => set('prospectMobile')({ target: { value: digitsOnly(e.target.value) } })} invalid={!!errors.prospectMobile} />
           </Field>
           <Field label="Email" htmlFor="ld-email" error={errors.email}>
             <Input id="ld-email" type="email" value={v.email} onChange={set('email')} invalid={!!errors.email} />

@@ -278,7 +278,7 @@ export async function buildTrackRecordPdf(input: {
     doc.setPage(i);
     doc.setFontSize(7.5);
     doc.setTextColor(...muted);
-    doc.text(`Ittehad Motors · ${input.dealershipName} · Track record${pages > 1 ? ` · Page ${i} of ${pages}` : ''}`, W / 2, 204, { align: 'center' });
+    doc.text(`Ittehad Automotive · ${input.dealershipName} · Track record${pages > 1 ? ` · Page ${i} of ${pages}` : ''}`, W / 2, 204, { align: 'center' });
   }
   doc.setProperties({ title: `Track record ${input.whoLabel} ${input.periodLabel}` });
   const fileName = `Track record - ${input.whoLabel} - ${input.periodLabel}.pdf`.replace(/[\\/:*?"<>|]/g, '');

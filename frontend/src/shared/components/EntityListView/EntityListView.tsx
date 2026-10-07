@@ -120,7 +120,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
             <Link to={list.createPath ?? `${config.basePath}/new`}>
               <Button>
                 <PlusIcon />
-                New {config.singular.toLowerCase()}
+                {list.createLabel ?? `New ${config.singular.toLowerCase()}`}
               </Button>
             </Link>
           )

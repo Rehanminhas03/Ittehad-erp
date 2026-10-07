@@ -46,6 +46,8 @@ const ALL_SECTIONS: NavSection[] = [
       { label: 'Variant codes', to: '/sales/variants', any: ['sales.templates.manage'] },
       { label: 'Track record', to: '/sales/track-record', any: ['sales.ppf.view_all', 'sales.ppf.view_own', 'sales.reports.view'] },
       { label: 'Team report', to: '/sales/team', any: ['sales.reports.view'] },
+      // Every member of the sales department applies; the Assistant Manager / Manager approve.
+      { label: 'Leave applications', to: '/sales/leave', any: ['sales.leave.apply', 'sales.leave.approve'] },
     ],
   },
   {

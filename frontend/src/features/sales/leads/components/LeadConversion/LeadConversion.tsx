@@ -4,7 +4,7 @@ import { usePermission, useToast } from '@/shared/hooks';
 import { digitsOnly } from '@/shared/components/EntityFormView/FormFieldControl';
 import { maskCnic } from '@/features/crm';
 import { apiConflict, apiFieldErrors } from '@/shared/lib';
-import { OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS } from '../../../permissions';
+import { CUSTOMER_TYPES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS } from '../../../permissions';
 import { type Lead, useConvertLeadMutation } from '../../../salesApi';
 import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
 import { LeadModelSelect } from '../LeadModelSelect';
@@ -22,7 +22,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [v, setV] = useState({
     prospectName: lead.prospectName,
-    prospectMobile: lead.prospectMobile,
+    prospectMobile: digitsOnly(lead.prospectMobile),
     interestedModelId: lead.interestedModelId ? String(lead.interestedModelId) : '',
     preferredColor: lead.preferredColor ?? '',
     variant: lead.variant ?? '',
@@ -32,6 +32,11 @@ export function LeadConversion({ lead }: { lead: Lead }) {
     paymentInstrumentBank: '',
     paymentAmount: '',
     notes: '',
+    // Individual, or corporate: billed to the company (its name, the contact's designation, a purchase order if any).
+    customerType: 'individual',
+    companyName: '',
+    contactDesignation: '',
+    purchaseOrderNo: '',
   });
   // The customer's CNIC (required): the Admin checks it against the copy when raising the order.
   const [cnic, setCnic] = useState('');
@@ -59,6 +64,8 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       required('paymentInstrument', 'Payment instrument'),
       required('paymentInstrumentRef', 'Instrument number'),
       cnic.replace(/\D/g, '').length === 13 ? null : (['customerCnic', "Enter the customer's CNIC (13 digits)"] as const),
+      v.customerType === 'corporate' ? required('companyName', 'Company name') : null,
+      v.customerType === 'corporate' ? required('contactDesignation', "The contact's designation") : null,
     ].filter((x) => x !== null);
     if (missing.length) {
       setErrors(Object.fromEntries(missing));
@@ -82,6 +89,10 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           expectedDeliveryDate: expected.date || null,
           expectedDeliveryByMonth: !!expected.date && expected.byMonth,
           customerCnic: cnic,
+          customerType: v.customerType as 'individual',
+          companyName: v.customerType === 'corporate' ? v.companyName.trim() : null,
+          contactDesignation: v.customerType === 'corporate' ? v.contactDesignation.trim() : null,
+          purchaseOrderNo: v.customerType === 'corporate' ? v.purchaseOrderNo.trim() || null : null,
           notes: v.notes || null,
         },
       }).unwrap();
@@ -119,11 +130,46 @@ export function LeadConversion({ lead }: { lead: Lead }) {
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-          <Field label="Customer name" htmlFor="cv-name" required error={errors.prospectName}>
+          <div className="sm:col-span-2">
+            <p className="mb-1.5 text-sm font-medium text-slate-700">Customer type</p>
+            <div className="inline-flex rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Customer type">
+              {CUSTOMER_TYPES.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={v.customerType === c.value}
+                  onClick={() => setV((s) => ({ ...s, customerType: c.value }))}
+                  className={
+                    v.customerType === c.value
+                      ? 'rounded-lg bg-white px-4 py-1.5 text-sm font-semibold text-brand-700 shadow-sm'
+                      : 'rounded-lg px-4 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900'
+                  }
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {v.customerType === 'corporate' && (
+            <>
+              <Field label="Company name" htmlFor="cv-company" required error={errors.companyName} hint="The order and documents are in the company's name">
+                <Input id="cv-company" value={v.companyName} onChange={set('companyName')} invalid={!!errors.companyName} placeholder="e.g. ABC Traders (Pvt) Ltd" />
+              </Field>
+              <Field label="Contact's designation / title" htmlFor="cv-designation" required error={errors.contactDesignation}>
+                <Input id="cv-designation" value={v.contactDesignation} onChange={set('contactDesignation')} invalid={!!errors.contactDesignation} placeholder="e.g. Admin Manager" />
+              </Field>
+              <Field label="Purchase order no." htmlFor="cv-po" error={errors.purchaseOrderNo} hint="Leave empty if the company has not given a purchase order">
+                <Input id="cv-po" value={v.purchaseOrderNo} onChange={set('purchaseOrderNo')} invalid={!!errors.purchaseOrderNo} />
+              </Field>
+              <div className="hidden sm:block" />
+            </>
+          )}
+          <Field label={v.customerType === 'corporate' ? 'Contact person (name)' : 'Customer name'} htmlFor="cv-name" required error={errors.prospectName}>
             <Input id="cv-name" value={v.prospectName} onChange={set('prospectName')} invalid={!!errors.prospectName} />
           </Field>
           <Field label="Phone" htmlFor="cv-phone" required error={errors.prospectMobile} hint="Digits only">
-            <Input id="cv-phone" type="tel" inputMode="tel" value={v.prospectMobile} onChange={set('prospectMobile')} invalid={!!errors.prospectMobile} />
+            <Input id="cv-phone" type="tel" inputMode="tel" maxLength={16} placeholder="03001234567" value={v.prospectMobile} onChange={(e) => set('prospectMobile')({ target: { value: digitsOnly(e.target.value) } })} invalid={!!errors.prospectMobile} />
           </Field>
           <Field label="Model" htmlFor="cv-model" required error={errors.interestedModelId}>
             <LeadModelSelect

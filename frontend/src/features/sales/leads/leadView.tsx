@@ -127,6 +127,7 @@ export const leadView: EntityViewConfig<Lead> = {
     // Total leads and the split by status for the chosen period and filters, above the search.
     header: ({ query, periodLabel }) => <LeadStatusSummary query={query} periodLabel={periodLabel} />,
     filters: [
+      { param: 'lost', label: 'Lost leads', type: 'select', options: [{ value: 'true', label: 'Show lost leads' }], visible: (perm) => perm.can(WORKS_LEADS) },
       { param: 'status', label: 'Status', type: 'select', useOptions: useLeadStatusOptions },
       { param: 'source', label: 'Source', type: 'select', options: LEAD_SOURCES },
       { param: 'ownerId', label: 'Salesperson', type: 'select', useOptions: useSalespersonOptions, visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted]) },
@@ -151,6 +152,8 @@ export const leadView: EntityViewConfig<Lead> = {
           <span className="inline-flex items-center gap-2">
             {strong(l.prospectName)}
             {l.escalatedAt && (OPEN_LEAD_STATES as readonly string[]).includes(l.status) && <Badge tone="amber">Sent to AM</Badge>}
+            {!!l.previousPurchases && <Badge tone="green">{`Returning customer · ${l.previousPurchases} car${l.previousPurchases > 1 ? 's' : ''} before`}</Badge>}
+            {l.customerType === 'corporate' && l.companyName && <Badge tone="blue">{l.companyName}</Badge>}
             {l.appointmentAt && new Date(l.appointmentAt).getTime() >= Date.now() - 3_600_000 && <Badge tone="blue">{formatAppointment(l.appointmentAt)}</Badge>}
           </span>
         ),
@@ -174,6 +177,17 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Status', value: (l) => <StatusBadge status={l.status} /> },
       { label: 'Phone', value: (l) => l.prospectMobile },
       { label: 'Email', value: (l) => l.email },
+      {
+        label: 'Customer history',
+        value: (l) =>
+          l.previousPurchases ? (
+            <Badge tone="green">{`Returning customer: bought ${l.previousPurchases} car${l.previousPurchases > 1 ? 's' : ''} from us before`}</Badge>
+          ) : null,
+      },
+      { label: 'Customer type', value: (l) => (l.customerType === 'corporate' ? 'Corporate' : l.convertedAt ? 'Individual' : null) },
+      { label: 'Company', value: (l) => (l.customerType === 'corporate' ? [l.companyName, l.contactDesignation && `contact: ${l.contactDesignation}`].filter(Boolean).join(' · ') : null) },
+      { label: 'Purchase order', value: (l) => (l.customerType === 'corporate' ? l.purchaseOrderNo || 'Without a purchase order' : null) },
+      { label: 'Lost', value: (l) => (l.lostAt ? `${formatDateTime(l.lostAt)} by ${l.lostByName ?? '—'}${l.lostReason ? ` — ${l.lostReason}` : ''}` : null) },
       { label: 'Salesperson', value: (l) => l.ownerName },
       { label: 'Interested in', value: (l) => [l.modelName, l.variant, l.preferredColor].filter(Boolean).join(' · ') || null },
       { label: 'Expected close', value: (l) => formatDate(l.expectedCloseDate) },

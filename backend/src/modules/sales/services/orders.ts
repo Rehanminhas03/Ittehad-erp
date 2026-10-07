@@ -16,6 +16,7 @@ import { leads, orders, salesOrderEntity } from '../entities';
 import { salesOrder, VEHICLE_PIPELINE } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { AdvanceVehicleStatusBody, OrderVehicleBody, RaiseOrderBody } from '../schemas';
+import { recordBookingPayment } from './orderPayments';
 
 /**
  * Every sales order needs the customer's CNIC (every dealership): the customer's own, or the one
@@ -79,6 +80,13 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
   });
   await ctx.tx.salesOrder.update({ where: { id: order.id as number }, data: { leadId } });
   await ctx.tx.lead.update({ where: { id: leadId }, data: { salesOrderId: order.id as number } });
+  // The booking amount is the order's first payment (more are recorded until the balance is clear).
+  await recordBookingPayment(ctx, { id: order.id as number, dealershipId }, {
+    amount: String(order.bookingAmount ?? '0'),
+    instrument: (l.paymentInstrument as string | null) ?? null,
+    reference: (order.paymentReference as string | null) ?? null,
+    bank: (l.paymentInstrumentBank as string | null) ?? null,
+  });
   await leads.transition(ctx, leadId, 'raise_order', `Sales order ${order.orderNo as string}`, { system: true });
   return orders.get(ctx, order.id);
 }

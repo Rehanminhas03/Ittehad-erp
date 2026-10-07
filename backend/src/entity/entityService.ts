@@ -130,6 +130,7 @@ export class EntityService {
       const f = known[param];
       if (f && value !== undefined) conds.push(f.where ? f.where(value) : eq(this.col(f.key), value));
     }
+    conds.push(config.listDefault?.(filters));
     const where = and(...conds) ?? sql`true`;
 
     const sortSpec = q.sort ?? config.sort.default;
