@@ -5,7 +5,7 @@ import { closeRealtime, attachRealtime } from './lib/realtime';
 import { logger } from './lib/logger';
 import { startAppointmentReminders } from './modules/sales/services/appointmentReminders';
 
-const server = createApp().listen(env.PORT, () => {
+const server = createApp().listen(env.PORT, '0.0.0.0', () => {
   logger.info(`DMS API listening on http://localhost:${env.PORT}`);
 });
 // Live notifications (Socket.IO on /socket.io, same port as the API).
