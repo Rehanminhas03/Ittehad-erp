@@ -33,7 +33,7 @@ export function NotificationBell() {
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="sm:relative" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -51,7 +51,10 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div role="menu" className="surface absolute right-0 z-30 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden">
+        <div
+          role="menu"
+          className="surface absolute inset-x-0 top-full z-30 mt-2 !bg-white shadow-2xl shadow-slate-900/20 max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain sm:inset-x-auto sm:right-0 sm:w-96"
+        >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
             <p className="text-sm font-semibold text-slate-900">Notifications{count ? ` · ${count} unread` : ''}</p>
             {count > 0 && (

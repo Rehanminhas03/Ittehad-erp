@@ -120,6 +120,7 @@ export const leadView: EntityViewConfig<Lead> = {
     (OPEN_LEAD_STATES as readonly string[]).includes(l.status) &&
     (perm.canIn(P.leadsUpdate, l.dealershipId, l.branchId) || (l.ownerId === perm.userId && perm.canIn(P.leadsUpdateOwn, l.dealershipId, l.branchId))),
   list: {
+    createLabel: 'New Lead',
     // Latest activity first; the list opens on the last 30 days (an old lead converted today counts as today).
     defaultSort: '-updatedAt',
     dateRange: { label: 'Activity', fromParam: 'activityFrom', toParam: 'activityTo', defaultPreset: '30d' },

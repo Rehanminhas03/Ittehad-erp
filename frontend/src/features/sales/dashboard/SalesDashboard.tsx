@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { TodayPanel } from './TodayPanel';
 import { DateRangePicker, type DateRange, lastDays, rangeLabel } from '@/shared/components';
-import { Select, StatusBadge } from '@/shared/components/ui';
+import { Button, Select, StatusBadge } from '@/shared/components/ui';
 import { useAuth, usePermission } from '@/shared/hooks';
 import { formatDate, formatMoney, humanize } from '@/shared/lib';
 import { labelOf, LEAD_SOURCES, LEAD_STATES, ORDER_STATES, P, showsVisited } from '../permissions';
@@ -188,6 +189,17 @@ export function SalesDashboard() {
           <p className="mt-1 text-sm text-slate-600">{personName ? `Showing ${personName} only.` : SUBTITLES[layout]}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Log a walk-in or a call straight from the dashboard (everyone who logs leads). */}
+          {perm.can(P.leadsCreate) && (
+            <Link to="/sales/leads/new">
+              <Button>
+                <svg viewBox="0 0 20 20" className="size-4" fill="none" aria-hidden>
+                  <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                New Lead
+              </Button>
+            </Link>
+          )}
           {canPickPerson && (
             <Select
               aria-label="Salesperson"

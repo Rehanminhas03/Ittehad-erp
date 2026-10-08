@@ -22,7 +22,7 @@ export function ActionBell() {
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="sm:relative" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -53,7 +53,10 @@ export function ActionBell() {
         )}
       </button>
       {open && (
-        <div role="menu" className="surface absolute right-0 z-20 mt-2 w-[min(24rem,calc(100vw-2rem))] p-3">
+        <div
+          role="menu"
+          className="surface absolute inset-x-0 top-full z-30 mt-2 !bg-white shadow-2xl shadow-slate-900/20 max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain p-3 sm:inset-x-auto sm:right-0 sm:w-96"
+        >
           <p className="mb-1 px-1 text-sm font-semibold text-slate-900">Action needed</p>
           {items.length ? (
             <ActionList items={items} onOpen={() => setOpen(false)} />
