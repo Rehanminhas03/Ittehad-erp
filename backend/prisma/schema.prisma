@@ -2049,6 +2049,7 @@ model LeadFollowUpComment {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdById  BigInt   @map("created_by_id")
 
+  @@index([dealershipId], map: "lead_follow_up_comment_dealership_id_index")
   @@index([followUpId], map: "lead_follow_up_comment_follow_up_id_index")
   @@index([leadId], map: "lead_follow_up_comment_lead_id_index")
   @@map("lead_follow_up_comment")

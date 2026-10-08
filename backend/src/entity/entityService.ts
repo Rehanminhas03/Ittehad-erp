@@ -190,7 +190,8 @@ export class EntityService {
     let data: Record<string, unknown> = { ...input };
 
     // No branch chosen, by someone who works at one branch of that dealership only: it is their branch.
-    const branchKey = config.tenant && !config.tenant.root ? config.tenant.branchKey : undefined;
+    // Only for records that belong to a branch — never for a branch itself (its branch key is its own id).
+    const branchKey = config.tenant && !config.tenant.root && config.tenant.branchKey !== 'id' ? config.tenant.branchKey : undefined;
     if (branchKey && data[branchKey] == null && !ctx.access.canIn(perm, this.targetOf(data))) {
       const dealershipId = data[config.tenant!.dealershipKey] as number;
       const own = ctx.access.scope(perm).branches.filter((b) => b.dealershipId === dealershipId);

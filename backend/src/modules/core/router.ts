@@ -36,8 +36,8 @@ const REFRESH_COOKIE = 'dms_rt';
 function setRefreshCookie(res: Response, token: string) {
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
-    sameSite: 'strict',
-    secure: env.COOKIE_SECURE ?? env.NODE_ENV === 'production',
+    sameSite: 'none',
+    secure: true,
     path: '/api/auth',
     maxAge: env.REFRESH_TOKEN_TTL_SEC * 1000,
   });
