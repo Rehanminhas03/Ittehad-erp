@@ -26,7 +26,7 @@ const GROUP_LOGO: LogoAsset = { file: 'Ittehad-logo.png', name: 'Ittehad Automot
 /** The dealerships under Ittehad Automotive, all served by this one login. */
 const DEALERSHIPS: LogoAsset[] = [
   { file: 'Hyundai-logo.png', name: 'Hyundai Islamabad', crop: 'inset(23% 10.5% 16.5% 10.5%)' },
-  { file: 'jetour-logo.png', name: 'Jetour Ittehad', crop: 'inset(44% 5% 44% 5%)' },
+  { file: 'jetour-ittehad-logo.png', name: 'Jetour Ittehad' },
   { file: 'CSM-Logo.png', name: 'CSM Ittehad', crop: 'inset(1.5% 0% 1.5% 0%)' },
 ];
 

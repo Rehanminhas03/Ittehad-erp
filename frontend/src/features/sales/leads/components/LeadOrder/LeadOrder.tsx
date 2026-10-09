@@ -70,7 +70,8 @@ export function LeadOrder({ lead }: { lead: Lead }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [v, setV] = useState({
     orderType: 'pbo',
-    unitPrice: '',
+    // The car's price told at conversion (partial: its total; full: the amount paid), checked by the Admin.
+    unitPrice: lead.vehiclePrice ? String(Number(lead.vehiclePrice)) : '',
     discount: '0',
     bookingAmount: lead.paymentAmount ?? '',
     paymentReference: lead.paymentInstrumentRef ?? '',

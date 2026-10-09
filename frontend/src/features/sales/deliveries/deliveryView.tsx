@@ -26,7 +26,7 @@ export const deliveryView: EntityViewConfig<Delivery> = {
   ownerKey: 'salespersonId',
   list: {
     defaultSort: 'scheduledDate',
-    searchPlaceholder: 'Search delivery, order or PBO number',
+    searchPlaceholder: 'Search PBO / delivery no., customer name, phone, CNIC or chassis',
     filters: [
       statusFilter(DELIVERY_STATES),
       dealershipFilter,

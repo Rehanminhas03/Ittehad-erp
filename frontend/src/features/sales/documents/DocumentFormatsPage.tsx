@@ -7,6 +7,7 @@ import { type DocumentTemplate, type QuotationDocument, useGetDocumentTemplateQu
 import { EyeIcon, PdfDialog, usePdf } from './DocumentPreview';
 import { buildQuotationPdf } from './pdf';
 import { LeaveFormatEditor } from './LeaveFormatEditor';
+import { ImagePicker } from './ImagePicker';
 import { PpfFormatEditor } from './PpfFormatEditor';
 
 type Form = {
@@ -26,6 +27,8 @@ type Form = {
   terms: string;
   closingLines: string;
   signOff: string;
+  stampImage: string | null;
+  signatureImage: string | null;
 };
 const lines = (s: string) => s.split('\n').map((l) => l.trim()).filter(Boolean);
 const blank = (s: string) => s.trim() || null;
@@ -48,6 +51,8 @@ function toForm(t: DocumentTemplate): Form {
     terms: t.terms.join('\n'),
     closingLines: t.closingLines.join('\n'),
     signOff: t.signOff.join('\n'),
+    stampImage: t.stampImage ?? null,
+    signatureImage: t.signatureImage ?? null,
   };
 }
 function fromForm(f: Form) {
@@ -68,6 +73,8 @@ function fromForm(f: Form) {
     terms: lines(f.terms),
     closingLines: lines(f.closingLines),
     signOff: lines(f.signOff),
+    stampImage: f.stampImage,
+    signatureImage: f.signatureImage,
   };
 }
 
@@ -269,6 +276,16 @@ export default function DocumentFormatsPage() {
             <Field label="Sign-off (one per line; lines after the first are bold)" htmlFor="fmt-signoff" className="mt-4" error={errors.signOff}>
               <Textarea id="fmt-signoff" rows={2} value={form.signOff} onChange={set('signOff')} />
             </Field>
+          </Section>
+
+          <Section title="Stamp & signature (full-page quotation)">
+            <p className="mb-4 text-sm text-slate-600">
+              Printed on the full-page quotation (with the header and footer, e.g. sent on WhatsApp), not on the letterhead-paper version, which is stamped and signed by hand.
+            </p>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <ImagePicker label="Dealership stamp" hint="A photo or scan of the stamp; a transparent PNG prints best." value={form.stampImage} onChange={(stampImage) => setForm({ ...form, stampImage })} />
+              <ImagePicker label="Manager's signature" hint="Sign on white paper and photograph it, or upload a scan." value={form.signatureImage} onChange={(signatureImage) => setForm({ ...form, signatureImage })} />
+            </div>
           </Section>
 
           <div className="flex flex-wrap justify-end gap-2">

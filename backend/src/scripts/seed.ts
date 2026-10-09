@@ -20,7 +20,6 @@ const VEHICLE_MODELS: { brand: string; name: string; bodyType: string }[] = [
   { brand: 'Hyundai', name: 'Sonata', bodyType: 'Sedan' },
   { brand: 'Hyundai', name: 'Santa Fe', bodyType: 'SUV' },
   { brand: 'Hyundai', name: 'Palisade', bodyType: 'SUV' },
-  { brand: 'Hyundai', name: 'Staria', bodyType: 'Van' },
   { brand: 'Hyundai', name: 'Porter H-100', bodyType: 'Pickup' },
   { brand: 'Jetour', name: 'X70 Plus', bodyType: 'SUV' },
   { brand: 'Jetour', name: 'Dashing', bodyType: 'SUV' },

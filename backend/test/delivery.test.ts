@@ -61,7 +61,7 @@ async function bookedOrder(s: Setup, mobile = '0300-5556667') {
   await api
     .post(`/api/sales/leads/${l.body.id}/convert`)
     .set(bearer(s.sales1.token))
-    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'a@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-1' })
+    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'a@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'PO-1' })
     .expect(200);
   const o = await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' });
   await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(s.admin.token)).send({ action: 'submit' }).expect(200);
@@ -259,7 +259,7 @@ describe('Delivery Team: from booking to the car arriving', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'b@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-2' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'b@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'PO-2' })
       .expect(200);
     const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     expect(o.status).toBe('draft');
@@ -303,7 +303,7 @@ describe('Mark as delivered on the order', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'h@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-3' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'h@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'PO-3' })
       .expect(200);
     const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     await api.post('/api/sales/stock').set(bearer(s.delivery.token)).send(intake(s, s.modelId, 'HANDOVER0001', { orderId: o.id })).expect(201);
@@ -346,7 +346,7 @@ describe('Action needed', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 's@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-9' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 's@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'PO-9' })
       .expect(200);
     expect(await actions(s.admin)).toMatchObject({ 'raise-order': 1 });
 
@@ -372,7 +372,7 @@ describe('review fixes', () => {
     await api
       .post(`/api/sales/leads/${l.body.id}/convert`)
       .set(bearer(s.sales1.token))
-      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'r@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), paymentInstrumentRef: 'PO-R' })
+      .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'r@example.com', paymentInstrument: 'pay_order', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'PO-R' })
       .expect(200);
     const o = (await api.post(`/api/sales/leads/${l.body.id}/order`).set(bearer(s.admin.token)).send({ customerCnic: nextCnic(), pboNo: nextPbo(), unitPrice: '9000000' })).body;
     return { leadId: l.body.id as number, orderId: o.id as number };

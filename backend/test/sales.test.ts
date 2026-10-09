@@ -66,7 +66,7 @@ const conversion = (modelId: number, over: Record<string, unknown> = {}) => ({
   preferredColor: 'Polar White',
   email: 'bilal@example.com',
   paymentInstrument: 'pay_order',
-  customerCnic: nextCnic(), paymentInstrumentRef: 'PO-778812',
+  customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentInstrumentRef: 'PO-778812',
   paymentInstrumentBank: 'HBL',
   paymentAmount: '500000',
   ...over,
@@ -263,7 +263,7 @@ describe('Convert to Lead', () => {
   it('requires model, variant, colour, email and the payment instrument, then hands the lead to the Admin', async () => {
     const s = await setup();
     const leadId = await newLead(s.sales1, s.d.id);
-    for (const missing of ['email', 'preferredColor', 'interestedModelId', 'variant', 'paymentInstrument', 'paymentInstrumentRef']) {
+    for (const missing of ['email', 'preferredColor', 'interestedModelId', 'variant', 'paymentInstrument', 'paymentInstrumentRef', 'customerAddress', 'paymentType', 'paymentAmount']) {
       const body: Record<string, unknown> = conversion(s.modelId);
       delete body[missing];
       const res = await api.post(`/api/sales/leads/${leadId}/convert`).set(bearer(s.sales1.token)).send(body);

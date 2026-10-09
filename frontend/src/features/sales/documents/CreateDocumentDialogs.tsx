@@ -275,7 +275,7 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
   const [v, setV] = useState({
     customerName: lead?.prospectName ?? '',
     customerEmail: lead?.email ?? '',
-    customerAddress: '',
+    customerAddress: lead?.customerAddress ?? '',
     pboNo: '',
     chassisNo: '',
     engineNo: '',

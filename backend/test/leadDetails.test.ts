@@ -30,7 +30,7 @@ async function convertedLead(s: Setup, mobile = '03001234567') {
   await api
     .post(`/api/sales/leads/${l.body.id}/convert`)
     .set(bearer(s.sales1.token))
-    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'ayesha@exmaple.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-1' })
+    .send({ interestedModelId: s.modelId, variant: '2.0 GLS', preferredColor: 'White', email: 'ayesha@exmaple.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'CH-1' })
     .expect(200);
   return l.body.id as number;
 }

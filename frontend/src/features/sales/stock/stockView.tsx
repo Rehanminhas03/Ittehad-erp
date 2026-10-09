@@ -53,7 +53,7 @@ export const stockView: EntityViewConfig<StockVehicle> = {
   canEdit: (_v, perm) => perm.can(P.stockManage),
   list: {
     defaultSort: '-createdAt',
-    searchPlaceholder: 'Search chassis, engine or registration number',
+    searchPlaceholder: 'Search chassis, engine, registration, PBO or customer',
     filters: [
       { param: 'status', label: 'Status', type: 'select', options: VEHICLE_STATUSES.filter((s) => s.value !== 'delivered') },
       { param: 'allocated', label: 'On an order', type: 'boolean' },

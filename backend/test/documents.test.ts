@@ -40,7 +40,7 @@ async function convert(s: Setup, id: number) {
   await api
     .post(`/api/sales/leads/${id}/convert`)
     .set(bearer(s.sales1.token))
-    .send({ ...vehicleOf(s), preferredColor: 'White', email: 'ayesha@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-1' })
+    .send({ ...vehicleOf(s), preferredColor: 'White', email: 'ayesha@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'CH-1' })
     .expect(200);
 }
 const quote = (who: Login, id: number, body: Record<string, unknown> = {}) => api.post(`/api/sales/leads/${id}/quotations`).set(bearer(who.token)).send(body);
@@ -402,7 +402,7 @@ describe('track record: every stage', () => {
     await api
       .post(`/api/sales/leads/${c}/convert`)
       .set(bearer(s.am.token))
-      .send({ ...vehicleOf(s), preferredColor: 'White', email: 'c@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-9' })
+      .send({ ...vehicleOf(s), preferredColor: 'White', email: 'c@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'CH-9' })
       .expect(200);
 
     for (const who of [s.am, s.manager, s.admin]) {
@@ -590,7 +590,7 @@ describe('team leaders log leads', () => {
     await api
       .post(`/api/sales/leads/${own.body.id}/convert`)
       .set(bearer(s.manager.token))
-      .send({ ...vehicleOf(s), preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-7' })
+      .send({ ...vehicleOf(s), preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'CH-7' })
       .expect(200);
 
     // Only Salespersons / CROs of the dealership; only team leaders assign.
@@ -617,7 +617,7 @@ describe("track record: team leaders' leads, who entered and who converted", () 
     const newLead = (who: Login, mobile: string, extra: Record<string, unknown> = {}) =>
       api.post('/api/sales/leads').set(bearer(who.token)).send({ dealershipId: s.d.id, prospectName: 'Walk-in', prospectMobile: mobile, ...vehicleOf(s), ...extra });
     // A new CNIC each time: each lead is a different customer.
-    const conversion = () => ({ ...vehicleOf(s), preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), paymentInstrumentRef: 'CH-8' });
+    const conversion = () => ({ ...vehicleOf(s), preferredColor: 'White', email: 'x@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'CH-8' });
 
     // The AM logs a lead for salesperson 1, who converts it; the AM logs and converts one of their own.
     const forSales1 = (await newLead(s.am, '03006666661', { ownerId: s.sales1.user.id })).body.id;

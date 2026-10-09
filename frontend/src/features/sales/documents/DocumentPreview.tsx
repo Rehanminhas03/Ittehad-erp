@@ -66,7 +66,7 @@ function useDocumentPdf(kind: DocKind, id: number, skip: boolean, letterhead: bo
   }, [skip, kind, q.data, p.data, n.data, res.isFetching, letterhead]);
   const pdf = usePdf(build);
   const letterheadDefault = kind === 'quotation' && !!q.data && usesLetterhead(q.data.dealership.code);
-  return { pdf, error: res.error, loading: res.isFetching || (!!res.data && !pdf), letterheadDefault };
+  return { pdf, error: res.error, loading: res.isFetching || (!!res.data && !pdf), letterheadDefault, quotation: kind === 'quotation' ? q.data : undefined };
 }
 
 /**
@@ -77,14 +77,72 @@ export function DocumentPreview({ kind, id, open, onClose }: { kind: DocKind; id
   // Quotations of Hyundai / Jetour print on their letterhead paper (no header / footer) by default;
   // untick for the full page (e.g. to send it on WhatsApp).
   const [letterhead, setLetterhead] = useState<boolean | null>(null);
-  const { pdf, error, loading, letterheadDefault } = useDocumentPdf(kind, id, !open, letterhead);
+  const { pdf, error, loading, letterheadDefault, quotation } = useDocumentPdf(kind, id, !open, letterhead);
+  const toast = useToast();
+  const [sharing, setSharing] = useState(false);
   const title = pdf ? `${DOC_TITLES[kind]} — ${pdf.fileName.replace(/\.pdf$/, '')}` : DOC_TITLES[kind];
+  const onPaper = letterhead ?? letterheadDefault;
+
+  // WhatsApp: always the full page (header, footer, stamp and signature). On a phone the PDF is shared
+  // straight to WhatsApp (pick the chat); on a computer it is downloaded and the customer's chat opened.
+  const sendOnWhatsApp = async () => {
+    if (!quotation) return;
+    setSharing(true);
+    try {
+      const built = await buildQuotationPdf(quotation, { letterhead: false });
+      const file = new File([built.doc.output('blob')], built.fileName, { type: 'application/pdf' });
+      const message = `Dear ${quotation.billTo || quotation.customer.name}, please find attached your vehicle quotation ${quotation.quotationNo} from ${quotation.dealership.name}.`;
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: built.fileName, text: message });
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(file);
+      a.download = built.fileName;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      const digits = quotation.customer.mobile.replace(/\D/g, '');
+      const intl = digits.startsWith('0') ? `92${digits.slice(1)}` : digits;
+      window.open(`https://wa.me/${intl}?text=${encodeURIComponent(`${message} (The PDF has been downloaded: attach it here.)`)}`, '_blank', 'noopener');
+      toast.success('Quotation downloaded and WhatsApp opened: attach the PDF in the chat');
+    } catch (e) {
+      // Closing the share sheet is not an error.
+      if (!(e instanceof DOMException && e.name === 'AbortError')) toast.error(e);
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const extra =
     kind === 'quotation' ? (
-      <label className="mr-auto flex items-center gap-2 text-sm text-slate-700" title="No logos, header or footer: they are printed on the letterhead paper">
-        <input type="checkbox" checked={letterhead ?? letterheadDefault} onChange={(e) => setLetterhead(e.target.checked)} />
-        For letterhead paper
-      </label>
+      <div className="mr-auto flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Version">
+          {(
+            [
+              [true, 'Letterhead paper (print)', 'No logos, header or footer: they are printed on the letterhead paper'],
+              [false, 'Full page (WhatsApp / email)', 'With the header, footer, logos, stamp and signature'],
+            ] as const
+          ).map(([value, text, hint]) => (
+            <button
+              key={text}
+              type="button"
+              role="radio"
+              aria-checked={onPaper === value}
+              title={hint}
+              onClick={() => setLetterhead(value)}
+              className={onPaper === value ? 'rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-brand-700 shadow-sm' : 'rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900'}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+        <Button variant="secondary" loading={sharing} disabled={!quotation} onClick={() => void sendOnWhatsApp()} className="!text-emerald-700">
+          <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
+            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.6-.3Z" />
+          </svg>
+          Send on WhatsApp
+        </Button>
+      </div>
     ) : undefined;
   return <PdfDialog open={open} onClose={onClose} title={title} pdf={pdf} error={error} loading={loading} extra={extra} />;
 }

@@ -2,14 +2,16 @@ import type { jsPDF } from 'jspdf';
 import type { DeliveryNote, DocumentTemplate, LeaveDocument, PpfDocument, QuotationDocument } from '../salesApi';
 import { PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES, PPF_VOUCHER_FIELDS, type PpfVoucherField } from './labels';
 
+/** Jetour Ittehad's logo ("JETOUR — Ittehad —"), which already carries the dealership's name. */
+const JETOUR_LOGO = '/logo/jetour-ittehad-logo.png';
 /** Dealership brand logos (public/logo), by dealership code prefix. */
 const BRAND_LOGOS: [prefix: string, file: string][] = [
   ['HYD', '/logo/Hyundai-logo.png'],
-  ['JET', '/logo/jetour-logo.png'],
+  ['JET', JETOUR_LOGO],
   ['CSM', '/logo/CSM-Logo.png'],
 ];
 /** The group's logo, top right on every document. */
-const GROUP_LOGO = '/logo/Ittehadmotors-logo.png';
+const GROUP_LOGO = '/logo/Ittehad-logo.png';
 
 /** 12240000 -> "12,240,000"; paisa only when there are any. */
 const num = (v: string | number | null | undefined) => Number(v ?? 0).toLocaleString('en-PK', { maximumFractionDigits: 2 });
@@ -188,10 +190,53 @@ async function newPage(bottom = 284) {
 type Page = Awaited<ReturnType<typeof newPage>>;
 
 /**
+ * The dealership's own stamp & signature (one image, from its quotations), used on the full page
+ * until a stamp and signature are uploaded under Document formats.
+ */
+const DEFAULT_STAMP_SIGNATURE: [prefix: string, file: string][] = [
+  ['HYD', '/logo/hyundai-islamabad-stamp-signature.png'],
+  ['JET', '/logo/jetour-ittehad-stamp-signature.png'],
+];
+const defaultStampSignature = (code: string) => DEFAULT_STAMP_SIGNATURE.find(([prefix]) => code.startsWith(prefix))?.[1] ?? null;
+
+/**
+ * The full-page quotation (e.g. sent on WhatsApp): the dealership stamp with the Manager's signature
+ * beside it, their top at `y` (or their bottom, with `fromBottom`), starting at `x` (side 'left') or
+ * ending at it (side 'right'). Without uploaded images, `fallback` (a combined stamp & signature) is
+ * used. Returns the height used.
+ */
+async function stampAndSignature(p: Page, t: DocumentTemplate, x: number, y: number, side: 'left' | 'right' = 'right', fallback: string | null = null, fromBottom = false): Promise<number> {
+  const uploaded = !!(t.signatureImage || t.stampImage);
+  const [sig, stamp] = await Promise.all([
+    t.signatureImage ? loadImage(t.signatureImage) : null,
+    t.stampImage ? loadImage(t.stampImage) : !uploaded && fallback ? loadImage(fallback) : null,
+  ]);
+  const fit = (img: Img | null, maxW: number, maxH: number) => {
+    if (!img) return null;
+    const s = Math.min(maxW / img.w, maxH / img.h);
+    return { img, w: img.w * s, h: img.h * s };
+  };
+  // Stamp first, then the signature beside it (a fallback image already holds both).
+  const parts = [fit(stamp, uploaded ? 26 : 58, 26), fit(sig, 40, 15)].filter((v) => v !== null);
+  if (!parts.length) return 0;
+  const gap = 3;
+  const total = parts.reduce((s, v) => s + v.w, 0) + gap * (parts.length - 1);
+  const tallest = Math.max(...parts.map((v) => v.h));
+  let left = side === 'left' ? x : x - total;
+  if (fromBottom) y -= tallest;
+  for (const v of parts) {
+    // Bottom-aligned, like a signature over a stamp line.
+    p.doc.addImage(v.img.data, 'JPEG', left, y + tallest - v.h, v.w, v.h);
+    left += v.w + gap;
+  }
+  return tallest;
+}
+
+/**
  * The dealership's brand logo top left with the company name under it; the Ittehad logo top right
  * with the tagline and address under it (the dealership's format).
  */
-async function letterhead(p: Page, code: string, t: DocumentTemplate) {
+async function letterhead(p: Page, code: string, t: DocumentTemplate, opts: { website?: boolean } = {}) {
   const { doc } = p;
   const file = BRAND_LOGOS.find(([prefix]) => code.startsWith(prefix))?.[1];
   const [logo, group] = await Promise.all([file ? loadImage(file) : null, loadImage(GROUP_LOGO)]);
@@ -203,13 +248,18 @@ async function letterhead(p: Page, code: string, t: DocumentTemplate) {
     const s = Math.min(44 / group.w, 14 / group.h);
     doc.addImage(group.data, 'JPEG', W - M - group.w * s, 8 + (14 - group.h * s) / 2, group.w * s, group.h * s);
   }
-  p.font(13, 'bold');
-  doc.text(t.companyName, M, 30);
+  // Jetour Ittehad's logo already names the dealership: no name under it.
+  if (!(logo && code.startsWith('JET'))) {
+    p.font(13, 'bold');
+    doc.text(t.companyName, M, 30);
+  }
   const x = 120;
   let y = group ? 27 : 20;
-  if (t.tagline) {
+  // A tagline that is a web address (Jetour's www.ittehadmotors.com) is left off where not wanted.
+  const tagline = opts.website === false && t.tagline && /(www\.|https?:\/\/|\.com\b)/i.test(t.tagline) ? null : t.tagline;
+  if (tagline) {
     p.font(12);
-    doc.text(t.tagline, x, y);
+    doc.text(tagline, x, y);
     y += 5;
   }
   p.font(8);
@@ -410,9 +460,25 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
 
   // ---- Sign-off (and who prepared it) -------------------------------------------------------------
   p.y += 4.5;
-  p.ensure(12);
+  // Full page: the stamp and the Manager's signature, a rule, then the sign-off under them (on
+  // letterhead paper the sign-off is printed and the stamp and signature are added by hand).
+  const fallback = defaultStampSignature(q.dealership.code);
+  const withStamp = !letterheadPaper && !!(t.signatureImage || t.stampImage || fallback);
+  p.ensure(withStamp ? 48 : 12);
   const top = p.y;
-  // The sign-off ("Owners and Operators of Hyundai Islamabad") is printed on the letterhead paper.
+  p.font(8);
+  doc.setTextColor(...muted);
+  doc.text(`Prepared by: ${q.salesperson.name}${q.salesperson.phone ? `  ·  ${q.salesperson.phone}` : ''}`, W - M, top, { align: 'right' });
+  if (q.orderNo) doc.text(`Order: ${q.orderNo}`, W - M, top + 4.5, { align: 'right' });
+  doc.setTextColor(...ink);
+  if (withStamp) {
+    const used = await stampAndSignature(p, t, M + 2, top, 'left', fallback);
+    p.y = top + used + 5;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(M, p.y, W - M, p.y);
+    doc.setDrawColor(0, 0, 0);
+    p.y += 6;
+  }
   if (!letterheadPaper) {
     t.signOff.forEach((l, i) => {
       p.font(i === 0 ? 9 : 10, i === 0 ? 'normal' : 'bold');
@@ -420,11 +486,6 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
       p.y += 4.5;
     });
   }
-  p.font(8);
-  doc.setTextColor(...muted);
-  doc.text(`Prepared by: ${q.salesperson.name}${q.salesperson.phone ? `  ·  ${q.salesperson.phone}` : ''}`, W - M, top, { align: 'right' });
-  if (q.orderNo) doc.text(`Order: ${q.orderNo}`, W - M, top + 4.5, { align: 'right' });
-  doc.setTextColor(...ink);
 
   if (!letterheadPaper) footer(p, q.quotationNo);
   doc.setProperties({ title: `Quotation ${q.quotationNo}`, subject: `${description} for ${q.billTo || q.customer.name}`, author: t.companyName });
@@ -435,8 +496,6 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
 const isJetour = (q: QuotationDocument) => q.dealership.brand === 'Jetour' || q.dealership.code.startsWith('JET');
 /** The green of the Ittehad Motors logo, for the dealership name on the letterhead. */
 const ITTEHAD_GREEN = [16, 118, 56] as const;
-/** The JETOUR wordmark inside jetour-logo.png (a square file with white space around it). */
-const JETOUR_WORDMARK = { x: 0.05, y: 0.43, w: 0.89, h: 0.12 };
 /** dd-mm-yyyy, as on Jetour's quotations (Pakistan time). */
 const longDate = (d: string | Date) => {
   const [y, m, day] = new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' }).split('-');
@@ -464,7 +523,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   const p = await newPage(letterheadPaper ? LETTERHEAD_BOTTOM : 284);
   const { doc } = p;
   const t = q.template;
-  const [wordmark, group] = letterheadPaper ? [null, null] : await Promise.all([loadImage('/logo/jetour-logo.png', JETOUR_WORDMARK), loadImage(GROUP_LOGO)]);
+  const [wordmark, group] = letterheadPaper ? [null, null] : await Promise.all([loadImage(JETOUR_LOGO), loadImage(GROUP_LOGO)]);
 
   // ---- Letterhead (printed on the paper when using letterhead paper) -------------------------------
   let ruleY = LETTERHEAD_TOP - 12;
@@ -483,14 +542,11 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     parts.forEach((part, i) => doc.text(part, M + 6, y + i * 3.9));
     y += parts.length * 3.9 + 0.8;
   }
+  // Top right: the Jetour Ittehad logo.
   if (wordmark) {
     const w = 58;
     const h = (wordmark.h / wordmark.w) * w;
-    doc.addImage(wordmark.data, 'JPEG', W - M - w, 12, w, h);
-    p.font(9.5, 'bold');
-    doc.setTextColor(90, 90, 90);
-    doc.text('— Drive Your Future —', W - M - w / 2, 12 + h + 5, { align: 'center' });
-    doc.setTextColor(...ink);
+    doc.addImage(wordmark.data, 'JPEG', W - M - w, 13, w, h);
   }
   ruleY = Math.max(y, 38);
   doc.setDrawColor(...rule);
@@ -632,9 +688,12 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   }
 
   // ---- Owned & operated by, and the stamp & signature space --------------------------------------------
-  p.y += 5;
+  // Full page: room above "STAMP & SIGNATURE" for the stamp and the Manager's signature.
+  const fallback = letterheadPaper ? null : defaultStampSignature(q.dealership.code);
+  const withStamp = !letterheadPaper && !!(t.signatureImage || t.stampImage || fallback);
+  p.y += withStamp ? 14 : 5;
   // On letterhead paper only the stamp & signature line is drawn (the rest is printed on the paper).
-  p.ensure(letterheadPaper ? 12 : 30);
+  p.ensure(letterheadPaper ? 12 : withStamp ? 40 : 30);
   const top = p.y;
   const cx = M + 22;
   // "Owned & Operated by: Ittehad Motors" is printed on the letterhead paper.
@@ -650,6 +709,8 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
       p.y += i === 0 ? 4.4 : 4.8;
     });
   }
+  // Full page: the stamp and the Manager's signature just above "STAMP & SIGNATURE", as signed by hand.
+  if (withStamp) await stampAndSignature(p, t, W - M - 4, top + 14, 'right', fallback, true);
   p.font(12);
   doc.text('STAMP & SIGNATURE', W - M - 8, top + (letterheadPaper ? 10 : 16), { align: 'right' });
 
@@ -662,7 +723,8 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
 export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   const p = await newPage();
   const { doc } = p;
-  await letterhead(p, f.dealership.code, f.template);
+  // No website on the voucher.
+  await letterhead(p, f.dealership.code, f.template, { website: false });
 
   // The voucher's own format: title, labels, fields left off, the dealership's own fields, sign lines.
   const t = f.ppfTemplate;
@@ -789,7 +851,7 @@ export async function buildDeliveryNotePdf(n: DeliveryNote): Promise<BuiltPdf> {
   // ---- The dealership's letterhead ----
   const file = BRAND_LOGOS.find(([prefix]) => n.dealership.code.startsWith(prefix))?.[1];
   const isJetour = n.dealership.code.startsWith('JET') || n.dealership.brand === 'Jetour';
-  const [logo, group] = await Promise.all([file ? loadImage(file, isJetour ? JETOUR_WORDMARK : undefined) : null, loadImage(GROUP_LOGO)]);
+  const [logo, group] = await Promise.all([file ? loadImage(file) : null, loadImage(GROUP_LOGO)]);
   if (logo) {
     const s = Math.min(46 / logo.w, 13 / logo.h);
     doc.addImage(logo.data, 'JPEG', L, 10 + (13 - logo.h * s) / 2, logo.w * s, logo.h * s);
@@ -798,8 +860,11 @@ export async function buildDeliveryNotePdf(n: DeliveryNote): Promise<BuiltPdf> {
     const s = Math.min(34 / group.w, 13 / group.h);
     doc.addImage(group.data, 'JPEG', R - group.w * s, 10 + (13 - group.h * s) / 2, group.w * s, group.h * s);
   }
-  p.font(12, 'bold');
-  doc.text(n.dealership.name.toUpperCase(), L, 29);
+  // Jetour Ittehad's logo already names the dealership.
+  if (!(logo && isJetour)) {
+    p.font(12, 'bold');
+    doc.text(n.dealership.name.toUpperCase(), L, 29);
+  }
   doc.setDrawColor(...rule);
   doc.line(L, 32, R, 32);
   doc.setDrawColor(0, 0, 0);

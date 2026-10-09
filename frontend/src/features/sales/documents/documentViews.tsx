@@ -130,7 +130,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
     createLabel: 'Create quotation',
     defaultSort: '-createdAt',
     dateRange,
-    searchPlaceholder: 'Search quotation number',
+    searchPlaceholder: 'Search quotation no., customer name, phone or PBO',
     filters: [salespersonFilter, dealershipFilter],
     columns: [
       { key: 'quotationNo', header: 'Quotation', sortKey: 'quotationNo', render: (q) => mono(q.quotationNo) },
@@ -251,7 +251,7 @@ export const ppfView: EntityViewConfig<PpfForm> = {
     createLabel: 'Create PPF voucher',
     defaultSort: '-createdAt',
     dateRange,
-    searchPlaceholder: 'Search PPF voucher number',
+    searchPlaceholder: 'Search voucher no., customer name, phone, PBO or chassis',
     filters: [salespersonFilter, dealershipFilter],
     columns: [
       { key: 'formNo', header: 'Voucher', sortKey: 'formNo', render: (f) => mono(f.formNo) },

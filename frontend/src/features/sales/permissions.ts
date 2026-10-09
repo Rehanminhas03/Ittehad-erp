@@ -73,6 +73,12 @@ export const FOLLOW_UP_OUTCOMES = [
   { value: 'visited', label: 'Visited (in person)' },
 ];
 
+/** At conversion: part of the price now (a booking amount) or the full price. */
+export const PAYMENT_TYPES = [
+  { value: 'partial', label: 'Partial payment' },
+  { value: 'full', label: 'Full payment' },
+];
+
 export const PAYMENT_INSTRUMENTS = [
   { value: 'pay_order', label: 'Pay order' },
   { value: 'bank_draft', label: 'Bank draft' },

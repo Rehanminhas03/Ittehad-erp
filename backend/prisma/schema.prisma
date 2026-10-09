@@ -1349,6 +1349,9 @@ model DocumentTemplate {
   fieldLabels         Json       @default("{}") @map("field_labels")
   hiddenFields        String[]   @default([]) @map("hidden_fields")
   customFields        String[]   @default([]) @map("custom_fields")
+  /// Quotation (full page, e.g. for WhatsApp): the dealership stamp and the Manager's signature, as image data URLs.
+  stampImage          String?    @map("stamp_image")
+  signatureImage      String?    @map("signature_image")
   createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdById         BigInt?    @map("created_by_id")
@@ -1388,6 +1391,10 @@ model Lead {
   paymentInstrumentRef     String?        @map("payment_instrument_ref")
   paymentInstrumentBank    String?        @map("payment_instrument_bank")
   paymentAmount            Decimal?       @map("payment_amount") @db.Decimal(14, 2)
+  /// partial | full: what the customer paid at conversion (a booking amount, or the full price).
+  paymentType              String?        @map("payment_type")
+  /// Partial payment: the total price of the car (the balance = this minus the amount paid).
+  vehiclePrice             Decimal?       @map("vehicle_price") @db.Decimal(14, 2)
   followUpCount            Int            @default(0) @map("follow_up_count")
   lastFollowUpAt           DateTime?      @map("last_follow_up_at") @db.Timestamptz(6)
   escalatedAt              DateTime?      @map("escalated_at") @db.Timestamptz(6)

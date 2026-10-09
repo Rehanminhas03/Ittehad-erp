@@ -108,20 +108,21 @@ export async function removeOrderPayment(ctx: EntityCtx, orderId: number, paymen
 export async function recordBookingPayment(
   ctx: EntityCtx,
   order: { id: number; dealershipId: number },
-  booking: { amount: string; instrument: string | null; reference: string | null; bank: string | null },
+  booking: { amount: string; instrument: string | null; reference: string | null; bank: string | null; full?: boolean },
 ) {
   if (cmpMoney(booking.amount, '0') <= 0) return;
   await ctx.tx.orderPayment.create({
     data: {
       dealershipId: order.dealershipId,
       salesOrderId: order.id,
-      kind: 'booking',
+      // Paid in full at conversion: the final payment; otherwise the booking amount.
+      kind: booking.full ? 'final' : 'booking',
       amount: booking.amount,
       instrument: booking.instrument ?? 'pay_order',
       reference: booking.reference,
       bank: booking.bank,
       receivedOn: new Date(`${pakistanToday()}T00:00:00Z`),
-      note: 'Booking amount (at conversion)',
+      note: booking.full ? 'Full payment (at conversion)' : 'Booking amount (at conversion)',
       createdById: ctx.access.userId,
     },
   });

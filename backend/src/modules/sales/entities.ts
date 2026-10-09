@@ -1,7 +1,7 @@
 import { POLICIES } from '../../config/policies';
 import { query } from '../../db/client';
-import { and, inArray, isNull, sql } from '../../db/sql';
-import { EntityService } from '../../entity/entityService';
+import { type SQL, and, inArray, isNull, or, sql } from '../../db/sql';
+import { EntityService, escapeLike } from '../../entity/entityService';
 import { withNames } from '../../entity/names';
 import type { EntityConfig, EntityCtx, Row } from '../../entity/types';
 import { conflict, forbidden, validationError } from '../../lib/errors';
@@ -12,7 +12,7 @@ import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
 import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
-import { CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
+import { CUSTOMER_ADDRESS, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
 import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
@@ -39,6 +39,51 @@ import {
 } from './schemas';
 
 const statusFilter = (states: readonly string[]) => ({ key: 'status', schema: z.enum(states as [string, ...string[]]) });
+
+// ---- Search ----------------------------------------------------------------------------------------
+/**
+ * The search box across the sales lists, from the text as typed: names (any part), a phone typed any
+ * way (0300…, +92 300…, with dashes or spaces, or its last digits), a CNIC, PBO / order numbers, and
+ * chassis / engine / registration numbers (with or without dashes).
+ */
+type Search = { text: string; phone: string | null; ident: string | null };
+function searchOf(raw: string): Search {
+  const typed = raw.trim();
+  let digits = typed.replace(/\D/g, '');
+  const numeric = /^[\d\s()+-]+$/.test(typed) && digits.length >= 3;
+  // Phones are matched on their digits without the country / trunk prefix (0300… = 92300…).
+  if (digits.startsWith('0092')) digits = digits.slice(4);
+  else if (digits.startsWith('92') && digits.length >= 12) digits = digits.slice(2);
+  else if (digits.startsWith('0')) digits = digits.slice(1);
+  const ident = normalizeIdentifier(typed);
+  return { text: `%${escapeLike(typed)}%`, phone: numeric && digits ? `%${digits}%` : null, ident: ident.length >= 3 ? `%${ident}%` : null };
+}
+const digitsOf = (col: SQL) => sql`regexp_replace(coalesce(${col}, ''), '\\D', '', 'g')`;
+const phoneLike = (col: SQL, s: Search) => (s.phone ? sql`${digitsOf(col)} like ${s.phone}` : undefined);
+/** The customer: name, email, phone or CNIC. */
+const customerMatches = (customerId: SQL, s: Search) =>
+  sql`exists (select 1 from ${customer} where ${customer.id} = ${customerId} and (${or(
+    sql`${customer.fullName} ilike ${s.text}`,
+    sql`${customer.email} ilike ${s.text}`,
+    phoneLike(customer.mobileNormalized, s),
+    phoneLike(customer.altPhone, s),
+    s.phone ? sql`${customer.cnic} like ${s.phone}` : undefined,
+  )}))`;
+/** The car: chassis (VIN), engine or registration number. */
+const vehicleMatches = (vehicleId: SQL, s: Search) =>
+  s.ident
+    ? sql`exists (select 1 from ${vehicle} where ${vehicle.id} = ${vehicleId} and (${vehicle.vin} ilike ${s.ident} or ${vehicle.engineNo} ilike ${s.ident} or ${vehicle.registrationNo} ilike ${s.ident}))`
+    : undefined;
+/** The sales order: PBO or order number. */
+const orderMatches = (orderId: SQL, s: Search) =>
+  sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${orderId} and (${salesOrder.pboNo} ilike ${s.text} or ${salesOrder.orderNo} ilike ${s.text}))`;
+/** The lead: prospect name or phone, and its order's PBO / order number. */
+const leadMatches = (leadId: SQL, s: Search) =>
+  sql`exists (select 1 from ${lead} where ${lead.id} = ${leadId} and (${or(
+    sql`${lead.prospectName} ilike ${s.text}`,
+    phoneLike(lead.prospectMobileNormalized, s),
+    orderMatches(lead.salesOrderId, s),
+  )}))`;
 
 /** Follow-ups needed before a lead may be marked exhausted (enforced, not advisory). */
 export const MIN_FOLLOW_UPS_TO_EXHAUST = 3;
@@ -133,9 +178,12 @@ export const leadEntity: EntityConfig = {
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'ownerId',
   search: ['prospectName', 'prospectMobileNormalized'],
-  // Also by the sales order's PBO or order number (e.g. the last digits of a PBO).
-  searchExtra: (p) =>
-    sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${lead.salesOrderId} and (${salesOrder.pboNo} ilike ${p} or ${salesOrder.orderNo} ilike ${p}))`,
+  // Also by email, the sales order's PBO or order number (e.g. the last digits of a PBO), and the
+  // converted customer's CNIC or the car's chassis / engine number.
+  searchExtra: (_p, q) => {
+    const s = searchOf(q);
+    return or(sql`${lead.email} ilike ${s.text}`, orderMatches(lead.salesOrderId, s), customerMatches(lead.customerId, s), sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${lead.salesOrderId} and ${vehicleMatches(salesOrder.vehicleId, s) ?? sql`false`})`)!;
+  },
   // Name, or phone typed any way (full or partial, with or without dashes / spaces).
   normalizeSearch: mobileSearchTerm,
   filters: {
@@ -169,6 +217,8 @@ export const leadEntity: EntityConfig = {
     activityFrom: { key: 'updatedAt', schema: z.iso.date(), where: (v) => sql`(${lead.updatedAt} at time zone 'Asia/Karachi')::date >= ${v}::date` },
     activityTo: { key: 'updatedAt', schema: z.iso.date(), where: (v) => sql`(${lead.updatedAt} at time zone 'Asia/Karachi')::date <= ${v}::date` },
     // "Lost leads": only the lost ones (true) — otherwise they are hidden (see listDefault).
+    // Show all: also completed leads and those whose order is approved (see listDefault).
+    everything: { key: 'status', schema: BoolQuery, where: () => sql`true` },
     lost: { key: 'status', schema: BoolQuery, where: (v) => (v ? sql`${lead.status} = 'lost'` : sql`${lead.status} <> 'lost'`) },
     // Appointments on one day (e.g. "today" from Action needed), and upcoming ones (from now on).
     appointmentOn: { key: 'appointmentAt', schema: z.iso.date(), where: (v) => sql`(${lead.appointmentAt} at time zone 'Asia/Karachi')::date = ${v}::date` },
@@ -179,7 +229,13 @@ export const leadEntity: EntityConfig = {
     },
   },
   // Lost leads are out of the way: listed only when asked for (Lost leads, or the Lost status).
-  listDefault: (f) => (f.status === undefined && f.lost === undefined ? sql`${lead.status} <> 'lost'` : undefined),
+  // By default the leads list is the work in progress: lost leads, completed ones and those whose sales
+  // order the Manager has approved (they live under Sales orders) are left out unless asked for
+  // (a status, Lost leads, or Show all).
+  listDefault: (f) =>
+    f.status !== undefined || f.lost !== undefined || f.everything === true
+      ? undefined
+      : sql`${lead.status} not in ('lost', 'completed') and not exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${lead.salesOrderId} and ${salesOrder.status} in ('approved', 'delivered'))`,
   sort: { default: '-updatedAt', keys: ['updatedAt', 'createdAt', 'prospectName', 'status', 'followUpCount', 'convertedAt', 'appointmentAt', 'lostAt'] },
   workflow: {
     stateKey: 'status',
@@ -250,6 +306,7 @@ export const leadEntity: EntityConfig = {
         convertedByName: { key: 'convertedById', source: USER_NAME },
         appointmentSetByName: { key: 'appointmentSetById', source: USER_NAME },
         lostByName: { key: 'lostById', source: USER_NAME },
+        customerAddress: { key: 'customerId', source: CUSTOMER_ADDRESS },
         createdByName: { key: 'createdById', source: USER_NAME },
         orderNo: { key: 'salesOrderId', source: ORDER_NO },
         // The car's progress (booked → in transit → received → ready), for the salesperson / AM.
@@ -326,6 +383,11 @@ export const salesOrderEntity: EntityConfig = {
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'salespersonId',
   search: ['orderNo', 'pboNo'],
+  // Also by the customer (name, phone, CNIC, email) and the car (chassis, engine, registration).
+  searchExtra: (_p, q) => {
+    const s = searchOf(q);
+    return or(customerMatches(salesOrder.customerId, s), vehicleMatches(salesOrder.vehicleId, s), sql`${salesOrder.color} ilike ${s.text}`)!;
+  },
   filters: {
     status: statusFilter(['draft', 'submitted', 'approved', 'delivered', 'cancelled']),
     orderType: { key: 'orderType', schema: z.enum(['pbo', 'cbo']) },
@@ -478,7 +540,7 @@ export const salesOrderEntity: EntityConfig = {
           : [],
         // Corporate customer details, from the lead.
         leadIds.length
-          ? ctx.tx.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, customerType: true, companyName: true, contactDesignation: true, purchaseOrderNo: true } })
+          ? ctx.tx.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, customerType: true, companyName: true, contactDesignation: true, purchaseOrderNo: true, paymentType: true } })
           : [],
       ]);
       const vById = new Map(vs.map((v) => [v.id, v]));
@@ -497,6 +559,8 @@ export const salesOrderEntity: EntityConfig = {
           companyName: l?.companyName ?? null,
           contactDesignation: l?.contactDesignation ?? null,
           purchaseOrderNo: l?.purchaseOrderNo ?? null,
+          // Partial or full payment, as recorded at conversion.
+          paymentType: l?.paymentType ?? null,
         };
       });
     },
@@ -518,8 +582,11 @@ export const deliveryEntity: EntityConfig = {
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'salespersonId',
   search: ['deliveryNo'],
-  searchExtra: (p) =>
-    sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${delivery.salesOrderId} and (${salesOrder.pboNo} ilike ${p} or ${salesOrder.orderNo} ilike ${p}))`,
+  // Also by PBO / order number, the customer (name, phone, CNIC, email) and the car (chassis, engine).
+  searchExtra: (_p, q) => {
+    const s = searchOf(q);
+    return or(orderMatches(delivery.salesOrderId, s), customerMatches(delivery.customerId, s), vehicleMatches(delivery.vehicleId, s))!;
+  },
   filters: {
     status: statusFilter(['scheduled', 'delivered', 'cancelled']),
     salesOrderId: { key: 'salesOrderId', schema: IdQuery },
@@ -619,6 +686,11 @@ export const stockVehicleEntity: EntityConfig = {
   },
   search: ['vin', 'engineNo', 'registrationNo'],
   normalizeSearch: normalizeIdentifier,
+  // Also by the order it is allocated to: PBO / order number or the customer.
+  searchExtra: (_p, q) => {
+    const s = searchOf(q);
+    return sql`exists (select 1 from ${salesOrder} where ${salesOrder.vehicleId} = ${vehicle.id} and ${salesOrder.status} <> 'cancelled' and (${or(sql`${salesOrder.pboNo} ilike ${s.text}`, sql`${salesOrder.orderNo} ilike ${s.text}`, customerMatches(salesOrder.customerId, s))}))`;
+  },
   filters: {
     status: { key: 'status', schema: z.enum(VEHICLE_STATUSES) },
     modelId: { key: 'modelId', schema: IdQuery },
@@ -730,6 +802,17 @@ export const quotationEntity: EntityConfig = {
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'ownerId',
   search: ['quotationNo'],
+  // Also by the customer (name, bill-to, phone, email) and the lead (name, phone, PBO).
+  searchExtra: (_p, q) => {
+    const s = searchOf(q);
+    return or(
+      sql`${quotation.customerName} ilike ${s.text}`,
+      sql`${quotation.billTo} ilike ${s.text}`,
+      sql`${quotation.customerEmail} ilike ${s.text}`,
+      phoneLike(quotation.customerMobile, s),
+      leadMatches(quotation.leadId, s),
+    )!;
+  },
   filters: docFilters(quotation),
   sort: { default: '-createdAt', keys: ['createdAt', 'updatedAt', 'quotationNo', 'validUntil', 'totalAmount'] },
   hooks: {
@@ -780,7 +863,16 @@ export const ppfFormEntity: EntityConfig = {
   },
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'ownerId',
-  search: ['formNo'],
+  search: ['formNo', 'customerName', 'pboNo'],
+  // Also by phone, chassis / engine number, and the lead (name, phone, PBO).
+  searchExtra: (_p, q) => {
+    const s = searchOf(q);
+    return or(
+      phoneLike(ppfForm.customerMobile, s),
+      s.ident ? sql`${ppfForm.chassisNo} ilike ${s.ident} or ${ppfForm.engineNo} ilike ${s.ident}` : undefined,
+      leadMatches(ppfForm.leadId, s),
+    )!;
+  },
   filters: docFilters(ppfForm),
   sort: { default: '-createdAt', keys: ['createdAt', 'updatedAt', 'formNo', 'installationDate', 'totalAmount'] },
   hooks: {

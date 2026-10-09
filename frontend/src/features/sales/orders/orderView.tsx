@@ -20,7 +20,10 @@ import { ExpectedDeliveryInput, formatExpectedDelivery, type ExpectedDeliveryVal
 import { OrderClearance } from './components/OrderClearance';
 import { OrderDelivery } from './components/OrderDelivery';
 import { OrderPayments } from './components/OrderPayments';
+import { ExportButtons } from '../exports/ExportButtons';
+import { PaymentTypeBadge } from '../leads/components/PaymentTypeBadge';
 import { OrderLogistics } from './components/OrderLogistics';
+import { OrderStatusSummary } from './components/OrderStatusSummary';
 import { OrderVehicle } from './components/OrderVehicle';
 import { CLEARANCE_LABELS, labelOf, ORDER_STATES, ORDER_TYPES, P } from '../permissions';
 import {
@@ -32,6 +35,9 @@ import {
   useTransitionSalesOrderMutation,
   useUpdateSalesOrderMutation,
 } from '../salesApi';
+
+/** Raised and not yet delivered: the lead shows "Processing" for these orders. */
+const ProcessingBadge = ({ status }: { status: string }) => (['draft', 'submitted', 'approved'].includes(status) ? <Badge tone="amber">Processing</Badge> : null);
 
 const commercial = {
   pboNo: optionalText(40),
@@ -59,10 +65,18 @@ export const orderView: EntityViewConfig<SalesOrder> = {
   ownerKey: 'salespersonId',
   list: {
     defaultSort: '-createdAt',
-    searchPlaceholder: 'Search order or PBO number (or its last digits)',
+    searchPlaceholder: 'Search PBO / order no., customer name, phone, CNIC or chassis',
     // Booked between two days; the last 30 days unless another range (or custom dates) is picked.
     dateRange: { label: 'Booked', fromParam: 'bookedFrom', toParam: 'bookedTo', defaultPreset: '30d' },
-    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Open (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
+    // Export the orders of the period on screen (every detail, with each payment), and the split by
+    // status (Processing: raised, not yet delivered) for the same period.
+    header: ({ query, periodLabel }) => (
+      <>
+        <ExportButtons kind="orders" query={query} periodLabel={periodLabel} />
+        <OrderStatusSummary query={query} periodLabel={periodLabel} />
+      </>
+    ),
+    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Processing (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
     columns: [
       { key: 'orderNo', header: 'Order', sortKey: 'orderNo', render: (o) => mono(o.orderNo) },
       { key: 'pboNo', header: 'PBO', render: (o) => mono(o.pboNo) },
@@ -79,6 +93,8 @@ export const orderView: EntityViewConfig<SalesOrder> = {
         render: (o) => (
           <span className="inline-flex flex-wrap gap-1">
             <StatusBadge status={o.status} />
+            <ProcessingBadge status={o.status} />
+            <PaymentTypeBadge type={o.paymentType} />
             {o.clearanceStatus && o.clearanceStatus !== 'none' && <Badge tone={CLEARANCE_LABELS[o.clearanceStatus]!.tone}>{CLEARANCE_LABELS[o.clearanceStatus]!.label}</Badge>}
           </span>
         ),
@@ -90,7 +106,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
     title: (o) => o.orderNo,
     subtitle: (o) => `${o.customerName ?? ''} · ${o.modelName ?? ''}`,
     fields: [
-      { label: 'Status', value: (o) => <StatusBadge status={o.status} /> },
+      { label: 'Status', value: (o) => <span className="inline-flex flex-wrap gap-1"><StatusBadge status={o.status} /><ProcessingBadge status={o.status} /></span> },
       { label: 'PBO number', value: (o) => o.pboNo },
       { label: 'Order type', value: (o) => labelOf(ORDER_TYPES, o.orderType) },
       { label: 'Customer', value: (o) => o.customerName },
@@ -101,6 +117,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { label: 'Discount', value: (o) => formatMoney(o.discount) },
       { label: 'Total', value: (o) => <span className="font-semibold">{formatMoney(o.totalAmount)}</span> },
       { label: 'Booking amount', value: (o) => formatMoney(o.bookingAmount) },
+      { label: 'Payment', value: (o) => <PaymentTypeBadge type={o.paymentType} /> },
       { label: 'Received / balance', value: (o) => `${formatMoney(o.amountReceived ?? '0')} received · ${Number(o.balanceDue ?? 0) > 0 ? `${formatMoney(o.balanceDue ?? '0')} due` : 'fully paid'}` },
       { label: 'Expected delivery', value: (o) => formatExpectedDelivery(o.expectedDeliveryDate, o.expectedDeliveryByMonth) },
       { label: 'Payment reference', value: (o) => o.paymentReference },

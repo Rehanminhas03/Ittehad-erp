@@ -18,6 +18,7 @@ import {
   PPF_FINISHES,
   PPF_PACKAGES,
   CUSTOMER_TYPES,
+  PAYMENT_TYPES,
   ORDER_PAYMENT_KINDS,
   CLEARANCE_STATES,
   LEAVE_TYPES,
@@ -62,6 +63,10 @@ export const LeadSchema = z.object({
   paymentInstrumentRef: z.string().nullable(),
   paymentInstrumentBank: z.string().nullable(),
   paymentAmount: z.string().nullable(),
+  /** partial | full (set at conversion). */
+  paymentType: z.enum(PAYMENT_TYPES).nullable().optional(),
+  /** The total price of the car (partial payment), or the amount paid in full. */
+  vehiclePrice: z.string().nullable().optional(),
   followUpCount: z.number().int(),
   lastFollowUpAt: Timestamp.nullable(),
   escalatedAt: Timestamp.nullable(),
@@ -83,6 +88,8 @@ export const LeadSchema = z.object({
   companyName: z.string().nullable().optional(),
   contactDesignation: z.string().nullable().optional(),
   purchaseOrderNo: z.string().nullable().optional(),
+  /** The customer's address (from the customer record; captured at conversion). */
+  customerAddress: z.string().nullable().optional(),
   /** A returning customer: cars bought before (delivered orders of the same customer / phone at the dealership). */
   previousPurchases: z.number().int().optional(),
   convertedAt: Timestamp.nullable(),
@@ -374,6 +381,12 @@ const documentParties = {
  * {nonFilerTax}, {validityDays}, {deliveryStation}, {dealership}; a line starting "[Hybrid only]"
  * prints only for hybrid vehicles, and a line with {nonFilerTax} only when that amount is set.
  */
+/** A small PNG / JPEG image as a data URL (stamp, signature). */
+const templateImage = z
+  .string()
+  .max(1_400_000, 'The image is too large')
+  .regex(/^data:image\/(png|jpe?g);base64,/, 'A PNG or JPEG image')
+  .nullish();
 const templateLines = (max: number) => z.array(z.string().trim().min(1).max(600)).max(max);
 const templateFields = {
   companyName: z.string().trim().min(2).max(120),
@@ -404,6 +417,9 @@ const templateFields = {
     .max(10)
     .refine((a) => new Set(a.map((x) => x.toLowerCase())).size === a.length, { message: 'Each field name only once' })
     .default([]),
+  /** Quotation, full page: the dealership stamp and the Manager's signature (PNG / JPEG data URLs, at most ~1 MB). */
+  stampImage: templateImage,
+  signatureImage: templateImage,
 };
 export const DocumentTemplateSchema = z
   .object({
@@ -504,10 +520,15 @@ export const ConvertLeadBody = z
     preferredColor: requiredText('Vehicle colour', 40),
     variant: requiredText('Variant', 160),
     email,
+    /** What the customer paid now: part (a booking amount, the rest before delivery) or the full price. */
+    paymentType: z.enum(PAYMENT_TYPES, { error: 'Choose Partial payment or Full payment' }),
     paymentInstrument: z.enum(PAYMENT_INSTRUMENTS),
-    paymentInstrumentRef: requiredText('Payment instrument number', 60),
+    /** The instrument number and bank: required, except for cash. */
+    paymentInstrumentRef: optionalText(60),
     paymentInstrumentBank: optionalText(80),
-    paymentAmount: Money.nullish(),
+    paymentAmount: Money.refine((v) => Number(v) > 0, 'Enter the amount paid'),
+    /** Partial payment: the total price of the car (required); the balance is paid before delivery. */
+    vehiclePrice: Money.nullish(),
     /** Expected delivery told to the customer (carried to the sales order): a date, or a month. */
     expectedDeliveryDate: isoDate.nullish(),
     expectedDeliveryByMonth: z.boolean().optional(),
@@ -517,6 +538,8 @@ export const ConvertLeadBody = z
       .trim()
       .max(20)
       .refine((v) => normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+    /** The customer's address (required): saved on the customer. */
+    customerAddress: requiredText('Address', 300),
     /** Individual, or corporate: the company (billing name), the contact's designation, and a purchase order if they brought one. */
     customerType: z.enum(CUSTOMER_TYPES).default('individual'),
     companyName: optionalText(160),
@@ -525,6 +548,14 @@ export const ConvertLeadBody = z
     notes: optionalText(2000),
   })
   .superRefine((v, c) => {
+    if (v.paymentType === 'partial') {
+      if (!v.vehiclePrice || Number(v.vehiclePrice) <= 0) c.addIssue({ code: 'custom', path: ['vehiclePrice'], message: 'Enter the total amount of the car' });
+      else if (Number(v.paymentAmount) >= Number(v.vehiclePrice)) c.addIssue({ code: 'custom', path: ['paymentAmount'], message: 'A partial payment is less than the total amount (otherwise choose Full payment)' });
+    }
+    if (v.paymentInstrument !== 'cash') {
+      if (!v.paymentInstrumentRef) c.addIssue({ code: 'custom', path: ['paymentInstrumentRef'], message: 'Enter the instrument number' });
+      if (!v.paymentInstrumentBank) c.addIssue({ code: 'custom', path: ['paymentInstrumentBank'], message: 'Enter the bank' });
+    }
     if (v.customerType !== 'corporate') return;
     if (!v.companyName) c.addIssue({ code: 'custom', path: ['companyName'], message: 'Company name is required for a corporate customer' });
     if (!v.contactDesignation) c.addIssue({ code: 'custom', path: ['contactDesignation'], message: "The contact's designation is required for a corporate customer" });
@@ -858,6 +889,13 @@ export const LeadSummaryQuery = z
     path: ['activityFrom'],
   });
 export const LeadSummarySchema = z.object({ total: z.number().int(), byStatus: counts }).openapi('LeadSummary');
+
+/** Totals above the sales orders list: booked in the list's period (and dealership), all statuses. */
+export const OrderSummaryQuery = z
+  .object({ bookedFrom: z.iso.date().optional(), bookedTo: z.iso.date().optional(), dealershipId: z.coerce.number().int().positive().optional() })
+  .refine((q) => !q.bookedFrom || !q.bookedTo || q.bookedFrom <= q.bookedTo, { message: 'The start date must be on or before the end date', path: ['bookedFrom'] });
+/** By status, and "processing": raised and not yet delivered (draft, submitted or approved), as on the lead. */
+export const OrderSummarySchema = z.object({ total: z.number().int(), processing: z.number().int(), byStatus: counts }).openapi('OrderSummary');
 export const SalesDashboardSchema = z
   .object({
     period: z.object({ from: z.string(), to: z.string(), days: z.number().int() }),
@@ -931,6 +969,8 @@ export const SalesOrderSchema = z.object({
   companyName: z.string().nullable().optional(),
   contactDesignation: z.string().nullable().optional(),
   purchaseOrderNo: z.string().nullable().optional(),
+  /** Partial or full payment at conversion (from the lead). */
+  paymentType: z.enum(PAYMENT_TYPES).nullable().optional(),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 });
@@ -982,6 +1022,17 @@ export const LeavePageSchema = z
   .object({ items: z.array(LeaveApplicationSchema), total: z.number().int(), page: z.number().int(), pageSize: z.number().int() })
   .openapi('LeaveApplicationPage');
 export const LeaveDocumentSchema = LeaveApplicationSchema.extend({ template: DocumentTemplateSchema }).openapi('LeaveDocument');
+
+// ---- Exports (CSV / Excel, PDF) ------------------------------------------------------------------
+/** A period (booked / logged between two Pakistan days), a dealership and a status — all optional. */
+export const ExportQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  from: isoDate.optional(),
+  to: isoDate.optional(),
+  status: z.string().trim().max(30).optional(),
+});
+/** One row per record, every detail as named columns (orders: with their payments). */
+export const ExportRowsSchema = z.array(z.record(z.string(), z.any())).openapi('ExportRows');
 
 // ---- Today at a glance (dashboard) ------------------------------------------------------------
 const TodayAppointment = z.object({

@@ -42,11 +42,11 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   {
     name: 'Salesperson',
     delegatedBy: SALES_TEAM,
-    description: 'Logs walk-ins and calls, follows them up and converts own leads. Sees only own leads.',
+    description: 'Logs walk-ins and calls, follows them up and converts own leads. Sees only own leads and the sales orders raised for them.',
     patterns: [
       'sales.leave.apply',
       'core.dealerships.view', 'core.branches.view', 'master.models.view',
-      'sales.leads.view_own', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own',
+      'sales.leads.view_own', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.orders.view_own',
       'sales.quotations.view_own', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_own', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.variants.view',
     ],
@@ -58,7 +58,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     patterns: [
       'sales.leave.apply',
       'core.dealerships.view', 'core.branches.view', 'master.models.view',
-      'sales.leads.view_own', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.record_visit',
+      'sales.leads.view_own', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.record_visit', 'sales.orders.view_own',
       'sales.quotations.view_own', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_own', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.variants.view',
     ],
@@ -68,6 +68,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     delegatedBy: SALES_TEAM,
     description: "Oversees every lead of the dealership; logs leads for a salesperson or themselves and converts their own; converts other salespeople's leads only when sent to them as a duplicate customer; reopens exhausted leads; follows orders: marks an approved order's car in transit and schedules the delivery once the car is received.",
     patterns: [
+      'master.customers.view',
       'sales.leave.apply', 'sales.leave.approve',
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'sales.leads.view_all', 'sales.leads.convert_escalated',
       'sales.leads.reassign', 'sales.leads.appointment',
@@ -84,6 +85,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     delegatedBy: SALES_TEAM,
     description: 'Department head: everything the Assistant Manager sees, the team report and track record, all orders and stock; logs and converts own leads (with quotations and PPF vouchers); reopens exhausted leads; approves orders (draft or submitted), marks their car in transit and schedules the delivery once the car is received; hires, resets and deactivates sales staff.',
     patterns: [
+      'master.customers.view',
       'sales.leave.apply', 'sales.leave.approve',
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'master.models.manage_brand', 'core.roles.view',
       'core.users.view', 'core.users.create', 'core.users.update', 'core.users.assign_roles', 'sales.team.manage',

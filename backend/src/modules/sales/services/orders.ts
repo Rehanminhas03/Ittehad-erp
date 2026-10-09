@@ -86,6 +86,7 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
     instrument: (l.paymentInstrument as string | null) ?? null,
     reference: (order.paymentReference as string | null) ?? null,
     bank: (l.paymentInstrumentBank as string | null) ?? null,
+    full: l.paymentType === 'full',
   });
   await leads.transition(ctx, leadId, 'raise_order', `Sales order ${order.orderNo as string}`, { system: true });
   return orders.get(ctx, order.id);

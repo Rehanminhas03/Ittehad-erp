@@ -204,6 +204,8 @@ const pickFields = (r: Record<string, unknown>): Fields => ({
   fieldLabels: (r.fieldLabels as Record<string, string>) ?? {},
   hiddenFields: ((r.hiddenFields as string[]) ?? []) as Fields['hiddenFields'],
   customFields: (r.customFields as string[]) ?? [],
+  stampImage: (r.stampImage as string | null) ?? null,
+  signatureImage: (r.signatureImage as string | null) ?? null,
 });
 
 /** The dealership's current format (saved, or the built-in default). Server-internal: no permission check. */
@@ -236,6 +238,8 @@ export async function saveTemplate(ctx: EntityCtx, kind: Kind, input: z.output<t
     select: { id: true },
   });
   const changes = diffChanges(pickFields(before), values);
+  // Images are not copied into the activity log: only that they changed.
+  for (const k of ['stampImage', 'signatureImage'] as const) if (k in changes) changes[k] = { from: before[k] ? 'image' : null, to: values[k] ? 'new image' : null };
   if (Object.keys(changes).length) {
     await ctx.audit({ entityType: 'sales.document_template', entityId: row.id, action: before.isDefault ? 'create' : 'update', dealershipId, branchId: null, changes });
   }

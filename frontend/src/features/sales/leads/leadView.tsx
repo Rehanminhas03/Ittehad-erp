@@ -12,7 +12,7 @@ import {
   requiredText,
   strong,
 } from '@/shared/entity';
-import { formatDate, formatDateTime, humanize } from '@/shared/lib';
+import { formatDate, formatDateTime, formatMoney, humanize } from '@/shared/lib';
 import { DuplicateLeadNotice } from './components/DuplicateLeadNotice';
 import { formatAppointment, LeadAppointment } from './components/LeadAppointment';
 import { LeadConversion } from './components/LeadConversion';
@@ -21,13 +21,15 @@ import { LeadFollowUps } from './components/LeadFollowUps';
 import { LeadModelSelect } from './components/LeadModelSelect';
 import { LeadOrder } from './components/LeadOrder';
 import { LeadReassign } from './components/LeadReassign';
+import { ExportButtons } from '../exports/ExportButtons';
+import { PaymentTypeBadge } from './components/PaymentTypeBadge';
 import { LeadStatusSummary } from './components/LeadStatusSummary';
 import { VariantPicker } from './components/VariantPicker';
 import { LeadDocuments, LeadDocumentsButton } from '../documents';
 import { formatExpectedDelivery } from '../orders/components/ExpectedDelivery';
 import { useLeadOwnerOptions } from '../team/useLeadOwnerOptions';
 import { useSalespersonOptions } from '../team/useSalespersonOptions';
-import { LAST_ACTIVITY, labelOf, LEAD_SOURCES, LEAD_STATES, OPEN_LEAD_STATES, P, showsVisited } from '../permissions';
+import { LAST_ACTIVITY, labelOf, LEAD_SOURCES, LEAD_STATES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS, showsVisited } from '../permissions';
 import {
   type Lead,
   useCreateLeadMutation,
@@ -124,11 +126,18 @@ export const leadView: EntityViewConfig<Lead> = {
     // Latest activity first; the list opens on the last 30 days (an old lead converted today counts as today).
     defaultSort: '-updatedAt',
     dateRange: { label: 'Activity', fromParam: 'activityFrom', toParam: 'activityTo', defaultPreset: '30d' },
-    searchPlaceholder: 'Search by customer name, phone (e.g. 03001234567) or PBO number',
+    searchPlaceholder: 'Search customer name, phone (e.g. 03001234567), PBO, CNIC or chassis',
     // Total leads and the split by status for the chosen period and filters, above the search.
-    header: ({ query, periodLabel }) => <LeadStatusSummary query={query} periodLabel={periodLabel} />,
+    header: ({ query, periodLabel }) => (
+      <>
+        <ExportButtons kind="leads" query={query} periodLabel={periodLabel} />
+        <LeadStatusSummary query={query} periodLabel={periodLabel} />
+      </>
+    ),
     filters: [
       { param: 'lost', label: 'Lost leads', type: 'select', options: [{ value: 'true', label: 'Show lost leads' }], visible: (perm) => perm.can(WORKS_LEADS) },
+      // Approved and completed leads live under Sales orders; this brings them back into the list.
+      { param: 'everything', label: 'Approved & completed', type: 'select', options: [{ value: 'true', label: 'Include them' }] },
       { param: 'status', label: 'Status', type: 'select', useOptions: useLeadStatusOptions },
       { param: 'source', label: 'Source', type: 'select', options: LEAD_SOURCES },
       { param: 'ownerId', label: 'Salesperson', type: 'select', useOptions: useSalespersonOptions, visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted]) },
@@ -166,6 +175,8 @@ export const leadView: EntityViewConfig<Lead> = {
       { key: 'ownerName', header: 'Salesperson', render: (l) => muted(l.ownerName), visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted]) },
       { key: 'followUpCount', header: 'Follow-ups', sortKey: 'followUpCount', className: 'text-right tabular-nums', render: (l) => l.followUpCount },
       { key: 'status', header: 'Status', sortKey: 'status', render: (l) => <StatusBadge status={l.status} /> },
+      // Partial / full payment, once converted.
+      { key: 'paymentType', header: 'Payment', render: (l) => <PaymentTypeBadge type={l.paymentType} /> },
       { key: 'updatedAt', header: 'Last activity', sortKey: 'updatedAt', render: lastActivity },
       // Last column: the lead's Vehicle Quotation / PPF form (issue, view, download, print).
       { key: 'documents', header: 'Documents', className: 'w-px text-right', render: (l) => <LeadDocumentsButton lead={l} /> },
@@ -178,6 +189,18 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Status', value: (l) => <StatusBadge status={l.status} /> },
       { label: 'Phone', value: (l) => l.prospectMobile },
       { label: 'Email', value: (l) => l.email },
+      { label: 'Address', value: (l) => l.customerAddress },
+      {
+        label: 'Payment',
+        value: (l) =>
+          l.paymentType ? (
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <PaymentTypeBadge type={l.paymentType} />
+              {l.paymentAmount && <span className="font-medium">{formatMoney(l.paymentAmount)}{l.paymentType === 'partial' && l.vehiclePrice ? ` paid of ${formatMoney(l.vehiclePrice)} · balance ${formatMoney(String(Number(l.vehiclePrice) - Number(l.paymentAmount)))}` : ''}</span>}
+              <span className="text-slate-500">{[labelOf(PAYMENT_INSTRUMENTS, l.paymentInstrument), l.paymentInstrumentRef, l.paymentInstrumentBank].filter(Boolean).join(' · ')}</span>
+            </span>
+          ) : null,
+      },
       {
         label: 'Customer history',
         value: (l) =>

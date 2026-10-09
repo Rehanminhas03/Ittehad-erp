@@ -3960,6 +3960,15 @@
           }
         }
       },
+      "ExportRows": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": {
+            "nullable": true
+          }
+        }
+      },
       "LeadSummary": {
         "type": "object",
         "properties": {
@@ -4483,6 +4492,13 @@
             "maxLength": 200,
             "format": "email"
           },
+          "paymentType": {
+            "type": "string",
+            "enum": [
+              "partial",
+              "full"
+            ]
+          },
           "paymentInstrument": {
             "type": "string",
             "enum": [
@@ -4495,7 +4511,7 @@
           },
           "paymentInstrumentRef": {
             "type": "string",
-            "minLength": 1,
+            "nullable": true,
             "maxLength": 60
           },
           "paymentInstrumentBank": {
@@ -4504,6 +4520,10 @@
             "maxLength": 80
           },
           "paymentAmount": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "vehiclePrice": {
             "type": "string",
             "example": "1250000.00"
           },
@@ -4518,6 +4538,11 @@
           "customerCnic": {
             "type": "string",
             "maxLength": 20
+          },
+          "customerAddress": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
           },
           "customerType": {
             "type": "string",
@@ -4553,9 +4578,11 @@
           "preferredColor",
           "variant",
           "email",
+          "paymentType",
           "paymentInstrument",
-          "paymentInstrumentRef",
-          "customerCnic"
+          "paymentAmount",
+          "customerCnic",
+          "customerAddress"
         ]
       },
       "RaiseOrderRequest": {
@@ -5041,6 +5068,18 @@
             "maxItems": 10,
             "default": []
           },
+          "stampImage": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1400000,
+            "pattern": "^data:image\\/(png|jpe?g);base64,"
+          },
+          "signatureImage": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1400000,
+            "pattern": "^data:image\\/(png|jpe?g);base64,"
+          },
           "isDefault": {
             "type": "boolean"
           },
@@ -5504,6 +5543,18 @@
             },
             "maxItems": 10,
             "default": []
+          },
+          "stampImage": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1400000,
+            "pattern": "^data:image\\/(png|jpe?g);base64,"
+          },
+          "signatureImage": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1400000,
+            "pattern": "^data:image\\/(png|jpe?g);base64,"
           }
         },
         "required": [
@@ -6593,6 +6644,28 @@
           "dealershipId",
           "fromUserId",
           "toUserId"
+        ]
+      },
+      "OrderSummary": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "processing": {
+            "type": "integer"
+          },
+          "byStatus": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "processing",
+          "byStatus"
         ]
       },
       "OrderPayments": {
@@ -7990,6 +8063,19 @@
             "type": "string",
             "nullable": true
           },
+          "paymentType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "partial",
+              "full",
+              null
+            ]
+          },
+          "vehiclePrice": {
+            "type": "string",
+            "nullable": true
+          },
           "followUpCount": {
             "type": "integer"
           },
@@ -8071,6 +8157,10 @@
             "nullable": true
           },
           "purchaseOrderNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerAddress": {
             "type": "string",
             "nullable": true
           },
@@ -8596,6 +8686,15 @@
           "purchaseOrderNo": {
             "type": "string",
             "nullable": true
+          },
+          "paymentType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "partial",
+              "full",
+              null
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -22736,6 +22835,102 @@
         }
       }
     },
+    "/api/sales/leads/export": {
+      "get": {
+        "operationId": "exportLeads",
+        "summary": "Every detail of the leads logged in a period (for CSV / Excel and PDF)",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "tags": [
+          "Lead"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 30
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportRows"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales/leads/summary": {
       "get": {
         "operationId": "getLeadSummary",
@@ -23140,6 +23335,19 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "vehiclePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "followUpCount": {
                       "type": "integer"
                     },
@@ -23221,6 +23429,10 @@
                       "nullable": true
                     },
                     "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
                       "type": "string",
                       "nullable": true
                     },
@@ -23607,6 +23819,19 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "vehiclePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "followUpCount": {
                       "type": "integer"
                     },
@@ -23688,6 +23913,10 @@
                       "nullable": true
                     },
                     "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
                       "type": "string",
                       "nullable": true
                     },
@@ -24587,6 +24816,19 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "vehiclePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "followUpCount": {
                       "type": "integer"
                     },
@@ -24668,6 +24910,10 @@
                       "nullable": true
                     },
                     "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
                       "type": "string",
                       "nullable": true
                     },
@@ -24963,6 +25209,19 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "vehiclePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "followUpCount": {
                       "type": "integer"
                     },
@@ -25044,6 +25303,10 @@
                       "nullable": true
                     },
                     "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
                       "type": "string",
                       "nullable": true
                     },
@@ -25339,6 +25602,19 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "vehiclePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "followUpCount": {
                       "type": "integer"
                     },
@@ -25420,6 +25696,10 @@
                       "nullable": true
                     },
                     "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
                       "type": "string",
                       "nullable": true
                     },
@@ -25819,6 +26099,15 @@
                     "purchaseOrderNo": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
                     },
                     "createdAt": {
                       "type": "string",
@@ -27448,6 +27737,189 @@
         }
       }
     },
+    "/api/sales/orders/summary": {
+      "get": {
+        "operationId": "getOrderSummary",
+        "summary": "Orders booked in a period by status, and those still processing (raised, not yet delivered)",
+        "description": "Requires: sales.orders.view_all | sales.orders.view_own",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "bookedFrom",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "bookedTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/orders/export": {
+      "get": {
+        "operationId": "exportSalesOrders",
+        "summary": "Every detail of the sales orders booked in a period, with each payment received (for CSV / Excel and PDF)",
+        "description": "Requires: sales.orders.view_all | sales.orders.view_own",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 30
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportRows"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales/orders/{id}/payments": {
       "get": {
         "operationId": "listOrderPayments",
@@ -27929,6 +28401,15 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -28268,6 +28749,15 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -28606,6 +29096,15 @@
                     "purchaseOrderNo": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
                     },
                     "createdAt": {
                       "type": "string",
@@ -29018,6 +29517,15 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -29345,6 +29853,15 @@
                     "purchaseOrderNo": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
                     },
                     "createdAt": {
                       "type": "string",
@@ -29684,6 +30201,15 @@
                     "purchaseOrderNo": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
                     },
                     "createdAt": {
                       "type": "string",
@@ -31792,6 +32318,18 @@
             },
             "required": false,
             "name": "activityTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "everything",
             "in": "query"
           },
           {

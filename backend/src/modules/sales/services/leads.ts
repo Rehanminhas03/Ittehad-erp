@@ -184,6 +184,8 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
 
   // The customer's CNIC (required at conversion): the Admin checks it against the copy when raising the order.
   await ensureCustomerCnic(ctx, customerId, dealershipId, input.customerCnic);
+  // The customer's address (required at conversion): kept on the customer (orders, PPF vouchers, delivery).
+  await ctx.tx.customer.update({ where: { id: customerId }, data: { address: input.customerAddress, updatedById: ctx.access.userId } });
 
   await ctx.tx.lead.update({
     where: { id: leadId },
@@ -197,9 +199,12 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
       variant: input.variant,
       email: input.email,
       paymentInstrument: input.paymentInstrument,
-      paymentInstrumentRef: input.paymentInstrumentRef,
+      paymentInstrumentRef: input.paymentInstrumentRef ?? null,
       paymentInstrumentBank: input.paymentInstrumentBank ?? null,
-      paymentAmount: input.paymentAmount ?? null,
+      paymentAmount: input.paymentAmount,
+      paymentType: input.paymentType,
+      // Partial: the car's total price (full payment: the amount paid is the price).
+      vehiclePrice: input.paymentType === 'partial' ? (input.vehiclePrice ?? null) : input.paymentAmount,
       // Individual or corporate (the company is the billing name on the order's documents).
       customerType: input.customerType,
       companyName: input.customerType === 'corporate' ? (input.companyName ?? null) : null,

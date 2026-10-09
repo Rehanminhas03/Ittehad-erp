@@ -12,7 +12,7 @@ import { vehicle } from '../../master/models';
 import { deliveries, leads, orders, stock } from '../entities';
 import { delivery, lead, leadFollowUp, salesOrder } from '../models';
 import { SalesPerm as P } from '../permissions';
-import type { DashboardQuery, LeadSummaryQuery } from '../schemas';
+import type { DashboardQuery, LeadSummaryQuery, OrderSummaryQuery } from '../schemas';
 import { addDays, pakistanToday } from '../../../lib/dates';
 
 const OPEN = ['new', 'follow_up', 'visited'];
@@ -51,6 +51,19 @@ export async function leadSummary(ctx: EntityCtx, q: z.output<typeof LeadSummary
   )!;
   const byStatus = await statusCounts(ctx, lead, where);
   return { total: Object.values(byStatus).reduce((n, v) => n + v, 0), byStatus };
+}
+
+/** The sales orders list's status strip: orders booked in the period, by status, and those still processing. */
+export async function orderSummary(ctx: EntityCtx, q: z.output<typeof OrderSummaryQuery>) {
+  const where = and(
+    orders.viewCondition(ctx.access),
+    q.dealershipId ? eq(salesOrder.dealershipId, q.dealershipId) : undefined,
+    q.bookedFrom ? sql`(${salesOrder.createdAt} at time zone 'Asia/Karachi')::date >= ${q.bookedFrom}::date` : undefined,
+    q.bookedTo ? sql`(${salesOrder.createdAt} at time zone 'Asia/Karachi')::date <= ${q.bookedTo}::date` : undefined,
+  )!;
+  const byStatus = await statusCounts(ctx, salesOrder, where);
+  const processing = ['draft', 'submitted', 'approved'].reduce((n, s) => n + (byStatus[s] ?? 0), 0);
+  return { total: Object.values(byStatus).reduce((n, v) => n + v, 0), processing, byStatus };
 }
 
 export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof DashboardQuery>) {

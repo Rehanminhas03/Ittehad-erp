@@ -20,6 +20,18 @@ const injectedRtkApi = api
   })
   .injectEndpoints({
     endpoints: (build) => ({
+      exportLeads: build.query<ExportLeadsApiResponse, ExportLeadsApiArg>({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/export`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            from: queryArg["from"],
+            to: queryArg.to,
+            status: queryArg.status,
+          },
+        }),
+        providesTags: ["Lead"],
+      }),
       getLeadSummary: build.query<
         GetLeadSummaryApiResponse,
         GetLeadSummaryApiArg
@@ -336,6 +348,35 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["SalesTeam"],
       }),
+      getOrderSummary: build.query<
+        GetOrderSummaryApiResponse,
+        GetOrderSummaryApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/summary`,
+          params: {
+            bookedFrom: queryArg.bookedFrom,
+            bookedTo: queryArg.bookedTo,
+            dealershipId: queryArg.dealershipId,
+          },
+        }),
+        providesTags: ["SalesOrder"],
+      }),
+      exportSalesOrders: build.query<
+        ExportSalesOrdersApiResponse,
+        ExportSalesOrdersApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/export`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            from: queryArg["from"],
+            to: queryArg.to,
+            status: queryArg.status,
+          },
+        }),
+        providesTags: ["SalesOrder"],
+      }),
       listOrderPayments: build.query<
         ListOrderPaymentsApiResponse,
         ListOrderPaymentsApiArg
@@ -627,6 +668,7 @@ const injectedRtkApi = api
             createdOn: queryArg.createdOn,
             activityFrom: queryArg.activityFrom,
             activityTo: queryArg.activityTo,
+            everything: queryArg.everything,
             lost: queryArg.lost,
             appointmentOn: queryArg.appointmentOn,
             upcomingAppointment: queryArg.upcomingAppointment,
@@ -990,6 +1032,13 @@ const injectedRtkApi = api
     overrideExisting: false,
   });
 export { injectedRtkApi as enhancedApi };
+export type ExportLeadsApiResponse = /** status 200 Success */ ExportRows;
+export type ExportLeadsApiArg = {
+  dealershipId?: number;
+  from?: string;
+  to?: string;
+  status?: string;
+};
 export type GetLeadSummaryApiResponse = /** status 200 Success */ LeadSummary;
 export type GetLeadSummaryApiArg = {
   activityFrom?: string;
@@ -1042,6 +1091,8 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   paymentInstrumentRef: string | null;
   paymentInstrumentBank: string | null;
   paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
   escalatedAt: string | null;
@@ -1060,6 +1111,7 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1126,6 +1178,8 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   paymentInstrumentRef: string | null;
   paymentInstrumentBank: string | null;
   paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
   escalatedAt: string | null;
@@ -1144,6 +1198,7 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1294,6 +1349,8 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   paymentInstrumentRef: string | null;
   paymentInstrumentBank: string | null;
   paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
   escalatedAt: string | null;
@@ -1312,6 +1369,7 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1371,6 +1429,8 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   paymentInstrumentRef: string | null;
   paymentInstrumentBank: string | null;
   paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
   escalatedAt: string | null;
@@ -1389,6 +1449,7 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1448,6 +1509,8 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   paymentInstrumentRef: string | null;
   paymentInstrumentBank: string | null;
   paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
   escalatedAt: string | null;
@@ -1466,6 +1529,7 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1551,6 +1615,7 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1718,6 +1783,19 @@ export type HandOverLeadsApiResponse = /** status 200 Success */ HandOverResult;
 export type HandOverLeadsApiArg = {
   handOverLeadsRequest: HandOverLeadsRequest;
 };
+export type GetOrderSummaryApiResponse = /** status 200 Success */ OrderSummary;
+export type GetOrderSummaryApiArg = {
+  bookedFrom?: string;
+  bookedTo?: string;
+  dealershipId?: number;
+};
+export type ExportSalesOrdersApiResponse = /** status 200 Success */ ExportRows;
+export type ExportSalesOrdersApiArg = {
+  dealershipId?: number;
+  from?: string;
+  to?: string;
+  status?: string;
+};
 export type ListOrderPaymentsApiResponse =
   /** status 200 Success */ OrderPayments;
 export type ListOrderPaymentsApiArg = {
@@ -1794,6 +1872,7 @@ export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1861,6 +1940,7 @@ export type DecideDeliveryClearanceApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1928,6 +2008,7 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -2000,6 +2081,7 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -2067,6 +2149,7 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -2133,6 +2216,7 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -2406,6 +2490,7 @@ export type ListLeadsApiArg = {
   createdOn?: string;
   activityFrom?: string;
   activityTo?: string;
+  everything?: "true" | "false";
   lost?: "true" | "false";
   appointmentOn?: string;
   upcomingAppointment?: "true" | "false";
@@ -2631,17 +2716,20 @@ export type GetVariantCodeHistoryApiResponse =
 export type GetVariantCodeHistoryApiArg = {
   id: number;
 };
-export type LeadSummary = {
-  total: number;
-  byStatus: {
-    [key: string]: number;
-  };
-};
+export type ExportRows = {
+  [key: string]: any | null;
+}[];
 export type ApiError = {
   error: {
     code: string;
     message: string;
     details?: any | null;
+  };
+};
+export type LeadSummary = {
+  total: number;
+  byStatus: {
+    [key: string]: number;
   };
 };
 export type EscalationResult = {
@@ -2747,14 +2835,17 @@ export type ConvertLeadRequest = {
   preferredColor: string;
   variant: string;
   email: string;
+  paymentType: "partial" | "full";
   paymentInstrument:
     "pay_order" | "bank_draft" | "cheque" | "online_transfer" | "cash";
-  paymentInstrumentRef: string;
+  paymentInstrumentRef?: string | null;
   paymentInstrumentBank?: string | null;
-  paymentAmount?: string;
+  paymentAmount: string;
+  vehiclePrice?: string;
   expectedDeliveryDate?: string | null;
   expectedDeliveryByMonth?: boolean;
   customerCnic: string;
+  customerAddress: string;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2813,6 +2904,8 @@ export type DocumentTemplate = {
     | "notes"
   )[];
   customFields?: string[];
+  stampImage?: string | null;
+  signatureImage?: string | null;
   isDefault: boolean;
   updatedAt: string | null;
   updatedByName: string | null;
@@ -2963,6 +3056,8 @@ export type DocumentTemplateUpdate = {
     | "notes"
   )[];
   customFields?: string[];
+  stampImage?: string | null;
+  signatureImage?: string | null;
 };
 export type VariantImportResult = {
   added: number;
@@ -3204,6 +3299,13 @@ export type HandOverLeadsRequest = {
   fromUserId: number;
   toUserId: number;
   includeInProgress?: boolean;
+};
+export type OrderSummary = {
+  total: number;
+  processing: number;
+  byStatus: {
+    [key: string]: number;
+  };
 };
 export type OrderPayments = {
   total: string;
@@ -3516,6 +3618,8 @@ export type Lead = {
   paymentInstrumentRef: string | null;
   paymentInstrumentBank: string | null;
   paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
   escalatedAt: string | null;
@@ -3534,6 +3638,7 @@ export type Lead = {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -3693,6 +3798,7 @@ export type SalesOrder = {
   companyName?: string | null;
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -3950,6 +4056,8 @@ export type VehicleVariantUpdate = {
   isActive?: boolean;
 };
 export const {
+  useExportLeadsQuery,
+  useLazyExportLeadsQuery,
   useGetLeadSummaryQuery,
   useLazyGetLeadSummaryQuery,
   useEscalateDuplicateLeadMutation,
@@ -3991,6 +4099,10 @@ export const {
   useGetLeadsToHandOverQuery,
   useLazyGetLeadsToHandOverQuery,
   useHandOverLeadsMutation,
+  useGetOrderSummaryQuery,
+  useLazyGetOrderSummaryQuery,
+  useExportSalesOrdersQuery,
+  useLazyExportSalesOrdersQuery,
   useListOrderPaymentsQuery,
   useLazyListOrderPaymentsQuery,
   useAddOrderPaymentMutation,

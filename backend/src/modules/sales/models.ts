@@ -23,6 +23,8 @@ export const LEAVE_STATES = ['submitted', 'approved', 'rejected'] as const;
 /** A phone number can have only one lead in these states per dealership (duplicate control). */
 export const ACTIVE_LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing'] as const;
 export const FOLLOW_UP_OUTCOMES = ['interested', 'not_interested', 'visited'] as const;
+/** At conversion: part of the price (a booking amount; the rest before delivery) or the full price. */
+export const PAYMENT_TYPES = ['partial', 'full'] as const;
 export const PAYMENT_INSTRUMENTS = ['pay_order', 'bank_draft', 'cheque', 'online_transfer', 'cash'] as const;
 export const ORDER_TYPES = ['pbo', 'cbo'] as const;
 export const ORDER_STATES = ['draft', 'submitted', 'approved', 'delivered', 'cancelled'] as const;

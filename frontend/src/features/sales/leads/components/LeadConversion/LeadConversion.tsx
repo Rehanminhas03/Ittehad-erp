@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Button, Field, Input, Section, Select, Textarea } from '@/shared/components/ui';
+import { Button, Checkbox, Field, Input, Section, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { digitsOnly } from '@/shared/components/EntityFormView/FormFieldControl';
 import { maskCnic } from '@/features/crm';
 import { apiConflict, apiFieldErrors } from '@/shared/lib';
-import { CUSTOMER_TYPES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS } from '../../../permissions';
+import { CUSTOMER_TYPES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS, PAYMENT_TYPES } from '../../../permissions';
 import { type Lead, useConvertLeadMutation } from '../../../salesApi';
 import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
 import { LeadModelSelect } from '../LeadModelSelect';
@@ -27,6 +27,12 @@ export function LeadConversion({ lead }: { lead: Lead }) {
     preferredColor: lead.preferredColor ?? '',
     variant: lead.variant ?? '',
     email: lead.email ?? '',
+    // The customer's address (required): saved on the customer; the PPF voucher starts from it.
+    customerAddress: lead.customerAddress ?? '',
+    // Partial (a booking amount) or Full payment: one must be chosen; its fields are then required.
+    paymentType: '',
+    // Partial payment: the total price of the car (the balance is paid before delivery).
+    vehiclePrice: '',
     paymentInstrument: '',
     paymentInstrumentRef: '',
     paymentInstrumentBank: '',
@@ -61,8 +67,17 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       required('variant', 'Variant'),
       required('preferredColor', 'Vehicle colour'),
       required('email', 'Email'),
-      required('paymentInstrument', 'Payment instrument'),
-      required('paymentInstrumentRef', 'Instrument number'),
+      required('customerAddress', 'Address'),
+      v.paymentType ? null : (['paymentType', 'Tick Partial payment or Full payment'] as const),
+      v.paymentType ? required('paymentAmount', v.paymentType === 'full' ? 'The full amount paid' : 'The amount paid') : null,
+      v.paymentType === 'partial' ? required('vehiclePrice', 'The total amount of the car') : null,
+      v.paymentType === 'partial' && v.vehiclePrice.trim() && v.paymentAmount.trim() && Number(v.paymentAmount) >= Number(v.vehiclePrice)
+        ? (['paymentAmount', 'A partial payment is less than the total amount (otherwise choose Full payment)'] as const)
+        : null,
+      v.paymentType ? required('paymentInstrument', 'Payment instrument') : null,
+      // Cash has no instrument number or bank.
+      v.paymentType && v.paymentInstrument !== 'cash' ? required('paymentInstrumentRef', 'Instrument number') : null,
+      v.paymentType && v.paymentInstrument !== 'cash' ? required('paymentInstrumentBank', 'Bank') : null,
       cnic.replace(/\D/g, '').length === 13 ? null : (['customerCnic', "Enter the customer's CNIC (13 digits)"] as const),
       v.customerType === 'corporate' ? required('companyName', 'Company name') : null,
       v.customerType === 'corporate' ? required('contactDesignation', "The contact's designation") : null,
@@ -82,13 +97,16 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           preferredColor: v.preferredColor,
           variant: v.variant,
           email: v.email,
+          paymentType: v.paymentType as 'partial',
           paymentInstrument: v.paymentInstrument as never,
-          paymentInstrumentRef: v.paymentInstrumentRef,
-          paymentInstrumentBank: v.paymentInstrumentBank || null,
-          paymentAmount: v.paymentAmount || undefined,
+          paymentInstrumentRef: v.paymentInstrumentRef.trim() || null,
+          paymentInstrumentBank: v.paymentInstrumentBank.trim() || null,
+          paymentAmount: v.paymentAmount.trim(),
+          vehiclePrice: v.paymentType === 'partial' ? v.vehiclePrice.trim() : undefined,
           expectedDeliveryDate: expected.date || null,
           expectedDeliveryByMonth: !!expected.date && expected.byMonth,
           customerCnic: cnic,
+          customerAddress: v.customerAddress.trim(),
           customerType: v.customerType as 'individual',
           companyName: v.customerType === 'corporate' ? v.companyName.trim() : null,
           contactDesignation: v.customerType === 'corporate' ? v.contactDesignation.trim() : null,
@@ -171,6 +189,9 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           <Field label="Phone" htmlFor="cv-phone" required error={errors.prospectMobile} hint="Digits only">
             <Input id="cv-phone" type="tel" inputMode="tel" maxLength={16} placeholder="03001234567" value={v.prospectMobile} onChange={(e) => set('prospectMobile')({ target: { value: digitsOnly(e.target.value) } })} invalid={!!errors.prospectMobile} />
           </Field>
+          <Field label="Address" htmlFor="cv-address" required className="sm:col-span-2" error={errors.customerAddress} hint="House / street, sector or area, city">
+            <Input id="cv-address" value={v.customerAddress} onChange={set('customerAddress')} invalid={!!errors.customerAddress} placeholder="e.g. House 12, Street 4, F-10/2, Islamabad" />
+          </Field>
           <Field label="Model" htmlFor="cv-model" required error={errors.interestedModelId}>
             <LeadModelSelect
               id="cv-model"
@@ -196,25 +217,71 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           <Field label="Customer email" htmlFor="cv-email" required error={errors.email}>
             <Input id="cv-email" type="email" value={v.email} onChange={set('email')} invalid={!!errors.email} />
           </Field>
-          <Field label="Payment instrument" htmlFor="cv-instrument" required error={errors.paymentInstrument}>
-            <Select id="cv-instrument" value={v.paymentInstrument} onChange={set('paymentInstrument')} invalid={!!errors.paymentInstrument}>
-              <option value="">Select…</option>
-              {PAYMENT_INSTRUMENTS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
+          <div className="sm:col-span-2">
+            <p className="mb-1.5 text-sm font-medium text-slate-700">
+              Payment <span className="text-red-600">*</span>
+            </p>
+            <div className="flex flex-wrap gap-x-6 gap-y-2" role="radiogroup" aria-label="Payment">
+              {PAYMENT_TYPES.map((p) => (
+                <Checkbox
+                  key={p.value}
+                  checked={v.paymentType === p.value}
+                  onChange={(e) => setV((s) => ({ ...s, paymentType: e.target.checked ? p.value : '' }))}
+                  label={<span className="font-medium">{p.label}</span>}
+                />
               ))}
-            </Select>
-          </Field>
-          <Field label="Instrument number" htmlFor="cv-ref" required error={errors.paymentInstrumentRef}>
-            <Input id="cv-ref" value={v.paymentInstrumentRef} onChange={set('paymentInstrumentRef')} invalid={!!errors.paymentInstrumentRef} />
-          </Field>
-          <Field label="Bank" htmlFor="cv-bank">
-            <Input id="cv-bank" value={v.paymentInstrumentBank} onChange={set('paymentInstrumentBank')} />
-          </Field>
-          <Field label="Amount (PKR)" htmlFor="cv-amount" error={errors.paymentAmount}>
-            <Input id="cv-amount" inputMode="decimal" value={v.paymentAmount} onChange={set('paymentAmount')} invalid={!!errors.paymentAmount} />
-          </Field>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              {v.paymentType === 'partial'
+                ? 'Partial payment: the booking amount now; the balance is paid before delivery.'
+                : v.paymentType === 'full'
+                  ? 'Full payment: the customer has paid the full price.'
+                  : 'Tick one: Partial payment (a booking amount now) or Full payment.'}
+            </p>
+            {errors.paymentType && <p className="mt-1 text-sm text-red-600">{errors.paymentType}</p>}
+          </div>
+          {v.paymentType && (
+            <>
+              {v.paymentType === 'partial' && (
+                <Field
+                  label="Total amount of the car (PKR)"
+                  htmlFor="cv-total"
+                  required
+                  error={errors.vehiclePrice}
+                  hint={
+                    Number(v.vehiclePrice) > 0 && Number(v.paymentAmount) > 0 && Number(v.vehiclePrice) > Number(v.paymentAmount)
+                      ? `Balance to pay before delivery: Rs ${(Number(v.vehiclePrice) - Number(v.paymentAmount)).toLocaleString('en-PK')}`
+                      : 'The full price of the car'
+                  }
+                >
+                  <Input id="cv-total" inputMode="decimal" value={v.vehiclePrice} onChange={set('vehiclePrice')} invalid={!!errors.vehiclePrice} placeholder="e.g. 9500000" />
+                </Field>
+              )}
+              <Field label={v.paymentType === 'full' ? 'Full amount paid (PKR)' : 'Amount paid now — booking (PKR)'} htmlFor="cv-amount" required error={errors.paymentAmount}>
+                <Input id="cv-amount" inputMode="decimal" value={v.paymentAmount} onChange={set('paymentAmount')} invalid={!!errors.paymentAmount} placeholder={v.paymentType === 'full' ? 'e.g. 9500000' : 'e.g. 2500000'} />
+              </Field>
+              <Field label="Payment instrument" htmlFor="cv-instrument" required error={errors.paymentInstrument}>
+                <Select id="cv-instrument" value={v.paymentInstrument} onChange={set('paymentInstrument')} invalid={!!errors.paymentInstrument}>
+                  <option value="">Select…</option>
+                  {PAYMENT_INSTRUMENTS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {v.paymentInstrument !== 'cash' && (
+                <>
+                  <Field label="Instrument number" htmlFor="cv-ref" required error={errors.paymentInstrumentRef}>
+                    <Input id="cv-ref" value={v.paymentInstrumentRef} onChange={set('paymentInstrumentRef')} invalid={!!errors.paymentInstrumentRef} />
+                  </Field>
+                  <Field label="Bank" htmlFor="cv-bank" required error={errors.paymentInstrumentBank}>
+                    <Input id="cv-bank" value={v.paymentInstrumentBank} onChange={set('paymentInstrumentBank')} invalid={!!errors.paymentInstrumentBank} />
+                  </Field>
+                </>
+              )}
+            </>
+          )}
           <Field label="Customer CNIC" htmlFor="cv-cnic" required error={errors.customerCnic} hint="From the customer's CNIC; the Admin checks it against the copy">
             <Input id="cv-cnic" inputMode="numeric" value={cnic} onChange={(e) => setCnic(maskCnic(e.target.value))} placeholder="14301-5305891-1" invalid={!!errors.customerCnic} />
           </Field>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { DateRangePicker, type DateRange, rangeLabel } from '@/shared/components';
 import { Button, ErrorState, Field, PageHeader, Select, Spinner } from '@/shared/components/ui';
-import { useAuth, usePermission } from '@/shared/hooks';
+import { useAuth, usePermission, useToast } from '@/shared/hooks';
 import { apiErrorMessage, formatMoney } from '@/shared/lib';
 import { DownloadIcon, PdfDialog, usePdf } from '../documents/DocumentPreview';
 import { buildTrackRecordPdf } from './trackRecordPdf';
@@ -96,6 +96,49 @@ export default function TrackRecordPage() {
     [pdfOpen, data, dealershipName, periodLabel, whoLabel, user, range, month],
   );
   const pdf = usePdf(build);
+
+  // CSV (opens in Excel) of what is on screen: per person, by month, and every lead of the period.
+  const toast = useToast();
+  const [csvBusy, setCsvBusy] = useState(false);
+  const downloadCsv = async () => {
+    setCsvBusy(true);
+    try {
+      const full = await fetchWithDetails({ ...args, details: 'true' }).unwrap();
+      const cell = (v: unknown) => {
+        const s = v == null ? '' : String(v);
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const row = (vs: unknown[]) => vs.map(cell).join(',');
+      const figures = ['Leads logged', 'Converted', 'Cars booked', 'Cars delivered', 'PPF sold', 'PPF amount (PKR)', 'PPF advance (PKR)', 'Quotations'];
+      const nums = (m: { leadsLogged: number; converted: number; carsBooked: number; carsDelivered: number; ppfSold: number; ppfAmount: string; ppfAdvance: string; quotations: number }) => [
+        m.leadsLogged, m.converted, m.carsBooked, m.carsDelivered, m.ppfSold, Number(m.ppfAmount), Number(m.ppfAdvance), m.quotations,
+      ];
+      const lines = [
+        row([`Track record — ${whoLabel}`, dealershipName, periodLabel]),
+        '',
+        row(['Person', ...figures]),
+        ...full.members.map((m) => row([m.fullName, ...nums(m)])),
+        row(['Total', ...nums(full.totals)]),
+      ];
+      if (full.months.length) lines.push('', row(['Month', ...figures]), ...full.months.map((m) => row([m.month, ...nums(m)])));
+      const leads = full.details?.leads ?? [];
+      if (leads.length) {
+        const nameOf = new Map(full.members.map((m) => [m.userId, m.fullName]));
+        lines.push('', row(['Salesperson', 'Customer', 'Phone', 'Vehicle', 'Source', 'Status', 'Logged on', 'Converted on', 'Entered by', 'Converted by']));
+        lines.push(...leads.map((l) => row([nameOf.get(l.userId) ?? '', l.customer, l.phone, l.vehicle, l.source, l.status, l.loggedOn, l.convertedOn, l.enteredBy, l.convertedBy])));
+      }
+      const blob = new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Track record - ${whoLabel} - ${periodLabel}.csv`.replace(/[\\/:*?"<>|]/g, '');
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setCsvBusy(false);
+    }
+  };
 
   return (
     <div>
@@ -193,7 +236,11 @@ export default function TrackRecordPage() {
           </div>
         </div>
         {isFetching && <Spinner className="mb-2.5 size-4 text-slate-400" />}
-        <Button className="ml-auto" disabled={!data} onClick={() => setPdfOpen(true)}>
+        <Button className="ml-auto" variant="secondary" disabled={!data} loading={csvBusy} onClick={() => void downloadCsv()}>
+          <DownloadIcon className="size-4" />
+          Download CSV (Excel)
+        </Button>
+        <Button disabled={!data} onClick={() => setPdfOpen(true)}>
           <DownloadIcon className="size-4" />
           Download PDF
         </Button>

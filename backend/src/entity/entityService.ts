@@ -123,7 +123,7 @@ export class EntityService {
     const term = q.q && config.normalizeSearch ? config.normalizeSearch(q.q) : q.q;
     if (term && config.search?.length) {
       const pattern = `%${escapeLike(term)}%`;
-      conds.push(or(...config.search.map((k) => ilike(this.col(k), pattern)), config.searchExtra?.(pattern)));
+      conds.push(or(...config.search.map((k) => ilike(this.col(k), pattern)), config.searchExtra?.(pattern, q.q ?? term)));
     }
     const known = listFilters(config);
     for (const [param, value] of Object.entries(filters)) {

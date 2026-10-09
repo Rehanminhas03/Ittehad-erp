@@ -31,6 +31,8 @@ import {
   ClearanceRequestBody,
   OrderPaymentCreate,
   OrderPaymentsSchema,
+  ExportQuery,
+  ExportRowsSchema,
   StandalonePpfCreate,
   StandaloneQuotationCreate,
   LeaveApplicationCreate,
@@ -52,6 +54,8 @@ import {
   LeadSchema,
   LeadSummaryQuery,
   LeadSummarySchema,
+  OrderSummaryQuery,
+  OrderSummarySchema,
   OrderVehicleBody,
   PpfDocumentSchema,
   PpfFormCreate,
@@ -83,6 +87,16 @@ const DealershipQuery = z.object({ dealershipId: z.coerce.number().int().positiv
 
 // ---- Leads: follow-ups, Convert to Lead, duplicate escalation, Admin raises the order ----
 const leadActions = new ApiRouter('/sales/leads', 'Lead')
+  .route({
+    method: 'get',
+    path: '/export',
+    operationId: 'exportLeads',
+    summary: 'Every detail of the leads logged in a period (for CSV / Excel and PDF)',
+    permission: [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted],
+    query: ExportQuery,
+    response: ExportRowsSchema,
+    handler: (ctx) => svc.exportLeads(ctx, ctx.query),
+  })
   .route({
     method: 'get',
     path: '/summary',
@@ -399,6 +413,26 @@ const teamActions = new ApiRouter('/sales/team', 'SalesTeam')
 
 // ---- Orders: vehicle identifiers, stock allocation, deliveries ----
 const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
+  .route({
+    method: 'get',
+    path: '/summary',
+    operationId: 'getOrderSummary',
+    summary: 'Orders booked in a period by status, and those still processing (raised, not yet delivered)',
+    permission: [P.ordersViewAll, P.ordersViewOwn],
+    query: OrderSummaryQuery,
+    response: OrderSummarySchema,
+    handler: (ctx) => svc.orderSummary(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/export',
+    operationId: 'exportSalesOrders',
+    summary: 'Every detail of the sales orders booked in a period, with each payment received (for CSV / Excel and PDF)',
+    permission: [P.ordersViewAll, P.ordersViewOwn],
+    query: ExportQuery,
+    response: ExportRowsSchema,
+    handler: (ctx) => svc.exportOrders(ctx, ctx.query),
+  })
   .route({
     method: 'get',
     path: '/:id/payments',

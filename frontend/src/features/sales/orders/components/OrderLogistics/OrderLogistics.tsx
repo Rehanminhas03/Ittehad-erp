@@ -101,7 +101,9 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
   const { data: options, isFetching } = useListAllocatableVehiclesQuery({ id: order.id }, { skip: !!order.vehicleId });
   const [allocate, { isLoading: allocating }] = useAllocateVehicleMutation();
   const [release, { isLoading: releasing }] = useReleaseVehicleMutation();
-  const [advance, { isLoading: advancing }] = useAdvanceVehicleStatusMutation();
+  const [advance] = useAdvanceVehicleStatusMutation();
+  // The step being saved: only its button spins, the others wait.
+  const [pending, setPending] = useState<string | null>(null);
   const [choice, setChoice] = useState('');
   const [resumeTo, setResumeTo] = useState('');
   const [deliver, { isLoading: delivering }] = useDeliverOrderMutation();
@@ -114,12 +116,15 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
   const next = nextStep === 'in_transit' && order.status !== 'approved' ? null : nextStep;
 
   const run = async (target: string) => {
+    setPending(target);
     try {
       await advance({ id: order.id, advanceVehicleStatusRequest: { status: target as never } }).unwrap();
       toast.success(target === 'hold' ? 'Vehicle put on hold' : `Vehicle marked ${labelOf(target).toLowerCase()}`);
       setResumeTo('');
     } catch (e) {
       toast.error(e);
+    } finally {
+      setPending(null);
     }
   };
 
@@ -154,12 +159,12 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
             ))}
           <div className="flex flex-wrap items-center gap-2">
             {next && (
-              <Button size="sm" loading={advancing} onClick={() => run(next)}>
+              <Button size="sm" loading={pending === next} disabled={!!pending} onClick={() => run(next)}>
                 Mark {labelOf(next).toLowerCase()}
               </Button>
             )}
             {status !== 'hold' && (
-              <Button size="sm" variant="secondary" loading={advancing} onClick={() => run('hold')}>
+              <Button size="sm" variant="secondary" loading={pending === 'hold'} disabled={!!pending} onClick={() => run('hold')}>
                 Put on hold
               </Button>
             )}
@@ -173,7 +178,7 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
                     </option>
                   ))}
                 </Select>
-                <Button size="sm" disabled={!resumeTo} loading={advancing} onClick={() => run(resumeTo)}>
+                <Button size="sm" disabled={!resumeTo || !!pending} loading={!!pending} onClick={() => run(resumeTo)}>
                   Resume
                 </Button>
               </>
@@ -182,6 +187,7 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
               size="sm"
               variant="ghost"
               loading={releasing}
+              disabled={!!pending}
               onClick={async () => {
                 try {
                   await release({ id: order.id }).unwrap();
