@@ -409,6 +409,23 @@ Each user is scoped to their own dealership only.
 
 ---
 
+## CRO portal and Meta lead ads (social media leads)
+
+- **CRO menu**: **Social media leads** (`/sales/leads?group=social`) and **Salesperson leads** (`?group=salespeople`, read-only). New permissions `sales.leads.view_social` (every social lead of the dealership), `sales.leads.view_team` (every lead, read-only) and `sales.leads.transfer` (the CRO transfers an own lead, or takes / passes on a social one: **Transfer** on the lead page, API `POST /sales/leads/:id/reassign`). They are in the CRO template; `db:migrate` grants them to the existing CRO roles. The CRO still works only their own leads (follow-ups with remarks, visits, convert); the dashboard, today panel and Action needed keep counting only their own.
+- **Bulk transfer**: tick several leads in the Leads list (a checkbox on each row you may transfer) and give them to one salesperson / CRO at once (`POST /sales/leads/bulk-reassign`, up to 100; the Assistant Manager / Manager any lead, the CRO own and social media leads; leads that cannot move are skipped and listed). **Lost leads** has its own menu item (each person sees their own lost leads; managers the team's).
+- **Meta lead ads** (`modules/integrations/meta.ts`): Meta calls `POST /api/integrations/meta/webhook` for every lead form submission on a subscribed Facebook Page, whatever the ad; the lead (name, phone, email, city, campaign, ad, every answer) is read from the Graph API and saved as a **social** lead of the Page's dealership, given to the CRO of that dealership with the fewest Meta leads, and all that dealership's CROs are notified. A phone that already has an open lead is not duplicated; a repeated delivery is ignored (`lead.meta_lead_id` is unique). The webhook is signed (`X-Hub-Signature-256`, checked with the app secret).
+- **Settings** (environment): `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_PAGES` (JSON: `[{"pageId":"…","dealership":"JET-ITH","accessToken":"…"}]`, one entry per Page; dealership codes HYD-ISB, JET-ITH, CSM-ITH).
+- **Connecting it** (once per Page; new ads need nothing): in developers.facebook.com create an app (type Business) → add **Webhooks** → object **Page** → Callback URL `https://<backend>/api/integrations/meta/webhook`, Verify token = `META_VERIFY_TOKEN` → subscribe to the **leadgen** field. Give the app `leads_retrieval`, `pages_manage_metadata`, `pages_show_list` and `pages_read_engagement` and subscribe the Page to the app (Graph API `POST /{page-id}/subscribed_apps?subscribed_fields=leadgen` with the Page token). Use a long-lived **Page access token** in `META_PAGES`. Test with Meta's Lead Ads Testing Tool. Until the app is in Live mode only people with a role on the app produce real webhooks.
+
+### Temperature and the follow-up schedule
+
+Every follow-up records the customer's **interest** (hot / warm / cold, required, except when the lead is marked lost: cold), the **remarks** and the **next follow-up day**. The schedule: the first follow-up **2 days** after the lead is logged, the second **3 days after the first** (day 5), the third **6 days after the second** (about day 11); the day can be changed, and none is planned after the third (`nextFollowUpAfter` in `sales/models.ts`, `FOLLOW_UP_GAP_DAYS`). Columns `lead.temperature, next_follow_up_on, follow_up_reminded_on` and the same on `lead_follow_up`. Works for every lead (salesperson, CRO, team leaders, Meta leads), for the lead's owner.
+
+- **Reminders**: on the due day the owner gets a live **notification pop-up** ("Follow-up due: call the customer", once per due day, a job every 10 minutes: `sendFollowUpReminders`), and **Action needed** (bell, dashboard panel and pop-up) lists "Follow-ups are due" until recorded.
+- **Screens**: the leads list has **Interest** and **Next follow-up** columns (red when due or overdue) and filters **Interest** and **Follow-up due** (`temperature`, `followUpDue`); the lead page shows the schedule banner and each follow-up's interest and next day.
+
+---
+
 ## Service (Phase 4)
 
 ```

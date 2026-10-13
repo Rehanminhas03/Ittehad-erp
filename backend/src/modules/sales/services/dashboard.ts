@@ -9,7 +9,7 @@ import { forbidden } from '../../../lib/errors';
 import type { EntityCtx } from '../../../entity/types';
 import type { z } from '../../../lib/zod';
 import { vehicle } from '../../master/models';
-import { deliveries, leads, orders, stock } from '../entities';
+import { deliveries, leads, orders, personalLeads, stock } from '../entities';
 import { delivery, lead, leadFollowUp, salesOrder } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { DashboardQuery, LeadSummaryQuery, OrderSummaryQuery } from '../schemas';
@@ -66,6 +66,28 @@ export async function orderSummary(ctx: EntityCtx, q: z.output<typeof OrderSumma
   return { total: Object.values(byStatus).reduce((n, v) => n + v, 0), processing, byStatus };
 }
 
+/** Totals, the split by status and a daily series for the leads in `scope`. */
+async function leadFigures(ctx: EntityCtx, scope: SQL, from: string, to: string) {
+  const byStatus = await statusCounts(ctx, lead, scope);
+  const now = localToday();
+  const today = await countWhere(ctx, lead, and(scope, sql`${karachiDate(lead.createdAt)} = ${now}::date`));
+  const inPeriod = await countWhere(ctx, lead, and(scope, sql`${karachiDate(lead.createdAt)} between ${from}::date and ${to}::date`));
+  const daily = await query<{ date: string; logged: number; converted: number }>(ctx.tx, sql`
+    select to_char(g.d, 'YYYY-MM-DD') as date,
+      (select count(*)::int from ${lead} where ${scope} and ${karachiDate(lead.createdAt)} = g.d) as logged,
+      (select count(*)::int from ${lead} where ${scope} and ${karachiDate(lead.convertedAt)} = g.d) as converted
+    from generate_series(${from}::date, ${to}::date, interval '1 day') as g(d)
+    order by g.d`);
+  return {
+    byStatus,
+    total: Object.values(byStatus).reduce((n, v) => n + v, 0),
+    loggedInPeriod: inPeriod?.n ?? 0,
+    open: OPEN.reduce((n, s) => n + (byStatus[s] ?? 0), 0),
+    loggedToday: today?.n ?? 0,
+    daily,
+  };
+}
+
 export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof DashboardQuery>) {
   const { access } = ctx;
   const to = q.to ?? localToday();
@@ -76,8 +98,10 @@ export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof Dashboar
   const person = q.ownerId;
   if (person && !access.hasAny([P.leadsViewAll, P.leadsViewConverted, P.ordersViewAll, P.deliveriesViewAll, P.reportsView])) throw forbidden();
 
-  if (access.hasAny([P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted])) {
-    const scope = and(leads.viewCondition(access), person ? eq(lead.ownerId, person) : undefined)!;
+  if (access.hasAny([P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted, P.leadsViewSocial])) {
+    // The CRO's social media (Meta ad) leads have their own section; "leads" is then the other (own) leads.
+    const social = access.has(P.leadsViewSocial);
+    const scope = and(personalLeads(access), social ? sql`${lead.source} <> 'social'` : undefined, person ? eq(lead.ownerId, person) : undefined)!;
     const byStatus = await statusCounts(ctx, lead, scope);
     // "Today" figures always mean today, whatever period is chosen.
     const now = localToday();
@@ -102,6 +126,11 @@ export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof Dashboar
       myFollowUpsToday: followUps?.n ?? 0,
       daily,
     };
+    if (social) {
+      // Every social media lead of the dealership (the CRO team's), separate from the other leads.
+      const socialScope = and(leads.viewCondition(access), sql`${lead.source} = 'social'`)!;
+      out.social = await leadFigures(ctx, socialScope, from, to);
+    }
   }
 
   if (access.hasAny([P.ordersViewAll, P.ordersViewOwn])) {

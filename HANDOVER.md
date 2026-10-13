@@ -70,7 +70,19 @@ does today and what is still open (section 10). Then wait for my next request.
 
 ## 4. Running it (this Windows machine)
 
-- **PostgreSQL 16** (project database) lives in `%LOCALAPPDATA%\pgsql`, data in
+- **Live / shared database: Neon** (hosted PostgreSQL, region US East / Ohio). `backend/.env` points
+  `DATABASE_URL` (role `dms_app`, pooler host) and `MIGRATION_DATABASE_URL` (owner `neondb_owner`, direct host) at
+  it; the local URLs are kept there as comments (swap the comments to go back to local). `npm run db:migrate` therefore
+  migrates **Neon**. Creating a migration (`db:migration`) still needs the local PostgreSQL 16 (shadow database
+  `dms_shadow`). Details: README "Hosted PostgreSQL (Neon)". The Neon owner password was once pasted in chat: **rotate it**.
+- **Deployment: Railway** (commits `6e97fa0`, `2971fcf`, `7f119d3` by Junaid): frontend
+  **`https://ittehad-crm-production.up.railway.app`** (built with `VITE_API_URL` = the backend's URL, served with
+  `serve`), backend listens on `0.0.0.0`. **CORS origin is hard-coded** to that frontend address in
+  `backend/src/app.ts` (not `CORS_ORIGIN`); local dev still works through the Vite proxy (same origin). If the Railway
+  address changes, change it there (or move it back to `env.CORS_ORIGIN`).
+- **Speed**: every request makes several sequential round trips to the database (~290 ms each from Pakistan to Neon),
+  so a click can take 3–5 s from a local backend. Keep the Railway backend in the same region as Neon.
+- **PostgreSQL 16** (local project database, for migrations' shadow DB, tests and the test copy) lives in `%LOCALAPPDATA%\pgsql`, data in
   `%LOCALAPPDATA%\pgdata16`, **port 5433**. Start it (PowerShell):
   `& "$env:LOCALAPPDATA\pgsql\bin\pg_ctl.exe" -D "$env:LOCALAPPDATA\pgdata16" -l "$env:LOCALAPPDATA\pgdata16.log" -o "-p 5433" -w start`
   - Roles: `dms` (owner: schema sync, seed) and `dms_app` (runtime, RLS applies). Databases: `dms` (development) and `dms_test` (tests / test copy).
@@ -146,7 +158,7 @@ does today and what is still open (section 10). Then wait for my next request.
 ### Roles (each scoped to one dealership)
 | Role | What they do |
 |---|---|
-| **Salesperson** | Logs walk-ins / calls, follows up, converts own leads; issues and corrects **own** quotations and PPF vouchers; sees own dashboard, own track record |
+| **Salesperson** | Logs walk-ins / calls, follows up, converts own leads; issues and corrects **own** quotations and PPF vouchers; sees own dashboard, own track record and the sales orders of own leads |
 | **CRO** | Like salesperson for social / digital leads; the only one who records **"Visited"** (walk-ins are already in the showroom) |
 | **Assistant Manager (AM)** | Sees all leads; logs and converts own leads (or logs them for a salesperson); converts duplicate customers sent to them; reopens exhausted leads; issues / corrects **any** quotation and PPF voucher; edits **Document formats** and **Variant codes** |
 | **Sales Manager** | Department head: all leads, orders, stock; logs and converts own leads (with quotations / PPF); reopens exhausted leads; approves orders (draft or submitted); team report, track record; manages staff (create, reset password, deactivate, assign sales roles); views / downloads / prints documents; edits **Document formats** and **Variant codes** |
@@ -166,6 +178,49 @@ does today and what is still open (section 10). Then wait for my next request.
 - **Model is required** on every lead; **variant, colour and email only at conversion** (`ConvertLeadBody`), and the variant cannot be cleared afterwards (`LeadDetailsBody`). Conversion also takes an optional corrected `prospectName` / `prospectMobile` (duplicate-checked; the customer record follows; audited as `details.update`). The variant field is `features/sales/leads/components/VariantPicker`: a dropdown of the chosen model's variant codes (`/sales/variants?modelId=`) plus **Other (type it)**; models without codes get a text box. The lead stores the text (a code's description or typed).
 - **Convert to Lead** captures model, variant, colour, email, payment instrument → the Admin raises the **sales order** (PBO / CBO) → the Delivery Team allocates and tracks the car from booking → the Manager approves (draft or submitted) → hand-over ("Mark as delivered"); the lead moves to processing → completed.
 - **Open stock / Delivery Team** (`features/sales/stock`, `deliveries`). One group-wide login (`delivery@ittehad.com`, role at all three dealerships; seeded in `scripts/seed.ts`; the old per-brand delivery logins are deactivated in the dev DB). Orders are worked from booking (`LIVE_ORDER_STATES` = draft / submitted / approved in `services/orders.ts`; list filter `live=true`); scheduling a delivery still requires `approved`. `POST /sales/stock` takes an optional `orderId`: the car is linked to that order and created as `received` (`services/stock.ts`, form field `stock/WaitingOrderSelect.tsx`). The lead carries `vehicleStage` (`ORDER_VEHICLE_STAGE` in `repository.ts`), shown to the salesperson / AM in the lead's Sales order section.
+
+### Added 2026-10-01 … 10-12 (sales)
+- **Leads list default** (`listDefault` in `entities.ts`): hides lost and completed leads and leads whose order is
+  approved / delivered (they live under Sales orders). Filter "Approved & completed: Include them" (`everything=true`),
+  a status filter, or "Lost leads" bring them back.
+- **Lost leads**: a "Not interested" follow-up with "Mark this lead as Lost" (`markLost`); lost leads keep their details.
+- **Follow-up comments** (`lead_follow_up_comment`): managers / AM comment on a follow-up.
+- **Appointments** on a lead (`PUT /sales/leads/:id/appointment`): shown in the dashboards' **Today at a glance** panel, reminders.
+- **Conversion** (`ConvertLeadBody`): Individual / **Corporate** (company name, contact designation, optional purchase order),
+  **address required**, CNIC, and **Partial / Full payment** (one required; partial needs the **total amount of the car**
+  `vehiclePrice` and an amount below it; non-cash instruments need number + bank). The lead shows a Partial / Full badge.
+- **Returning customer** badge (previous delivered cars of the same customer / phone).
+- **Order payments** (`order_payment`: booking / partial / final) recorded by the Sales Admin; received / balance on the order.
+  **Delivery clearance**: the Delivery Team requests it, the Sales Admin approves (all paid) or rejects.
+- **Sales orders list**: status strip (`OrderStatusSummary`, `GET /sales/orders/summary`) with **Processing** (= draft /
+  submitted / approved, as the lead shows it); Processing badge. **Salespeople and CROs** see their own orders
+  (`sales.orders.view_own`, migration `20261009120000`).
+- **Search everywhere** (`searchOf` / `customerMatches` / `vehicleMatches` in `entities.ts`; `searchExtra(pattern, raw)`):
+  name, phone typed any way, CNIC, PBO / order number, chassis / engine on leads, orders, deliveries, stock, quotations, PPF.
+- **Exports** (`services/exports.ts`, `features/sales/exports`): Leads and Sales orders → CSV (Excel) / PDF for the period
+  on screen (orders: PBO, customer, phone, email, CNIC, car, variant, colour, payments with dates, received, balance);
+  Track record → CSV.
+- **Leave applications** (sick / emergency): every sales user applies; AM / Manager approve; Leave form PDF (English + Urdu), format editable.
+- **Standalone quotations / PPF vouchers** (no lead): Quotations → Create quotation.
+- **Quotation preview**: **Letterhead paper (print)** (no header / footer) or **Full page (WhatsApp / email)** with logos,
+  header, footer and the **stamp & signature**; **Send on WhatsApp** (phone: share sheet with the PDF; computer: downloads
+  the PDF and opens the customer's chat). Stamp & signature are uploaded under Document formats; until then built-in
+  images are used: `public/logo/hyundai-islamabad-stamp-signature.png`, `jetour-ittehad-stamp-signature.png`
+  (`DEFAULT_STAMP_SIGNATURE` in `documents/pdf.ts`).
+- **Jetour Ittehad** has its own quotation layout and the logo `public/logo/jetour-ittehad-logo.png` (dark copy of the
+  white "JETOUR — Ittehad —" logo) on quotations, PPF vouchers, delivery notes and the login page. The Ittehad logo
+  everywhere is `Ittehad-logo.png` (without "MOTORS"). PPF vouchers do not print the website line.
+- **Customers** tab for the AM and Manager (`master.customers.view`). **Hyundai Staria** switched off (`is_active = false`).
+- **"+ New Lead"** button on every salesperson's dashboard; mobile-friendly Action needed / Notifications dropdowns.
+- **User guide for staff**: `Sales-Portal-User-Guide.docx` (root) — every role's tasks with annotated screenshots.
+  Regenerate from the scripts in a session scratchpad (headless Chrome on the test copy + python-docx) if the UI changes a lot.
+
+### CRO portal and Meta lead ads (2026-10-10)
+- CRO: tabs **Social media leads** / **Salesperson leads** (read-only), **Transfer**; permissions `sales.leads.view_social`, `view_team`, `transfer`; `EntityConfig.viewWhen` may now be a list. `personalLeads()` (`sales/entities.ts`) keeps personal figures (dashboard, today, action needed) to own leads for people who see more.
+- Meta webhook `/api/integrations/meta/webhook` (`modules/integrations/meta.ts`, settings `META_*` in `.env`, steps in README "CRO portal and Meta lead ads"). New lead columns `campaign_name, city, meta_lead_id, meta_form_id, ad_name, meta_fields` (migration `20261010120000_meta_social_leads`: **run `npm run db:migrate`**, which also grants the new permissions to CRO roles). Not yet tried against real Meta; tests written (`test/meta.test.ts`) but not run.
+
+### Temperature and follow-up schedule (2026-10-13)
+- Hot / warm / cold with every follow-up, next follow-up day by the schedule 2 / 5 / ~11 days, reminders (notification job + Action needed `follow-up-due`), list columns and filters. Migration `20261013120000_follow_up_schedule` (also backfills open leads): **run `npm run db:migrate`**. Tests added (`test/followUpSchedule.test.ts`), not run. Details: README "Temperature and the follow-up schedule".
 
 ### Dashboards, reports, activity
 - **Notifications (live)** (`modules/core/notifications.ts`, `lib/realtime.ts`, `features/notifications/`): built in `http/apiRouter.ts` from each request's audit entries (`ctx.audit`), saved in the same transaction (`core.notification`, one row per recipient: active users with a role at the change's dealership, or a global role, except the actor), and pushed over Socket.IO (`notification:new` to room `user:<id>`) **after commit**. The socket authenticates with the access token (`handshake.auth.token`); the Vite dev proxy forwards `/socket.io` with `ws: true`. Titles: `describeChange()` (highest weight per request wins; same kind collapses). No customer data in titles/details. RLS: read own (+ ones you caused, for `RETURNING`), mark/delete own. Test: `test/notifications.test.ts` (real listening server + socket client). The top-bar clipboard is **Action needed**; the bell is **Notifications**.
@@ -221,12 +276,29 @@ After saving, the document opens in a **preview** → **Download PDF** / **Print
 - **Tests are not run unless the owner asks** (their instruction, 2026-09-28): still run typecheck + build, write/update tests, and offer to run them.
 - **db:migrate only grants NEW permission codes to existing roles.** When a role template gains an existing code (e.g. 2026-09-28: AM / Sales Manager got `sales.leads.create`, `update_own`, `convert_own`), grant it to existing roles with a one-off SQL insert into `core.role_permission` (done on the dev DB); a fresh DB gets it from the template.
 - **Stale seed data**: `db:seed` only adds missing rows; to add new reference data to the dev DB without re-adding deleted demo data, write a small targeted script.
+- **Append-only tables** (`audit.audit_log`, `core.workflow_transition`, `core.domain_event`, accounts journals,
+  `parts.inventory_transaction`) refuse DELETE via the `append_only` trigger. A deliberate clean-up must disable the
+  trigger inside the same transaction and re-enable it before commit (done once, see section 10).
+- **Hand-written SQL with `viewCondition` / `pipelineScope`**: use the generated table identifiers (`${lead}`,
+  `${salesOrder}`) without aliases; customer / vehicle / vehicle_model tables are in schema `core`.
+- **Shell edits**: `sed -i` on source files is missed by the dev-server watchers on this machine, and inline `node -e`
+  mangles quotes / backslashes — use the editor or a script file.
+- **Test copy ports**: 4001 / 5191 (or 4003 / 5192 used in recent sessions); stop only those ports afterwards.
 
-## 10. Status and open items (as of 2026-09-28)
+## 10. Status and open items (as of 2026-10-12)
 
-Done and verified: everything in section 7 (backend ~698 tests, frontend 34 tests, browser checks on the test copy).
+Done: everything in section 7. Last full test run (2026-10-08): backend 788/788, frontend 33/33. Changes since then
+were typechecked, built and checked in the browser on the test copy; the tests were updated but **not run** (owner runs
+tests only on request).
+
+**Live data was cleared on 2026-10-10** (owner's request): all test leads, orders, payments, deliveries, quotations,
+PPF vouchers, customers, cars, notifications and their history were deleted from Neon, and document numbers restarted.
+Users, roles, dealerships, models, variant codes and document formats were kept.
 
 Open / waiting on the owner:
+- **Rotate the Neon owner password** (it was shared in chat) and the seeded user passwords before real use.
+- **CORS** is hard-coded to the Railway frontend URL (section 4).
+- **Stamp & signature**: the built-in ones are cut from photos / a PDF and are a little soft; upload clear scans under Document formats.
 - **More Hyundai variant codes**: the owner will send the full list → AM / Manager paste them under Variant codes (or add them to `variantCatalog.ts` for new databases).
 - **Jetour / CSM**: same quotation layout with their logos; they have no variant codes and use the quotation number as Ref. If they get their own codes / Ref format or terms, add them via Variant codes / Document formats.
 - **Go-live**: replace the shared seeded passwords; review `DEV_AUTO_LOGIN` stays off.
@@ -241,3 +313,5 @@ Open / waiting on the owner:
 4. Customer documents: vehicle quotation → stored quotations + PPF, preview / download / print, edit history, track record, this-month dashboard panel.
 5. Hyundai quotation format (one page), editable Document formats, PPF voucher layout, variant codes with paste-from-Excel, Ref `HI/<code>/<date>`, both logos in the header, PPF data from the order.
 6. **Drizzle → Prisma** (2026-09-29): Prisma ORM 7 + Prisma Migrate replace Drizzle completely (baseline `0_init` = the previous schema incl. RLS/triggers/grants; raw SQL via `$queryRaw`; API values unchanged). Existing databases: `npx prisma migrate resolve --applied 0_init` once.
+7. **Neon + Railway** (2026-10-01 … 10-08): database moved to Neon, app deployed on Railway; delivery pipeline, report and note; Jetour quotation; CNIC at conversion; PBO number; letterhead printing.
+8. **Sales workflow round** (2026-10-06 … 10-12): lost leads, corporate customers, payments and delivery clearance, leave applications, follow-up comments, standalone documents, partial / full payment with car total, exports, quotation versions + WhatsApp + stamp & signature, Jetour logo, search across lists, salespeople's own orders with Processing, live data cleared, staff user guide.

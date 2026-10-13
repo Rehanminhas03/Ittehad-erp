@@ -9,6 +9,8 @@ import {
   AdvanceVehicleStatusBody,
   AllocatableVehicleSchema,
   AllocationBody,
+  BulkReassignBody,
+  BulkReassignResultSchema,
   CompleteDeliveryBody,
   ConvertLeadBody,
   DashboardQuery,
@@ -79,6 +81,9 @@ import {
 } from './schemas';
 import * as svc from './services';
 
+/** Everyone who may open some leads (the CRO also sees social media and the salespeople's leads, read-only). */
+const LEAD_VIEWERS = [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted, P.leadsViewSocial, P.leadsViewTeam];
+
 // Read schemas as returned by the generic routers (with workflow actions).
 const OrderRead = SalesOrderSchema.extend({ availableActions: z.array(z.string()) });
 const DeliveryRead = DeliverySchema.extend({ availableActions: z.array(z.string()) });
@@ -92,7 +97,7 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     path: '/export',
     operationId: 'exportLeads',
     summary: 'Every detail of the leads logged in a period (for CSV / Excel and PDF)',
-    permission: [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted],
+    permission: LEAD_VIEWERS,
     query: ExportQuery,
     response: ExportRowsSchema,
     handler: (ctx) => svc.exportLeads(ctx, ctx.query),
@@ -102,7 +107,7 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     path: '/summary',
     operationId: 'getLeadSummary',
     summary: 'Total leads and the split by status, with the same filters as the leads list',
-    permission: [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted],
+    permission: LEAD_VIEWERS,
     query: LeadSummaryQuery,
     response: LeadSummarySchema,
     handler: (ctx) => svc.leadSummary(ctx, ctx.query),
@@ -122,7 +127,7 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     path: '/:id/follow-ups',
     operationId: 'listLeadFollowUps',
     summary: "A lead's follow-ups, latest first (bounded)",
-    permission: [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted],
+    permission: LEAD_VIEWERS,
     params: IdParam,
     response: z.array(LeadFollowUpSchema),
     handler: (ctx) => svc.listFollowUps(ctx, ctx.params.id),
@@ -144,7 +149,7 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     path: '/:id/follow-ups/:followUpId/comments',
     operationId: 'commentOnFollowUp',
     summary: 'Comment on a follow-up (e.g. the Manager asks to clarify; the salesperson answers); everyone following the lead sees it',
-    permission: [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted],
+    permission: LEAD_VIEWERS,
     params: IdParam.extend({ followUpId: z.coerce.number().int().positive() }),
     body: FollowUpCommentBody,
     response: z.array(LeadFollowUpSchema),
@@ -209,10 +214,20 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
   })
   .route({
     method: 'post',
+    path: '/bulk-reassign',
+    operationId: 'bulkReassignLeads',
+    summary: 'Give several selected leads to one salesperson / CRO (same rules as a single transfer; the others are skipped and listed)',
+    permission: [P.leadsReassign, P.leadsTransfer],
+    body: BulkReassignBody,
+    response: BulkReassignResultSchema,
+    handler: (ctx) => svc.bulkReassignLeads(ctx, ctx.body),
+  })
+  .route({
+    method: 'post',
     path: '/:id/reassign',
     operationId: 'reassignLead',
     summary: 'Give the lead (with its quotations and PPF vouchers) to another salesperson',
-    permission: P.leadsReassign,
+    permission: [P.leadsReassign, P.leadsTransfer],
     params: IdParam,
     body: ReassignLeadBody,
     response: LeadRead,
@@ -326,7 +341,7 @@ const variantActions = new ApiRouter('/sales/variants', 'Variant code').route({
 });
 
 // ---- Personal dashboard (every sales role; computed within the caller's own scope) ----
-const SALES_VIEWERS = [P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted, P.ordersViewAll, P.ordersViewOwn, P.stockView, P.deliveriesViewAll, P.deliveriesViewOwn];
+const SALES_VIEWERS = [...LEAD_VIEWERS, P.ordersViewAll, P.ordersViewOwn, P.stockView, P.deliveriesViewAll, P.deliveriesViewOwn];
 const dashboardActions = new ApiRouter('/sales/dashboard', 'SalesDashboard')
   .route({
     method: 'get',
@@ -365,7 +380,7 @@ const teamActions = new ApiRouter('/sales/team', 'SalesTeam')
     path: '/members',
     operationId: 'listSalesTeamMembers',
     summary: "The dealership's sales staff (for filters)",
-    permission: [P.leadsViewAll, P.reportsView, P.quotationsViewAll, P.ppfViewAll],
+    permission: [P.leadsViewAll, P.reportsView, P.quotationsViewAll, P.ppfViewAll, P.leadsTransfer],
     query: DealershipQuery,
     response: z.array(TeamMemberSchema),
     handler: (ctx) => svc.teamMembers(ctx, ctx.query.dealershipId),

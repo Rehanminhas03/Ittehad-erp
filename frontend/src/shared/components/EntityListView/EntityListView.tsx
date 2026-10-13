@@ -99,6 +99,14 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
   const canCreate = !!config.permissions.create && (!!config.api.create || !!list.createPath) && perm.can(config.permissions.create);
 
   const columns = list.columns.filter((c) => !c.visible || c.visible(perm));
+  // Row selection (bulk actions): only rows the user may act on; cleared when the list changes.
+  const bulk = list.bulk;
+  const [selected, setSelected] = useState<number[]>([]);
+  const queryKey = JSON.stringify(queryArg);
+  useEffect(() => setSelected([]), [queryKey]);
+  const selectable = bulk ? (data?.items ?? []).filter((r) => bulk.canSelect(r, perm)).map((r) => r.id) : [];
+  const allSelected = selectable.length > 0 && selectable.every((id) => selected.includes(id));
+  const toggle = (id: number) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   // A dealership filter is pointless for someone who works at only one dealership.
   const visibleFilters = (list.filters ?? []).filter(
     (f) => f.type !== 'hidden' && (f.type !== 'dealership' || viewDealershipsCount(config, perm) > 1) && (!f.visible || f.visible(perm)),
@@ -227,6 +235,8 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
         )}
       </div>
 
+      {bulk && selected.length > 0 && <div className="surface relative z-10 mb-4 p-3 sm:p-4">{bulk.bar({ ids: selected, clear: () => setSelected([]) })}</div>}
+
       <div className="surface overflow-hidden">
         {isError ? (
           <ErrorState message={apiErrorMessage(error)} onRetry={refetch} />
@@ -260,6 +270,17 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-left text-xs font-medium tracking-wide text-slate-500">
+                    {bulk && selectable.length > 0 && (
+                      <th className="w-px px-4 py-2.5" scope="col">
+                        <input
+                          type="checkbox"
+                          className="size-4 rounded border-slate-300 text-brand-600"
+                          aria-label="Select all on this page"
+                          checked={allSelected}
+                          onChange={() => setSelected(allSelected ? [] : selectable)}
+                        />
+                      </th>
+                    )}
                     {columns.map((c) => (
                       <th key={c.key} className={cn('px-4 py-2.5 font-medium whitespace-nowrap', c.className)} scope="col">
                         {c.sortKey ? (
@@ -283,6 +304,19 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                       className="cursor-pointer transition-colors hover:bg-brand-50/40"
                       onClick={() => navigate(`${config.basePath}/${row.id}`)}
                     >
+                      {bulk && selectable.length > 0 && (
+                        <td className="w-px px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          {bulk.canSelect(row, perm) && (
+                            <input
+                              type="checkbox"
+                              className="size-4 rounded border-slate-300 text-brand-600"
+                              aria-label="Select this row"
+                              checked={selected.includes(row.id)}
+                              onChange={() => toggle(row.id)}
+                            />
+                          )}
+                        </td>
+                      )}
                       {columns.map((c) => (
                         <td key={c.key} className={cn('px-4 py-3 whitespace-nowrap text-slate-700', c.className)}>
                           {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '—')}

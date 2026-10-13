@@ -24,6 +24,9 @@ export const P = {
   leadsConvertOwn: 'sales.leads.convert_own',
   leadsConvertEscalated: 'sales.leads.convert_escalated',
   leadsReassign: 'sales.leads.reassign',
+  leadsViewSocial: 'sales.leads.view_social',
+  leadsViewTeam: 'sales.leads.view_team',
+  leadsTransfer: 'sales.leads.transfer',
   leadsAppointment: 'sales.leads.appointment',
   reportsView: 'sales.reports.view',
   teamManage: 'sales.team.manage',
@@ -66,6 +69,19 @@ export const ORDER_STATES = ['draft', 'submitted', 'approved', 'delivered', 'can
 export const DELIVERY_STATES = ['scheduled', 'delivered', 'cancelled'] as const;
 /** Follow-ups needed before a lead may be marked exhausted (enforced by the server). */
 export const MIN_FOLLOW_UPS_TO_EXHAUST = 3;
+
+/** How interested the customer is, chosen with each follow-up. */
+export const LEAD_TEMPERATURES = [
+  { value: 'hot', label: 'Hot', tone: 'red' },
+  { value: 'warm', label: 'Warm', tone: 'amber' },
+  { value: 'cold', label: 'Cold', tone: 'blue' },
+] as const;
+
+/**
+ * The follow-up schedule: the first follow-up 2 days after the lead is logged, the second 3 days after
+ * the first (day 5), the third 6 days after the second (about day 11). Mirrors the server's FOLLOW_UP_GAP_DAYS.
+ */
+export const FOLLOW_UP_GAP_DAYS = [2, 3, 6] as const;
 
 export const FOLLOW_UP_OUTCOMES = [
   { value: 'interested', label: 'Interested' },

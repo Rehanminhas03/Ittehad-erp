@@ -13,6 +13,7 @@ import {
   strong,
 } from '@/shared/entity';
 import { formatDate, formatDateTime, formatMoney, humanize } from '@/shared/lib';
+import { BulkTransfer } from './components/BulkTransfer';
 import { DuplicateLeadNotice } from './components/DuplicateLeadNotice';
 import { formatAppointment, LeadAppointment } from './components/LeadAppointment';
 import { LeadConversion } from './components/LeadConversion';
@@ -23,13 +24,14 @@ import { LeadOrder } from './components/LeadOrder';
 import { LeadReassign } from './components/LeadReassign';
 import { ExportButtons } from '../exports/ExportButtons';
 import { PaymentTypeBadge } from './components/PaymentTypeBadge';
+import { TemperatureBadge } from './components/TemperatureBadge';
 import { LeadStatusSummary } from './components/LeadStatusSummary';
 import { VariantPicker } from './components/VariantPicker';
 import { LeadDocuments, LeadDocumentsButton } from '../documents';
 import { formatExpectedDelivery } from '../orders/components/ExpectedDelivery';
 import { useLeadOwnerOptions } from '../team/useLeadOwnerOptions';
 import { useSalespersonOptions } from '../team/useSalespersonOptions';
-import { LAST_ACTIVITY, labelOf, LEAD_SOURCES, LEAD_STATES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS, showsVisited } from '../permissions';
+import { LAST_ACTIVITY, labelOf, LEAD_SOURCES, LEAD_STATES, LEAD_TEMPERATURES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS, showsVisited } from '../permissions';
 import {
   type Lead,
   useCreateLeadMutation,
@@ -72,6 +74,14 @@ function useLeadStatusOptions() {
   }));
 }
 const day = (v: string) => formatDate(v);
+
+/** The day the next follow-up is due: red once due, "Today" on the day. Only for open leads. */
+function nextFollowUp(l: Lead) {
+  if (!l.nextFollowUpOn || !(OPEN_LEAD_STATES as readonly string[]).includes(l.status)) return muted(null);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+  const text = l.nextFollowUpOn === today ? 'Today' : formatDate(l.nextFollowUpOn);
+  return l.nextFollowUpOn <= today ? <span className="font-semibold text-red-700">{text}{l.nextFollowUpOn < today ? ' (overdue)' : ''}</span> : <span className="text-slate-600">{text}</span>;
+}
 
 /** "Converted · Today 3:40 PM", "Logged · 20 Sep": what happened last, and when. */
 function lastActivity(l: Lead) {
@@ -127,6 +137,15 @@ export const leadView: EntityViewConfig<Lead> = {
     defaultSort: '-updatedAt',
     dateRange: { label: 'Activity', fromParam: 'activityFrom', toParam: 'activityTo', defaultPreset: '30d' },
     searchPlaceholder: 'Search customer name, phone (e.g. 03001234567), PBO, CNIC or chassis',
+    // Select several leads and give them to one salesperson / CRO. The Assistant Manager / Manager: any lead;
+    // the CRO: own leads and social media ones.
+    bulk: {
+      canSelect: (l, perm) =>
+        l.status !== 'completed' &&
+        (perm.canIn(P.leadsReassign, l.dealershipId, l.branchId) ||
+          (perm.canIn(P.leadsTransfer, l.dealershipId, l.branchId) && (l.ownerId === perm.userId || l.source === 'social'))),
+      bar: ({ ids, clear }) => <BulkTransfer ids={ids} clear={clear} />,
+    },
     // Total leads and the split by status for the chosen period and filters, above the search.
     header: ({ query, periodLabel }) => (
       <>
@@ -139,8 +158,12 @@ export const leadView: EntityViewConfig<Lead> = {
       // Approved and completed leads live under Sales orders; this brings them back into the list.
       { param: 'everything', label: 'Approved & completed', type: 'select', options: [{ value: 'true', label: 'Include them' }] },
       { param: 'status', label: 'Status', type: 'select', useOptions: useLeadStatusOptions },
+      { param: 'temperature', label: 'Interest', type: 'select', options: LEAD_TEMPERATURES.map((t) => ({ value: t.value, label: t.label })), visible: (perm) => perm.can(WORKS_LEADS) },
+      { param: 'followUpDue', label: 'Follow-up due', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       { param: 'source', label: 'Source', type: 'select', options: LEAD_SOURCES },
-      { param: 'ownerId', label: 'Salesperson', type: 'select', useOptions: useSalespersonOptions, visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted]) },
+      // The CRO's tabs: social media (Meta ad) leads, or the salespeople's leads.
+      { param: 'group', label: 'Leads from', type: 'select', options: [{ value: 'social', label: 'Social media (Meta ads)' }, { value: 'salespeople', label: 'Salespeople (walk-in, calls…)' }], visible: (perm) => perm.can([P.leadsViewSocial, P.leadsViewTeam]) },
+      { param: 'ownerId', label: 'Salesperson', type: 'select', useOptions: useSalespersonOptions, visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted, P.leadsViewTeam]) },
       { param: 'escalated', label: 'Sent to AM', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       { param: 'upcomingAppointment', label: 'Appointment (today on)', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       dealershipFilter,
@@ -171,10 +194,15 @@ export const leadView: EntityViewConfig<Lead> = {
       { key: 'prospectMobile', header: 'Phone', render: (l) => l.prospectMobile },
       { key: 'modelName', header: 'Interested in', render: (l) => muted([l.modelName, l.preferredColor].filter(Boolean).join(' · ') || null) },
       { key: 'source', header: 'Source', render: (l) => labelOf(LEAD_SOURCES, l.source) },
+      // Social media (Meta ad) leads: the campaign and the customer's city.
+      { key: 'campaignName', header: 'Campaign', render: (l) => <span className="inline-block max-w-56 truncate align-bottom text-slate-600" title={l.campaignName ?? undefined}>{l.campaignName ?? '—'}</span>, visible: (perm) => perm.can([P.leadsViewSocial]) },
+      { key: 'city', header: 'City', render: (l) => muted(l.city), visible: (perm) => perm.can([P.leadsViewSocial]) },
       // Only for team views: someone who sees only their own leads is always the salesperson.
-      { key: 'ownerName', header: 'Salesperson', render: (l) => muted(l.ownerName), visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted]) },
+      { key: 'ownerName', header: 'Salesperson', render: (l) => muted(l.ownerName), visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted, P.leadsViewTeam]) },
       { key: 'followUpCount', header: 'Follow-ups', sortKey: 'followUpCount', className: 'text-right tabular-nums', render: (l) => l.followUpCount },
       { key: 'status', header: 'Status', sortKey: 'status', render: (l) => <StatusBadge status={l.status} /> },
+      { key: 'temperature', header: 'Interest', render: (l) => <TemperatureBadge value={l.temperature} /> },
+      { key: 'nextFollowUpOn', header: 'Next follow-up', sortKey: 'nextFollowUpOn', render: (l) => nextFollowUp(l) },
       // Partial / full payment, once converted.
       { key: 'paymentType', header: 'Payment', render: (l) => <PaymentTypeBadge type={l.paymentType} /> },
       { key: 'updatedAt', header: 'Last activity', sortKey: 'updatedAt', render: lastActivity },
@@ -213,9 +241,14 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Purchase order', value: (l) => (l.customerType === 'corporate' ? l.purchaseOrderNo || 'Without a purchase order' : null) },
       { label: 'Lost', value: (l) => (l.lostAt ? `${formatDateTime(l.lostAt)} by ${l.lostByName ?? '—'}${l.lostReason ? ` — ${l.lostReason}` : ''}` : null) },
       { label: 'Salesperson', value: (l) => l.ownerName },
+      { label: 'Campaign (Meta ad)', value: (l) => l.campaignName },
+      { label: 'Ad', value: (l) => l.adName },
+      { label: 'City', value: (l) => l.city },
       { label: 'Interested in', value: (l) => [l.modelName, l.variant, l.preferredColor].filter(Boolean).join(' · ') || null },
       { label: 'Expected close', value: (l) => formatDate(l.expectedCloseDate) },
+      { label: 'Interest', value: (l) => <TemperatureBadge value={l.temperature} /> },
       { label: 'Last follow-up', value: (l) => formatDateTime(l.lastFollowUpAt) },
+      { label: 'Next follow-up', value: (l) => (l.nextFollowUpOn && (OPEN_LEAD_STATES as readonly string[]).includes(l.status) ? nextFollowUp(l) : null) },
       { label: 'Appointment', value: (l) => (l.appointmentAt ? `${formatAppointment(l.appointmentAt)}${l.appointmentNote ? ` — ${l.appointmentNote}` : ''}` : null) },
       {
         label: 'Sent to AM',

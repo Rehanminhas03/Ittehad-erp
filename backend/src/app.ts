@@ -8,6 +8,7 @@ import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './http/errorHandler';
 import { buildOpenApiDocument } from './http/openapi';
 import { logger } from './lib/logger';
+import { metaRouter } from './modules/integrations/meta';
 import { servedRouters } from './modules';
 
 export function createApp() {
@@ -17,7 +18,15 @@ export function createApp() {
 
   app.use(helmet());
   app.use(cors({ origin: 'https://ittehad-crm-production.up.railway.app', credentials: true }));
-  app.use(express.json({ limit: '1mb' }));
+  // The raw body is kept for the signature of the Meta webhook calls.
+  app.use(
+    express.json({
+      limit: '1mb',
+      verify: (req, _res, buf) => {
+        (req as express.Request).rawBody = buf;
+      },
+    }),
+  );
   app.use(cookieParser());
   app.use((req, res, next) => {
     req.requestId = req.get('x-request-id') ?? randomUUID();
@@ -28,6 +37,9 @@ export function createApp() {
     app.use(pinoHttp({ logger, genReqId: (req) => (req as express.Request).requestId ?? randomUUID(), autoLogging: { ignore: (req) => req.url === '/api/health' } }));
   }
 
+  // Meta webhook (public, HTTPS on Railway): /api/meta/webhook, also served at /api/integrations/meta/webhook.
+  app.use('/api/meta', metaRouter);
+  app.use('/api/integrations/meta', metaRouter);
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
   });

@@ -28,6 +28,7 @@ const injectedRtkApi = api
             from: queryArg["from"],
             to: queryArg.to,
             status: queryArg.status,
+            group: queryArg.group,
           },
         }),
         providesTags: ["Lead"],
@@ -140,6 +141,17 @@ const injectedRtkApi = api
           url: `/api/sales/leads/${queryArg.id}/appointment`,
           method: "PUT",
           body: queryArg.leadAppointmentRequest,
+        }),
+        invalidatesTags: ["Lead"],
+      }),
+      bulkReassignLeads: build.mutation<
+        BulkReassignLeadsApiResponse,
+        BulkReassignLeadsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/bulk-reassign`,
+          method: "POST",
+          body: queryArg.bulkReassignRequest,
         }),
         invalidatesTags: ["Lead"],
       }),
@@ -373,6 +385,7 @@ const injectedRtkApi = api
             from: queryArg["from"],
             to: queryArg.to,
             status: queryArg.status,
+            group: queryArg.group,
           },
         }),
         providesTags: ["SalesOrder"],
@@ -659,12 +672,15 @@ const injectedRtkApi = api
             status: queryArg.status,
             ownerId: queryArg.ownerId,
             source: queryArg.source,
+            group: queryArg.group,
             escalated: queryArg.escalated,
             open: queryArg.open,
             convertedFrom: queryArg.convertedFrom,
             convertedTo: queryArg.convertedTo,
             createdBefore: queryArg.createdBefore,
             vehicleStage: queryArg.vehicleStage,
+            temperature: queryArg.temperature,
+            followUpDue: queryArg.followUpDue,
             createdOn: queryArg.createdOn,
             activityFrom: queryArg.activityFrom,
             activityTo: queryArg.activityTo,
@@ -1038,6 +1054,7 @@ export type ExportLeadsApiArg = {
   from?: string;
   to?: string;
   status?: string;
+  group?: "social" | "salespeople";
 };
 export type GetLeadSummaryApiResponse = /** status 200 Success */ LeadSummary;
 export type GetLeadSummaryApiArg = {
@@ -1095,6 +1112,8 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1107,6 +1126,9 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1182,6 +1204,8 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1194,6 +1218,9 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1353,6 +1380,8 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1365,6 +1394,9 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1395,6 +1427,11 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
 export type SetLeadAppointmentApiArg = {
   id: number;
   leadAppointmentRequest: LeadAppointmentRequest;
+};
+export type BulkReassignLeadsApiResponse =
+  /** status 200 Success */ BulkReassignResult;
+export type BulkReassignLeadsApiArg = {
+  bulkReassignRequest: BulkReassignRequest;
 };
 export type ReassignLeadApiResponse = /** status 200 Success */ {
   id: number;
@@ -1433,6 +1470,8 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1445,6 +1484,9 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1513,6 +1555,8 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1525,6 +1569,9 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1795,6 +1842,7 @@ export type ExportSalesOrdersApiArg = {
   from?: string;
   to?: string;
   status?: string;
+  group?: "social" | "salespeople";
 };
 export type ListOrderPaymentsApiResponse =
   /** status 200 Success */ OrderPayments;
@@ -2472,6 +2520,7 @@ export type ListLeadsApiArg = {
     | "lost";
   ownerId?: number;
   source?: string;
+  group?: "social" | "salespeople";
   escalated?: "true" | "false";
   open?: "true" | "false";
   convertedFrom?: string;
@@ -2487,6 +2536,8 @@ export type ListLeadsApiArg = {
     | "delivered"
     | "transferred"
     | "hold";
+  temperature?: "hot" | "warm" | "cold";
+  followUpDue?: "true" | "false";
   createdOn?: string;
   activityFrom?: string;
   activityTo?: string;
@@ -2746,6 +2797,8 @@ export type LeadFollowUp = {
   leadId: number;
   outcome: "interested" | "not_interested" | "visited";
   remarks: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   createdById: number;
   createdByName: string | null;
   createdAt: string;
@@ -2760,6 +2813,8 @@ export type LeadFollowUp = {
 export type LeadFollowUpCreate = {
   outcome: "interested" | "not_interested" | "visited";
   remarks?: string | null;
+  temperature?: "hot" | "warm" | "cold";
+  nextFollowUpOn?: string | null;
   markLost?: boolean;
 };
 export type FollowUpCommentRequest = {
@@ -2822,6 +2877,19 @@ export type PpfFormCreate = {
 };
 export type LeadAppointmentRequest = {
   appointmentAt: string | null;
+  note?: string | null;
+};
+export type BulkReassignResult = {
+  moved: number;
+  toName: string;
+  skipped: {
+    leadId: number;
+    reason: string;
+  }[];
+};
+export type BulkReassignRequest = {
+  leadIds: number[];
+  ownerId: number;
   note?: string | null;
 };
 export type ReassignLeadRequest = {
@@ -3087,6 +3155,20 @@ export type SalesDashboard = {
     loggedToday: number;
     escalatedOpen: number;
     myFollowUpsToday: number;
+    daily: {
+      date: string;
+      logged: number;
+      converted: number;
+    }[];
+  };
+  social?: {
+    byStatus: {
+      [key: string]: number;
+    };
+    total: number;
+    loggedInPeriod: number;
+    open: number;
+    loggedToday: number;
     daily: {
       date: string;
       logged: number;
@@ -3622,6 +3704,8 @@ export type Lead = {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -3634,6 +3718,9 @@ export type Lead = {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -4071,6 +4158,7 @@ export const {
   useLazyGetLeadOrderVehicleQuery,
   useCreateLeadPpfFormMutation,
   useSetLeadAppointmentMutation,
+  useBulkReassignLeadsMutation,
   useReassignLeadMutation,
   useConvertLeadMutation,
   useRaiseSalesOrderMutation,

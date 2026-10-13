@@ -7,7 +7,7 @@ import { query } from '../../../db/client';
 import { and, sql } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { addDays, pakistanToday } from '../../../lib/dates';
-import { leads } from '../entities';
+import { personalLeads } from '../entities';
 import { lead, salesOrder } from '../models';
 import { SalesPerm as P } from '../permissions';
 import { pipelineScope } from './deliveryPipeline';
@@ -29,7 +29,7 @@ export async function todayAtAGlance(ctx: EntityCtx, dealershipId?: number) {
                    ((${lead.appointmentAt} at time zone 'Asia/Karachi')::date)::text as "day"
               from ${lead}
               left join core."user" u on u.id = ${lead.ownerId}
-             where ${and(leads.viewCondition(ctx.access), dealershipId ? sql`${lead.dealershipId} = ${dealershipId}` : undefined)}
+             where ${and(personalLeads(ctx.access), dealershipId ? sql`${lead.dealershipId} = ${dealershipId}` : undefined)}
                and (${lead.appointmentAt} at time zone 'Asia/Karachi')::date between ${today}::date and ${tomorrow}::date
                and ${lead.status} not in ('completed', 'exhausted', 'lost')
              order by ${lead.appointmentAt}

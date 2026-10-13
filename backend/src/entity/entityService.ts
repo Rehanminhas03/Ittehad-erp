@@ -69,7 +69,8 @@ export class EntityService {
     const cols = { dealership: this.col(tenant.dealershipKey), branch: tenant.branchKey ? this.col(tenant.branchKey) : undefined };
     const base = viewWhere(access, cols, permissions, ownerKey ? this.col(ownerKey) : undefined);
     if (!permissions.viewWhen) return base;
-    return or(base, and(scopeWhere(access.scope(permissions.viewWhen.code), cols), permissions.viewWhen.condition))!;
+    const extra = [permissions.viewWhen].flat().map((w) => and(scopeWhere(access.scope(w.code), cols), w.condition));
+    return or(base, ...extra)!;
   }
 
   targetOf(row: Record<string, unknown>): ScopeTarget {

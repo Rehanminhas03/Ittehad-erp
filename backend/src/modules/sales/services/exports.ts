@@ -75,6 +75,7 @@ export async function exportLeads(ctx: EntityCtx, q: z.output<typeof ExportQuery
   if (q.from) conds.push(sql`${day(lead.updatedAt)} >= ${q.from}::date`);
   if (q.to) conds.push(sql`${day(lead.updatedAt)} <= ${q.to}::date`);
   if (q.status) conds.push(sql`${lead.status} = ${q.status}`);
+  if (q.group) conds.push(q.group === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`);
   return query<Record<string, unknown>>(
     ctx.tx,
     sql`select ${lead.id}::int as "leadId", d.name as "dealership", (${lead.createdAt} at time zone 'Asia/Karachi')::date::text as "loggedOn",
@@ -83,6 +84,7 @@ export async function exportLeads(ctx: EntityCtx, q: z.output<typeof ExportQuery
                ${lead.customerType} as "customerType", ${lead.companyName} as "companyName", ${lead.contactDesignation} as "contactDesignation",
                m.brand || ' ' || m.name as "model", ${lead.variant} as "variant", ${lead.preferredColor} as "color",
                u.full_name as "salesperson", cb.full_name as "loggedBy",
+               ${lead.campaignName} as "campaign", ${lead.adName} as "ad", ${lead.city} as "city",
                ${lead.followUpCount}::int as "followUps", (${lead.lastFollowUpAt} at time zone 'Asia/Karachi')::date::text as "lastFollowUp",
                (${lead.appointmentAt} at time zone 'Asia/Karachi')::text as "appointment",
                (${lead.convertedAt} at time zone 'Asia/Karachi')::date::text as "convertedOn",

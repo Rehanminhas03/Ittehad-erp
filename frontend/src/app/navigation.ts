@@ -34,6 +34,11 @@ const ALL_SECTIONS: NavSection[] = [
     module: 'sales',
     items: [
       { label: 'Leads', to: '/sales/leads', any: ['sales.leads.view_all', 'sales.leads.view_own', 'sales.leads.view_converted'] },
+      // The CRO: every social media (Meta ad) lead of the dealership to call, and the salespeople's leads (read-only).
+      { label: 'Social media leads', to: '/sales/leads?group=social&range=all', any: ['sales.leads.view_social'] },
+      { label: 'Salesperson leads', to: '/sales/leads?group=salespeople&range=all', any: ['sales.leads.view_team'] },
+      // Leads the customer is not interested in (each person sees their own; managers the team's).
+      { label: 'Lost leads', to: '/sales/leads?lost=true&range=all', any: ['sales.leads.view_all', 'sales.leads.view_own'] },
       { label: 'Duplicate customers', to: '/sales/leads?escalated=true&range=all', any: ['sales.leads.convert_escalated'] },
       { label: 'Sales orders', to: '/sales/orders', any: ['sales.orders.view_all', 'sales.orders.view_own'] },
       { label: 'Open stock', to: '/sales/stock', any: ['sales.stock.view'] },

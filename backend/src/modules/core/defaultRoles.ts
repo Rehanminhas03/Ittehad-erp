@@ -59,6 +59,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'sales.leave.apply',
       'core.dealerships.view', 'core.branches.view', 'master.models.view',
       'sales.leads.view_own', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.record_visit', 'sales.orders.view_own',
+      'sales.leads.view_social', 'sales.leads.view_team', 'sales.leads.transfer',
       'sales.quotations.view_own', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_own', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.variants.view',
     ],

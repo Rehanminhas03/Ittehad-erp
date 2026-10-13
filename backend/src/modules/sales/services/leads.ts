@@ -5,7 +5,7 @@
  * Assistant Manager may convert it on the owner's behalf.
  */
 import { execute, query } from '../../../db/client';
-import { expectedDelivery } from '../../../lib/dates';
+import { expectedDelivery, pakistanToday } from '../../../lib/dates';
 import { ensureCustomerCnic } from './orders';
 import { pickColumns } from '../../../db/delegate';
 import { and, eq, inArray, sql } from '../../../db/sql';
@@ -20,7 +20,7 @@ import { USER_NAME } from '../../master/nameSources';
 import { normalizeMobile } from '../../master/normalize';
 import { findDuplicateCustomer } from '../../master/repository';
 import { assertNoActiveLead, leads } from '../entities';
-import { ACTIVE_LEAD_STATES, lead } from '../models';
+import { ACTIVE_LEAD_STATES, lead, nextFollowUpAfter } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { ConvertLeadBody, EscalateDuplicateBody, LeadDetailsBody, LeadFollowUpCreate } from '../schemas';
 
@@ -46,28 +46,47 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
     if (!ctx.access.canIn(P.leadsRecordVisit, targetOf(l))) throw forbidden('Only the CRO records in-person visits');
   }
 
+  // The schedule: the next follow-up 3 days after the first, 6 after the second, none after the third
+  // (or the day chosen). A lost lead has none, and is cold.
+  const today = pakistanToday();
+  if (input.nextFollowUpOn && input.nextFollowUpOn < today) {
+    throw validationError([{ in: 'body', path: 'nextFollowUpOn', message: 'Choose today or a later day' }]);
+  }
+  // Not interested always means lost: no more follow-ups, and the lead moves to Lost leads.
+  const lost = input.markLost || input.outcome === 'not_interested';
+  const next = lost ? null : (input.nextFollowUpOn ?? nextFollowUpAfter((l.followUpCount as number) + 1, today));
+  const temperature = lost ? 'cold' : input.temperature;
   await ctx.tx.leadFollowUp.create({
     data: {
       dealershipId: l.dealershipId as number,
       leadId,
       outcome: input.outcome,
       remarks: input.remarks ?? null,
+      temperature: temperature ?? null,
+      nextFollowUpOn: next,
       createdById: ctx.access.userId,
     },
   });
   await ctx.tx.lead.update({
     where: { id: leadId },
-    data: { followUpCount: { increment: 1 }, lastFollowUpAt: new Date(), updatedById: ctx.access.userId },
+    data: {
+      followUpCount: { increment: 1 },
+      lastFollowUpAt: new Date(),
+      ...(temperature ? { temperature } : {}),
+      nextFollowUpOn: next,
+      followUpRemindedOn: null,
+      updatedById: ctx.access.userId,
+    },
   });
   await ctx.audit({
     entityType: 'sales.lead',
     entityId: leadId,
     action: 'follow_up',
     ...targetOf(l),
-    changes: { outcome: input.outcome, remarks: input.remarks ?? null },
+    changes: { outcome: input.outcome, remarks: input.remarks ?? null, temperature: temperature ?? null, nextFollowUpOn: next },
   });
 
-  if (input.markLost) {
+  if (lost) {
     // Not interested: the lead is lost (hidden from the leads list; the same phone can come back as a new lead).
     await ctx.tx.lead.update({
       where: { id: leadId },

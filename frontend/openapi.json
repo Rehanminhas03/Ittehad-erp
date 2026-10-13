@@ -4053,6 +4053,20 @@
             "type": "string",
             "nullable": true
           },
+          "temperature": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "hot",
+              "warm",
+              "cold",
+              null
+            ]
+          },
+          "nextFollowUpOn": {
+            "type": "string",
+            "nullable": true
+          },
           "createdById": {
             "type": "integer",
             "minimum": 0,
@@ -4128,6 +4142,19 @@
             "type": "string",
             "nullable": true,
             "maxLength": 2000
+          },
+          "temperature": {
+            "type": "string",
+            "enum": [
+              "hot",
+              "warm",
+              "cold"
+            ]
+          },
+          "nextFollowUpOn": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
           },
           "markLost": {
             "type": "boolean"
@@ -4440,6 +4467,71 @@
         },
         "required": [
           "appointmentAt"
+        ]
+      },
+      "BulkReassignResult": {
+        "type": "object",
+        "properties": {
+          "moved": {
+            "type": "integer"
+          },
+          "toName": {
+            "type": "string"
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "leadId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "leadId",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "moved",
+          "toName",
+          "skipped"
+        ]
+      },
+      "BulkReassignRequest": {
+        "type": "object",
+        "properties": {
+          "leadIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "ownerId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "leadIds",
+          "ownerId"
         ]
       },
       "ReassignLeadRequest": {
@@ -5704,6 +5796,59 @@
               "loggedToday",
               "escalatedOpen",
               "myFollowUpsToday",
+              "daily"
+            ]
+          },
+          "social": {
+            "type": "object",
+            "properties": {
+              "byStatus": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "loggedInPeriod": {
+                "type": "integer"
+              },
+              "open": {
+                "type": "integer"
+              },
+              "loggedToday": {
+                "type": "integer"
+              },
+              "daily": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string"
+                    },
+                    "logged": {
+                      "type": "integer"
+                    },
+                    "converted": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "logged",
+                    "converted"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "byStatus",
+              "total",
+              "loggedInPeriod",
+              "open",
+              "loggedToday",
               "daily"
             ]
           },
@@ -8084,6 +8229,20 @@
             "nullable": true,
             "format": "date-time"
           },
+          "temperature": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "hot",
+              "warm",
+              "cold",
+              null
+            ]
+          },
+          "nextFollowUpOn": {
+            "type": "string",
+            "nullable": true
+          },
           "escalatedAt": {
             "type": "string",
             "nullable": true,
@@ -8138,6 +8297,18 @@
             "nullable": true
           },
           "lostReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "campaignName": {
+            "type": "string",
+            "nullable": true
+          },
+          "adName": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
             "type": "string",
             "nullable": true
           },
@@ -22839,7 +23010,7 @@
       "get": {
         "operationId": "exportLeads",
         "summary": "Every detail of the leads logged in a period (for CSV / Excel and PDF)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -22884,6 +23055,18 @@
             },
             "required": false,
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "social",
+                "salespeople"
+              ]
+            },
+            "required": false,
+            "name": "group",
             "in": "query"
           }
         ],
@@ -22935,7 +23118,7 @@
       "get": {
         "operationId": "getLeadSummary",
         "summary": "Total leads and the split by status, with the same filters as the leads list",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -23117,7 +23300,7 @@
       "get": {
         "operationId": "listLeadFollowUps",
         "summary": "A lead's follow-ups, latest first (bounded)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -23356,6 +23539,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -23410,6 +23607,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -23580,7 +23789,7 @@
       "post": {
         "operationId": "commentOnFollowUp",
         "summary": "Comment on a follow-up (e.g. the Manager asks to clarify; the salesperson answers); everyone following the lead sees it",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -23840,6 +24049,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -23894,6 +24117,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -24837,6 +25072,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -24891,6 +25140,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -25057,11 +25318,77 @@
         }
       }
     },
+    "/api/sales/leads/bulk-reassign": {
+      "post": {
+        "operationId": "bulkReassignLeads",
+        "summary": "Give several selected leads to one salesperson / CRO (same rules as a single transfer; the others are skipped and listed)",
+        "description": "Requires: sales.leads.reassign | sales.leads.transfer",
+        "tags": [
+          "Lead"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkReassignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkReassignResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales/leads/{id}/reassign": {
       "post": {
         "operationId": "reassignLead",
         "summary": "Give the lead (with its quotations and PPF vouchers) to another salesperson",
-        "description": "Requires: sales.leads.reassign",
+        "description": "Requires: sales.leads.reassign | sales.leads.transfer",
         "tags": [
           "Lead"
         ],
@@ -25230,6 +25557,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -25284,6 +25625,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -25623,6 +25976,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -25677,6 +26044,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -27071,7 +27450,7 @@
       "get": {
         "operationId": "getSalesDashboard",
         "summary": "Counts and a daily series for your home dashboard, within your own view scope",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
         "tags": [
           "SalesDashboard"
         ],
@@ -27169,7 +27548,7 @@
       "get": {
         "operationId": "getSalesActionItems",
         "summary": "Action needed: what is waiting for you now (approvals, cars to hand over, orders to raise…)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
         "tags": [
           "SalesDashboard"
         ],
@@ -27229,7 +27608,7 @@
       "get": {
         "operationId": "getSalesToday",
         "summary": "Today and tomorrow at a glance: customer appointments and car deliveries (within your own view scope)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
         "tags": [
           "SalesDashboard"
         ],
@@ -27298,7 +27677,7 @@
       "get": {
         "operationId": "listSalesTeamMembers",
         "summary": "The dealership's sales staff (for filters)",
-        "description": "Requires: sales.leads.view_all | sales.reports.view | sales.quotations.view_all | sales.ppf.view_all",
+        "description": "Requires: sales.leads.view_all | sales.reports.view | sales.quotations.view_all | sales.ppf.view_all | sales.leads.transfer",
         "tags": [
           "SalesTeam"
         ],
@@ -27873,6 +28252,18 @@
             },
             "required": false,
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "social",
+                "salespeople"
+              ]
+            },
+            "required": false,
+            "name": "group",
             "in": "query"
           }
         ],
@@ -32137,7 +32528,7 @@
       "get": {
         "operationId": "listLeads",
         "summary": "List Leads",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -32227,6 +32618,18 @@
             "schema": {
               "type": "string",
               "enum": [
+                "social",
+                "salespeople"
+              ]
+            },
+            "required": false,
+            "name": "group",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
                 "true",
                 "false"
               ]
@@ -32291,6 +32694,31 @@
             },
             "required": false,
             "name": "vehicleStage",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "warm",
+                "cold"
+              ]
+            },
+            "required": false,
+            "name": "temperature",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "followUpDue",
             "in": "query"
           },
           {
@@ -32488,7 +32916,7 @@
       "get": {
         "operationId": "getLeadWorkflow",
         "summary": "Lead workflow definition",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -32545,7 +32973,7 @@
       "get": {
         "operationId": "getLead",
         "summary": "Get Lead",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -32690,7 +33118,7 @@
       "get": {
         "operationId": "getLeadHistory",
         "summary": "Lead audit and workflow history",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],

@@ -11,7 +11,10 @@ import { type Lead, useListSalesTeamMembersQuery, useReassignLeadMutation } from
 export function LeadReassign({ lead }: { lead: Lead }) {
   const perm = usePermission();
   const toast = useToast();
-  const allowed = lead.status !== 'completed' && perm.canIn(P.leadsReassign, lead.dealershipId, lead.branchId);
+  // The Assistant Manager / Manager reassign any lead; the CRO transfers an own lead, or takes / passes on a social media one.
+  const manager = perm.canIn(P.leadsReassign, lead.dealershipId, lead.branchId);
+  const cro = perm.canIn(P.leadsTransfer, lead.dealershipId, lead.branchId) && (lead.ownerId === perm.userId || lead.source === 'social');
+  const allowed = lead.status !== 'completed' && (manager || cro);
   const { data: members } = useListSalesTeamMembersQuery({ dealershipId: lead.dealershipId }, { skip: !allowed });
   const [reassign, { isLoading }] = useReassignLeadMutation();
   const [open, setOpen] = useState(false);
@@ -20,6 +23,7 @@ export function LeadReassign({ lead }: { lead: Lead }) {
   if (!allowed) return null;
   // Salespersons and CROs (the staff who work their own leads), not the current one.
   const options = (members ?? []).filter((m) => m.takesLeads && m.id !== lead.ownerId);
+  const verb = manager ? 'Reassign' : 'Transfer';
 
   return (
     <Section
@@ -27,7 +31,7 @@ export function LeadReassign({ lead }: { lead: Lead }) {
       actions={
         !open && (
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-            Reassign
+            {verb}
           </Button>
         )
       }
@@ -66,7 +70,7 @@ export function LeadReassign({ lead }: { lead: Lead }) {
                 }
               }}
             >
-              Reassign
+              {verb}
             </Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
