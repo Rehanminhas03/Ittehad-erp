@@ -39,6 +39,8 @@ const ALL_SECTIONS: NavSection[] = [
       { label: 'Salesperson leads', to: '/sales/leads?group=salespeople&range=all', any: ['sales.leads.view_team'] },
       // Leads the customer is not interested in (each person sees their own; managers the team's).
       { label: 'Lost leads', to: '/sales/leads?lost=true&range=all', any: ['sales.leads.view_all', 'sales.leads.view_own'] },
+      // Reports of leads (social media and salespeople's), with every follow-up remark: Excel (CSV) and PDF.
+      { label: 'Leads report', to: '/sales/leads-report', any: ['sales.leads.view_social', 'sales.leads.view_team', 'sales.leads.view_all'] },
       { label: 'Duplicate customers', to: '/sales/leads?escalated=true&range=all', any: ['sales.leads.convert_escalated'] },
       { label: 'Sales orders', to: '/sales/orders', any: ['sales.orders.view_all', 'sales.orders.view_own'] },
       { label: 'Open stock', to: '/sales/stock', any: ['sales.stock.view'] },

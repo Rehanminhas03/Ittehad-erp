@@ -417,6 +417,7 @@ export const resultExtension = {
     vehicleId: { needs: { vehicleId: true }, compute: (r: { vehicleId: bigint | null }) => fromBigInt(r.vehicleId) },
     clearanceRequestedById: { needs: { clearanceRequestedById: true }, compute: (r: { clearanceRequestedById: bigint | null }) => fromBigInt(r.clearanceRequestedById) },
     clearanceDecidedById: { needs: { clearanceDecidedById: true }, compute: (r: { clearanceDecidedById: bigint | null }) => fromBigInt(r.clearanceDecidedById) },
+    pdiRecordedById: { needs: { pdiRecordedById: true }, compute: (r: { pdiRecordedById: bigint | null }) => fromBigInt(r.pdiRecordedById) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },
     updatedById: { needs: { updatedById: true }, compute: (r: { updatedById: bigint | null }) => fromBigInt(r.updatedById) },
   },
@@ -532,6 +533,12 @@ export const resultExtension = {
     decidedById: { needs: { decidedById: true }, compute: (r: { decidedById: bigint | null }) => fromBigInt(r.decidedById) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },
     updatedById: { needs: { updatedById: true }, compute: (r: { updatedById: bigint | null }) => fromBigInt(r.updatedById) },
+  },
+  orderPdiComment: {
+    id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
+    dealershipId: { needs: { dealershipId: true }, compute: (r: { dealershipId: bigint }) => fromBigInt(r.dealershipId) },
+    salesOrderId: { needs: { salesOrderId: true }, compute: (r: { salesOrderId: bigint }) => fromBigInt(r.salesOrderId) },
+    createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint }) => fromBigInt(r.createdById) },
   },
   leadFollowUpComment: {
     id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },

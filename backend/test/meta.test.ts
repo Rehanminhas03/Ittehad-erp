@@ -36,8 +36,9 @@ describe('Meta lead ads webhook helpers', () => {
 
   it('reads META_PAGES and skips incomplete entries', () => {
     expect(parsePages(undefined)).toEqual([]);
-    expect(parsePages('[{"pageId":"1","dealership":"JET-ITH","accessToken":"t"},{"pageId":"2"}]')).toEqual([
+    expect(parsePages('[{"pageId":"1","dealership":"JET-ITH","accessToken":"t"},{"pageId":"2"},{"pageId":"3","dealership":"HYD-ISB"}]')).toEqual([
       { pageId: '1', dealership: 'JET-ITH', accessToken: 't' },
+      { pageId: '3', dealership: 'HYD-ISB', accessToken: undefined },
     ]);
   });
 });

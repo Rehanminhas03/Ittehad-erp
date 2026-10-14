@@ -18,8 +18,10 @@ export const Id = z.number().int().positive();
 /** Response-only: Dates serialize to ISO strings via JSON.stringify. */
 export const Timestamp = z.iso.datetime();
 
+/** An amount: commas and spaces ("9,500,000") are accepted, and more than two decimals are rounded to two. */
 export const Money = z
   .union([z.string(), z.number()])
-  .transform((v) => String(v))
-  .refine((v) => /^-?\d{1,12}(\.\d{1,2})?$/.test(v), 'Must be a monetary amount with up to 2 decimals')
+  .transform((v) => String(v).replace(/[,\s]/g, ''))
+  .refine((v) => /^-?\d{1,12}(\.\d*)?$/.test(v), 'Enter an amount, e.g. 9,500,000')
+  .transform((v) => (/\.\d{3,}$/.test(v) ? Number(v).toFixed(2) : v.endsWith('.') ? v.slice(0, -1) : v))
   .openapi({ type: 'string', example: '1250000.00' });

@@ -188,6 +188,8 @@ export interface EntityViewConfig<T extends { id: number }> {
   detail: {
     title: (row: T) => string;
     subtitle?: (row: T) => ReactNode;
+    /** Extra buttons next to the title (beside Edit), e.g. a shortcut to a section below. */
+    actions?: (row: T, perm: PermissionApi) => ReactNode;
     fields: DisplayField<T>[];
     /** Extra sections below the fields (e.g. related records). */
     sections?: (row: T) => ReactNode;

@@ -24,6 +24,7 @@ export const P = {
   leadsConvertOwn: 'sales.leads.convert_own',
   leadsConvertEscalated: 'sales.leads.convert_escalated',
   leadsReassign: 'sales.leads.reassign',
+  leadsCorrectConversion: 'sales.leads.correct_conversion',
   leadsViewSocial: 'sales.leads.view_social',
   leadsViewTeam: 'sales.leads.view_team',
   leadsTransfer: 'sales.leads.transfer',

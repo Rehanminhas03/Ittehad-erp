@@ -29,6 +29,7 @@ const injectedRtkApi = api
             to: queryArg.to,
             status: queryArg.status,
             group: queryArg.group,
+            temperature: queryArg.temperature,
           },
         }),
         providesTags: ["Lead"],
@@ -99,6 +100,17 @@ const injectedRtkApi = api
           url: `/api/sales/leads/${queryArg.id}/details`,
           method: "PATCH",
           body: queryArg.leadDetailsRequest,
+        }),
+        invalidatesTags: ["Lead"],
+      }),
+      correctLeadConversion: build.mutation<
+        CorrectLeadConversionApiResponse,
+        CorrectLeadConversionApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/${queryArg.id}/conversion`,
+          method: "PATCH",
+          body: queryArg.conversionCorrectionRequest,
         }),
         invalidatesTags: ["Lead"],
       }),
@@ -386,6 +398,7 @@ const injectedRtkApi = api
             to: queryArg.to,
             status: queryArg.status,
             group: queryArg.group,
+            temperature: queryArg.temperature,
           },
         }),
         providesTags: ["SalesOrder"],
@@ -420,6 +433,31 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["SalesOrder"],
       }),
+      getOrderPdi: build.query<GetOrderPdiApiResponse, GetOrderPdiApiArg>({
+        query: (queryArg) => ({ url: `/api/sales/orders/${queryArg.id}/pdi` }),
+        providesTags: ["SalesOrder"],
+      }),
+      recordOrderPdi: build.mutation<
+        RecordOrderPdiApiResponse,
+        RecordOrderPdiApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/pdi`,
+          method: "PUT",
+          body: queryArg.pdiRequest,
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
+      commentOnPdi: build.mutation<CommentOnPdiApiResponse, CommentOnPdiApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/sales/orders/${queryArg.id}/pdi-comments`,
+            method: "POST",
+            body: queryArg.pdiCommentRequest,
+          }),
+          invalidatesTags: ["SalesOrder"],
+        },
+      ),
       requestDeliveryClearance: build.mutation<
         RequestDeliveryClearanceApiResponse,
         RequestDeliveryClearanceApiArg
@@ -1055,6 +1093,7 @@ export type ExportLeadsApiArg = {
   to?: string;
   status?: string;
   group?: "social" | "salespeople";
+  temperature?: "hot" | "warm" | "cold";
 };
 export type GetLeadSummaryApiResponse = /** status 200 Success */ LeadSummary;
 export type GetLeadSummaryApiArg = {
@@ -1251,6 +1290,91 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
 export type CorrectLeadDetailsApiArg = {
   id: number;
   leadDetailsRequest: LeadDetailsRequest;
+};
+export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
+  id: number;
+  dealershipId: number;
+  branchId: number | null;
+  ownerId: number;
+  ownerName?: string | null;
+  customerId: number | null;
+  prospectName: string;
+  prospectMobile: string;
+  email: string | null;
+  source:
+    "walk_in" | "phone" | "website" | "social" | "referral" | "event" | "other";
+  interestedModelId: number | null;
+  modelName?: string | null;
+  variant: string | null;
+  preferredColor: string | null;
+  expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
+  notes: string | null;
+  paymentInstrument:
+    | (
+        | "pay_order"
+        | "bank_draft"
+        | "cheque"
+        | "online_transfer"
+        | "cash"
+        | null
+      )
+    | null;
+  paymentInstrumentRef: string | null;
+  paymentInstrumentBank: string | null;
+  paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
+  followUpCount: number;
+  lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
+  escalatedAt: string | null;
+  escalatedById: number | null;
+  escalatedByName?: string | null;
+  escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
+  previousPurchases?: number;
+  convertedAt: string | null;
+  convertedById: number | null;
+  convertedByName?: string | null;
+  status:
+    | "new"
+    | "follow_up"
+    | "visited"
+    | "converted"
+    | "processing"
+    | "completed"
+    | "exhausted"
+    | "lost";
+  salesOrderId: number | null;
+  orderNo?: string | null;
+  vehicleStage?: string | null;
+  createdById: number | null;
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type CorrectLeadConversionApiArg = {
+  id: number;
+  conversionCorrectionRequest: ConversionCorrectionRequest;
 };
 export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   id: number;
@@ -1843,6 +1967,7 @@ export type ExportSalesOrdersApiArg = {
   to?: string;
   status?: string;
   group?: "social" | "salespeople";
+  temperature?: "hot" | "warm" | "cold";
 };
 export type ListOrderPaymentsApiResponse =
   /** status 200 Success */ OrderPayments;
@@ -1860,6 +1985,20 @@ export type RemoveOrderPaymentApiResponse =
 export type RemoveOrderPaymentApiArg = {
   id: number;
   paymentId: number;
+};
+export type GetOrderPdiApiResponse = /** status 200 Success */ Pdi;
+export type GetOrderPdiApiArg = {
+  id: number;
+};
+export type RecordOrderPdiApiResponse = /** status 200 Success */ Pdi;
+export type RecordOrderPdiApiArg = {
+  id: number;
+  pdiRequest: PdiRequest;
+};
+export type CommentOnPdiApiResponse = /** status 201 Success */ Pdi;
+export type CommentOnPdiApiArg = {
+  id: number;
+  pdiCommentRequest: PdiCommentRequest;
 };
 export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   id: number;
@@ -2828,6 +2967,30 @@ export type LeadDetailsRequest = {
   variant?: string;
   notes?: string | null;
 };
+export type ConversionCorrectionRequest = {
+  prospectName?: string;
+  prospectMobile?: string;
+  email?: string;
+  customerAddress?: string;
+  customerCnic?: string;
+  interestedModelId?: number;
+  variant?: string;
+  preferredColor?: string;
+  paymentType?: "partial" | "full";
+  paymentInstrument?:
+    "pay_order" | "bank_draft" | "cheque" | "online_transfer" | "cash";
+  paymentInstrumentRef?: string | null;
+  paymentInstrumentBank?: string | null;
+  paymentAmount?: string;
+  vehiclePrice?: string;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
+  notes?: string | null;
+};
 export type QuotationCreate = {
   unitPrice?: string;
   discount?: string;
@@ -3417,6 +3580,30 @@ export type OrderPaymentCreate = {
   receivedOn: string;
   note?: string | null;
 };
+export type Pdi = {
+  recorded: boolean;
+  done: boolean;
+  issue: boolean;
+  notes: string | null;
+  recordedAt: string | null;
+  recordedByName: string | null;
+  carStatus: string | null;
+  comments: {
+    id: number;
+    body: string;
+    createdById: number;
+    createdByName: string | null;
+    createdAt: string;
+  }[];
+};
+export type PdiRequest = {
+  done: boolean;
+  issue: boolean;
+  notes?: string | null;
+};
+export type PdiCommentRequest = {
+  body: string;
+};
 export type ClearanceRequest = {
   note?: string | null;
 };
@@ -3445,6 +3632,7 @@ export type AllocationRequest = {
 };
 export type AdvanceVehicleStatusRequest = {
   status: "booked" | "in_transit" | "received" | "ready_for_delivery" | "hold";
+  pdi?: PdiRequest;
 };
 export type ScheduleDeliveryRequest = {
   scheduledDate: string;
@@ -4153,6 +4341,7 @@ export const {
   useRecordLeadFollowUpMutation,
   useCommentOnFollowUpMutation,
   useCorrectLeadDetailsMutation,
+  useCorrectLeadConversionMutation,
   useCreateLeadQuotationMutation,
   useGetLeadOrderVehicleQuery,
   useLazyGetLeadOrderVehicleQuery,
@@ -4195,6 +4384,10 @@ export const {
   useLazyListOrderPaymentsQuery,
   useAddOrderPaymentMutation,
   useRemoveOrderPaymentMutation,
+  useGetOrderPdiQuery,
+  useLazyGetOrderPdiQuery,
+  useRecordOrderPdiMutation,
+  useCommentOnPdiMutation,
   useRequestDeliveryClearanceMutation,
   useDecideDeliveryClearanceMutation,
   useSetOrderVehicleMutation,

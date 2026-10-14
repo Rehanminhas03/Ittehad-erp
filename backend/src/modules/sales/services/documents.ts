@@ -13,13 +13,15 @@ import { subMoney } from '../../../lib/money';
 import type { z } from '../../../lib/zod';
 import { DocType, nextDocumentNumber } from '../../core/documents';
 import { assertActiveModel } from '../../master/entities';
-import { assertVariantCodeGiven, leads, money2, ppfForms, pricePpf, priceQuotation, quotations, resolveVariant } from '../entities';
+import { assertVariantCodeGiven, brandOf, leads, money2, ppfForms, pricePpf, priceQuotation, quotations, resolveVariant } from '../entities';
 import { SalesPerm as P } from '../permissions';
 import type { PpfFormCreate, QuotationCreate, StandalonePpfCreate, StandaloneQuotationCreate } from '../schemas';
 import { loadTemplate } from './templates';
 import { pakistanToday } from '../../../lib/dates';
 
 const karachiDay = (plusDays = 0) => pakistanToday(plusDays);
+/** Brands whose quotations must state the freight & transit insurance and the withholding tax. */
+const CHARGES_REQUIRED_BRANDS = ['Hyundai', 'Jetour'];
 
 /**
  * The lead a document is issued from. Its salesperson issues documents for their own leads; someone
@@ -87,12 +89,20 @@ async function issueQuotation(ctx: EntityCtx, target: Target, ownerId: number, l
   const unitPrice = input.unitPrice ?? order?.unitPrice;
   if (!unitPrice) throw validationError([{ in: 'body', path: 'unitPrice', message: 'Enter the price to quote' }]);
   const discount = input.discount ?? order?.discount ?? '0';
+  // Hyundai and Jetour: the freight & transit insurance and the withholding tax (filer) must be entered.
+  if (CHARGES_REQUIRED_BRANDS.includes(await brandOf(ctx, target.dealershipId))) {
+    const missing = [
+      input.freightInsurance === undefined && { in: 'body' as const, path: 'freightInsurance', message: 'Enter the freight & transit insurance (0 if none)' },
+      input.withholdingTax === undefined && { in: 'body' as const, path: 'withholdingTax', message: 'Enter the withholding tax (0 if none)' },
+    ].filter((x) => !!x);
+    if (missing.length) throw validationError(missing);
+  }
   const priced = priceQuotation({
     unitPrice: money2(unitPrice),
     discount: money2(discount),
     quantity: input.quantity,
-    freightInsurance: money2(input.freightInsurance),
-    withholdingTax: money2(input.withholdingTax),
+    freightInsurance: money2(input.freightInsurance ?? '0'),
+    withholdingTax: money2(input.withholdingTax ?? '0'),
   });
   const booking = input.bookingAmount !== undefined ? input.bookingAmount : (order?.bookingAmount ?? ((l?.paymentAmount as string | null) ?? null));
 

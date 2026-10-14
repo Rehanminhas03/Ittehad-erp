@@ -8,6 +8,7 @@ import { apiFieldErrors, formatMoney } from '@/shared/lib';
 import { labelOf, ORDER_TYPES, P, PAYMENT_INSTRUMENTS } from '../../../permissions';
 import { type Lead, useRaiseSalesOrderMutation } from '../../../salesApi';
 import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
+import { OrderPdi } from '../../../orders/components/OrderPdi';
 
 const STAGE_STYLE: Record<string, { label: string; tone: string }> = {
   none: { label: 'Waiting for a car', tone: 'bg-amber-50 text-amber-900 ring-amber-200' },
@@ -101,6 +102,7 @@ export function LeadOrder({ lead }: { lead: Lead }) {
 
   if (lead.salesOrderId && lead.status !== 'converted') {
     return (
+      <>
       <Section title="Sales order">
         {payment}
         {canViewOrders ? (
@@ -115,6 +117,9 @@ export function LeadOrder({ lead }: { lead: Lead }) {
         {/* Where the car is (in big, clear letters), so the customer can be kept informed. */}
         {(lead.status === 'processing' || lead.status === 'completed') && <CarStatus stage={lead.status === 'completed' ? 'delivered' : lead.vehicleStage} />}
       </Section>
+      {/* The car's PDI (done / issue), so the salesperson can tell the customer. */}
+      {lead.status === 'processing' && !!lead.vehicleStage && <OrderPdi orderId={lead.salesOrderId} dealershipId={lead.dealershipId} branchId={lead.branchId} hasCar />}
+      </>
     );
   }
   if (lead.status !== 'converted' || !perm.canIn(P.ordersCreate, lead.dealershipId, lead.branchId)) return null;

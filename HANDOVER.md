@@ -222,6 +222,12 @@ does today and what is still open (section 10). Then wait for my next request.
 ### Temperature and follow-up schedule (2026-10-13)
 - Hot / warm / cold with every follow-up, next follow-up day by the schedule 2 / 5 / ~11 days, reminders (notification job + Action needed `follow-up-due`), list columns and filters. Migration `20261013120000_follow_up_schedule` (also backfills open leads): **run `npm run db:migrate`**. Tests added (`test/followUpSchedule.test.ts`), not run. Details: README "Temperature and the follow-up schedule".
 
+### PDI (2026-10-14)
+- PDI form before "Mark received" (done / issue + description), PDI section with comments on the order and the lead's order section; migration `20261014100000_order_pdi` (**run `npm run db:migrate`**). Details: README "PDI of the car". Cars registered for an order from Open stock skip the form (PDI recorded afterwards).
+
+### Correct conversion (2026-10-14)
+- AM / Sales Manager edit a converted lead's conversion details (`correctLeadConversion`, permission `sales.leads.correct_conversion`, granted by `db:migrate` to the AM / Sales Manager roles). Only while status = converted. Tests not yet written.
+
 ### Dashboards, reports, activity
 - **Notifications (live)** (`modules/core/notifications.ts`, `lib/realtime.ts`, `features/notifications/`): built in `http/apiRouter.ts` from each request's audit entries (`ctx.audit`), saved in the same transaction (`core.notification`, one row per recipient: active users with a role at the change's dealership, or a global role, except the actor), and pushed over Socket.IO (`notification:new` to room `user:<id>`) **after commit**. The socket authenticates with the access token (`handshake.auth.token`); the Vite dev proxy forwards `/socket.io` with `ws: true`. Titles: `describeChange()` (highest weight per request wins; same kind collapses). No customer data in titles/details. RLS: read own (+ ones you caused, for `RETURNING`), mark/delete own. Test: `test/notifications.test.ts` (real listening server + socket client). The top-bar clipboard is **Action needed**; the bell is **Notifications**.
 - **Role dashboards** (`features/sales/dashboard/SalesDashboard.tsx`): KPI tiles, daily trend chart, breakdowns, latest records, periods 7/14/30 days or custom (≤ 92 days), and a **"This month" panel** (leads logged, converted, cars booked / delivered, PPF sold + amount, quotations, latest documents).

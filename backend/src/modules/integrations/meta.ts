@@ -30,13 +30,17 @@ export interface MetaPage {
   accessToken: string;
 }
 
-/** META_PAGES: [{"pageId":"123","dealership":"JET-ITH","accessToken":"EAA…"}, …] */
-export function parsePages(json: string | undefined): MetaPage[] {
+/**
+ * META_PAGES: one entry per Facebook Page, e.g. [{"pageId":"123","dealership":"JET-ITH"}, …]. Each entry
+ * may carry its own "accessToken"; without one the shared META_ACCESS_TOKEN (a System User token covers
+ * every Page of the Business) is used.
+ */
+export function parsePages(json: string | undefined): (Omit<MetaPage, 'accessToken'> & { accessToken?: string })[] {
   if (!json?.trim()) return [];
   const list = JSON.parse(json) as Partial<MetaPage>[];
   return list
-    .filter((p): p is MetaPage => !!p.pageId && !!p.dealership && !!p.accessToken)
-    .map((p) => ({ pageId: String(p.pageId), dealership: p.dealership, accessToken: p.accessToken }));
+    .filter((p) => !!p.pageId && !!p.dealership)
+    .map((p) => ({ pageId: String(p.pageId), dealership: p.dealership!, accessToken: p.accessToken }));
 }
 
 /** Meta signs the raw request body with the app secret: X-Hub-Signature-256: sha256=<hex>. */
@@ -114,6 +118,10 @@ async function pickOwner(tx: Executor, dealershipId: number): Promise<number | n
 export async function ingestMetaLead(page: MetaPage, leadgenId: string): Promise<string> {
   const lead = await fetchLead(leadgenId, page.accessToken);
   const f = parseLeadFields(lead.field_data ?? []);
+  // Meta's Lead Ads Testing Tool sends dummy answers ("<test lead: dummy data for phone_number>"): a number
+  // is made up from the lead id, so the whole flow can be tried (the lead is marked as a test).
+  const isTest = /test lead/i.test(f.rawPhone ?? '');
+  if (isTest) f.rawPhone = `0300${leadgenId.replace(/\D/g, '').slice(-7).padStart(7, '0')}`;
   const normalized = f.rawPhone ? normalizeMobile(f.rawPhone) : null;
   if (!f.rawPhone || !normalized) {
     logger.warn({ leadgenId, page: page.pageId }, 'Meta lead without a usable phone number: skipped');
@@ -162,7 +170,7 @@ export async function ingestMetaLead(page: MetaPage, leadgenId: string): Promise
         metaLeadId: leadgenId,
         metaFormId: lead.form_id ?? null,
         metaFields: f.answers,
-        notes: lead.platform ? `Meta lead ad (${lead.platform})` : 'Meta lead ad',
+        notes: (isTest ? 'TEST lead from Meta Lead Ads Testing Tool: ' : '') + (lead.platform ? `Meta lead ad (${lead.platform})` : 'Meta lead ad'),
         ...(lead.created_time ? { createdAt: new Date(lead.created_time) } : {}),
       },
       select: { id: true },
@@ -216,10 +224,18 @@ interface WebhookBody {
   entry?: { id?: string; changes?: { field?: string; value?: { leadgen_id?: string; page_id?: string } }[] }[];
 }
 
-/** The Page's dealership and token: META_PAGES, else the single META_ACCESS_TOKEN for META_DEFAULT_DEALERSHIP. */
+/**
+ * The Page's dealership and token. With META_PAGES set, only the listed Pages are accepted (each goes to
+ * its own dealership, so Jetour, Hyundai and CSM leads never mix). Without it, every Page uses the single
+ * META_ACCESS_TOKEN and goes to META_DEFAULT_DEALERSHIP.
+ */
 export function pageFor(pageId: string): MetaPage | undefined {
-  const mapped = parsePages(env.META_PAGES).find((p) => p.pageId === pageId);
-  if (mapped) return mapped;
+  const pages = parsePages(env.META_PAGES);
+  if (pages.length) {
+    const mapped = pages.find((p) => p.pageId === pageId);
+    const accessToken = mapped?.accessToken ?? env.META_ACCESS_TOKEN;
+    return mapped && accessToken ? { ...mapped, accessToken } : undefined;
+  }
   return env.META_ACCESS_TOKEN ? { pageId, dealership: env.META_DEFAULT_DEALERSHIP, accessToken: env.META_ACCESS_TOKEN } : undefined;
 }
 

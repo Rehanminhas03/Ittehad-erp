@@ -75,6 +75,7 @@ export async function exportLeads(ctx: EntityCtx, q: z.output<typeof ExportQuery
   if (q.from) conds.push(sql`${day(lead.updatedAt)} >= ${q.from}::date`);
   if (q.to) conds.push(sql`${day(lead.updatedAt)} <= ${q.to}::date`);
   if (q.status) conds.push(sql`${lead.status} = ${q.status}`);
+  if (q.temperature) conds.push(sql`${lead.temperature} = ${q.temperature}`);
   if (q.group) conds.push(q.group === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`);
   return query<Record<string, unknown>>(
     ctx.tx,
@@ -85,6 +86,12 @@ export async function exportLeads(ctx: EntityCtx, q: z.output<typeof ExportQuery
                m.brand || ' ' || m.name as "model", ${lead.variant} as "variant", ${lead.preferredColor} as "color",
                u.full_name as "salesperson", cb.full_name as "loggedBy",
                ${lead.campaignName} as "campaign", ${lead.adName} as "ad", ${lead.city} as "city",
+               ${lead.temperature} as "interest", ${lead.nextFollowUpOn}::text as "nextFollowUp",
+               -- Every follow-up: date, who, outcome, interest and the remarks they entered (oldest first).
+               (select string_agg(to_char(f.created_at at time zone 'Asia/Karachi', 'DD-Mon-YY') || ' · ' || coalesce(fu.full_name, '')
+                         || ' · ' || initcap(replace(f.outcome, '_', ' ')) || coalesce(' · ' || initcap(f.temperature), '')
+                         || coalesce(': ' || f.remarks, ''), chr(10) order by f.created_at, f.id)
+                  from sales.lead_follow_up f left join core."user" fu on fu.id = f.created_by_id where f.lead_id = ${lead.id}) as "remarks",
                ${lead.followUpCount}::int as "followUps", (${lead.lastFollowUpAt} at time zone 'Asia/Karachi')::date::text as "lastFollowUp",
                (${lead.appointmentAt} at time zone 'Asia/Karachi')::text as "appointment",
                (${lead.convertedAt} at time zone 'Asia/Karachi')::date::text as "convertedOn",

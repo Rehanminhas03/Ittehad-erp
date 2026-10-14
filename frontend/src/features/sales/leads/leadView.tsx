@@ -1,12 +1,12 @@
+import { Link } from 'react-router';
 import { z } from 'zod';
-import { Badge, StatusBadge } from '@/shared/components/ui';
+import { Badge, Button, StatusBadge } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
 import {
   dealershipFilter,
   type EntityViewConfig,
   idField,
   muted,
-  optionalDate,
   optionalId,
   optionalText,
   requiredText,
@@ -17,6 +17,7 @@ import { BulkTransfer } from './components/BulkTransfer';
 import { DuplicateLeadNotice } from './components/DuplicateLeadNotice';
 import { formatAppointment, LeadAppointment } from './components/LeadAppointment';
 import { LeadConversion } from './components/LeadConversion';
+import { LeadConversionEdit } from './components/LeadConversionEdit';
 import { LeadDetailsEditor } from './components/LeadDetailsEditor';
 import { LeadFollowUps } from './components/LeadFollowUps';
 import { LeadModelSelect } from './components/LeadModelSelect';
@@ -112,7 +113,6 @@ const fields = {
   interestedModelId: idField('Model'),
   variant: optionalText(160),
   preferredColor: optionalText(40),
-  expectedCloseDate: optionalDate(),
   notes: optionalText(2000),
   branchId: optionalId(),
 };
@@ -213,6 +213,13 @@ export const leadView: EntityViewConfig<Lead> = {
   detail: {
     title: (l) => l.prospectName,
     subtitle: (l) => `${l.prospectMobile} · ${labelOf(LEAD_SOURCES, l.source)}`,
+    // Assistant Manager / Manager: a mistake made while converting is corrected here (until the order is raised).
+    actions: (l, perm) =>
+      l.status === 'converted' && perm.canIn(P.leadsCorrectConversion, l.dealershipId, l.branchId) ? (
+        <Link to="?editConversion=1">
+          <Button>Edit conversion details</Button>
+        </Link>
+      ) : null,
     fields: [
       { label: 'Status', value: (l) => <StatusBadge status={l.status} /> },
       { label: 'Phone', value: (l) => l.prospectMobile },
@@ -245,7 +252,6 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Ad', value: (l) => l.adName },
       { label: 'City', value: (l) => l.city },
       { label: 'Interested in', value: (l) => [l.modelName, l.variant, l.preferredColor].filter(Boolean).join(' · ') || null },
-      { label: 'Expected close', value: (l) => formatDate(l.expectedCloseDate) },
       { label: 'Interest', value: (l) => <TemperatureBadge value={l.temperature} /> },
       { label: 'Last follow-up', value: (l) => formatDateTime(l.lastFollowUpAt) },
       { label: 'Next follow-up', value: (l) => (l.nextFollowUpOn && (OPEN_LEAD_STATES as readonly string[]).includes(l.status) ? nextFollowUp(l) : null) },
@@ -265,6 +271,7 @@ export const leadView: EntityViewConfig<Lead> = {
         <LeadConversion lead={l} />
         <LeadAppointment lead={l} />
         <LeadReassign lead={l} />
+        <LeadConversionEdit lead={l} />
         <LeadDetailsEditor lead={l} />
         <LeadOrder lead={l} />
         <LeadDocuments lead={l} />
@@ -310,7 +317,6 @@ export const leadView: EntityViewConfig<Lead> = {
         ),
       },
       { name: 'preferredColor', label: 'Colour', type: 'text' },
-      { name: 'expectedCloseDate', label: 'Expected close', type: 'date' },
       { name: 'branchId', label: 'Branch', type: 'branch', dealershipField: 'dealershipId', scopePermission: P.leadsCreate, mode: 'create' },
       { name: 'notes', label: 'Notes', type: 'textarea', span: 2 },
     ],

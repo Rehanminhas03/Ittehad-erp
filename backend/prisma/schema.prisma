@@ -1637,6 +1637,12 @@ model SalesOrder {
   clearanceDecidedAt      DateTime?         @map("clearance_decided_at") @db.Timestamptz(6)
   clearanceDecidedById    BigInt?           @map("clearance_decided_by_id")
   clearanceDecisionNote   String?           @map("clearance_decision_note")
+  /// PDI (pre-delivery inspection), recorded by the Delivery Team when the car is received: done, an issue found, what it is.
+  pdiDone                 Boolean           @default(false) @map("pdi_done")
+  pdiIssue                Boolean           @default(false) @map("pdi_issue")
+  pdiNotes                String?           @map("pdi_notes")
+  pdiRecordedAt           DateTime?         @map("pdi_recorded_at") @db.Timestamptz(6)
+  pdiRecordedById         BigInt?           @map("pdi_recorded_by_id")
   payments                OrderPayment[]
   paymentReference        String?           @map("payment_reference")
   notes                   String?
@@ -2061,6 +2067,21 @@ model LeaveApplication {
   @@index([dealershipId, createdAt], map: "leave_application_dealership_id_created_at_index")
   @@index([employeeId], map: "leave_application_employee_id_index")
   @@map("leave_application")
+  @@schema("sales")
+}
+
+/// A comment on the PDI of an order's car (the Manager, Assistant Manager, salesperson, Delivery Team…).
+model OrderPdiComment {
+  id           BigInt   @id @default(autoincrement())
+  dealershipId BigInt   @map("dealership_id")
+  salesOrderId BigInt   @map("sales_order_id")
+  body         String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt   @map("created_by_id")
+
+  @@index([dealershipId], map: "order_pdi_comment_dealership_id_index")
+  @@index([salesOrderId], map: "order_pdi_comment_sales_order_id_index")
+  @@map("order_pdi_comment")
   @@schema("sales")
 }
 

@@ -12,6 +12,7 @@ import {
   BulkReassignBody,
   BulkReassignResultSchema,
   CompleteDeliveryBody,
+  ConversionCorrectionBody,
   ConvertLeadBody,
   DashboardQuery,
   DocumentKindParam,
@@ -59,6 +60,9 @@ import {
   OrderSummaryQuery,
   OrderSummarySchema,
   OrderVehicleBody,
+  PdiBody,
+  PdiCommentBody,
+  PdiSchema,
   PpfDocumentSchema,
   PpfFormCreate,
   PpfFormSchema,
@@ -166,6 +170,17 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     body: LeadDetailsBody,
     response: LeadRead,
     handler: (ctx) => svc.correctLeadDetails(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'patch',
+    path: '/:id/conversion',
+    operationId: 'correctLeadConversion',
+    summary: 'Assistant Manager / Manager: correct what was entered at conversion (contact, price, payment…) until the sales order is raised',
+    permission: P.leadsCorrectConversion,
+    params: IdParam,
+    body: ConversionCorrectionBody,
+    response: LeadRead,
+    handler: (ctx) => svc.correctLeadConversion(ctx, ctx.params.id, ctx.body),
   })
   .route({
     method: 'post',
@@ -479,6 +494,39 @@ const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
     params: IdParam.extend({ paymentId: z.coerce.number().int().positive() }),
     response: OrderPaymentsSchema,
     handler: (ctx) => svc.removeOrderPayment(ctx, ctx.params.id, ctx.params.paymentId),
+  })
+  .route({
+    method: 'get',
+    path: '/:id/pdi',
+    operationId: 'getOrderPdi',
+    summary: "The PDI (pre-delivery inspection) of the order's car and its comments",
+    permission: [P.ordersViewAll, P.ordersViewOwn],
+    params: IdParam,
+    response: PdiSchema,
+    handler: (ctx) => svc.getPdi(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'put',
+    path: '/:id/pdi',
+    operationId: 'recordOrderPdi',
+    summary: 'Delivery Team: record or correct the PDI of the received car (done, issue found + description)',
+    permission: P.ordersAllocate,
+    params: IdParam,
+    body: PdiBody,
+    response: PdiSchema,
+    handler: (ctx) => svc.recordPdi(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/pdi-comments',
+    operationId: 'commentOnPdi',
+    summary: 'Comment on the PDI (Manager, Assistant Manager, salesperson, Sales Admin, Delivery Team); everyone linked to the order is notified',
+    permission: [P.ordersViewAll, P.ordersViewOwn],
+    params: IdParam,
+    body: PdiCommentBody,
+    response: PdiSchema,
+    status: 201,
+    handler: (ctx) => svc.commentOnPdi(ctx, ctx.params.id, ctx.body),
   })
   .route({
     method: 'post',

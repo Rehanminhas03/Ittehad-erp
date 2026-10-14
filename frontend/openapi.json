@@ -4225,6 +4225,119 @@
           }
         }
       },
+      "ConversionCorrectionRequest": {
+        "type": "object",
+        "properties": {
+          "prospectName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "prospectMobile": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 200,
+            "format": "email"
+          },
+          "customerAddress": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "customerCnic": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "interestedModelId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "variant": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "preferredColor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "paymentType": {
+            "type": "string",
+            "enum": [
+              "partial",
+              "full"
+            ]
+          },
+          "paymentInstrument": {
+            "type": "string",
+            "enum": [
+              "pay_order",
+              "bank_draft",
+              "cheque",
+              "online_transfer",
+              "cash"
+            ]
+          },
+          "paymentInstrumentRef": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 60
+          },
+          "paymentInstrumentBank": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "paymentAmount": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "vehiclePrice": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "customerType": {
+            "type": "string",
+            "enum": [
+              "individual",
+              "corporate"
+            ]
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "contactDesignation": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "purchaseOrderNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 60
+          },
+          "expectedDeliveryDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        }
+      },
       "QuotationCreate": {
         "type": "object",
         "properties": {
@@ -6954,6 +7067,116 @@
           "receivedOn"
         ]
       },
+      "Pdi": {
+        "type": "object",
+        "properties": {
+          "recorded": {
+            "type": "boolean"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "issue": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "recordedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "recordedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "carStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "body": {
+                  "type": "string"
+                },
+                "createdById": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "createdByName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "body",
+                "createdById",
+                "createdByName",
+                "createdAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "recorded",
+          "done",
+          "issue",
+          "notes",
+          "recordedAt",
+          "recordedByName",
+          "carStatus",
+          "comments"
+        ]
+      },
+      "PdiRequest": {
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "issue": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "done",
+          "issue"
+        ]
+      },
+      "PdiCommentRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
       "ClearanceRequest": {
         "type": "object",
         "properties": {
@@ -7079,6 +7302,9 @@
               "ready_for_delivery",
               "hold"
             ]
+          },
+          "pdi": {
+            "$ref": "#/components/schemas/PdiRequest"
           }
         },
         "required": [
@@ -23068,6 +23294,19 @@
             "required": false,
             "name": "group",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "warm",
+                "cold"
+              ]
+            },
+            "required": false,
+            "name": "temperature",
+            "in": "query"
           }
         ],
         "responses": {
@@ -23906,6 +24145,425 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LeadDetailsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealershipId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "branchId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "ownerId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "ownerName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "prospectName": {
+                      "type": "string"
+                    },
+                    "prospectMobile": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "walk_in",
+                        "phone",
+                        "website",
+                        "social",
+                        "referral",
+                        "event",
+                        "other"
+                      ]
+                    },
+                    "interestedModelId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "modelName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "variant": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "preferredColor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedCloseDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "pay_order",
+                        "bank_draft",
+                        "cheque",
+                        "online_transfer",
+                        "cash",
+                        null
+                      ]
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentAmount": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "vehiclePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "followUpCount": {
+                      "type": "integer"
+                    },
+                    "lastFollowUpAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "escalatedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "escalatedById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "escalatedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "escalationNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "appointmentAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "appointmentNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "appointmentSetById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "appointmentSetByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "lostAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "lostById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "lostByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerType": {
+                      "type": "string",
+                      "enum": [
+                        "individual",
+                        "corporate"
+                      ]
+                    },
+                    "companyName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactDesignation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "previousPurchases": {
+                      "type": "integer"
+                    },
+                    "convertedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "convertedById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "convertedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "new",
+                        "follow_up",
+                        "visited",
+                        "converted",
+                        "processing",
+                        "completed",
+                        "exhausted",
+                        "lost"
+                      ]
+                    },
+                    "salesOrderId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "orderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleStage": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "createdByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "availableActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "dealershipId",
+                    "branchId",
+                    "ownerId",
+                    "customerId",
+                    "prospectName",
+                    "prospectMobile",
+                    "email",
+                    "source",
+                    "interestedModelId",
+                    "variant",
+                    "preferredColor",
+                    "expectedCloseDate",
+                    "notes",
+                    "paymentInstrument",
+                    "paymentInstrumentRef",
+                    "paymentInstrumentBank",
+                    "paymentAmount",
+                    "followUpCount",
+                    "lastFollowUpAt",
+                    "escalatedAt",
+                    "escalatedById",
+                    "escalationNote",
+                    "convertedAt",
+                    "convertedById",
+                    "status",
+                    "salesOrderId",
+                    "createdById",
+                    "createdAt",
+                    "updatedAt",
+                    "availableActions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/leads/{id}/conversion": {
+      "patch": {
+        "operationId": "correctLeadConversion",
+        "summary": "Assistant Manager / Manager: correct what was entered at conversion (contact, price, payment…) until the sales order is raised",
+        "description": "Requires: sales.leads.correct_conversion",
+        "tags": [
+          "Lead"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionCorrectionRequest"
               }
             }
           }
@@ -28265,6 +28923,19 @@
             "required": false,
             "name": "group",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "warm",
+                "cold"
+              ]
+            },
+            "required": false,
+            "name": "temperature",
+            "in": "query"
           }
         ],
         "responses": {
@@ -28498,6 +29169,229 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrderPayments"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/orders/{id}/pdi": {
+      "get": {
+        "operationId": "getOrderPdi",
+        "summary": "The PDI (pre-delivery inspection) of the order's car and its comments",
+        "description": "Requires: sales.orders.view_all | sales.orders.view_own",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pdi"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "recordOrderPdi",
+        "summary": "Delivery Team: record or correct the PDI of the received car (done, issue found + description)",
+        "description": "Requires: sales.orders.allocate",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdiRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pdi"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/orders/{id}/pdi-comments": {
+      "post": {
+        "operationId": "commentOnPdi",
+        "summary": "Comment on the PDI (Manager, Assistant Manager, salesperson, Sales Admin, Delivery Team); everyone linked to the order is notified",
+        "description": "Requires: sales.orders.view_all | sales.orders.view_own",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdiCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pdi"
                 }
               }
             }
