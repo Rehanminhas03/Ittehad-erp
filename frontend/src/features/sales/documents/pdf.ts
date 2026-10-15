@@ -385,7 +385,7 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
   const items: [string, number][] = [[description, Number(q.pricing.unitPrice)]];
   if (Number(q.pricing.discount) > 0) items.push(['LESS: DISCOUNT', -Number(q.pricing.discount)]);
   if (Number(q.pricing.freightInsurance) > 0) items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
-  if (Number(q.pricing.withholdingTax) > 0) items.push(['Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
+  if (Number(q.pricing.withholdingTax) > 0) items.push([q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
   items.forEach(([label, unit], i) => {
     p.font(8.5);
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
@@ -602,7 +602,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   const items: [string, number][] = [[vehicleLine, Number(q.pricing.unitPrice)]];
   if (Number(q.pricing.discount) > 0) items.push(['LESS: DISCOUNT', -Number(q.pricing.discount)]);
   if (Number(q.pricing.freightInsurance) > 0) items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
-  if (Number(q.pricing.withholdingTax) > 0) items.push(['Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
+  if (Number(q.pricing.withholdingTax) > 0) items.push([q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
   items.forEach(([label, unit], i) => {
     p.font(9.5);
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];

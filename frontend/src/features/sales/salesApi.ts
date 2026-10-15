@@ -34,6 +34,10 @@ export const salesApi = enhancedApi
       raiseSalesOrder: { invalidatesTags: ['Lead', 'SalesOrder'] },
       // Payments change the order's received / balance; clearance gates the hand-over.
       listOrderPayments: { providesTags: ['SalesOrder'] },
+      // The PDI and its comments follow the order (the car being received, the Delivery Team's update, comments).
+      getOrderPdi: { providesTags: ['SalesOrder'] },
+      recordOrderPdi: { invalidatesTags: ['SalesOrder'] },
+      commentOnPdi: { invalidatesTags: ['SalesOrder'] },
       addOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },
       removeOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },
       requestDeliveryClearance: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline', 'Delivery'] },

@@ -27,11 +27,14 @@ export function EntityDetailView<T extends { id: number }>({ config }: { config:
         subtitle={config.detail.subtitle?.(row)}
         breadcrumbs={[{ label: config.plural, to: config.basePath }, { label: config.detail.title(row) }]}
         actions={
-          editable && (
-            <Link to={`${config.basePath}/${row.id}/edit`}>
-              <Button variant="secondary">Edit</Button>
-            </Link>
-          )
+          <>
+            {config.detail.actions?.(row, perm)}
+            {editable && (
+              <Link to={`${config.basePath}/${row.id}/edit`}>
+                <Button variant="secondary">Edit</Button>
+              </Link>
+            )}
+          </>
         }
       />
       {config.workflow && (

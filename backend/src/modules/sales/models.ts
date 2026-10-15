@@ -2,6 +2,8 @@
 // hand-written SQL (see src/db/tables.generated.ts). Prisma Client: tx.<table>.findMany(...).
 export { lead, leadFollowUp, salesOrder, delivery, quotation, ppfForm, documentTemplate, vehicleVariant } from '../../db/tables.generated';
 
+import { addDays } from '../../lib/dates';
+
 export const LEAD_SOURCES = ['walk_in', 'phone', 'website', 'social', 'referral', 'event', 'other'] as const;
 /**
  * new → follow_up / visited (follow-ups recorded) → converted ("Convert to Lead": qualified, visible
@@ -22,6 +24,20 @@ export const LEAVE_TYPES = ['sick', 'emergency'] as const;
 export const LEAVE_STATES = ['submitted', 'approved', 'rejected'] as const;
 /** A phone number can have only one lead in these states per dealership (duplicate control). */
 export const ACTIVE_LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing'] as const;
+/** Which advance / withholding tax a quotation uses (the price list has both). */
+export const TAX_STATUSES = ['filer', 'non_filer'] as const;
+/** How interested the customer is, set with each follow-up. */
+export const LEAD_TEMPERATURES = ['hot', 'warm', 'cold'] as const;
+/**
+ * Follow-up schedule: days from the previous step. The first follow-up is due 2 days after the lead is
+ * logged, the second 3 days after the first (day 5), the third 6 days after the second (about day 11).
+ */
+export const FOLLOW_UP_GAP_DAYS = [2, 3, 6] as const;
+/** When the next follow-up is due, once `done` follow-ups have been made (null: the schedule is complete). */
+export function nextFollowUpAfter(done: number, from: string): string | null {
+  const gap = FOLLOW_UP_GAP_DAYS[done];
+  return gap === undefined ? null : addDays(from, gap);
+}
 export const FOLLOW_UP_OUTCOMES = ['interested', 'not_interested', 'visited'] as const;
 /** At conversion: part of the price (a booking amount; the rest before delivery) or the full price. */
 export const PAYMENT_TYPES = ['partial', 'full'] as const;

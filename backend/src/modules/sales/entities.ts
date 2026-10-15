@@ -1,6 +1,7 @@
+import type { Access } from '../../auth/access';
 import { POLICIES } from '../../config/policies';
 import { query } from '../../db/client';
-import { type SQL, and, inArray, isNull, or, sql } from '../../db/sql';
+import { type SQL, and, eq, inArray, isNull, or, sql } from '../../db/sql';
 import { EntityService, escapeLike } from '../../entity/entityService';
 import { withNames } from '../../entity/names';
 import type { EntityConfig, EntityCtx, Row } from '../../entity/types';
@@ -15,7 +16,7 @@ import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../maste
 import { CUSTOMER_ADDRESS, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
-import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
+import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, LEAD_TEMPERATURES, nextFollowUpAfter, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
 import { SalesPerm as P } from './permissions';
 import { detectModel } from './variantCatalog';
 import { LEAD_NAME, ORDER_NO, ORDER_VEHICLE_STAGE } from './repository';
@@ -170,7 +171,12 @@ export const leadEntity: EntityConfig = {
     view: P.leadsViewAll,
     viewOwn: P.leadsViewOwn,
     // The Admin sees a lead only once it is converted (to raise the order).
-    viewWhen: { code: P.leadsViewConverted, condition: inArray(lead.status, ['converted', 'processing', 'completed']) },
+    viewWhen: [
+      { code: P.leadsViewConverted, condition: inArray(lead.status, ['converted', 'processing', 'completed']) },
+      // The CRO calls every social media (Meta ad) lead of the dealership, and sees the salespeople's leads (read-only).
+      { code: P.leadsViewSocial, condition: sql`${lead.source} = 'social'` },
+      { code: P.leadsViewTeam, condition: sql`true` },
+    ],
     create: P.leadsCreate,
     update: P.leadsUpdate,
     updateOwn: P.leadsUpdateOwn,
@@ -182,7 +188,7 @@ export const leadEntity: EntityConfig = {
   // converted customer's CNIC or the car's chassis / engine number.
   searchExtra: (_p, q) => {
     const s = searchOf(q);
-    return or(sql`${lead.email} ilike ${s.text}`, orderMatches(lead.salesOrderId, s), customerMatches(lead.customerId, s), sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${lead.salesOrderId} and ${vehicleMatches(salesOrder.vehicleId, s) ?? sql`false`})`)!;
+    return or(sql`${lead.email} ilike ${s.text}`, sql`${lead.campaignName} ilike ${s.text}`, sql`${lead.city} ilike ${s.text}`, orderMatches(lead.salesOrderId, s), customerMatches(lead.customerId, s), sql`exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${lead.salesOrderId} and ${vehicleMatches(salesOrder.vehicleId, s) ?? sql`false`})`)!;
   },
   // Name, or phone typed any way (full or partial, with or without dashes / spaces).
   normalizeSearch: mobileSearchTerm,
@@ -190,6 +196,8 @@ export const leadEntity: EntityConfig = {
     status: statusFilter(LEAD_STATES),
     ownerId: { key: 'ownerId', schema: IdQuery },
     source: { key: 'source', schema: z.string().max(20) },
+    // The CRO's tabs: social media (Meta ad) leads, or the salespeople's leads.
+    group: { key: 'source', schema: z.enum(['social', 'salespeople']), where: (v) => (v === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`) },
     // The Assistant Manager's queue: leads flagged by a duplicate-phone escalation.
     escalated: { key: 'escalatedAt', schema: BoolQuery, where: (v) => (v ? sql`${lead.escalatedAt} is not null` : sql`${lead.escalatedAt} is null`) },
     // Still open (new, follow-up, visited): the "Open leads" figure.
@@ -209,6 +217,16 @@ export const leadEntity: EntityConfig = {
       schema: z.enum(VEHICLE_STATUSES),
       where: (v) =>
         sql`exists (select 1 from ${salesOrder} join ${vehicle} on ${vehicle.id} = ${salesOrder.vehicleId} where ${salesOrder.id} = ${lead.salesOrderId} and ${vehicle.status} = ${v})`,
+    },
+    temperature: { key: 'temperature', schema: z.enum(LEAD_TEMPERATURES) },
+    // Open leads whose follow-up is due today or earlier (the reminder's list).
+    followUpDue: {
+      key: 'nextFollowUpOn',
+      schema: BoolQuery,
+      where: (v) =>
+        v
+          ? sql`${lead.nextFollowUpOn} <= ${pakistanToday()}::date and ${lead.status} in ('new', 'follow_up', 'visited')`
+          : sql`(${lead.nextFollowUpOn} is null or ${lead.nextFollowUpOn} > ${pakistanToday()}::date or ${lead.status} not in ('new', 'follow_up', 'visited'))`,
     },
     // Leads logged on one day (Assistant Manager: leads per day).
     createdOn: { key: 'createdAt', schema: z.iso.date(), where: (v) => sql`(${lead.createdAt} at time zone 'Asia/Karachi')::date = ${v}::date` },
@@ -236,7 +254,7 @@ export const leadEntity: EntityConfig = {
     f.status !== undefined || f.lost !== undefined || f.everything === true
       ? undefined
       : sql`${lead.status} not in ('lost', 'completed') and not exists (select 1 from ${salesOrder} where ${salesOrder.id} = ${lead.salesOrderId} and ${salesOrder.status} in ('approved', 'delivered'))`,
-  sort: { default: '-updatedAt', keys: ['updatedAt', 'createdAt', 'prospectName', 'status', 'followUpCount', 'convertedAt', 'appointmentAt', 'lostAt'] },
+  sort: { default: '-updatedAt', keys: ['updatedAt', 'createdAt', 'prospectName', 'status', 'followUpCount', 'convertedAt', 'appointmentAt', 'lostAt', 'nextFollowUpOn'] },
   workflow: {
     stateKey: 'status',
     initial: 'new',
@@ -284,7 +302,8 @@ export const leadEntity: EntityConfig = {
       // A lead belongs to whoever logged it, unless a team leader logs it for a salesperson.
       const ownerId = (data.ownerId as number | undefined) ?? ctx.access.userId;
       if (ownerId !== ctx.access.userId) await assertCanLogFor(ctx, ownerId, data.dealershipId as number);
-      return { ...data, ownerId, prospectMobileNormalized: mobileNormalized };
+      // The first follow-up is due 2 days after the lead is logged.
+      return { ...data, ownerId, prospectMobileNormalized: mobileNormalized, nextFollowUpOn: nextFollowUpAfter(0, pakistanToday()) };
     },
     beforeUpdate: async (ctx, row, patch) => {
       if (!['new', 'follow_up', 'visited'].includes(row.status as string)) {
@@ -719,6 +738,15 @@ export const stockVehicleEntity: EntityConfig = {
 };
 
 export const leads = new EntityService(leadEntity);
+
+/**
+ * The caller's own leads: the list scope for personal figures (dashboard, today, action needed).
+ * Someone who also sees other people's leads read-only (the CRO) still gets their own numbers.
+ */
+export function personalLeads(access: Access) {
+  const own = access.hasAny([P.leadsViewAll, P.leadsViewConverted]);
+  return own ? leads.viewCondition(access) : and(leads.viewCondition(access), eq(lead.ownerId, access.userId))!;
+}
 export const orders = new EntityService(salesOrderEntity);
 export const deliveries = new EntityService(deliveryEntity);
 export const stock = new EntityService(stockVehicleEntity);
@@ -818,12 +846,20 @@ export const quotationEntity: EntityConfig = {
   hooks: {
     // Same price rules as the order (discount within the price and the discount policy); total recomputed.
     beforeUpdate: async (ctx, row, patch) => {
+      // The customer is written on a quotation without a lead only (otherwise it is the lead's).
+      if (row.leadId) for (const k of ['customerName', 'customerMobile', 'customerEmail']) delete patch[k];
+      const requestedModel = patch.modelId as number | undefined;
+      if (requestedModel !== undefined && requestedModel !== row.modelId) await assertActiveModel(ctx, requestedModel);
       if (patch.variantCode !== undefined) {
         // As on create: a code, or a typed variant ("Other"), or none when the quoted model has no codes.
         // Removing a code needs a typed variant with it (the old text was the code's description).
         const typed = patch.variant !== undefined ? patch.variant : row.variantCode ? null : row.variant;
-        if (!patch.variantCode && !typed) await assertVariantCodeGiven(ctx, row.dealershipId as number, null, row.modelId as number);
+        if (!patch.variantCode && !typed) await assertVariantCodeGiven(ctx, row.dealershipId as number, null, (requestedModel ?? row.modelId) as number);
         Object.assign(patch, await resolveVariant(ctx, row.dealershipId as number, patch.variantCode as string | null));
+        // A picked code belongs to one model: it must be the model asked for.
+        if (requestedModel !== undefined && patch.modelId !== undefined && patch.modelId !== requestedModel) {
+          throw validationError([{ in: 'body', path: 'variantCode', message: 'This variant code belongs to another model: choose a code of the chosen model, or type the variant under "Other"' }]);
+        }
       }
       return ['unitPrice', 'discount', 'quantity', 'freightInsurance', 'withholdingTax'].some((k) => patch[k] !== undefined) ? priceQuotation(patch, row) : patch;
     },

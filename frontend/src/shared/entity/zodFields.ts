@@ -35,13 +35,14 @@ export const optionalId = () =>
     .nullable()
     .optional();
 
-/** Money as a decimal string; accepts "9,500,000" or "9500000.50". Server re-validates and computes totals. */
+/** Money as a decimal string; accepts "9,500,000" or "9500000.50" (commas are removed). Server re-validates and computes totals. */
 export const money = (label = 'Amount') =>
   z
     .string()
     .trim()
-    .transform((v) => v.replace(/,/g, '') || '0')
-    .refine((v) => /^\d{1,12}(\.\d{1,2})?$/.test(v), `${label} must be a number with up to 2 decimals`);
+    .transform((v) => v.replace(/[,\s]/g, '') || '0')
+    .refine((v) => /^\d{1,12}(\.\d*)?$/.test(v), `${label} must be a number, e.g. 9,500,000`)
+    .transform((v) => (v.endsWith('.') ? v.slice(0, -1) : v));
 
 /** Optional yyyy-mm-dd from a date input ('' -> null). */
 export const optionalDate = () =>

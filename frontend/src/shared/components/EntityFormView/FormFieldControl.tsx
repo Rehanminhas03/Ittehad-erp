@@ -28,7 +28,18 @@ function CustomControl({ field: f, form, id, invalid }: { field: FormField; form
     <Controller
       control={form.control}
       name={f.name}
-      render={({ field }) => <>{f.render?.({ id, value: field.value, onChange: field.onChange, invalid, values })}</>}
+      render={({ field }) => (
+        <>
+          {f.render?.({
+            id,
+            value: field.value,
+            onChange: field.onChange,
+            invalid,
+            values,
+            setValues: (patch) => Object.entries(patch).forEach(([k, v]) => form.setValue(k, v as never, { shouldDirty: true, shouldValidate: true })),
+          })}
+        </>
+      )}
     />
   );
 }

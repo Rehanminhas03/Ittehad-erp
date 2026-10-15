@@ -88,6 +88,7 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'follow_up') return { title: 'Follow-up recorded on a lead', weight: 35, href };
       if (e.action === 'follow_up.comment') return { title: 'New comment on a follow-up', weight: 65, href };
       if (e.action === 'details.update') return { title: 'Customer details corrected', weight: 40, href };
+      if (e.action === 'conversion.correct') return { title: 'Conversion details corrected by a manager', weight: 55, href };
       if (e.action === 'escalate') return { title: 'Duplicate customer sent to the Assistant Manager', weight: 65, href };
       if (e.action === 'appointment') {
         const at = typeof c.appointmentAt === 'string' ? new Date(c.appointmentAt) : null;
@@ -119,6 +120,8 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'vehicle.set') return { title: 'Car entered on a sales order', weight: 50, href, detail: str(c.vin) };
       if (e.action === 'allocate') return { title: 'Car allocated to a sales order', weight: 55, href };
       if (e.action === 'release') return { title: 'Car released back to stock', weight: 50, href };
+      if (e.action === 'pdi.record') return c.issue ? { title: 'PDI: an issue was found on the car', weight: 95, href, detail: str(c.notes) } : { title: 'PDI done on the car', weight: 30, href };
+      if (e.action === 'pdi.comment') return { title: 'New comment on a PDI', weight: 65, href };
       if (e.action === 'payment.add') return { title: 'Payment received on a sales order', weight: 45, href, detail: str(c.amount) ? `Rs ${str(c.amount)}` : undefined };
       if (e.action === 'payment.remove') return { title: 'Payment removed from a sales order', weight: 40, href };
       if (e.action === 'clearance.request') return { title: 'Delivery clearance requested: check the payments', weight: 75, href, detail: str(c.note) };

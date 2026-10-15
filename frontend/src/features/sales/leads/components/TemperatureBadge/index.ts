@@ -1,0 +1,1 @@
+export { TemperatureBadge } from './TemperatureBadge';

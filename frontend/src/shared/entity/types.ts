@@ -110,6 +110,8 @@ export interface CustomFieldProps {
   invalid: boolean;
   /** Current values of the whole form (e.g. to scope a picker to the chosen dealership). */
   values: Record<string, unknown>;
+  /** Sets other fields of the form (e.g. choosing an order fills in its model and colour). */
+  setValues: (patch: Record<string, unknown>) => void;
 }
 
 export interface FormField {
@@ -132,8 +134,8 @@ export interface FormField {
   scopePermission?: string;
   /** For 'custom': renders the control (e.g. a searchable picker from a feature). */
   render?: (props: CustomFieldProps) => ReactNode;
-  /** Show the field only to some users (e.g. "Salesperson" only to team leaders). */
-  visible?: (perm: PermissionApi) => boolean;
+  /** Show the field only to some users (e.g. "Salesperson" only to team leaders); `row` is the record being edited. */
+  visible?: (perm: PermissionApi, row?: unknown) => boolean;
 }
 
 export interface DisplayField<T> {
@@ -176,10 +178,20 @@ export interface EntityViewConfig<T extends { id: number }> {
      * latest activity. `defaultPreset` applies when the URL names none (e.g. 'today').
      */
     dateRange?: { label: string; fromParam: string; toParam: string; defaultPreset?: string };
+    /**
+     * Select several rows (a checkbox on each row the user may act on) and act on them together, e.g.
+     * give leads to a salesperson. `bar` is shown above the list while rows are selected.
+     */
+    bulk?: {
+      canSelect: (row: T, perm: PermissionApi) => boolean;
+      bar: (ctx: { ids: number[]; clear: () => void }) => ReactNode;
+    };
   };
   detail: {
     title: (row: T) => string;
     subtitle?: (row: T) => ReactNode;
+    /** Extra buttons next to the title (beside Edit), e.g. a shortcut to a section below. */
+    actions?: (row: T, perm: PermissionApi) => ReactNode;
     fields: DisplayField<T>[];
     /** Extra sections below the fields (e.g. related records). */
     sections?: (row: T) => ReactNode;

@@ -25,10 +25,14 @@ export const SalesPerm = definePermissions('sales', {
   leadsUpdateOwn: ['sales.leads.update_own', 'Edit own leads and record their follow-ups'],
   leadsRecordVisit: ['sales.leads.record_visit', 'Record in-person visits on social / digital leads (CRO); walk-ins are already in the showroom'],
   leadsUpdateConverted: ['sales.leads.update_converted', 'Correct customer details (name, phone, email, colour) on converted leads'],
+  leadsCorrectConversion: ['sales.leads.correct_conversion', 'Correct the details entered when a lead was converted (contact, price, payment…), until the sales order is raised (Assistant Manager, Sales Manager, Sales Admin)'],
   leadsConvertOwn: ['sales.leads.convert_own', 'Convert own leads (capture the qualifying details)'],
   leadsReopen: ['sales.leads.reopen', 'Reopen an exhausted lead (back to follow-up)'],
   leadsReassign: ['sales.leads.reassign', 'Give a lead (with its quotations and PPF vouchers) to another salesperson'],
   leadsAppointment: ['sales.leads.appointment', 'Set appointments on any lead in scope (own leads: with edit own leads)'],
+  leadsViewSocial: ['sales.leads.view_social', 'View every social media (Meta ad) lead of the dealership (the CRO calls them)'],
+  leadsViewTeam: ['sales.leads.view_team', "View every lead of the dealership, read-only (the CRO sees the salespeople's leads)"],
+  leadsTransfer: ['sales.leads.transfer', 'Transfer an own or social media lead to another salesperson / CRO'],
   leadsConvertEscalated: ['sales.leads.convert_escalated', 'Convert a duplicate customer a salesperson sent to the Assistant Manager (its salesperson unavailable)'],
   teamManage: ['sales.team.manage', 'Manage the sales team: create staff in sales roles, reset passwords, deactivate leavers'],
   reportsView: ['sales.reports.view', 'Sales team report: track record per person, walk-ins, orders'],
@@ -45,7 +49,7 @@ export const SalesPerm = definePermissions('sales', {
   ordersDispatch: ['sales.orders.dispatch', 'Mark the car of an approved order in transit (dispatched from the plant / head office)'],
 
   stockView: ['sales.stock.view', 'View the dealership open stock (undelivered vehicles)'],
-  stockManage: ['sales.stock.manage', 'Register incoming stock vehicles and correct their details'],
+  stockManage: ['sales.stock.manage', 'Register incoming stock vehicles and correct their details (Delivery Team, Sales Admin)'],
 
   quotationsViewAll: ['sales.quotations.view_all', 'View, download and print every vehicle quotation in scope'],
   quotationsViewOwn: ['sales.quotations.view_own', 'View, download and print quotations of your own leads'],

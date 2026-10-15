@@ -13,6 +13,7 @@ import {
   useReleaseVehicleMutation,
 } from '../../../salesApi';
 import { HandOverForm } from '../../../deliveries/components/HandOverForm';
+import { PdiForm } from '../OrderPdi';
 
 const labelOf = (status: string) => VEHICLE_STATUSES.find((s) => s.value === status)?.label ?? status;
 
@@ -108,6 +109,8 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
   const [resumeTo, setResumeTo] = useState('');
   const [deliver, { isLoading: delivering }] = useDeliverOrderMutation();
   const [handingOver, setHandingOver] = useState(false);
+  // The PDI is entered before the car is marked received.
+  const [pdiOpen, setPdiOpen] = useState(false);
 
   const status = order.vehicleStatus;
   const step = status ? VEHICLE_PIPELINE.indexOf(status as (typeof VEHICLE_PIPELINE)[number]) : -1;
@@ -115,12 +118,13 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
   const nextStep = step >= 0 && step < VEHICLE_PIPELINE.length - 1 ? VEHICLE_PIPELINE[step + 1] : null;
   const next = nextStep === 'in_transit' && order.status !== 'approved' ? null : nextStep;
 
-  const run = async (target: string) => {
+  const run = async (target: string, pdi?: { done: boolean; issue: boolean; notes: string | null }) => {
     setPending(target);
     try {
-      await advance({ id: order.id, advanceVehicleStatusRequest: { status: target as never } }).unwrap();
+      await advance({ id: order.id, advanceVehicleStatusRequest: { status: target as never, ...(pdi ? { pdi } : {}) } }).unwrap();
       toast.success(target === 'hold' ? 'Vehicle put on hold' : `Vehicle marked ${labelOf(target).toLowerCase()}`);
       setResumeTo('');
+      setPdiOpen(false);
     } catch (e) {
       toast.error(e);
     } finally {
@@ -159,7 +163,7 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
             ))}
           <div className="flex flex-wrap items-center gap-2">
             {next && (
-              <Button size="sm" loading={pending === next} disabled={!!pending} onClick={() => run(next)}>
+              <Button size="sm" loading={pending === next} disabled={!!pending} onClick={() => (next === 'received' ? setPdiOpen(true) : run(next))}>
                 Mark {labelOf(next).toLowerCase()}
               </Button>
             )}
@@ -242,6 +246,11 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
             or register the arriving car for this order
           </Link>
         </div>
+      )}
+      {pdiOpen && (
+        <Dialog open onClose={() => setPdiOpen(false)} title={`PDI before marking the car received — ${order.customerName ?? order.orderNo}`}>
+          <PdiForm submitLabel="Save PDI and mark received" loading={pending === 'received'} onCancel={() => setPdiOpen(false)} onSubmit={(pdi) => run('received', pdi)} />
+        </Dialog>
       )}
       {handingOver && (
         <Dialog open onClose={() => setHandingOver(false)} size="lg" title={`Mark as delivered — ${order.customerName ?? order.orderNo}`}>

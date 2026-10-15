@@ -3,6 +3,7 @@ import { Spinner } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
 import { formatDate, formatMoney } from '@/shared/lib';
 import { P } from '../permissions';
+import { EditDocumentLink } from '../documents/EditDocumentLink';
 import { useGetSalesTrackRecordQuery, useListPpfFormsQuery, useListQuotationsQuery } from '../salesApi';
 import { Panel } from './components';
 
@@ -48,8 +49,8 @@ export function MonthRecord({ userId = null }: { userId?: number | null }) {
   const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
   const from = `${now.getUTCFullYear()}-${mm}-01`;
   const recent = [
-    ...(qts.data?.items ?? []).map((q) => ({ key: `q${q.id}`, kind: 'Quotation', no: q.quotationNo, customer: q.customerName, amount: q.totalAmount, at: q.createdAt, to: `/sales/quotations/${q.id}`, by: q.ownerName })),
-    ...(ppf.data?.items ?? []).map((f) => ({ key: `p${f.id}`, kind: 'PPF', no: f.formNo, customer: f.customerName, amount: f.totalAmount, at: f.createdAt, to: `/sales/ppf-forms/${f.id}`, by: f.ownerName })),
+    ...(qts.data?.items ?? []).map((q) => ({ key: `q${q.id}`, kind: 'Quotation', doc: q, no: q.quotationNo, customer: q.customerName, amount: q.totalAmount, at: q.createdAt, to: `/sales/quotations/${q.id}`, by: q.ownerName })),
+    ...(ppf.data?.items ?? []).map((f) => ({ key: `p${f.id}`, kind: 'PPF', doc: f, no: f.formNo, customer: f.customerName, amount: f.totalAmount, at: f.createdAt, to: `/sales/ppf-forms/${f.id}`, by: f.ownerName })),
   ]
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 5);
@@ -78,8 +79,8 @@ export function MonthRecord({ userId = null }: { userId?: number | null }) {
           ) : recent.length ? (
             <ul className="-my-1 divide-y divide-slate-200/60">
               {recent.map((r) => (
-                <li key={r.key}>
-                  <Link to={r.to} className="flex items-center gap-3 py-2 text-sm hover:text-brand-700">
+                <li key={r.key} className="flex items-center gap-1">
+                  <Link to={r.to} className="flex min-w-0 flex-1 items-center gap-3 py-2 text-sm hover:text-brand-700">
                     <span className={`w-16 shrink-0 rounded-md px-1.5 py-0.5 text-center text-[11px] font-semibold ${r.kind === 'PPF' ? 'bg-violet-100 text-violet-800' : 'bg-blue-100 text-blue-800'}`}>{r.kind}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-slate-900">{r.customer ?? r.no}</span>
@@ -90,6 +91,8 @@ export function MonthRecord({ userId = null }: { userId?: number | null }) {
                     </span>
                     <span className="shrink-0 tabular-nums text-slate-700">{formatMoney(r.amount)}</span>
                   </Link>
+                  {/* A mistake in a quotation / voucher: edit it right here (its salesperson, or the Assistant Manager). */}
+                  <EditDocumentLink kind={r.kind === 'PPF' ? 'ppf' : 'quotation'} doc={r.doc} text />
                 </li>
               ))}
             </ul>

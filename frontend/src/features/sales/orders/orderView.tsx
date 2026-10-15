@@ -23,6 +23,7 @@ import { OrderPayments } from './components/OrderPayments';
 import { ExportButtons } from '../exports/ExportButtons';
 import { PaymentTypeBadge } from '../leads/components/PaymentTypeBadge';
 import { OrderLogistics } from './components/OrderLogistics';
+import { OrderPdi } from './components/OrderPdi';
 import { OrderStatusSummary } from './components/OrderStatusSummary';
 import { OrderVehicle } from './components/OrderVehicle';
 import { CLEARANCE_LABELS, labelOf, ORDER_STATES, ORDER_TYPES, P } from '../permissions';
@@ -131,6 +132,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
         <OrderPayments order={o} />
         <OrderVehicle order={o} />
         <OrderLogistics order={o} />
+        <OrderPdi orderId={o.id} dealershipId={o.dealershipId} branchId={o.branchId} hasCar={!!o.vehicleId} />
         <OrderClearance order={o} />
         <OrderDelivery order={o} />
         {isModuleEnabled('accounts') && (

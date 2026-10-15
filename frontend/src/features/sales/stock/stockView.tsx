@@ -117,9 +117,9 @@ export const stockView: EntityViewConfig<StockVehicle> = {
         type: 'custom',
         mode: 'create',
         span: 2,
-        hint: 'The car is linked to this order and marked Received. Choose "None" to keep it as free stock.',
-        render: ({ id, value, onChange, values }) => (
-          <WaitingOrderSelect id={id} value={String(value ?? '')} onChange={onChange} dealershipId={Number(values.dealershipId) || null} modelId={Number(values.modelId) || null} />
+        hint: 'Open the list and search by customer name, PBO or order number. The car is linked to the order you pick and marked Received; choose "Open stock" to keep it as free stock.',
+        render: ({ id, value, onChange, values, setValues }) => (
+          <WaitingOrderSelect id={id} value={String(value ?? '')} onChange={onChange} setValues={setValues} dealershipId={Number(values.dealershipId) || null} modelId={Number(values.modelId) || null} colour={String(values.color ?? '')} variant={String(values.variant ?? '')} />
         ),
       },
       { name: 'vin', label: 'Chassis number (VIN)', type: 'text', required: true },

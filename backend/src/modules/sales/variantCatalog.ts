@@ -53,13 +53,27 @@ export const JETOUR_VARIANTS: [code: string, description: string, model: string]
   ['T2-PETROL', 'T2 Petrol 2.0 TGDI AWD', 'T2'],
 ];
 
-/** Adds the missing Jetour variants to a dealership (existing codes are left as they are). */
+/**
+ * Jetour's price list (PKR, October 2026): ex-factory price, advance tax (filer / non-filer), freight and the
+ * booking price. Net price = ex-factory + advance tax + freight. T1 Petrol has no price yet. The Assistant
+ * Manager / Sales Manager keep it up to date under Document formats → Price list.
+ */
+export const JETOUR_PRICES: Record<string, { exFactoryPrice?: string; advanceTaxFiler?: string; advanceTaxNonFiler?: string; freightCharges?: string; bookingPrice?: string }> = {
+  'DASHING-1.5TCI': { exFactoryPrice: '7899000', advanceTaxFiler: '160140', advanceTaxNonFiler: '480420', freightCharges: '108000' },
+  'X70-1.5TCI': { exFactoryPrice: '8299000', advanceTaxFiler: '168140', advanceTaxNonFiler: '504420', freightCharges: '108000' },
+  'T2-IDM': { exFactoryPrice: '12795000', advanceTaxFiler: '257400', freightCharges: '75000', bookingPrice: '2500000' },
+  'T2-PETROL': { exFactoryPrice: '13590000', advanceTaxFiler: '683250', freightCharges: '75000', bookingPrice: '3000000' },
+  'T1-IDM': { exFactoryPrice: '10799000', advanceTaxFiler: '215980', freightCharges: '75000', bookingPrice: '2000000' },
+  'T1-PETROL': { bookingPrice: '2000000' },
+};
+
+/** Adds the missing Jetour variants to a dealership, with their prices (existing codes keep what they have). */
 export async function seedJetourVariants(ex: Executor, dealershipId: number) {
   for (const [code, description, model] of JETOUR_VARIANTS) {
     const exists = await ex.vehicleVariant.findFirst({ where: { dealershipId, code }, select: { id: true } });
     if (exists) continue;
     const m = await ex.vehicleModel.findFirst({ where: { brand: 'Jetour', name: model }, select: { id: true } });
-    await ex.vehicleVariant.create({ data: { dealershipId, code, description, modelId: m?.id ?? null }, select: { id: true } });
+    await ex.vehicleVariant.create({ data: { dealershipId, code, description, modelId: m?.id ?? null, ...JETOUR_PRICES[code] }, select: { id: true } });
   }
 }
 

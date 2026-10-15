@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link } from 'react-router';
 import { Button, Dialog, Section, Spinner } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
@@ -7,6 +7,7 @@ import { P } from '../permissions';
 import { type Lead, type PpfForm, type Quotation, useListPpfFormsQuery, useListQuotationsQuery } from '../salesApi';
 import { PpfDialog, QuotationDialog } from './CreateDocumentDialogs';
 import { type DocKind, DocumentPreview, DownloadIcon, EyeIcon } from './DocumentPreview';
+import { EditDocumentLink, editPathOf } from './EditDocumentLink';
 
 /** Which document actions the signed-in user has on this lead (mirrors the server rules). */
 export function useLeadDocumentRights(lead: Lead) {
@@ -19,10 +20,13 @@ export function useLeadDocumentRights(lead: Lead) {
     // Its salesperson for their own lead, the Assistant Manager for any lead.
     createQuotation: at(P.quotationsCreate) && (own || at(P.quotationsUpdate)),
     createPpf: at(P.ppfCreate) && (own || at(P.ppfUpdate)),
+    // Correct them afterwards: the salesperson their own, the Assistant Manager any.
+    editQuotation: at(P.quotationsUpdate) || (own && at(P.quotationsUpdateOwn)),
+    editPpf: at(P.ppfUpdate) || (own && at(P.ppfUpdateOwn)),
   };
 }
 
-function DocRow({ no, to, amount, by, at, onPreview }: { no: string; to: string; amount: string; by: string | null | undefined; at: string; onPreview: () => void }) {
+function DocRow({ no, to, amount, by, at, onPreview, edit }: { no: string; to: string; amount: string; by: string | null | undefined; at: string; onPreview: () => void; edit?: ReactNode }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
       <Link to={to} className="font-mono text-xs font-medium text-brand-700 hover:underline">
@@ -32,10 +36,11 @@ function DocRow({ no, to, amount, by, at, onPreview }: { no: string; to: string;
       <span className="text-xs text-slate-500">
         {by ?? '—'} · {formatDateTime(at)}
       </span>
+      <span className="ml-auto inline-flex items-center gap-1">{edit}</span>
       <button
         type="button"
         onClick={onPreview}
-        className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
       >
         <EyeIcon className="size-4" />
         View · Download · Print
@@ -75,6 +80,7 @@ export function LeadDocumentsPanel({ lead }: { lead: Lead }) {
               by={r.updatedById !== r.createdById ? `${r.createdByName}, changed by ${r.updatedByName}` : r.createdByName}
               at={r.updatedAt}
               onPreview={() => setPreview({ kind, id: r.id })}
+              edit={<EditDocumentLink kind={kind === 'ppf' ? 'ppf' : 'quotation'} doc={r} text />}
             />
           ))}
         </ul>
@@ -104,7 +110,8 @@ export function LeadDocumentsPanel({ lead }: { lead: Lead }) {
       </div>
       {creating === 'quotation' && <QuotationDialog lead={lead} open onClose={() => setCreating(null)} onCreated={created('quotation')} />}
       {creating === 'ppf' && <PpfDialog lead={lead} open onClose={() => setCreating(null)} onCreated={created('ppf')} />}
-      {preview && <DocumentPreview kind={preview.kind} id={preview.id} open onClose={() => setPreview(null)} />}
+      {/* Right after issuing a quotation, a mistake is corrected with Edit (no need to search for it). */}
+      {preview && <DocumentPreview kind={preview.kind} id={preview.id} open onClose={() => setPreview(null)} editTo={preview.kind === 'quotation' ? (rights.editQuotation ? editPathOf('quotation', preview.id) : undefined) : preview.kind === 'ppf' ? (rights.editPpf ? editPathOf('ppf', preview.id) : undefined) : undefined} />}
     </>
   );
 }

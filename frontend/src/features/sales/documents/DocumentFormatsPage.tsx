@@ -9,6 +9,7 @@ import { buildQuotationPdf } from './pdf';
 import { LeaveFormatEditor } from './LeaveFormatEditor';
 import { ImagePicker } from './ImagePicker';
 import { PpfFormatEditor } from './PpfFormatEditor';
+import { PriceListEditor } from './PriceListEditor';
 
 type Form = {
   companyName: string;
@@ -91,7 +92,7 @@ export default function DocumentFormatsPage() {
   const dealerships = perm.dealershipsFor(P.templatesManage);
   const [dealershipId, setDealershipId] = useState<number | undefined>(dealerships[0]?.id);
   const dealer = dealerships.find((d) => d.id === dealershipId);
-  const [tab, setTab] = useState<'quotation' | 'ppf' | 'leave'>('quotation');
+  const [tab, setTab] = useState<'quotation' | 'prices' | 'ppf' | 'leave'>('quotation');
   const { data, isLoading, error, refetch } = useGetDocumentTemplateQuery({ kind: 'quotation', dealershipId: dealershipId! }, { skip: !dealershipId, refetchOnMountOrArgChange: true });
   const [save, { isLoading: saving }] = useSaveDocumentTemplateMutation();
   const [form, setForm] = useState<Form | null>(null);
@@ -126,7 +127,7 @@ export default function DocumentFormatsPage() {
       createdByName: null,
       updatedByName: null,
       notes: null,
-      pricing: { quantity: 1, unitPrice: '12240000', discount: '0', freightInsurance: '68000', withholdingTax: '246160', withholdingTaxNonFiler: '1311450', total: '12554160', bookingAmount: null },
+      pricing: { quantity: 1, unitPrice: '12240000', discount: '0', freightInsurance: '68000', withholdingTax: '246160', taxStatus: 'filer', withholdingTaxNonFiler: '1311450', total: '12554160', bookingAmount: null },
     };
     // Jetour: a sample like its T2 i-DM quotation (a bank on the customer's account, booking price, note).
     const sample: QuotationDocument =
@@ -139,7 +140,7 @@ export default function DocumentFormatsPage() {
             deliveryPeriod: 'ONE MONTH AFTER FULL PAYMENT.',
             notes: '(Limited Stock & Limited Time Offer Price)',
             vehicle: { model: 'Jetour T2', variant: 'T2 i-DM PHEV', color: 'Black', vin: null, engineNo: null },
-            pricing: { quantity: 1, unitPrice: '12795000', discount: '0', freightInsurance: '75000', withholdingTax: '257400', withholdingTaxNonFiler: null, total: '13127400', bookingAmount: '2500000' },
+            pricing: { quantity: 1, unitPrice: '12795000', discount: '0', freightInsurance: '75000', withholdingTax: '257400', taxStatus: 'filer', withholdingTaxNonFiler: null, total: '13127400', bookingAmount: '2500000' },
           }
         : base;
     return () => buildQuotationPdf(sample);
@@ -166,6 +167,7 @@ export default function DocumentFormatsPage() {
         {(
           [
             ['quotation', 'Quotation'],
+            ['prices', 'Price list'],
             ['ppf', 'PPF voucher'],
             ['leave', 'Leave form'],
           ] as const
@@ -201,7 +203,9 @@ export default function DocumentFormatsPage() {
         )}
       </div>
 
-      {tab === 'ppf' ? (
+      {tab === 'prices' ? (
+        dealer && <PriceListEditor key={dealer.id} dealershipId={dealer.id} brand={dealer.brand} />
+      ) : tab === 'ppf' ? (
         dealer && <PpfFormatEditor key={dealer.id} dealer={dealer} />
       ) : tab === 'leave' ? (
         dealer && <LeaveFormatEditor key={dealer.id} dealer={dealer} />

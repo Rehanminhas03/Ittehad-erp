@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { Button, Dialog, Spinner } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { apiErrorMessage } from '@/shared/lib';
@@ -73,7 +74,7 @@ function useDocumentPdf(kind: DocKind, id: number, skip: boolean, letterhead: bo
  * Shows the document as it will print, so it can be checked before it goes to the customer, then
  * downloads or prints it. Used for quotations, PPF vouchers and delivery notes.
  */
-export function DocumentPreview({ kind, id, open, onClose }: { kind: DocKind; id: number; open: boolean; onClose: () => void }) {
+export function DocumentPreview({ kind, id, open, onClose, editTo }: { kind: DocKind; id: number; open: boolean; onClose: () => void; editTo?: string }) {
   // Quotations of Hyundai / Jetour print on their letterhead paper (no header / footer) by default;
   // untick for the full page (e.g. to send it on WhatsApp).
   const [letterhead, setLetterhead] = useState<boolean | null>(null);
@@ -160,7 +161,21 @@ export function DocumentPreview({ kind, id, open, onClose }: { kind: DocKind; id
         </Button>
       </div>
     ) : undefined;
-  return <PdfDialog open={open} onClose={onClose} title={title} pdf={pdf} error={error} loading={loading} extra={extra} />;
+  // A mistake in the document: correct it (the user may edit it), then open the preview again.
+  const withEdit =
+    editTo || extra ? (
+      <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+        {editTo && (
+          <Link to={editTo} onClick={onClose}>
+            <Button variant="secondary" className="w-full justify-center md:w-auto">
+              Edit {kind === 'ppf' ? 'voucher' : 'quotation'}
+            </Button>
+          </Link>
+        )}
+        {extra}
+      </div>
+    ) : undefined;
+  return <PdfDialog open={open} onClose={onClose} title={title} pdf={pdf} error={error} loading={loading} extra={withEdit} />;
 }
 
 /** A drawn PDF in a dialog: shown as it will print, then downloaded or printed. */

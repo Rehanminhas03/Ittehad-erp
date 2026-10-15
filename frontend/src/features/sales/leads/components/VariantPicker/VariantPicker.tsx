@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Input, Select } from '@/shared/components/ui';
-import { useListVariantCodesQuery } from '../../../salesApi';
+import { type VariantCode, useListVariantCodesQuery } from '../../../salesApi';
 
 const OTHER = '__other__';
 
@@ -12,8 +12,8 @@ interface VariantPickerProps {
   invalid?: boolean;
   modelId: number | null;
   dealershipId?: number | null;
-  /** The picked code (null when typed or none), e.g. for the quotation Ref. */
-  onCode?: (code: string | null) => void;
+  /** The picked code (null when typed or none), e.g. for the quotation Ref, with the variant (its price list). */
+  onCode?: (code: string | null, variant?: VariantCode) => void;
 }
 
 /**
@@ -42,7 +42,7 @@ export function VariantPicker({ id, value, onChange, invalid, modelId, dealershi
   // The code behind the chosen variant (also for a variant filled in from the lead).
   const picked = typing ? undefined : codes.find((c) => c.description === value);
   useEffect(() => {
-    onCode?.(picked?.code ?? null);
+    onCode?.(picked?.code ?? null, picked);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- report only when the code changes
   }, [picked?.code]);
 

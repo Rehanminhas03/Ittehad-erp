@@ -3,7 +3,8 @@ import { Link } from 'react-router';
 import { z } from 'zod';
 import { Button, Input } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
-import { type CustomFieldProps, dealershipFilter, type EntityViewConfig, type FilterDef, mono, money, muted, optionalDate, optionalText, requiredText, strong } from '@/shared/entity';
+import { useVehicleModelOptions } from '@/features/crm';
+import { type CustomFieldProps, dealershipFilter, type EntityViewConfig, type FilterDef, idField, mono, money, muted, optionalDate, optionalText, requiredText, strong } from '@/shared/entity';
 import { formatDate, formatDateTime, formatMoney } from '@/shared/lib';
 import { P } from '../permissions';
 import {
@@ -22,6 +23,7 @@ import {
   useUpdateQuotationMutation,
 } from '../salesApi';
 import { type DocKind, DocumentPreview, DownloadIcon, EyeIcon, PrintIcon } from './DocumentPreview';
+import { EditDocumentLink } from './EditDocumentLink';
 import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } from './labels';
 
 /** Jetour staff: their quotations print a delivery period sentence instead of a number of days. */
@@ -110,7 +112,7 @@ const optionalMoney = (label: string) =>
     .union([z.string(), z.null()])
     .optional()
     .transform((v) => (v ?? '').trim().replace(/,/g, ''))
-    .refine((v) => v === '' || /^\d{1,12}(\.\d{1,2})?$/.test(v), label + ' must be a number with up to 2 decimals')
+    .refine((v) => v === '' || /^\d{1,12}(\.\d*)?$/.test(v), label + ' must be a number, e.g. 9,500,000')
     .transform((v) => (v === '' ? null : v));
 
 const dateRange = { label: 'Issued', fromParam: 'createdFrom', toParam: 'createdTo' };
@@ -142,6 +144,8 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { key: 'createdAt', header: 'Issued', sortKey: 'createdAt', render: (q) => formatDate(q.createdAt) },
       { key: 'validUntil', header: 'Valid until', sortKey: 'validUntil', render: (q) => formatDate(q.validUntil) },
       { key: 'pdf', header: 'PDF', className: 'w-px text-right', render: (q) => <PreviewIcon kind="quotation" id={q.id} label={q.quotationNo} /> },
+      // Correct a quotation straight from the list (its salesperson, or the Assistant Manager).
+      { key: 'edit', header: 'Edit', className: 'w-px text-right', render: (q) => <EditDocumentLink kind="quotation" doc={q} text /> },
     ],
   },
   detail: {
@@ -157,8 +161,8 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { label: 'Price', value: (q) => formatMoney(q.unitPrice) },
       { label: 'Discount', value: (q) => formatMoney(q.discount) },
       { label: 'Freight & transit insurance', value: (q) => formatMoney(q.freightInsurance) },
-      { label: 'Withholding tax (filer)', value: (q) => formatMoney(q.withholdingTax) },
-      { label: 'Withholding tax (non-filer)', value: (q) => formatMoney(q.withholdingTaxNonFiler) },
+      { label: 'Withholding tax', value: (q) => `${formatMoney(q.withholdingTax)}${q.taxStatus === 'non_filer' ? ' (non-filer)' : ' (filer)'}` },
+      { label: 'Withholding tax (non-filer)', value: (q) => (q.withholdingTaxNonFiler ? formatMoney(q.withholdingTaxNonFiler) : null) },
       { label: 'Total', value: (q) => <span className="font-semibold">{formatMoney(q.totalAmount)}</span> },
       { label: 'Booking amount', value: (q) => formatMoney(q.bookingAmount) },
       { label: 'Valid until', value: (q) => formatDate(q.validUntil) },
@@ -171,14 +175,19 @@ export const quotationView: EntityViewConfig<Quotation> = {
   },
   form: {
     fields: [
+      { name: 'customerName', label: 'Customer name', type: 'text', required: true, visible: (_p, row) => !!row && !(row as Quotation).leadId },
+      { name: 'customerMobile', label: 'Customer phone', type: 'tel', required: true, hint: 'Digits only', visible: (_p, row) => !!row && !(row as Quotation).leadId },
+      { name: 'customerEmail', label: 'Customer email', type: 'email', span: 2, visible: (_p, row) => !!row && !(row as Quotation).leadId },
+      { name: 'modelId', label: 'Model', type: 'select', required: true, useOptions: useVehicleModelOptions, hint: 'If you change the model, pick a variant code of that model (or type the variant under "Other")' },
       { name: 'billTo', label: 'To', type: 'text', span: 2, hint: "Empty: the customer's name" },
       { name: 'variantCode', label: 'Variant code', type: 'select', span: 2, useOptions: useVariantCodeOptions, hint: 'Hyundai: picking a code sets the printed description' },
       { name: 'unitPrice', label: 'Price (PKR)', type: 'money', required: true },
       { name: 'discount', label: 'Discount (PKR)', type: 'money', hint: 'Limited by the group discount policy' },
       { name: 'freightInsurance', label: 'Freight & transit insurance (PKR)', type: 'money' },
       { name: 'quantity', label: 'Quantity', type: 'number', required: true },
-      { name: 'withholdingTax', label: 'Withholding tax — filer (PKR)', type: 'money' },
-      { name: 'withholdingTaxNonFiler', label: 'Withholding tax — non-filer (PKR)', type: 'money' },
+      { name: 'taxStatus', label: 'Withholding / advance tax', type: 'select', options: [{ value: 'filer', label: 'Filer' }, { value: 'non_filer', label: 'Non-filer' }], visible: isJetourStaff },
+      { name: 'withholdingTax', label: 'Withholding tax (PKR)', type: 'money', hint: 'Filer or non-filer, as chosen above (Jetour)' },
+      { name: 'withholdingTaxNonFiler', label: 'Withholding tax — non-filer (PKR)', type: 'money', visible: (perm) => !isJetourStaff(perm) },
       { name: 'variant', label: 'Variant', type: 'text' },
       { name: 'color', label: 'Colour', type: 'text' },
       { name: 'bookingAmount', label: 'Booking amount (PKR)', type: 'money' },
@@ -190,6 +199,11 @@ export const quotationView: EntityViewConfig<Quotation> = {
     ],
     createSchema: z.object({}),
     updateSchema: z.object({
+      // Shown only for a quotation without a lead.
+      customerName: z.string().trim().transform((v) => v || undefined).optional(),
+      customerMobile: z.string().trim().transform((v) => v || undefined).optional(),
+      customerEmail: optionalText(200),
+      modelId: idField('Model'),
       billTo: optionalText(200),
       variantCode: optionalText(40),
       unitPrice: money('Price'),
@@ -197,6 +211,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       freightInsurance: money('Freight & insurance'),
       quantity: z.coerce.number().int().min(1, 'At least 1').max(50),
       withholdingTax: money('Withholding tax'),
+      taxStatus: z.enum(['filer', 'non_filer']).optional(),
       withholdingTaxNonFiler: optionalMoney('Withholding tax (non-filer)'),
       deliveryDays: z.union([z.literal('').transform(() => null), z.coerce.number().int().min(0).max(365)]).nullish(),
       deliveryPeriod: optionalText(120),
@@ -264,6 +279,7 @@ export const ppfView: EntityViewConfig<PpfForm> = {
       { key: 'createdAt', header: 'Sold on', sortKey: 'createdAt', render: (f) => formatDate(f.createdAt) },
       { key: 'installationDate', header: 'Promise date', sortKey: 'installationDate', render: (f) => formatDate(f.installationDate) },
       { key: 'pdf', header: 'PDF', className: 'w-px text-right', render: (f) => <PreviewIcon kind="ppf" id={f.id} label={f.formNo} /> },
+      { key: 'edit', header: 'Edit', className: 'w-px text-right', render: (f) => <EditDocumentLink kind="ppf" doc={f} text /> },
     ],
   },
   detail: {

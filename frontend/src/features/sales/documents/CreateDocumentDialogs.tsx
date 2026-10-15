@@ -14,6 +14,8 @@ import {
   useListVariantCodesQuery,
 } from '../salesApi';
 import { LeadModelSelect } from '../leads/components/LeadModelSelect';
+import { formatAmount, formatMoney } from '@/shared/lib';
+import type { VariantCode } from '../salesApi';
 import { VariantPicker } from '../leads/components/VariantPicker';
 import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } from './labels';
 
@@ -58,7 +60,10 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
   const [customer, setCustomer] = useState({ name: '', mobile: '', email: '' });
   // Jetour's quotation: a delivery period sentence, the note under the title, no non-filer tax line.
   const perm = usePermission();
-  const jetour = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === dealershipId)?.brand === 'Jetour';
+  const brand = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === dealershipId)?.brand;
+  const jetour = brand === 'Jetour';
+  // Hyundai and Jetour: the freight & transit insurance and the withholding tax (filer) are mandatory.
+  const chargesRequired = brand === 'Hyundai' || jetour;
   const [v, setV] = useState({
     // From the lead; the customer may now want another model or variant.
     modelId: lead?.interestedModelId ? String(lead.interestedModelId) : '',
@@ -93,6 +98,22 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once the format is known
   }, [format]);
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
+  // The chosen variant's price list fills the amounts: ex-factory price, freight, advance (withholding) tax,
+  // booking price. Everything stays editable. Jetour: Filer (the default) or Non-filer tax.
+  const [prices, setPrices] = useState<VariantCode | null>(null);
+  const [taxStatus, setTaxStatus] = useState<'filer' | 'non_filer'>('filer');
+  const amt = (x: string | null | undefined) => (x ? formatAmount(String(Number(x))) : '');
+  const applyPrices = (row: VariantCode, status: 'filer' | 'non_filer') =>
+    setV((s) => ({
+      ...s,
+      ...(row.exFactoryPrice && !hasOrder ? { unitPrice: amt(row.exFactoryPrice) } : {}),
+      ...(row.freightCharges ? { freightInsurance: amt(row.freightCharges) } : {}),
+      withholdingTax: status === 'filer' ? amt(row.advanceTaxFiler) || s.withholdingTax : amt(row.advanceTaxNonFiler),
+      ...(!jetour && row.advanceTaxNonFiler ? { withholdingTaxNonFiler: amt(row.advanceTaxNonFiler) } : {}),
+    }));
+  const netPrice = prices?.exFactoryPrice
+    ? Number(prices.exFactoryPrice) + Number((taxStatus === 'filer' ? prices.advanceTaxFiler : prices.advanceTaxNonFiler) ?? 0) + Number(prices.freightCharges ?? 0)
+    : null;
   // Hyundai (a Ref prefix): the chosen model's variant codes; the code goes in the Ref (HI/<code>/<date>).
   // A typed variant ("Other") is allowed too; its Ref is then the quotation number.
   const { data: modelCodes } = useListVariantCodesQuery(
@@ -107,10 +128,17 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     if (!v.modelId) return setErrors({ modelId: 'Choose the model' });
     if (needsVariant && !v.variantCode && !v.variant.trim()) return setErrors({ variantCode: 'Choose the variant code (it goes in the Ref), or type it under "Other"' });
     if (!hasOrder && !v.unitPrice.trim()) return setErrors({ unitPrice: 'Enter the price to quote' });
+    if (chargesRequired) {
+      const missing: Record<string, string> = {};
+      if (!v.freightInsurance.trim()) missing.freightInsurance = 'Enter the freight & transit insurance (0 if none)';
+      if (!v.withholdingTax.trim()) missing.withholdingTax = 'Enter the withholding tax (0 if none)';
+      if (Object.keys(missing).length) return setErrors(missing);
+    }
     const quotationCreate = {
             unitPrice: v.unitPrice.trim() || undefined,
             discount: v.discount.trim() || undefined,
-            bookingAmount: v.bookingAmount.trim() || undefined,
+            // Empty stays empty: no booking amount is printed unless the salesperson enters one.
+            bookingAmount: (v.bookingAmount.trim() || null) as string | undefined,
             modelId: Number(v.modelId),
             // A picked code sets the printed description on the server; a typed variant is sent as is.
             variant: v.variantCode ? null : blank(v.variant),
@@ -120,12 +148,14 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             variantCode: blank(v.variantCode),
             billTo: blank(v.billTo),
             quantity: Number(v.quantity) || 1,
-            freightInsurance: v.freightInsurance.trim() || '0',
-            withholdingTax: v.withholdingTax.trim() || '0',
-            withholdingTaxNonFiler: v.withholdingTaxNonFiler.trim() || undefined,
+            freightInsurance: v.freightInsurance.trim() || (chargesRequired ? undefined : '0'),
+            withholdingTax: v.withholdingTax.trim() || (chargesRequired ? undefined : '0'),
+            // Jetour's quotation has no non-filer tax.
+            withholdingTaxNonFiler: jetour ? undefined : v.withholdingTaxNonFiler.trim() || undefined,
             deliveryDays: jetour ? null : v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
             deliveryPeriod: jetour ? blank(v.deliveryPeriod) : null,
             paymentMode: blank(v.paymentMode),
+            taxStatus: jetour ? taxStatus : undefined,
           };
     return run(
       () =>
@@ -204,7 +234,11 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
               id="qt-variant"
               value={v.variant}
               onChange={(variant) => setV((s) => ({ ...s, variant }))}
-              onCode={(code) => setV((s) => ({ ...s, variantCode: code ?? '' }))}
+              onCode={(code, row) => {
+                setV((s) => ({ ...s, variantCode: code ?? '' }));
+                setPrices(row ?? null);
+                if (row) applyPrices(row, taxStatus);
+              }}
               invalid={!!(errors.variantCode ?? errors.variant)}
               modelId={Number(v.modelId) || null}
               dealershipId={dealershipId}
@@ -219,13 +253,49 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           <Field label="Discount (PKR)" htmlFor="qt-discount" error={errors.discount} hint="Limited by the group discount policy">
             <Input id="qt-discount" inputMode="decimal" value={v.discount} onChange={set('discount')} invalid={!!errors.discount} placeholder="0" />
           </Field>
-          <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" error={errors.freightInsurance}>
+          {/* Jetour: the advance tax is the filer's (default) or the non-filer's. */}
+          {jetour && (
+            <div className="sm:col-span-2">
+              <p className="mb-1.5 text-sm font-medium text-slate-700">Withholding / advance tax</p>
+              <div className="inline-flex rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Tax status">
+                {(
+                  [
+                    ['filer', 'Filer'],
+                    ['non_filer', 'Non-filer'],
+                  ] as const
+                ).map(([value, text]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={taxStatus === value}
+                    onClick={() => {
+                      setTaxStatus(value);
+                      if (prices) applyPrices(prices, value);
+                    }}
+                    className={taxStatus === value ? 'rounded-lg bg-white px-4 py-1.5 text-sm font-semibold text-brand-700 shadow-sm' : 'rounded-lg px-4 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900'}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+              {taxStatus === 'non_filer' && prices && !prices.advanceTaxNonFiler && <p className="mt-1 text-xs text-amber-700">The price list has no non-filer figure for this variant: enter the amount.</p>}
+            </div>
+          )}
+          {netPrice !== null && (
+            <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 sm:col-span-2">
+              Price list: ex-factory {formatMoney(String(prices!.exFactoryPrice))} + advance tax ({taxStatus === 'filer' ? 'filer' : 'non-filer'}){' '}
+              {formatMoney(String((taxStatus === 'filer' ? prices!.advanceTaxFiler : prices!.advanceTaxNonFiler) ?? 0))} + freight {formatMoney(String(prices!.freightCharges ?? 0))} = net price{' '}
+              <span className="font-semibold">{formatMoney(String(netPrice))}</span>. The amounts below were filled in from it; you can change them.
+            </p>
+          )}
+          <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" required={chargesRequired} error={errors.freightInsurance}>
             <Input id="qt-freight" inputMode="decimal" value={v.freightInsurance} onChange={set('freightInsurance')} invalid={!!errors.freightInsurance} placeholder="e.g. 68000" />
           </Field>
           <Field label="Quantity" htmlFor="qt-qty" error={errors.quantity}>
             <Input id="qt-qty" type="number" min={1} max={50} value={v.quantity} onChange={set('quantity')} />
           </Field>
-          <Field label="Withholding tax — filer (PKR)" htmlFor="qt-wht" error={errors.withholdingTax} hint="Added as a line item">
+          <Field label={jetour && taxStatus === 'non_filer' ? 'Withholding tax — non-filer (PKR)' : 'Withholding tax — filer (PKR)'} htmlFor="qt-wht" required={chargesRequired} error={errors.withholdingTax} hint="Added as a line item">
             <Input id="qt-wht" inputMode="decimal" value={v.withholdingTax} onChange={set('withholdingTax')} invalid={!!errors.withholdingTax} placeholder="e.g. 246160" />
           </Field>
           {!jetour && (
@@ -236,7 +306,7 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           <Field label="Colour" htmlFor="qt-color">
             <Input id="qt-color" value={v.color} onChange={set('color')} />
           </Field>
-          <Field label="Booking amount (PKR)" htmlFor="qt-booking" error={errors.bookingAmount} hint={hasOrder ? 'Empty: from the sales order' : jetour ? 'Printed as "Booking Price" in the table' : undefined}>
+          <Field label="Booking amount (PKR)" htmlFor="qt-booking" error={errors.bookingAmount} hint={jetour ? 'Empty by default. Enter it only if you want it printed as "Booking Price" in the table' : 'Empty by default: enter it only if there is a booking amount'}>
             <Input id="qt-booking" inputMode="decimal" value={v.bookingAmount} onChange={set('bookingAmount')} invalid={!!errors.bookingAmount} />
           </Field>
           <Field label="Valid for (days)" htmlFor="qt-valid" error={errors.validDays}>

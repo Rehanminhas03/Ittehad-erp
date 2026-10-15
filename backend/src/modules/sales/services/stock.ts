@@ -25,7 +25,8 @@ export async function receiveStockVehicle(ctx: EntityCtx, input: z.output<typeof
   // The order it arrived for: same dealership and model, booked, and still without a car.
   const o = orderId ? await orders.findVisible(ctx, orderId, { lock: true }) : null;
   if (o) {
-    if (!orders.canOnRow(ctx.access, o, P.ordersAllocate)) throw forbidden();
+    // The Delivery Team (allocate) or the Sales Admin (who also enters the car on the order).
+    if (!orders.canOnRow(ctx.access, o, P.ordersAllocate) && !orders.canOnRow(ctx.access, o, P.ordersUpdate)) throw forbidden();
     const bad = (message: string) => validationError([{ in: 'body', path: 'orderId', message }]);
     if (o.dealershipId !== dealershipId) throw bad('That order is at another dealership');
     if (!(LIVE_ORDER_STATES as readonly string[]).includes(o.status as string)) throw bad(`That order is ${o.status as string}`);

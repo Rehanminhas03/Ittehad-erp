@@ -27,6 +27,18 @@ const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  /** Meta (Facebook / Instagram) lead ads → social media leads (see modules/integrations/meta.ts). */
+  META_APP_ID: z.string().optional(),
+  META_APP_SECRET: z.string().optional(),
+  /** The text typed into Meta when the webhook is added (VERIFY_TOKEN is accepted too). */
+  META_VERIFY_TOKEN: z.string().optional(),
+  VERIFY_TOKEN: z.string().optional(),
+  /** One Page / System User access token (leads_retrieval, pages_show_list) for every Page; the leads go to META_DEFAULT_DEALERSHIP. */
+  META_ACCESS_TOKEN: z.string().optional(),
+  META_DEFAULT_DEALERSHIP: z.string().default('JET-ITH'),
+  /** JSON list: [{"pageId":"…","dealership":"JET-ITH","accessToken":"…"}] */
+  META_PAGES: z.string().optional(),
+  META_GRAPH_VERSION: z.string().default('v21.0'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

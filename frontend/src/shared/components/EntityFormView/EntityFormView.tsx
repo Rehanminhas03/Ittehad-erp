@@ -36,7 +36,7 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
   const [blocked, setBlocked] = useState<string | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const schema = (mode === 'edit' ? (form.updateSchema ?? form.createSchema) : form.createSchema) as never;
-  const fields = form.fields.filter((f) => ((f.mode ?? 'both') === 'both' || f.mode === mode) && (!f.visible || f.visible(perm)));
+  const fields = form.fields.filter((f) => ((f.mode ?? 'both') === 'both' || f.mode === mode) && (!f.visible || f.visible(perm, row)));
 
   const defaultValues = useMemo<FormValues>(() => {
     if (mode === 'edit' && row) {
