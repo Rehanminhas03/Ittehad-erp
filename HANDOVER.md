@@ -215,8 +215,6 @@ does today and what is still open (section 10). Then wait for my next request.
 - **User guide for staff**: `Sales-Portal-User-Guide.docx` (root) — every role's tasks with annotated screenshots.
   Regenerate from the scripts in a session scratchpad (headless Chrome on the test copy + python-docx) if the UI changes a lot.
 
-<<<<<<< HEAD
-=======
 ### CRO portal and Meta lead ads (2026-10-10)
 - CRO: tabs **Social media leads** / **Salesperson leads** (read-only), **Transfer**; permissions `sales.leads.view_social`, `view_team`, `transfer`; `EntityConfig.viewWhen` may now be a list. `personalLeads()` (`sales/entities.ts`) keeps personal figures (dashboard, today, action needed) to own leads for people who see more.
 - Meta webhook `/api/integrations/meta/webhook` (`modules/integrations/meta.ts`, settings `META_*` in `.env`, steps in README "CRO portal and Meta lead ads"). New lead columns `campaign_name, city, meta_lead_id, meta_form_id, ad_name, meta_fields` (migration `20261010120000_meta_social_leads`: **run `npm run db:migrate`**, which also grants the new permissions to CRO roles). Not yet tried against real Meta; tests written (`test/meta.test.ts`) but not run.
@@ -230,7 +228,6 @@ does today and what is still open (section 10). Then wait for my next request.
 ### Correct conversion (2026-10-14)
 - AM / Sales Manager edit a converted lead's conversion details (`correctLeadConversion`, permission `sales.leads.correct_conversion`, granted by `db:migrate` to the AM / Sales Manager roles). Only while status = converted. Tests not yet written.
 
->>>>>>> development
 ### Dashboards, reports, activity
 - **Notifications (live)** (`modules/core/notifications.ts`, `lib/realtime.ts`, `features/notifications/`): built in `http/apiRouter.ts` from each request's audit entries (`ctx.audit`), saved in the same transaction (`core.notification`, one row per recipient: active users with a role at the change's dealership, or a global role, except the actor), and pushed over Socket.IO (`notification:new` to room `user:<id>`) **after commit**. The socket authenticates with the access token (`handshake.auth.token`); the Vite dev proxy forwards `/socket.io` with `ws: true`. Titles: `describeChange()` (highest weight per request wins; same kind collapses). No customer data in titles/details. RLS: read own (+ ones you caused, for `RETURNING`), mark/delete own. Test: `test/notifications.test.ts` (real listening server + socket client). The top-bar clipboard is **Action needed**; the bell is **Notifications**.
 - **Role dashboards** (`features/sales/dashboard/SalesDashboard.tsx`): KPI tiles, daily trend chart, breakdowns, latest records, periods 7/14/30 days or custom (≤ 92 days), and a **"This month" panel** (leads logged, converted, cars booked / delivered, PPF sold + amount, quotations, latest documents).
