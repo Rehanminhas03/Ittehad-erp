@@ -176,10 +176,20 @@ export interface EntityViewConfig<T extends { id: number }> {
      * latest activity. `defaultPreset` applies when the URL names none (e.g. 'today').
      */
     dateRange?: { label: string; fromParam: string; toParam: string; defaultPreset?: string };
+    /**
+     * Select several rows (a checkbox on each row the user may act on) and act on them together, e.g.
+     * give leads to a salesperson. `bar` is shown above the list while rows are selected.
+     */
+    bulk?: {
+      canSelect: (row: T, perm: PermissionApi) => boolean;
+      bar: (ctx: { ids: number[]; clear: () => void }) => ReactNode;
+    };
   };
   detail: {
     title: (row: T) => string;
     subtitle?: (row: T) => ReactNode;
+    /** Extra buttons next to the title (beside Edit), e.g. a shortcut to a section below. */
+    actions?: (row: T, perm: PermissionApi) => ReactNode;
     fields: DisplayField<T>[];
     /** Extra sections below the fields (e.g. related records). */
     sections?: (row: T) => ReactNode;

@@ -28,6 +28,8 @@ const injectedRtkApi = api
             from: queryArg["from"],
             to: queryArg.to,
             status: queryArg.status,
+            group: queryArg.group,
+            temperature: queryArg.temperature,
           },
         }),
         providesTags: ["Lead"],
@@ -101,6 +103,17 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Lead"],
       }),
+      correctLeadConversion: build.mutation<
+        CorrectLeadConversionApiResponse,
+        CorrectLeadConversionApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/${queryArg.id}/conversion`,
+          method: "PATCH",
+          body: queryArg.conversionCorrectionRequest,
+        }),
+        invalidatesTags: ["Lead"],
+      }),
       createLeadQuotation: build.mutation<
         CreateLeadQuotationApiResponse,
         CreateLeadQuotationApiArg
@@ -140,6 +153,17 @@ const injectedRtkApi = api
           url: `/api/sales/leads/${queryArg.id}/appointment`,
           method: "PUT",
           body: queryArg.leadAppointmentRequest,
+        }),
+        invalidatesTags: ["Lead"],
+      }),
+      bulkReassignLeads: build.mutation<
+        BulkReassignLeadsApiResponse,
+        BulkReassignLeadsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/bulk-reassign`,
+          method: "POST",
+          body: queryArg.bulkReassignRequest,
         }),
         invalidatesTags: ["Lead"],
       }),
@@ -373,6 +397,8 @@ const injectedRtkApi = api
             from: queryArg["from"],
             to: queryArg.to,
             status: queryArg.status,
+            group: queryArg.group,
+            temperature: queryArg.temperature,
           },
         }),
         providesTags: ["SalesOrder"],
@@ -407,6 +433,31 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["SalesOrder"],
       }),
+      getOrderPdi: build.query<GetOrderPdiApiResponse, GetOrderPdiApiArg>({
+        query: (queryArg) => ({ url: `/api/sales/orders/${queryArg.id}/pdi` }),
+        providesTags: ["SalesOrder"],
+      }),
+      recordOrderPdi: build.mutation<
+        RecordOrderPdiApiResponse,
+        RecordOrderPdiApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/pdi`,
+          method: "PUT",
+          body: queryArg.pdiRequest,
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
+      commentOnPdi: build.mutation<CommentOnPdiApiResponse, CommentOnPdiApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/sales/orders/${queryArg.id}/pdi-comments`,
+            method: "POST",
+            body: queryArg.pdiCommentRequest,
+          }),
+          invalidatesTags: ["SalesOrder"],
+        },
+      ),
       requestDeliveryClearance: build.mutation<
         RequestDeliveryClearanceApiResponse,
         RequestDeliveryClearanceApiArg
@@ -659,12 +710,15 @@ const injectedRtkApi = api
             status: queryArg.status,
             ownerId: queryArg.ownerId,
             source: queryArg.source,
+            group: queryArg.group,
             escalated: queryArg.escalated,
             open: queryArg.open,
             convertedFrom: queryArg.convertedFrom,
             convertedTo: queryArg.convertedTo,
             createdBefore: queryArg.createdBefore,
             vehicleStage: queryArg.vehicleStage,
+            temperature: queryArg.temperature,
+            followUpDue: queryArg.followUpDue,
             createdOn: queryArg.createdOn,
             activityFrom: queryArg.activityFrom,
             activityTo: queryArg.activityTo,
@@ -1038,6 +1092,8 @@ export type ExportLeadsApiArg = {
   from?: string;
   to?: string;
   status?: string;
+  group?: "social" | "salespeople";
+  temperature?: "hot" | "warm" | "cold";
 };
 export type GetLeadSummaryApiResponse = /** status 200 Success */ LeadSummary;
 export type GetLeadSummaryApiArg = {
@@ -1095,6 +1151,8 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1107,6 +1165,9 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1182,6 +1243,8 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1194,6 +1257,9 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1224,6 +1290,91 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
 export type CorrectLeadDetailsApiArg = {
   id: number;
   leadDetailsRequest: LeadDetailsRequest;
+};
+export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
+  id: number;
+  dealershipId: number;
+  branchId: number | null;
+  ownerId: number;
+  ownerName?: string | null;
+  customerId: number | null;
+  prospectName: string;
+  prospectMobile: string;
+  email: string | null;
+  source:
+    "walk_in" | "phone" | "website" | "social" | "referral" | "event" | "other";
+  interestedModelId: number | null;
+  modelName?: string | null;
+  variant: string | null;
+  preferredColor: string | null;
+  expectedCloseDate: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
+  notes: string | null;
+  paymentInstrument:
+    | (
+        | "pay_order"
+        | "bank_draft"
+        | "cheque"
+        | "online_transfer"
+        | "cash"
+        | null
+      )
+    | null;
+  paymentInstrumentRef: string | null;
+  paymentInstrumentBank: string | null;
+  paymentAmount: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  vehiclePrice?: string | null;
+  followUpCount: number;
+  lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
+  escalatedAt: string | null;
+  escalatedById: number | null;
+  escalatedByName?: string | null;
+  escalationNote: string | null;
+  appointmentAt?: string | null;
+  appointmentNote?: string | null;
+  appointmentSetById?: number | null;
+  appointmentSetByName?: string | null;
+  lostAt?: string | null;
+  lostById?: number | null;
+  lostByName?: string | null;
+  lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  customerAddress?: string | null;
+  previousPurchases?: number;
+  convertedAt: string | null;
+  convertedById: number | null;
+  convertedByName?: string | null;
+  status:
+    | "new"
+    | "follow_up"
+    | "visited"
+    | "converted"
+    | "processing"
+    | "completed"
+    | "exhausted"
+    | "lost";
+  salesOrderId: number | null;
+  orderNo?: string | null;
+  vehicleStage?: string | null;
+  createdById: number | null;
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type CorrectLeadConversionApiArg = {
+  id: number;
+  conversionCorrectionRequest: ConversionCorrectionRequest;
 };
 export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   id: number;
@@ -1353,6 +1504,8 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1365,6 +1518,9 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1395,6 +1551,11 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
 export type SetLeadAppointmentApiArg = {
   id: number;
   leadAppointmentRequest: LeadAppointmentRequest;
+};
+export type BulkReassignLeadsApiResponse =
+  /** status 200 Success */ BulkReassignResult;
+export type BulkReassignLeadsApiArg = {
+  bulkReassignRequest: BulkReassignRequest;
 };
 export type ReassignLeadApiResponse = /** status 200 Success */ {
   id: number;
@@ -1433,6 +1594,8 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1445,6 +1608,9 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1513,6 +1679,8 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1525,6 +1693,9 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -1795,6 +1966,8 @@ export type ExportSalesOrdersApiArg = {
   from?: string;
   to?: string;
   status?: string;
+  group?: "social" | "salespeople";
+  temperature?: "hot" | "warm" | "cold";
 };
 export type ListOrderPaymentsApiResponse =
   /** status 200 Success */ OrderPayments;
@@ -1812,6 +1985,20 @@ export type RemoveOrderPaymentApiResponse =
 export type RemoveOrderPaymentApiArg = {
   id: number;
   paymentId: number;
+};
+export type GetOrderPdiApiResponse = /** status 200 Success */ Pdi;
+export type GetOrderPdiApiArg = {
+  id: number;
+};
+export type RecordOrderPdiApiResponse = /** status 200 Success */ Pdi;
+export type RecordOrderPdiApiArg = {
+  id: number;
+  pdiRequest: PdiRequest;
+};
+export type CommentOnPdiApiResponse = /** status 201 Success */ Pdi;
+export type CommentOnPdiApiArg = {
+  id: number;
+  pdiCommentRequest: PdiCommentRequest;
 };
 export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   id: number;
@@ -2472,6 +2659,7 @@ export type ListLeadsApiArg = {
     | "lost";
   ownerId?: number;
   source?: string;
+  group?: "social" | "salespeople";
   escalated?: "true" | "false";
   open?: "true" | "false";
   convertedFrom?: string;
@@ -2487,6 +2675,8 @@ export type ListLeadsApiArg = {
     | "delivered"
     | "transferred"
     | "hold";
+  temperature?: "hot" | "warm" | "cold";
+  followUpDue?: "true" | "false";
   createdOn?: string;
   activityFrom?: string;
   activityTo?: string;
@@ -2746,6 +2936,8 @@ export type LeadFollowUp = {
   leadId: number;
   outcome: "interested" | "not_interested" | "visited";
   remarks: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   createdById: number;
   createdByName: string | null;
   createdAt: string;
@@ -2760,6 +2952,8 @@ export type LeadFollowUp = {
 export type LeadFollowUpCreate = {
   outcome: "interested" | "not_interested" | "visited";
   remarks?: string | null;
+  temperature?: "hot" | "warm" | "cold";
+  nextFollowUpOn?: string | null;
   markLost?: boolean;
 };
 export type FollowUpCommentRequest = {
@@ -2771,6 +2965,30 @@ export type LeadDetailsRequest = {
   email?: (string | null) | "" | (any | null);
   preferredColor?: string | null;
   variant?: string;
+  notes?: string | null;
+};
+export type ConversionCorrectionRequest = {
+  prospectName?: string;
+  prospectMobile?: string;
+  email?: string;
+  customerAddress?: string;
+  customerCnic?: string;
+  interestedModelId?: number;
+  variant?: string;
+  preferredColor?: string;
+  paymentType?: "partial" | "full";
+  paymentInstrument?:
+    "pay_order" | "bank_draft" | "cheque" | "online_transfer" | "cash";
+  paymentInstrumentRef?: string | null;
+  paymentInstrumentBank?: string | null;
+  paymentAmount?: string;
+  vehiclePrice?: string;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  expectedDeliveryDate?: string | null;
+  expectedDeliveryByMonth?: boolean;
   notes?: string | null;
 };
 export type QuotationCreate = {
@@ -2822,6 +3040,19 @@ export type PpfFormCreate = {
 };
 export type LeadAppointmentRequest = {
   appointmentAt: string | null;
+  note?: string | null;
+};
+export type BulkReassignResult = {
+  moved: number;
+  toName: string;
+  skipped: {
+    leadId: number;
+    reason: string;
+  }[];
+};
+export type BulkReassignRequest = {
+  leadIds: number[];
+  ownerId: number;
   note?: string | null;
 };
 export type ReassignLeadRequest = {
@@ -3093,6 +3324,20 @@ export type SalesDashboard = {
       converted: number;
     }[];
   };
+  social?: {
+    byStatus: {
+      [key: string]: number;
+    };
+    total: number;
+    loggedInPeriod: number;
+    open: number;
+    loggedToday: number;
+    daily: {
+      date: string;
+      logged: number;
+      converted: number;
+    }[];
+  };
   orders?: {
     byStatus: {
       [key: string]: number;
@@ -3335,6 +3580,30 @@ export type OrderPaymentCreate = {
   receivedOn: string;
   note?: string | null;
 };
+export type Pdi = {
+  recorded: boolean;
+  done: boolean;
+  issue: boolean;
+  notes: string | null;
+  recordedAt: string | null;
+  recordedByName: string | null;
+  carStatus: string | null;
+  comments: {
+    id: number;
+    body: string;
+    createdById: number;
+    createdByName: string | null;
+    createdAt: string;
+  }[];
+};
+export type PdiRequest = {
+  done: boolean;
+  issue: boolean;
+  notes?: string | null;
+};
+export type PdiCommentRequest = {
+  body: string;
+};
 export type ClearanceRequest = {
   note?: string | null;
 };
@@ -3363,6 +3632,7 @@ export type AllocationRequest = {
 };
 export type AdvanceVehicleStatusRequest = {
   status: "booked" | "in_transit" | "received" | "ready_for_delivery" | "hold";
+  pdi?: PdiRequest;
 };
 export type ScheduleDeliveryRequest = {
   scheduledDate: string;
@@ -3622,6 +3892,8 @@ export type Lead = {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  temperature?: ("hot" | "warm" | "cold" | null) | null;
+  nextFollowUpOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -3634,6 +3906,9 @@ export type Lead = {
   lostById?: number | null;
   lostByName?: string | null;
   lostReason?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  city?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -4066,11 +4341,13 @@ export const {
   useRecordLeadFollowUpMutation,
   useCommentOnFollowUpMutation,
   useCorrectLeadDetailsMutation,
+  useCorrectLeadConversionMutation,
   useCreateLeadQuotationMutation,
   useGetLeadOrderVehicleQuery,
   useLazyGetLeadOrderVehicleQuery,
   useCreateLeadPpfFormMutation,
   useSetLeadAppointmentMutation,
+  useBulkReassignLeadsMutation,
   useReassignLeadMutation,
   useConvertLeadMutation,
   useRaiseSalesOrderMutation,
@@ -4107,6 +4384,10 @@ export const {
   useLazyListOrderPaymentsQuery,
   useAddOrderPaymentMutation,
   useRemoveOrderPaymentMutation,
+  useGetOrderPdiQuery,
+  useLazyGetOrderPdiQuery,
+  useRecordOrderPdiMutation,
+  useCommentOnPdiMutation,
   useRequestDeliveryClearanceMutation,
   useDecideDeliveryClearanceMutation,
   useSetOrderVehicleMutation,

@@ -4053,6 +4053,20 @@
             "type": "string",
             "nullable": true
           },
+          "temperature": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "hot",
+              "warm",
+              "cold",
+              null
+            ]
+          },
+          "nextFollowUpOn": {
+            "type": "string",
+            "nullable": true
+          },
           "createdById": {
             "type": "integer",
             "minimum": 0,
@@ -4129,6 +4143,19 @@
             "nullable": true,
             "maxLength": 2000
           },
+          "temperature": {
+            "type": "string",
+            "enum": [
+              "hot",
+              "warm",
+              "cold"
+            ]
+          },
+          "nextFollowUpOn": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
           "markLost": {
             "type": "boolean"
           }
@@ -4190,6 +4217,119 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 160
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        }
+      },
+      "ConversionCorrectionRequest": {
+        "type": "object",
+        "properties": {
+          "prospectName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "prospectMobile": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 200,
+            "format": "email"
+          },
+          "customerAddress": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "customerCnic": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "interestedModelId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "variant": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "preferredColor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "paymentType": {
+            "type": "string",
+            "enum": [
+              "partial",
+              "full"
+            ]
+          },
+          "paymentInstrument": {
+            "type": "string",
+            "enum": [
+              "pay_order",
+              "bank_draft",
+              "cheque",
+              "online_transfer",
+              "cash"
+            ]
+          },
+          "paymentInstrumentRef": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 60
+          },
+          "paymentInstrumentBank": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "paymentAmount": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "vehiclePrice": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "customerType": {
+            "type": "string",
+            "enum": [
+              "individual",
+              "corporate"
+            ]
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "contactDesignation": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "purchaseOrderNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 60
+          },
+          "expectedDeliveryDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "expectedDeliveryByMonth": {
+            "type": "boolean"
           },
           "notes": {
             "type": "string",
@@ -4440,6 +4580,71 @@
         },
         "required": [
           "appointmentAt"
+        ]
+      },
+      "BulkReassignResult": {
+        "type": "object",
+        "properties": {
+          "moved": {
+            "type": "integer"
+          },
+          "toName": {
+            "type": "string"
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "leadId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "leadId",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "moved",
+          "toName",
+          "skipped"
+        ]
+      },
+      "BulkReassignRequest": {
+        "type": "object",
+        "properties": {
+          "leadIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "ownerId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "leadIds",
+          "ownerId"
         ]
       },
       "ReassignLeadRequest": {
@@ -5707,6 +5912,59 @@
               "daily"
             ]
           },
+          "social": {
+            "type": "object",
+            "properties": {
+              "byStatus": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "loggedInPeriod": {
+                "type": "integer"
+              },
+              "open": {
+                "type": "integer"
+              },
+              "loggedToday": {
+                "type": "integer"
+              },
+              "daily": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string"
+                    },
+                    "logged": {
+                      "type": "integer"
+                    },
+                    "converted": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "logged",
+                    "converted"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "byStatus",
+              "total",
+              "loggedInPeriod",
+              "open",
+              "loggedToday",
+              "daily"
+            ]
+          },
           "orders": {
             "type": "object",
             "properties": {
@@ -6809,6 +7067,116 @@
           "receivedOn"
         ]
       },
+      "Pdi": {
+        "type": "object",
+        "properties": {
+          "recorded": {
+            "type": "boolean"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "issue": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "recordedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "recordedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "carStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "body": {
+                  "type": "string"
+                },
+                "createdById": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "createdByName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "body",
+                "createdById",
+                "createdByName",
+                "createdAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "recorded",
+          "done",
+          "issue",
+          "notes",
+          "recordedAt",
+          "recordedByName",
+          "carStatus",
+          "comments"
+        ]
+      },
+      "PdiRequest": {
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "issue": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "done",
+          "issue"
+        ]
+      },
+      "PdiCommentRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
       "ClearanceRequest": {
         "type": "object",
         "properties": {
@@ -6934,6 +7302,9 @@
               "ready_for_delivery",
               "hold"
             ]
+          },
+          "pdi": {
+            "$ref": "#/components/schemas/PdiRequest"
           }
         },
         "required": [
@@ -8084,6 +8455,20 @@
             "nullable": true,
             "format": "date-time"
           },
+          "temperature": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "hot",
+              "warm",
+              "cold",
+              null
+            ]
+          },
+          "nextFollowUpOn": {
+            "type": "string",
+            "nullable": true
+          },
           "escalatedAt": {
             "type": "string",
             "nullable": true,
@@ -8138,6 +8523,18 @@
             "nullable": true
           },
           "lostReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "campaignName": {
+            "type": "string",
+            "nullable": true
+          },
+          "adName": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
             "type": "string",
             "nullable": true
           },
@@ -22839,7 +23236,7 @@
       "get": {
         "operationId": "exportLeads",
         "summary": "Every detail of the leads logged in a period (for CSV / Excel and PDF)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -22884,6 +23281,31 @@
             },
             "required": false,
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "social",
+                "salespeople"
+              ]
+            },
+            "required": false,
+            "name": "group",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "warm",
+                "cold"
+              ]
+            },
+            "required": false,
+            "name": "temperature",
             "in": "query"
           }
         ],
@@ -22935,7 +23357,7 @@
       "get": {
         "operationId": "getLeadSummary",
         "summary": "Total leads and the split by status, with the same filters as the leads list",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -23117,7 +23539,7 @@
       "get": {
         "operationId": "listLeadFollowUps",
         "summary": "A lead's follow-ups, latest first (bounded)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -23356,6 +23778,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -23410,6 +23846,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -23580,7 +24028,7 @@
       "post": {
         "operationId": "commentOnFollowUp",
         "summary": "Comment on a follow-up (e.g. the Manager asks to clarify; the salesperson answers); everyone following the lead sees it",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -23840,6 +24288,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -23894,6 +24356,437 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerType": {
+                      "type": "string",
+                      "enum": [
+                        "individual",
+                        "corporate"
+                      ]
+                    },
+                    "companyName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactDesignation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "previousPurchases": {
+                      "type": "integer"
+                    },
+                    "convertedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "convertedById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "convertedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "new",
+                        "follow_up",
+                        "visited",
+                        "converted",
+                        "processing",
+                        "completed",
+                        "exhausted",
+                        "lost"
+                      ]
+                    },
+                    "salesOrderId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "orderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleStage": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "createdByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "availableActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "dealershipId",
+                    "branchId",
+                    "ownerId",
+                    "customerId",
+                    "prospectName",
+                    "prospectMobile",
+                    "email",
+                    "source",
+                    "interestedModelId",
+                    "variant",
+                    "preferredColor",
+                    "expectedCloseDate",
+                    "notes",
+                    "paymentInstrument",
+                    "paymentInstrumentRef",
+                    "paymentInstrumentBank",
+                    "paymentAmount",
+                    "followUpCount",
+                    "lastFollowUpAt",
+                    "escalatedAt",
+                    "escalatedById",
+                    "escalationNote",
+                    "convertedAt",
+                    "convertedById",
+                    "status",
+                    "salesOrderId",
+                    "createdById",
+                    "createdAt",
+                    "updatedAt",
+                    "availableActions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/leads/{id}/conversion": {
+      "patch": {
+        "operationId": "correctLeadConversion",
+        "summary": "Assistant Manager / Manager: correct what was entered at conversion (contact, price, payment…) until the sales order is raised",
+        "description": "Requires: sales.leads.correct_conversion",
+        "tags": [
+          "Lead"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionCorrectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealershipId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "branchId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "ownerId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "ownerName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "prospectName": {
+                      "type": "string"
+                    },
+                    "prospectMobile": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "walk_in",
+                        "phone",
+                        "website",
+                        "social",
+                        "referral",
+                        "event",
+                        "other"
+                      ]
+                    },
+                    "interestedModelId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "modelName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "variant": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "preferredColor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedCloseDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "pay_order",
+                        "bank_draft",
+                        "cheque",
+                        "online_transfer",
+                        "cash",
+                        null
+                      ]
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentAmount": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "vehiclePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "followUpCount": {
+                      "type": "integer"
+                    },
+                    "lastFollowUpAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "escalatedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "escalatedById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "escalatedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "escalationNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "appointmentAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "appointmentNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "appointmentSetById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "appointmentSetByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "lostAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "lostById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "lostByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -24837,6 +25730,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -24891,6 +25798,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -25057,11 +25976,77 @@
         }
       }
     },
+    "/api/sales/leads/bulk-reassign": {
+      "post": {
+        "operationId": "bulkReassignLeads",
+        "summary": "Give several selected leads to one salesperson / CRO (same rules as a single transfer; the others are skipped and listed)",
+        "description": "Requires: sales.leads.reassign | sales.leads.transfer",
+        "tags": [
+          "Lead"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkReassignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkReassignResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales/leads/{id}/reassign": {
       "post": {
         "operationId": "reassignLead",
         "summary": "Give the lead (with its quotations and PPF vouchers) to another salesperson",
-        "description": "Requires: sales.leads.reassign",
+        "description": "Requires: sales.leads.reassign | sales.leads.transfer",
         "tags": [
           "Lead"
         ],
@@ -25230,6 +26215,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -25284,6 +26283,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -25623,6 +26634,20 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "temperature": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "hot",
+                        "warm",
+                        "cold",
+                        null
+                      ]
+                    },
+                    "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -25677,6 +26702,18 @@
                       "nullable": true
                     },
                     "lostReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "campaignName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "adName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "city": {
                       "type": "string",
                       "nullable": true
                     },
@@ -27071,7 +28108,7 @@
       "get": {
         "operationId": "getSalesDashboard",
         "summary": "Counts and a daily series for your home dashboard, within your own view scope",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
         "tags": [
           "SalesDashboard"
         ],
@@ -27169,7 +28206,7 @@
       "get": {
         "operationId": "getSalesActionItems",
         "summary": "Action needed: what is waiting for you now (approvals, cars to hand over, orders to raise…)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
         "tags": [
           "SalesDashboard"
         ],
@@ -27229,7 +28266,7 @@
       "get": {
         "operationId": "getSalesToday",
         "summary": "Today and tomorrow at a glance: customer appointments and car deliveries (within your own view scope)",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.orders.view_all | sales.orders.view_own | sales.stock.view | sales.deliveries.view_all | sales.deliveries.view_own",
         "tags": [
           "SalesDashboard"
         ],
@@ -27298,7 +28335,7 @@
       "get": {
         "operationId": "listSalesTeamMembers",
         "summary": "The dealership's sales staff (for filters)",
-        "description": "Requires: sales.leads.view_all | sales.reports.view | sales.quotations.view_all | sales.ppf.view_all",
+        "description": "Requires: sales.leads.view_all | sales.reports.view | sales.quotations.view_all | sales.ppf.view_all | sales.leads.transfer",
         "tags": [
           "SalesTeam"
         ],
@@ -27874,6 +28911,31 @@
             "required": false,
             "name": "status",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "social",
+                "salespeople"
+              ]
+            },
+            "required": false,
+            "name": "group",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "warm",
+                "cold"
+              ]
+            },
+            "required": false,
+            "name": "temperature",
+            "in": "query"
           }
         ],
         "responses": {
@@ -28107,6 +29169,229 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrderPayments"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/orders/{id}/pdi": {
+      "get": {
+        "operationId": "getOrderPdi",
+        "summary": "The PDI (pre-delivery inspection) of the order's car and its comments",
+        "description": "Requires: sales.orders.view_all | sales.orders.view_own",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pdi"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "recordOrderPdi",
+        "summary": "Delivery Team: record or correct the PDI of the received car (done, issue found + description)",
+        "description": "Requires: sales.orders.allocate",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdiRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pdi"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/orders/{id}/pdi-comments": {
+      "post": {
+        "operationId": "commentOnPdi",
+        "summary": "Comment on the PDI (Manager, Assistant Manager, salesperson, Sales Admin, Delivery Team); everyone linked to the order is notified",
+        "description": "Requires: sales.orders.view_all | sales.orders.view_own",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdiCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pdi"
                 }
               }
             }
@@ -32137,7 +33422,7 @@
       "get": {
         "operationId": "listLeads",
         "summary": "List Leads",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -32227,6 +33512,18 @@
             "schema": {
               "type": "string",
               "enum": [
+                "social",
+                "salespeople"
+              ]
+            },
+            "required": false,
+            "name": "group",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
                 "true",
                 "false"
               ]
@@ -32291,6 +33588,31 @@
             },
             "required": false,
             "name": "vehicleStage",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "warm",
+                "cold"
+              ]
+            },
+            "required": false,
+            "name": "temperature",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "followUpDue",
             "in": "query"
           },
           {
@@ -32488,7 +33810,7 @@
       "get": {
         "operationId": "getLeadWorkflow",
         "summary": "Lead workflow definition",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -32545,7 +33867,7 @@
       "get": {
         "operationId": "getLead",
         "summary": "Get Lead",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],
@@ -32690,7 +34012,7 @@
       "get": {
         "operationId": "getLeadHistory",
         "summary": "Lead audit and workflow history",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
         "tags": [
           "Lead"
         ],

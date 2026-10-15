@@ -45,7 +45,7 @@ export const membersSql = (dealershipId: number) => sql`
    group by u.id, u.full_name`;
 
 export async function teamMembers(ctx: EntityCtx, dealershipId: number) {
-  if (![P.leadsViewAll, P.reportsView, P.quotationsViewAll, P.ppfViewAll].some((c) => ctx.access.canIn(c, { dealershipId }))) throw forbidden();
+  if (![P.leadsViewAll, P.reportsView, P.quotationsViewAll, P.ppfViewAll, P.leadsTransfer].some((c) => ctx.access.canIn(c, { dealershipId }))) throw forbidden();
   const rows = await query<{ id: number; fullName: string; sellsCars: boolean; takesLeads: boolean }>(
     ctx.tx,
     sql`select id, "fullName", "sellsCars", "takesLeads" from (${membersSql(dealershipId)}) m order by "fullName" limit 200`,

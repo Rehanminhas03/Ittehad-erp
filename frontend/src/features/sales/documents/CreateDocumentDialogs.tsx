@@ -58,7 +58,10 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
   const [customer, setCustomer] = useState({ name: '', mobile: '', email: '' });
   // Jetour's quotation: a delivery period sentence, the note under the title, no non-filer tax line.
   const perm = usePermission();
-  const jetour = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === dealershipId)?.brand === 'Jetour';
+  const brand = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === dealershipId)?.brand;
+  const jetour = brand === 'Jetour';
+  // Hyundai and Jetour: the freight & transit insurance and the withholding tax (filer) are mandatory.
+  const chargesRequired = brand === 'Hyundai' || jetour;
   const [v, setV] = useState({
     // From the lead; the customer may now want another model or variant.
     modelId: lead?.interestedModelId ? String(lead.interestedModelId) : '',
@@ -107,6 +110,12 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     if (!v.modelId) return setErrors({ modelId: 'Choose the model' });
     if (needsVariant && !v.variantCode && !v.variant.trim()) return setErrors({ variantCode: 'Choose the variant code (it goes in the Ref), or type it under "Other"' });
     if (!hasOrder && !v.unitPrice.trim()) return setErrors({ unitPrice: 'Enter the price to quote' });
+    if (chargesRequired) {
+      const missing: Record<string, string> = {};
+      if (!v.freightInsurance.trim()) missing.freightInsurance = 'Enter the freight & transit insurance (0 if none)';
+      if (!v.withholdingTax.trim()) missing.withholdingTax = 'Enter the withholding tax (0 if none)';
+      if (Object.keys(missing).length) return setErrors(missing);
+    }
     const quotationCreate = {
             unitPrice: v.unitPrice.trim() || undefined,
             discount: v.discount.trim() || undefined,
@@ -120,9 +129,10 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             variantCode: blank(v.variantCode),
             billTo: blank(v.billTo),
             quantity: Number(v.quantity) || 1,
-            freightInsurance: v.freightInsurance.trim() || '0',
-            withholdingTax: v.withholdingTax.trim() || '0',
-            withholdingTaxNonFiler: v.withholdingTaxNonFiler.trim() || undefined,
+            freightInsurance: v.freightInsurance.trim() || (chargesRequired ? undefined : '0'),
+            withholdingTax: v.withholdingTax.trim() || (chargesRequired ? undefined : '0'),
+            // Jetour's quotation has no non-filer tax.
+            withholdingTaxNonFiler: jetour ? undefined : v.withholdingTaxNonFiler.trim() || undefined,
             deliveryDays: jetour ? null : v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
             deliveryPeriod: jetour ? blank(v.deliveryPeriod) : null,
             paymentMode: blank(v.paymentMode),
@@ -219,13 +229,13 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           <Field label="Discount (PKR)" htmlFor="qt-discount" error={errors.discount} hint="Limited by the group discount policy">
             <Input id="qt-discount" inputMode="decimal" value={v.discount} onChange={set('discount')} invalid={!!errors.discount} placeholder="0" />
           </Field>
-          <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" error={errors.freightInsurance}>
+          <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" required={chargesRequired} error={errors.freightInsurance}>
             <Input id="qt-freight" inputMode="decimal" value={v.freightInsurance} onChange={set('freightInsurance')} invalid={!!errors.freightInsurance} placeholder="e.g. 68000" />
           </Field>
           <Field label="Quantity" htmlFor="qt-qty" error={errors.quantity}>
             <Input id="qt-qty" type="number" min={1} max={50} value={v.quantity} onChange={set('quantity')} />
           </Field>
-          <Field label="Withholding tax — filer (PKR)" htmlFor="qt-wht" error={errors.withholdingTax} hint="Added as a line item">
+          <Field label="Withholding tax — filer (PKR)" htmlFor="qt-wht" required={chargesRequired} error={errors.withholdingTax} hint="Added as a line item">
             <Input id="qt-wht" inputMode="decimal" value={v.withholdingTax} onChange={set('withholdingTax')} invalid={!!errors.withholdingTax} placeholder="e.g. 246160" />
           </Field>
           {!jetour && (

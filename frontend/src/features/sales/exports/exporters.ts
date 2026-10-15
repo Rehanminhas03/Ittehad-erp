@@ -4,7 +4,12 @@
  * endpoints, which return every row of the chosen period within the user's own scope.
  */
 type Row = Record<string, unknown>;
-export type Column = { header: string; value: (r: Row) => string | number | null | undefined };
+export type Column = {
+  header: string;
+  value: (r: Row) => string | number | null | undefined;
+  /** PDF only: the column's share of the width (default 1). */
+  w?: number;
+};
 
 const LABELS: Record<string, string> = {
   pay_order: 'Pay order',
@@ -93,6 +98,9 @@ export const LEAD_COLUMNS: Column[] = [
   { header: 'Logged on', value: (r) => date(r.loggedOn) },
   { header: 'Status', value: (r) => label(r.status) },
   { header: 'Source', value: (r) => label(r.source) },
+  { header: 'Campaign (Meta ad)', value: (r) => r.campaign as string },
+  { header: 'Ad', value: (r) => r.ad as string },
+  { header: 'City', value: (r) => r.city as string },
   { header: 'Customer name', value: (r) => r.customerName as string },
   { header: 'Phone', value: (r) => r.phone as string },
   { header: 'Email', value: (r) => r.email as string },
@@ -106,8 +114,11 @@ export const LEAD_COLUMNS: Column[] = [
   { header: 'Colour', value: (r) => r.color as string },
   { header: 'Salesperson', value: (r) => r.salesperson as string },
   { header: 'Logged by', value: (r) => r.loggedBy as string },
+  { header: 'Interest (hot / warm / cold)', value: (r) => label(r.interest) },
   { header: 'Follow-ups', value: (r) => r.followUps as number },
   { header: 'Last follow-up', value: (r) => date(r.lastFollowUp) },
+  { header: 'Next follow-up', value: (r) => date(r.nextFollowUp) },
+  { header: 'Remarks (every follow-up)', value: (r) => r.remarks as string },
   { header: 'Appointment', value: (r) => (r.appointment ? new Date(r.appointment as string).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' }) : '') },
   { header: 'Converted on', value: (r) => date(r.convertedOn) },
   { header: 'Payment type', value: (r) => label(r.paymentType) },
@@ -126,10 +137,13 @@ export const LEAD_PDF_COLUMNS: Column[] = [
   { header: 'Logged', value: (r) => date(r.loggedOn) },
   { header: 'Customer', value: (r) => [r.companyName, r.customerName, r.phone].filter(Boolean).join('\n') },
   { header: 'Car', value: (r) => [r.model, r.variant, r.color].filter(Boolean).join('\n') },
-  { header: 'Source', value: (r) => label(r.source) },
+  { header: 'Source', value: (r) => [label(r.source), r.campaign, r.city].filter(Boolean).join('\n') },
   { header: 'Salesperson', value: (r) => r.salesperson as string },
+  { header: 'Interest', value: (r) => label(r.interest) },
   { header: 'Follow-ups', value: (r) => r.followUps as number },
   { header: 'Status', value: (r) => label(r.status) },
+  // What the salesperson / CRO entered with each follow-up.
+  { header: 'Remarks', value: (r) => r.remarks as string, w: 3 },
   { header: 'Payment', value: (r) => (r.paymentType ? `${label(r.paymentType)}\nRs ${money(r.amountPaid)}` : '') },
   { header: 'Order / PBO', value: (r) => [r.orderNo, r.pboNo].filter(Boolean).join('\n') },
 ];
@@ -157,7 +171,9 @@ export async function downloadTablePdf(fileName: string, title: string, subtitle
   const W = 297;
   const M = 10;
   const CW = W - 2 * M;
-  const colW = CW / columns.length;
+  const totalW = columns.reduce((n, c) => n + (c.w ?? 1), 0);
+  const colWs = columns.map((c) => (CW * (c.w ?? 1)) / totalW);
+  const colX = colWs.map((_, i) => M + colWs.slice(0, i).reduce((a, b) => a + b, 0));
   let y = 14;
   const header = () => {
     doc.setFont('helvetica', 'bold');
@@ -165,7 +181,7 @@ export async function downloadTablePdf(fileName: string, title: string, subtitle
     doc.setFillColor(30, 58, 138);
     doc.setTextColor(255, 255, 255);
     doc.rect(M, y, CW, 7, 'F');
-    columns.forEach((c, i) => doc.text(c.header, M + i * colW + 1.5, y + 4.7, { maxWidth: colW - 3 }));
+    columns.forEach((c, i) => doc.text(c.header, colX[i]! + 1.5, y + 4.7, { maxWidth: colWs[i]! - 3 }));
     doc.setTextColor(17, 24, 39);
     y += 7;
   };
@@ -182,7 +198,7 @@ export async function downloadTablePdf(fileName: string, title: string, subtitle
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   rows.forEach((r, n) => {
-    const cells = columns.map((c) => doc.splitTextToSize(String(c.value(r) ?? ''), colW - 3) as string[]);
+    const cells = columns.map((c, i) => doc.splitTextToSize(String(c.value(r) ?? ''), colWs[i]! - 3) as string[]);
     const h = Math.max(...cells.map((l) => l.length)) * 3.4 + 2.6;
     if (y + h > 200) {
       doc.addPage();
@@ -195,7 +211,7 @@ export async function downloadTablePdf(fileName: string, title: string, subtitle
       doc.setFillColor(241, 245, 249);
       doc.rect(M, y, CW, h, 'F');
     }
-    cells.forEach((lines, i) => lines.forEach((l, k) => doc.text(l, M + i * colW + 1.5, y + 3.8 + k * 3.4)));
+    cells.forEach((lines, i) => lines.forEach((l, k) => doc.text(l, colX[i]! + 1.5, y + 3.8 + k * 3.4)));
     y += h;
   });
   if (footnote) {

@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { Badge, Button, Checkbox, Field, Section, Select, Spinner, Textarea } from '@/shared/components/ui';
+import { Badge, Button, Field, Input, Section, Select, Spinner, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
-import { formatDateTime } from '@/shared/lib';
-import { FOLLOW_UP_OUTCOMES, labelOf, MIN_FOLLOW_UPS_TO_EXHAUST, OPEN_LEAD_STATES, P } from '../../../permissions';
+import { formatDate, formatDateTime } from '@/shared/lib';
+import { FOLLOW_UP_GAP_DAYS, FOLLOW_UP_OUTCOMES, labelOf, LEAD_TEMPERATURES, MIN_FOLLOW_UPS_TO_EXHAUST, OPEN_LEAD_STATES, P } from '../../../permissions';
+import { TemperatureBadge } from '../TemperatureBadge';
+
+const pakistanToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+/** The schedule's day for the next follow-up, once `done` have been made (null after the third). */
+const scheduled = (done: number) => (FOLLOW_UP_GAP_DAYS[done] === undefined ? '' : plusDays(pakistanToday(), FOLLOW_UP_GAP_DAYS[done]!));
 import { type Lead, type LeadFollowUp, useCommentOnFollowUpMutation, useListLeadFollowUpsQuery, useRecordLeadFollowUpMutation } from '../../../salesApi';
 
 const OUTCOME_TONES = { interested: 'green', not_interested: 'red', visited: 'blue' } as const;
@@ -15,8 +21,9 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
   const [record, { isLoading: saving }] = useRecordLeadFollowUpMutation();
   const [outcome, setOutcome] = useState('');
   const [remarks, setRemarks] = useState('');
-  // "Not interested": the lead is lost (out of the leads list) unless unticked.
-  const [markLost, setMarkLost] = useState(true);
+  // How interested the customer is, and when to call next (the schedule's day, which can be changed).
+  const [temperature, setTemperature] = useState<string>(lead.temperature ?? '');
+  const [nextOn, setNextOn] = useState<string | null>(null);
 
   const isOpenLead = (OPEN_LEAD_STATES as readonly string[]).includes(lead.status);
   const canRecord =
@@ -29,20 +36,34 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
     (o) => o.value !== 'visited' || (lead.source !== 'walk_in' && perm.canIn(P.leadsRecordVisit, lead.dealershipId, lead.branchId)),
   );
 
+  const lost = outcome === 'not_interested';
+  const nextValue = nextOn ?? scheduled(lead.followUpCount + 1);
+  const today = pakistanToday();
+  const due = isOpenLead && !!lead.nextFollowUpOn && lead.nextFollowUpOn <= today;
+
   return (
     <Section
       title={`Follow-ups (${lead.followUpCount})`}
       actions={isOpenLead && remaining > 0 && <span className="text-xs text-slate-500">{remaining} more before it can be marked exhausted</span>}
     >
+      {isOpenLead && (
+        <p className={`mb-4 rounded-lg px-3 py-2 text-sm ${due ? 'bg-red-50 font-medium text-red-800' : 'bg-brand-50 text-brand-900'}`}>
+          {lead.nextFollowUpOn
+            ? `${due ? 'Follow-up due' : 'Next follow-up'}: ${lead.nextFollowUpOn === today ? 'today' : formatDate(lead.nextFollowUpOn)} (follow-up ${Math.min(lead.followUpCount + 1, MIN_FOLLOW_UPS_TO_EXHAUST)} of ${MIN_FOLLOW_UPS_TO_EXHAUST})`
+            : lead.followUpCount >= MIN_FOLLOW_UPS_TO_EXHAUST
+              ? 'All three follow-ups are done: convert the lead, mark it exhausted or lost.'
+              : 'No follow-up date set.'}
+          {' '}Schedule: day 2, day 5 and about day 11 after the lead is logged.
+        </p>
+      )}
       {canRecord && (
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-[14rem_1fr_auto] sm:items-end">
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-[12rem_10rem_1fr] sm:items-end">
           <Field label="Outcome" htmlFor="fu-outcome">
             <Select
               id="fu-outcome"
               value={outcome}
               onChange={(e) => {
                 setOutcome(e.target.value);
-                setMarkLost(true);
               }}
             >
               <option value="">Select…</option>
@@ -53,33 +74,54 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
               ))}
             </Select>
           </Field>
-          <Field label="Remarks" htmlFor="fu-remarks">
-            <Textarea id="fu-remarks" rows={1} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+          <Field label="Interest" htmlFor="fu-temp" required={!lost}>
+            <Select id="fu-temp" value={lost ? 'cold' : temperature} disabled={lost} onChange={(e) => setTemperature(e.target.value)}>
+              <option value="">Hot, warm or cold…</option>
+              {LEAD_TEMPERATURES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </Select>
           </Field>
+          <Field label="Remarks" htmlFor="fu-remarks">
+            <Textarea id="fu-remarks" rows={1} value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="What the customer said" />
+          </Field>
+          {!lost && (
+            <Field label="Next follow-up" htmlFor="fu-next" hint={nextValue ? 'Per the schedule; you can change it' : 'This was the third: none planned'}>
+              <Input id="fu-next" type="date" min={today} value={nextValue} onChange={(e) => setNextOn(e.target.value)} />
+            </Field>
+          )}
           <Button
-            disabled={!outcome}
+            disabled={!outcome || (!lost && !temperature)}
             loading={saving}
             onClick={async () => {
               try {
-                const lost = outcome === 'not_interested' && markLost;
-                await record({ id: lead.id, leadFollowUpCreate: { outcome: outcome as never, remarks: remarks || null, markLost: lost || undefined } }).unwrap();
+                await record({
+                  id: lead.id,
+                  leadFollowUpCreate: {
+                    outcome: outcome as never,
+                    remarks: remarks || null,
+                    markLost: lost || undefined,
+                    temperature: lost ? undefined : (temperature as never),
+                    nextFollowUpOn: lost ? undefined : nextValue || null,
+                  },
+                }).unwrap();
                 toast.success(lost ? 'Lead marked as lost: it moves to Lost leads' : 'Follow-up recorded');
                 setOutcome('');
                 setRemarks('');
+                setNextOn(null);
               } catch (e) {
                 toast.error(e);
               }
             }}
           >
-            Record
+            Record follow-up
           </Button>
           {outcome === 'not_interested' && (
-            <Checkbox
-              className="sm:col-span-3"
-              checked={markLost}
-              onChange={(e) => setMarkLost(e.target.checked)}
-              label="Mark this lead as Lost (the customer is not interested). It leaves the leads list and stays under Lost leads, with all its details."
-            />
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 sm:col-span-3">
+              Not interested: there are no more follow-ups. The lead moves to Lost leads (it stays there with all its details and your remarks).
+            </p>
           )}
         </div>
       )}
@@ -91,11 +133,15 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
         <ol className="space-y-3">
           {data.map((f) => (
             <li key={f.id} className="flex gap-3 text-sm">
-              <Badge tone={OUTCOME_TONES[f.outcome]}>{labelOf(FOLLOW_UP_OUTCOMES, f.outcome)}</Badge>
+              <span className="flex flex-col items-start gap-1">
+                <Badge tone={OUTCOME_TONES[f.outcome]}>{labelOf(FOLLOW_UP_OUTCOMES, f.outcome)}</Badge>
+                <TemperatureBadge value={f.temperature} />
+              </span>
               <div className="min-w-0 flex-1">
                 {f.remarks && <p className="text-slate-800">{f.remarks}</p>}
                 <p className="text-xs text-slate-500">
                   {f.createdByName ?? 'Unknown'} · {formatDateTime(f.createdAt)}
+                  {f.nextFollowUpOn ? ` · next follow-up ${formatDate(f.nextFollowUpOn)}` : ''}
                 </p>
                 <FollowUpComments leadId={lead.id} followUp={f} />
               </div>

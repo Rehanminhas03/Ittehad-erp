@@ -75,7 +75,7 @@ export function buildEntityRouter(config: EntityConfig, service = new EntityServ
   const { names, permissions: p, schemas } = config;
   // The OpenAPI tag doubles as the RTK Query cache tag: mutations invalidate this entity's queries.
   const router = new ApiRouter(`/${config.module}/${config.path}`, names.singular);
-  const viewPerms = [p.view, p.viewOwn, p.viewWhen?.code].filter((x): x is string => !!x);
+  const viewPerms = [p.view, p.viewOwn, ...[p.viewWhen ?? []].flat().map((w) => w.code)].filter((x): x is string => !!x);
 
   // Component name without spaces ("PPF form" -> "PPFForm"), so generated client types read well.
   const schemaName = names.singular.replace(/\s+(\S)/g, (_, c: string) => c.toUpperCase());

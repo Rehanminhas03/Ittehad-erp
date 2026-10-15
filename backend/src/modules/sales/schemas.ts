@@ -8,6 +8,7 @@ import {
   FOLLOW_UP_OUTCOMES,
   LEAD_SOURCES,
   LEAD_STATES,
+  LEAD_TEMPERATURES,
   ORDER_STATES,
   ORDER_TYPES,
   PAYMENT_INSTRUMENTS,
@@ -69,6 +70,9 @@ export const LeadSchema = z.object({
   vehiclePrice: z.string().nullable().optional(),
   followUpCount: z.number().int(),
   lastFollowUpAt: Timestamp.nullable(),
+  /** hot | warm | cold, and the day the next follow-up is due (null once the schedule is complete). */
+  temperature: z.enum(LEAD_TEMPERATURES).nullable().optional(),
+  nextFollowUpOn: z.string().nullable().optional(),
   escalatedAt: Timestamp.nullable(),
   escalatedById: Id.nullable(),
   escalatedByName: z.string().nullable().optional(),
@@ -83,6 +87,10 @@ export const LeadSchema = z.object({
   lostById: Id.nullable().optional(),
   lostByName: z.string().nullable().optional(),
   lostReason: z.string().nullable().optional(),
+  /** Social media (Meta ad) leads: the campaign and ad, and the customer's city. */
+  campaignName: z.string().nullable().optional(),
+  adName: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
   /** Individual or corporate (company, the contact's designation, purchase order no.). */
   customerType: z.enum(CUSTOMER_TYPES).optional(),
   companyName: z.string().nullable().optional(),
@@ -260,8 +268,9 @@ export const QuotationCreate = z
     notes: optionalText(1000),
     ...quotationTerms,
     quantity: quotationTerms.quantity.default(1),
-    freightInsurance: Money.default('0'),
-    withholdingTax: Money.default('0'),
+    // Required for Hyundai and Jetour (checked when the quotation is issued); CSM may leave them out (0).
+    freightInsurance: Money.optional(),
+    withholdingTax: Money.optional(),
   })
   .openapi('QuotationCreate');
 /** A quotation without a lead (a price asked for on the spot): the dealership, the customer and the model. */
@@ -488,6 +497,8 @@ export const LeadFollowUpSchema = z
     leadId: Id,
     outcome: z.enum(FOLLOW_UP_OUTCOMES),
     remarks: z.string().nullable(),
+    temperature: z.enum(LEAD_TEMPERATURES).nullable().optional(),
+    nextFollowUpOn: z.string().nullable().optional(),
     createdById: Id,
     createdByName: z.string().nullable(),
     createdAt: Timestamp,
@@ -504,6 +515,10 @@ export const LeadFollowUpCreate = z
   .object({
     outcome: z.enum(FOLLOW_UP_OUTCOMES),
     remarks: optionalText(2000),
+    /** How interested the customer is now. */
+    temperature: z.enum(LEAD_TEMPERATURES).optional(),
+    /** The next follow-up; empty: the schedule's day (3 days later, then 6; none after the third). */
+    nextFollowUpOn: isoDate.nullish(),
     /** With "not interested": the lead is lost (out of the leads list); the remarks are the reason. */
     markLost: z.boolean().optional(),
   })
@@ -562,10 +577,59 @@ export const ConvertLeadBody = z
   })
   .openapi('ConvertLeadRequest');
 
+/**
+ * The Assistant Manager / Manager correct what was entered at conversion (while no order is raised yet):
+ * any of these fields. The same rules as "Convert to Lead" apply to the result.
+ */
+export const ConversionCorrectionBody = z
+  .object({
+    prospectName: requiredText('Customer name'),
+    prospectMobile: mobile,
+    email,
+    customerAddress: requiredText('Address', 300),
+    customerCnic: z
+      .string()
+      .trim()
+      .max(20)
+      .refine((v) => normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+    interestedModelId: Id,
+    variant: requiredText('Variant', 160),
+    preferredColor: requiredText('Vehicle colour', 40),
+    paymentType: z.enum(PAYMENT_TYPES),
+    paymentInstrument: z.enum(PAYMENT_INSTRUMENTS),
+    paymentInstrumentRef: optionalText(60),
+    paymentInstrumentBank: optionalText(80),
+    paymentAmount: Money.refine((v) => Number(v) > 0, 'Enter the amount paid'),
+    /** Partial payment: the total price of the car. */
+    vehiclePrice: Money.nullish(),
+    customerType: z.enum(CUSTOMER_TYPES),
+    companyName: optionalText(160),
+    contactDesignation: optionalText(80),
+    purchaseOrderNo: optionalText(60),
+    expectedDeliveryDate: isoDate.nullish(),
+    expectedDeliveryByMonth: z.boolean().optional(),
+    notes: optionalText(2000),
+  })
+  .partial()
+  .refine((v) => Object.values(v).some((x) => x !== undefined), { message: 'Change at least one detail' })
+  .openapi('ConversionCorrectionRequest');
+
 /** An appointment with the customer: when, and a note (e.g. "test drive"). appointmentAt null clears it. */
 export const LeadAppointmentBody = z
   .object({ appointmentAt: z.iso.datetime({ offset: true }).nullable(), note: optionalText(500) })
   .openapi('LeadAppointmentRequest');
+/** Several leads at once to one salesperson / CRO (a CRO with too much work, a manager sharing the day's leads). */
+export const BulkReassignBody = z
+  .object({ leadIds: z.array(Id).min(1, 'Select at least one lead').max(100), ownerId: Id, note: optionalText(500) })
+  .openapi('BulkReassignRequest');
+export const BulkReassignResultSchema = z
+  .object({
+    moved: z.number().int(),
+    toName: z.string(),
+    /** Leads that were left as they are (e.g. already with that person, completed, or not yours to transfer). */
+    skipped: z.array(z.object({ leadId: Id, reason: z.string() })),
+  })
+  .openapi('BulkReassignResult');
 /** The Assistant Manager / Manager give the lead to another salesperson. */
 export const ReassignLeadBody = z.object({ ownerId: Id, note: optionalText(500) }).openapi('ReassignLeadRequest');
 
@@ -913,6 +977,17 @@ export const SalesDashboardSchema = z
         daily: z.array(z.object({ date: z.string(), logged: z.number().int(), converted: z.number().int() })),
       })
       .optional(),
+    /** The CRO: every social media (Meta ad) lead of the dealership, separate from "leads". */
+    social: z
+      .object({
+        byStatus: counts,
+        total: z.number().int(),
+        loggedInPeriod: z.number().int(),
+        open: z.number().int(),
+        loggedToday: z.number().int(),
+        daily: z.array(z.object({ date: z.string(), logged: z.number().int(), converted: z.number().int() })),
+      })
+      .optional(),
     orders: z.object({ byStatus: counts, awaitingVehicle: z.number().int() }).optional(),
     stock: z.object({ byStatus: counts, free: z.number().int() }).optional(),
     deliveries: z.object({ scheduled: z.number().int(), deliveredInPeriod: z.number().int() }).optional(),
@@ -1030,6 +1105,10 @@ export const ExportQuery = z.object({
   from: isoDate.optional(),
   to: isoDate.optional(),
   status: z.string().trim().max(30).optional(),
+  /** Leads only: social media (Meta ad) leads, or the other leads. */
+  group: z.enum(['social', 'salespeople']).optional(),
+  /** Leads only: hot, warm or cold. */
+  temperature: z.enum(LEAD_TEMPERATURES).optional(),
 });
 /** One row per record, every detail as named columns (orders: with their payments). */
 export const ExportRowsSchema = z.array(z.record(z.string(), z.any())).openapi('ExportRows');
@@ -1208,8 +1287,34 @@ export const StockVehicleUpdate = z
   .openapi('StockVehicleUpdate');
 
 export const AllocationBody = z.object({ vehicleId: Id }).openapi('AllocationRequest');
-/** Advances the allocated vehicle through logistics (or pauses it on hold); see VEHICLE_PIPELINE. */
-export const AdvanceVehicleStatusBody = z.object({ status: z.enum([...VEHICLE_PIPELINE, 'hold']) }).openapi('AdvanceVehicleStatusRequest');
+/**
+ * The PDI (pre-delivery inspection) of the car, entered by the Delivery Team when it is received: PDI done
+ * and / or an issue found (then the description is required).
+ */
+export const PdiBody = z
+  .object({ done: z.boolean(), issue: z.boolean(), notes: optionalText(2000) })
+  .superRefine((v, c) => {
+    if (!v.done && !v.issue) c.addIssue({ code: 'custom', path: ['done'], message: 'Tick "PDI done", or report an issue found in the PDI' });
+    if (v.issue && !v.notes?.trim()) c.addIssue({ code: 'custom', path: ['notes'], message: 'Describe the issue found in the PDI' });
+  })
+  .openapi('PdiRequest');
+export const PdiCommentBody = z
+  .object({ body: z.string({ error: 'Write the comment' }).trim().min(1, 'Write the comment').max(1000) })
+  .openapi('PdiCommentRequest');
+export const PdiSchema = z
+  .object({
+    recorded: z.boolean(),
+    done: z.boolean(),
+    issue: z.boolean(),
+    notes: z.string().nullable(),
+    recordedAt: Timestamp.nullable(),
+    recordedByName: z.string().nullable(),
+    carStatus: z.string().nullable(),
+    comments: z.array(z.object({ id: Id, body: z.string(), createdById: Id, createdByName: z.string().nullable(), createdAt: Timestamp })),
+  })
+  .openapi('Pdi');
+/** Advances the allocated vehicle through logistics (or pauses it on hold); see VEHICLE_PIPELINE. "received" needs the PDI. */
+export const AdvanceVehicleStatusBody = z.object({ status: z.enum([...VEHICLE_PIPELINE, 'hold']), pdi: PdiBody.optional() }).openapi('AdvanceVehicleStatusRequest');
 export const AllocatableVehicleSchema = z
   .object({ id: Id, vin: z.string().nullable(), engineNo: z.string().nullable(), registrationNo: z.string().nullable(), variant: z.string().nullable(), color: z.string().nullable(), modelYear: z.number().int().nullable() })
   .openapi('AllocatableVehicle');

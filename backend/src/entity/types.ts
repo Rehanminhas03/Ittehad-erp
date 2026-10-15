@@ -47,6 +47,11 @@ export interface TenantDef {
   root?: boolean;
 }
 
+export interface ViewWhen {
+  code: string;
+  condition: SQL;
+}
+
 export interface EntityPermissions {
   view: string;
   viewOwn?: string;
@@ -54,7 +59,7 @@ export interface EntityPermissions {
    * A third, conditional view right: rows matching `condition` are visible to holders of `code`
    * within its tenant scope (e.g. an Admin sees leads only once they are converted).
    */
-  viewWhen?: { code: string; condition: SQL };
+  viewWhen?: ViewWhen | readonly ViewWhen[];
   create?: string;
   update?: string;
   updateOwn?: string;

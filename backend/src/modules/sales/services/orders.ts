@@ -17,6 +17,7 @@ import { salesOrder, VEHICLE_PIPELINE } from '../models';
 import { SalesPerm as P } from '../permissions';
 import type { AdvanceVehicleStatusBody, OrderVehicleBody, RaiseOrderBody } from '../schemas';
 import { recordBookingPayment } from './orderPayments';
+import { savePdi } from './pdi';
 
 /**
  * Every sales order needs the customer's CNIC (every dealership): the customer's own, or the one
@@ -297,6 +298,13 @@ export async function advanceVehicleStatus(ctx: EntityCtx, orderId: number, inpu
   if (!v) throw notFound('Vehicle');
   // Dispatch alone is the one step booked → in transit (resuming a car on hold is the Delivery Team's).
   if (!logistics && v.status !== 'booked') throw forbidden();
+  // The PDI is entered when the car is received (once; a car coming back from hold keeps its PDI).
+  if (target === 'received') {
+    const done = await ctx.tx.salesOrder.findUnique({ where: { id: orderId }, select: { pdiRecordedAt: true } });
+    if (!done?.pdiRecordedAt && !input.pdi) {
+      throw validationError([{ in: 'body', path: 'pdi', message: 'Enter the PDI (tick PDI done, or report an issue) before marking the car received' }]);
+    }
+  }
   if (target === 'in_transit' && v.status === 'booked' && o.status !== 'approved') {
     throw conflict("The Manager has to approve the order before the car is marked in transit");
   }
@@ -306,5 +314,6 @@ export async function advanceVehicleStatus(ctx: EntityCtx, orderId: number, inpu
   const allowed = target === 'hold' ? from !== 'hold' : from === 'hold' ? ladder.includes(target) : ladder.indexOf(target) === ladder.indexOf(from) + 1;
   if (!allowed) throw conflict(`Cannot move the vehicle from "${from}" to "${target}"`);
   await setVehicleStatus(ctx, o.vehicleId as number, target, o.dealershipId as number);
+  if (target === 'received' && input.pdi) await savePdi(ctx, o, input.pdi);
   return orders.get(ctx, orderId);
 }

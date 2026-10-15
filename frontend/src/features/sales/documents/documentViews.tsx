@@ -110,7 +110,7 @@ const optionalMoney = (label: string) =>
     .union([z.string(), z.null()])
     .optional()
     .transform((v) => (v ?? '').trim().replace(/,/g, ''))
-    .refine((v) => v === '' || /^\d{1,12}(\.\d{1,2})?$/.test(v), label + ' must be a number with up to 2 decimals')
+    .refine((v) => v === '' || /^\d{1,12}(\.\d*)?$/.test(v), label + ' must be a number, e.g. 9,500,000')
     .transform((v) => (v === '' ? null : v));
 
 const dateRange = { label: 'Issued', fromParam: 'createdFrom', toParam: 'createdTo' };
@@ -158,7 +158,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { label: 'Discount', value: (q) => formatMoney(q.discount) },
       { label: 'Freight & transit insurance', value: (q) => formatMoney(q.freightInsurance) },
       { label: 'Withholding tax (filer)', value: (q) => formatMoney(q.withholdingTax) },
-      { label: 'Withholding tax (non-filer)', value: (q) => formatMoney(q.withholdingTaxNonFiler) },
+      { label: 'Withholding tax (non-filer)', value: (q) => (q.withholdingTaxNonFiler ? formatMoney(q.withholdingTaxNonFiler) : null) },
       { label: 'Total', value: (q) => <span className="font-semibold">{formatMoney(q.totalAmount)}</span> },
       { label: 'Booking amount', value: (q) => formatMoney(q.bookingAmount) },
       { label: 'Valid until', value: (q) => formatDate(q.validUntil) },
@@ -178,7 +178,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { name: 'freightInsurance', label: 'Freight & transit insurance (PKR)', type: 'money' },
       { name: 'quantity', label: 'Quantity', type: 'number', required: true },
       { name: 'withholdingTax', label: 'Withholding tax — filer (PKR)', type: 'money' },
-      { name: 'withholdingTaxNonFiler', label: 'Withholding tax — non-filer (PKR)', type: 'money' },
+      { name: 'withholdingTaxNonFiler', label: 'Withholding tax — non-filer (PKR)', type: 'money', visible: (perm) => !isJetourStaff(perm) },
       { name: 'variant', label: 'Variant', type: 'text' },
       { name: 'color', label: 'Colour', type: 'text' },
       { name: 'bookingAmount', label: 'Booking amount (PKR)', type: 'money' },

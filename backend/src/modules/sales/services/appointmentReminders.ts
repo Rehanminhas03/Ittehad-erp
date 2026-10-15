@@ -4,7 +4,7 @@
  * salesperson and whoever sees all the dealership's leads (Assistant Manager, Manager). Each
  * appointment is reminded once (lead.appointment_reminded_at); moving it reminds again on its day.
  */
-import { applyTenant, db, query, transaction } from '../../../db/client';
+import { applyTenant, db, execute, query, transaction } from '../../../db/client';
 import { sql } from '../../../db/sql';
 import { logger } from '../../../lib/logger';
 import { publishNotifications } from '../../core/notifications';
@@ -74,12 +74,64 @@ export async function sendAppointmentReminders(): Promise<number> {
   return reminded;
 }
 
+/**
+ * "Follow-up due" reminders: when a lead's next follow-up day (2 days after it is logged, then 5, then
+ * about 11) arrives, its salesperson / CRO gets a live notification, once per due day. The lead also
+ * shows under Action needed until the follow-up is recorded.
+ */
+export async function sendFollowUpReminders(): Promise<number> {
+  const published: Parameters<typeof publishNotifications>[0] = [];
+  const reminded = await transaction(db, async (tx) => {
+    await applyTenant(tx, { userId: 0, dealershipIds: 'all' });
+    const due = await query<{ id: number; dealershipId: number; ownerId: number; done: number }>(
+      tx,
+      sql`select l.id::int as id, l.dealership_id::int as "dealershipId", l.owner_id::int as "ownerId", l.follow_up_count::int as done
+            from sales.lead l
+           where l.status in ('new', 'follow_up', 'visited')
+             and l.next_follow_up_on <= (now() at time zone 'Asia/Karachi')::date
+             and l.follow_up_reminded_on is distinct from l.next_follow_up_on
+           order by l.next_follow_up_on
+           limit 500
+             for update of l skip locked`,
+    );
+    for (const l of due) {
+      // The notification belongs to its recipient (they read it back as their own).
+      await tx.$queryRaw`select set_config('app.user_id', ${String(l.ownerId)}, true)`;
+      published.push(
+        ...(await tx.notification.createManyAndReturn({
+          data: [
+            {
+              userId: l.ownerId,
+              dealershipId: l.dealershipId,
+              entityType: 'sales.lead',
+              entityId: String(l.id),
+              action: 'followup.due',
+              // No customer details in notifications (the link opens the lead).
+              title: 'Follow-up due: call the customer',
+              detail: l.done < 3 ? `Follow-up ${l.done + 1} of 3` : 'Follow-up',
+              href: `/sales/leads/${l.id}`,
+              actorName: 'Reminder',
+            },
+          ],
+        })),
+      );
+      await execute(tx, sql`update sales.lead set follow_up_reminded_on = next_follow_up_on where id = ${l.id}`);
+    }
+    return due.length;
+  });
+  publishNotifications(published);
+  return reminded;
+}
+
 /** Runs the reminders now and every `everyMs` (default 10 minutes) while the server is up. */
 export function startAppointmentReminders(everyMs = 10 * 60_000) {
   const run = () =>
     sendAppointmentReminders()
       .then((n) => n && logger.info(`Appointment reminders sent for ${n} lead(s)`))
-      .catch((err) => logger.error({ err }, 'Appointment reminders failed'));
+      .catch((err) => logger.error({ err }, 'Appointment reminders failed'))
+      .then(() => sendFollowUpReminders())
+      .then((n) => n && logger.info(`Follow-up reminders sent for ${n} lead(s)`))
+      .catch((err) => logger.error({ err }, 'Follow-up reminders failed'));
   const first = setTimeout(run, 15_000);
   const timer = setInterval(run, everyMs);
   first.unref();

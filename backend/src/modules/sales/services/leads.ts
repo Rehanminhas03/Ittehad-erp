@@ -5,7 +5,7 @@
  * Assistant Manager may convert it on the owner's behalf.
  */
 import { execute, query } from '../../../db/client';
-import { expectedDelivery } from '../../../lib/dates';
+import { expectedDelivery, pakistanToday } from '../../../lib/dates';
 import { ensureCustomerCnic } from './orders';
 import { pickColumns } from '../../../db/delegate';
 import { and, eq, inArray, sql } from '../../../db/sql';
@@ -20,9 +20,9 @@ import { USER_NAME } from '../../master/nameSources';
 import { normalizeMobile } from '../../master/normalize';
 import { findDuplicateCustomer } from '../../master/repository';
 import { assertNoActiveLead, leads } from '../entities';
-import { ACTIVE_LEAD_STATES, lead } from '../models';
+import { ACTIVE_LEAD_STATES, lead, nextFollowUpAfter } from '../models';
 import { SalesPerm as P } from '../permissions';
-import type { ConvertLeadBody, EscalateDuplicateBody, LeadDetailsBody, LeadFollowUpCreate } from '../schemas';
+import type { ConversionCorrectionBody, ConvertLeadBody, EscalateDuplicateBody, LeadDetailsBody, LeadFollowUpCreate } from '../schemas';
 
 const OPEN_STATES = ['new', 'follow_up', 'visited'];
 
@@ -46,28 +46,47 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
     if (!ctx.access.canIn(P.leadsRecordVisit, targetOf(l))) throw forbidden('Only the CRO records in-person visits');
   }
 
+  // The schedule: the next follow-up 3 days after the first, 6 after the second, none after the third
+  // (or the day chosen). A lost lead has none, and is cold.
+  const today = pakistanToday();
+  if (input.nextFollowUpOn && input.nextFollowUpOn < today) {
+    throw validationError([{ in: 'body', path: 'nextFollowUpOn', message: 'Choose today or a later day' }]);
+  }
+  // Not interested always means lost: no more follow-ups, and the lead moves to Lost leads.
+  const lost = input.markLost || input.outcome === 'not_interested';
+  const next = lost ? null : (input.nextFollowUpOn ?? nextFollowUpAfter((l.followUpCount as number) + 1, today));
+  const temperature = lost ? 'cold' : input.temperature;
   await ctx.tx.leadFollowUp.create({
     data: {
       dealershipId: l.dealershipId as number,
       leadId,
       outcome: input.outcome,
       remarks: input.remarks ?? null,
+      temperature: temperature ?? null,
+      nextFollowUpOn: next,
       createdById: ctx.access.userId,
     },
   });
   await ctx.tx.lead.update({
     where: { id: leadId },
-    data: { followUpCount: { increment: 1 }, lastFollowUpAt: new Date(), updatedById: ctx.access.userId },
+    data: {
+      followUpCount: { increment: 1 },
+      lastFollowUpAt: new Date(),
+      ...(temperature ? { temperature } : {}),
+      nextFollowUpOn: next,
+      followUpRemindedOn: null,
+      updatedById: ctx.access.userId,
+    },
   });
   await ctx.audit({
     entityType: 'sales.lead',
     entityId: leadId,
     action: 'follow_up',
     ...targetOf(l),
-    changes: { outcome: input.outcome, remarks: input.remarks ?? null },
+    changes: { outcome: input.outcome, remarks: input.remarks ?? null, temperature: temperature ?? null, nextFollowUpOn: next },
   });
 
-  if (input.markLost) {
+  if (lost) {
     // Not interested: the lead is lost (hidden from the leads list; the same phone can come back as a new lead).
     await ctx.tx.lead.update({
       where: { id: leadId },
@@ -220,6 +239,94 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
   });
   if (Object.keys(corrected).length) await ctx.audit({ entityType: 'sales.lead', entityId: leadId, action: 'details.update', ...target, changes: corrected });
   await leads.transition(ctx, leadId, 'convert', asOwner ? undefined : 'Converted by the Assistant Manager (duplicate customer)', { system: true });
+  return leads.get(ctx, leadId);
+}
+
+// ---- Correcting what was entered at conversion (Assistant Manager / Manager) ----------------
+/**
+ * The Assistant Manager / Manager fix a mistake made while converting a lead: contact details, address,
+ * CNIC, model, variant, colour, price and payment, customer type, expected delivery, notes. Only while
+ * the lead is "converted" (no sales order yet: the order is built from these details). The linked customer
+ * follows, every change is in the activity log, and the lead's owner and the Sales Admin are notified.
+ */
+export async function correctLeadConversion(ctx: EntityCtx, leadId: number, input: z.output<typeof ConversionCorrectionBody>) {
+  const l = await leads.findVisible(ctx, leadId, { lock: true });
+  const target = targetOf(l);
+  if (!ctx.access.canIn(P.leadsCorrectConversion, target)) throw forbidden('Only the Assistant Manager or the Manager correct the details entered at conversion');
+  if (l.status !== 'converted') {
+    throw conflict(l.status === 'processing' ? 'A sales order is already raised for this lead: the Sales Admin corrects the order' : 'Only converted leads can be corrected here');
+  }
+  const customerId = l.customerId as number;
+
+  // The result must still satisfy the rules of "Convert to Lead".
+  const now = {
+    paymentType: input.paymentType ?? (l.paymentType as string),
+    paymentInstrument: input.paymentInstrument ?? (l.paymentInstrument as string),
+    paymentInstrumentRef: input.paymentInstrumentRef !== undefined ? input.paymentInstrumentRef : (l.paymentInstrumentRef as string | null),
+    paymentInstrumentBank: input.paymentInstrumentBank !== undefined ? input.paymentInstrumentBank : (l.paymentInstrumentBank as string | null),
+    paymentAmount: input.paymentAmount ?? (l.paymentAmount as string),
+    vehiclePrice: input.vehiclePrice !== undefined ? input.vehiclePrice : (l.vehiclePrice as string | null),
+    customerType: input.customerType ?? (l.customerType as string),
+    companyName: input.companyName !== undefined ? input.companyName : (l.companyName as string | null),
+    contactDesignation: input.contactDesignation !== undefined ? input.contactDesignation : (l.contactDesignation as string | null),
+  };
+  const bad = (path: string, message: string) => ({ in: 'body' as const, path, message });
+  const issues = [
+    now.paymentType === 'partial' && (!now.vehiclePrice || Number(now.vehiclePrice) <= 0) && bad('vehiclePrice', 'Enter the total amount of the car'),
+    now.paymentType === 'partial' && now.vehiclePrice && Number(now.paymentAmount) >= Number(now.vehiclePrice) && bad('paymentAmount', 'A partial payment is less than the total amount (otherwise choose Full payment)'),
+    now.paymentInstrument !== 'cash' && !now.paymentInstrumentRef && bad('paymentInstrumentRef', 'Enter the instrument number'),
+    now.paymentInstrument !== 'cash' && !now.paymentInstrumentBank && bad('paymentInstrumentBank', 'Enter the bank'),
+    now.customerType === 'corporate' && !now.companyName && bad('companyName', 'Company name is required for a corporate customer'),
+    now.customerType === 'corporate' && !now.contactDesignation && bad('contactDesignation', "The contact's designation is required for a corporate customer"),
+  ].filter((x) => !!x);
+  if (issues.length) throw validationError(issues);
+  if (input.interestedModelId) await assertActiveModel(ctx, input.interestedModelId);
+
+  // The customer record follows the corrected contact details.
+  const customerPatch: Record<string, unknown> = {};
+  if (input.prospectName !== undefined) customerPatch.fullName = input.prospectName;
+  if (input.email !== undefined) customerPatch.email = input.email;
+  if (input.customerAddress !== undefined) customerPatch.address = input.customerAddress;
+  const leadPatch: Record<string, unknown> = {};
+  if (input.prospectName !== undefined) leadPatch.prospectName = input.prospectName;
+  if (input.email !== undefined) leadPatch.email = input.email;
+  if (input.prospectMobile !== undefined) {
+    const normalized = normalizeMobile(input.prospectMobile)!;
+    if (normalized !== l.prospectMobileNormalized) {
+      await assertNoActiveLead(ctx, target.dealershipId, normalized, leadId);
+      const dup = await findDuplicateCustomer(ctx.tx, target.dealershipId, normalized, null, customerId);
+      if (dup) throw conflict(`Another customer already has this phone number: ${dup.fullName}`);
+    }
+    Object.assign(customerPatch, { mobile: input.prospectMobile, mobileNormalized: normalized });
+    Object.assign(leadPatch, { prospectMobile: input.prospectMobile, prospectMobileNormalized: normalized });
+  }
+  if (input.customerCnic) await ensureCustomerCnic(ctx, customerId, target.dealershipId, input.customerCnic);
+  if (Object.keys(customerPatch).length) await ctx.tx.customer.update({ where: { id: customerId }, data: { ...customerPatch, updatedById: ctx.access.userId }, select: { id: true } });
+
+  for (const k of ['interestedModelId', 'variant', 'preferredColor', 'paymentType', 'paymentInstrument', 'paymentInstrumentRef', 'paymentInstrumentBank', 'paymentAmount', 'customerType', 'notes'] as const) {
+    if (input[k] !== undefined) leadPatch[k] = input[k];
+  }
+  if (input.paymentType !== undefined || input.vehiclePrice !== undefined || input.paymentAmount !== undefined) {
+    // Partial: the car's total price; full: the amount paid is the price.
+    leadPatch.vehiclePrice = now.paymentType === 'partial' ? now.vehiclePrice : now.paymentAmount;
+  }
+  if (input.customerType !== undefined || input.companyName !== undefined || input.contactDesignation !== undefined || input.purchaseOrderNo !== undefined) {
+    const corp = now.customerType === 'corporate';
+    leadPatch.companyName = corp ? now.companyName : null;
+    leadPatch.contactDesignation = corp ? now.contactDesignation : null;
+    leadPatch.purchaseOrderNo = corp ? (input.purchaseOrderNo !== undefined ? input.purchaseOrderNo : (l.purchaseOrderNo as string | null)) : null;
+  }
+  if (input.expectedDeliveryDate !== undefined) {
+    Object.assign(leadPatch, expectedDelivery(input.expectedDeliveryDate, input.expectedDeliveryByMonth));
+  }
+  const changes = diffChanges(l, leadPatch);
+  delete changes.prospectMobileNormalized;
+  if (customerPatch.address !== undefined) changes.customerAddress = { from: null, to: customerPatch.address };
+  if (input.customerCnic) changes.customerCnic = { from: null, to: input.customerCnic };
+  if (!Object.keys(changes).length) return leads.get(ctx, leadId);
+
+  await ctx.tx.lead.update({ where: { id: leadId }, data: pickColumns(lead, { ...leadPatch, updatedById: ctx.access.userId }) });
+  await ctx.audit({ entityType: 'sales.lead', entityId: leadId, action: 'conversion.correct', ...target, changes });
   return leads.get(ctx, leadId);
 }
 

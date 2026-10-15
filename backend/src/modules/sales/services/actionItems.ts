@@ -18,7 +18,7 @@ import { and, eq, sql, type SQL } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { pakistanToday } from '../../../lib/dates';
 import { vehicle } from '../../master/models';
-import { deliveries, leads, orders } from '../entities';
+import { deliveries, leads, orders, personalLeads } from '../entities';
 import { delivery, lead, salesOrder } from '../models';
 import { SalesPerm as P } from '../permissions';
 
@@ -152,7 +152,7 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
       await countOf(
         lead,
         and(
-          leads.viewCondition(access),
+          personalLeads(access),
           sql`(${lead.appointmentAt} at time zone 'Asia/Karachi')::date = ${today}::date`,
           sql`${lead.status} not in ('completed', 'exhausted')`,
         ),
@@ -164,6 +164,16 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
   if (access.hasAny([P.leadsConvertOwn])) {
     const mine = and(leads.viewCondition(access), eq(lead.ownerId, access.userId));
     const today = pakistanToday();
+    // The schedule: a follow-up is due (2 days after the lead, then 5, then about 11).
+    add(
+      {
+        key: 'follow-up-due',
+        title: 'Follow-ups are due: call these customers',
+        to: `/sales/leads?followUpDue=true&ownerId=${access.userId}&range=all`,
+        urgent: true,
+      },
+      await countOf(lead, and(mine, sql`${lead.status} in ('new', 'follow_up', 'visited')`, sql`${lead.nextFollowUpOn} <= ${today}::date`)),
+    );
     add(
       {
         key: 'follow-up',

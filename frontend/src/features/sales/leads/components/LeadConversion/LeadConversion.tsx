@@ -3,7 +3,7 @@ import { Button, Checkbox, Field, Input, Section, Select, Textarea } from '@/sha
 import { usePermission, useToast } from '@/shared/hooks';
 import { digitsOnly } from '@/shared/components/EntityFormView/FormFieldControl';
 import { maskCnic } from '@/features/crm';
-import { apiConflict, apiFieldErrors } from '@/shared/lib';
+import { amountNumber, apiConflict, apiFieldErrors } from '@/shared/lib';
 import { CUSTOMER_TYPES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS, PAYMENT_TYPES } from '../../../permissions';
 import { type Lead, useConvertLeadMutation } from '../../../salesApi';
 import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
@@ -71,7 +71,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       v.paymentType ? null : (['paymentType', 'Tick Partial payment or Full payment'] as const),
       v.paymentType ? required('paymentAmount', v.paymentType === 'full' ? 'The full amount paid' : 'The amount paid') : null,
       v.paymentType === 'partial' ? required('vehiclePrice', 'The total amount of the car') : null,
-      v.paymentType === 'partial' && v.vehiclePrice.trim() && v.paymentAmount.trim() && Number(v.paymentAmount) >= Number(v.vehiclePrice)
+      v.paymentType === 'partial' && v.vehiclePrice.trim() && v.paymentAmount.trim() && amountNumber(v.paymentAmount) >= amountNumber(v.vehiclePrice)
         ? (['paymentAmount', 'A partial payment is less than the total amount (otherwise choose Full payment)'] as const)
         : null,
       v.paymentType ? required('paymentInstrument', 'Payment instrument') : null,
@@ -249,8 +249,8 @@ export function LeadConversion({ lead }: { lead: Lead }) {
                   required
                   error={errors.vehiclePrice}
                   hint={
-                    Number(v.vehiclePrice) > 0 && Number(v.paymentAmount) > 0 && Number(v.vehiclePrice) > Number(v.paymentAmount)
-                      ? `Balance to pay before delivery: Rs ${(Number(v.vehiclePrice) - Number(v.paymentAmount)).toLocaleString('en-PK')}`
+                    amountNumber(v.vehiclePrice) > 0 && amountNumber(v.paymentAmount) > 0 && amountNumber(v.vehiclePrice) > amountNumber(v.paymentAmount)
+                      ? `Balance to pay before delivery: Rs ${(amountNumber(v.vehiclePrice) - amountNumber(v.paymentAmount)).toLocaleString('en-PK')}`
                       : 'The full price of the car'
                   }
                 >

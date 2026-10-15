@@ -43,7 +43,10 @@ async function convert(s: Setup, id: number) {
     .send({ ...vehicleOf(s), preferredColor: 'White', email: 'ayesha@example.com', paymentInstrument: 'cheque', customerCnic: nextCnic(), customerAddress: 'House 1, Street 2, F-10/2, Islamabad', paymentType: 'partial', vehiclePrice: '9500000', paymentAmount: '500000', paymentInstrumentBank: 'HBL', paymentInstrumentRef: 'CH-1' })
     .expect(200);
 }
-const quote = (who: Login, id: number, body: Record<string, unknown> = {}) => api.post(`/api/sales/leads/${id}/quotations`).set(bearer(who.token)).send(body);
+// Hyundai and Jetour must state the freight & transit insurance and the withholding tax: tests that are not about them send 0.
+const quote = (who: Login, id: number, body: Record<string, unknown> = {}) =>
+  api.post(`/api/sales/leads/${id}/quotations`).set(bearer(who.token)).send({ freightInsurance: '0', withholdingTax: '0', ...body });
+const quoteRaw = (who: Login, id: number, body: Record<string, unknown>) => api.post(`/api/sales/leads/${id}/quotations`).set(bearer(who.token)).send(body);
 // PBO, chassis and engine are required on a voucher; tests that are not about them get placeholders.
 const VOUCHER_IDS = { pboNo: 'PBO-T1', chassisNo: 'CHASSIST1', engineNo: 'ENGINET1' };
 const ppf = (who: Login, id: number, body: Record<string, unknown>) => api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(who.token)).send({ ...PPF_CUSTOMER, ...VOUCHER_IDS, ...body });
@@ -317,6 +320,24 @@ describe('PPF voucher', () => {
     const fromOrder = await api.post(`/api/sales/leads/${id}/ppf-forms`).set(bearer(s.sales1.token)).send({ ...PPF_CUSTOMER, coverage: 'partial', amount: '100000' });
     expect(fromOrder.status).toBe(201);
     expect(fromOrder.body).toMatchObject({ pboNo, chassisNo: 'ORDERVIN0001', engineNo: 'ORDERENG1' });
+  });
+});
+
+describe('freight and withholding tax are mandatory (Hyundai, Jetour)', () => {
+  it('refuses a Hyundai or Jetour quotation without them, accepts 0, and CSM / other brands may leave them out', async () => {
+    const s = await setup();
+    const id = await lead(s);
+    // Another brand: optional (0).
+    expect((await quoteRaw(s.sales1, id, { unitPrice: '9000000' })).status).toBe(201);
+    for (const brand of ['Hyundai', 'Jetour']) {
+      await owner.db.dealership.update({ where: { id: s.d.id }, data: { brand } });
+      const missing = await quoteRaw(s.sales1, id, { unitPrice: '9000000' });
+      expect(missing.status, brand).toBe(422);
+      expect(JSON.stringify(missing.body)).toContain('freight');
+      expect(JSON.stringify(missing.body)).toContain('withholding tax');
+      expect((await quoteRaw(s.sales1, id, { unitPrice: '9000000', freightInsurance: '68000' })).status).toBe(422);
+      expect((await quoteRaw(s.sales1, id, { unitPrice: '9000000', freightInsurance: '68000', withholdingTax: '0' })).status).toBe(201);
+    }
   });
 });
 

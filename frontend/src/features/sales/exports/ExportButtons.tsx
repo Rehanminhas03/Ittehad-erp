@@ -19,8 +19,20 @@ const DownloadIcon = () => (
  * "Export to Excel (CSV)" and "Export PDF" for the list on screen: the same period, dealership and
  * status, every record (not only the page shown), within the user's own scope (a salesperson: their own).
  */
-export function ExportButtons({ kind, query, periodLabel }: { kind: keyof typeof KINDS; query: Record<string, unknown>; periodLabel: string }) {
-  const k = KINDS[kind];
+export function ExportButtons({
+  kind,
+  query,
+  periodLabel,
+  group,
+}: {
+  kind: keyof typeof KINDS;
+  query: Record<string, unknown>;
+  periodLabel: string;
+  /** Leads only: just the social media (Meta ad) leads, or just the other leads (default: the list's own filter). */
+  group?: 'social' | 'salespeople';
+}) {
+  const grp = group ?? ((query.group as 'social' | 'salespeople' | undefined) || undefined);
+  const k = { ...KINDS[kind], title: kind === 'leads' && grp === 'social' ? 'Social media leads' : kind === 'leads' && grp === 'salespeople' ? 'Salesperson leads' : KINDS[kind].title };
   const toast = useToast();
   const [loadOrders] = useLazyExportSalesOrdersQuery();
   const [loadLeads] = useLazyExportLeadsQuery();
@@ -30,6 +42,7 @@ export function ExportButtons({ kind, query, periodLabel }: { kind: keyof typeof
     to: (query[k.to] as string | undefined) || undefined,
     dealershipId: query.dealershipId ? Number(query.dealershipId) : undefined,
     status: (query.status as string | undefined) || undefined,
+    group: kind === 'leads' ? grp : undefined,
   };
   const stamp = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
   const name = `${k.title} - ${periodLabel} - ${stamp}`.replace(/[\\/:*?"<>|]/g, '');

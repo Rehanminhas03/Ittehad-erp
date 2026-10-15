@@ -9,11 +9,11 @@
 import { query } from '../../../db/client';
 import { sql } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
-import { forbidden, validationError } from '../../../lib/errors';
+import { forbidden, HttpError, validationError } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
 import { leads } from '../entities';
 import { SalesPerm as P } from '../permissions';
-import type { LeadAppointmentBody, ReassignLeadBody } from '../schemas';
+import type { BulkReassignBody, LeadAppointmentBody, ReassignLeadBody } from '../schemas';
 import { membersSql } from './teamReport';
 
 const CLOSED = ['completed', 'exhausted'];
@@ -50,11 +50,41 @@ export async function setLeadAppointment(ctx: EntityCtx, leadId: number, input: 
   return leads.get(ctx, leadId);
 }
 
+/**
+ * Gives several leads to one person (each lead follows the same rules as a single transfer). Leads that
+ * cannot be moved are skipped and reported; the rest are moved.
+ */
+export async function bulkReassignLeads(ctx: EntityCtx, input: z.output<typeof BulkReassignBody>) {
+  const skipped: { leadId: number; reason: string }[] = [];
+  let moved = 0;
+  let toName = '';
+  for (const leadId of new Set(input.leadIds)) {
+    try {
+      const l = await reassignLead(ctx, leadId, { ownerId: input.ownerId, note: input.note });
+      moved++;
+      toName = (l.ownerName as string | null) ?? toName;
+    } catch (e) {
+      if (!(e instanceof HttpError)) throw e;
+      // The person chosen is not a valid receiver: the same for every lead, so stop at once.
+      if (e.status === 422 && JSON.stringify(e.details ?? '').includes('active member')) throw e;
+      skipped.push({ leadId, reason: e.message });
+    }
+  }
+  if (!toName) {
+    const to = await ctx.tx.user.findUnique({ where: { id: input.ownerId }, select: { fullName: true } });
+    toName = to?.fullName ?? '';
+  }
+  return { moved, toName, skipped };
+}
+
 export async function reassignLead(ctx: EntityCtx, leadId: number, input: z.output<typeof ReassignLeadBody>) {
   const l = await leads.findVisible(ctx, leadId, { lock: true });
   const dealershipId = l.dealershipId as number;
-  if (!ctx.access.canIn(P.leadsReassign, { dealershipId, branchId: (l.branchId as number | null) ?? null })) {
-    throw forbidden('Only the Assistant Manager or the Manager reassign leads');
+  const target = { dealershipId, branchId: (l.branchId as number | null) ?? null };
+  // The Assistant Manager / Manager reassign any lead; the CRO transfers an own lead, or takes / passes on a social media one.
+  const transfer = ctx.access.canIn(P.leadsTransfer, target) && (l.ownerId === ctx.access.userId || l.source === 'social');
+  if (!ctx.access.canIn(P.leadsReassign, target) && !transfer) {
+    throw forbidden('Only the Assistant Manager or the Manager reassign leads; a CRO transfers their own or social media leads');
   }
   if (l.status === 'completed') throw validationError([{ in: 'body', path: 'ownerId', message: 'This lead is completed (car delivered)' }]);
   const fromId = l.ownerId as number;
