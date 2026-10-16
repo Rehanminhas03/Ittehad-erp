@@ -176,6 +176,8 @@ export const leadEntity: EntityConfig = {
       // The CRO calls every social media (Meta ad) lead of the dealership, and sees the salespeople's leads (read-only).
       { code: P.leadsViewSocial, condition: sql`${lead.source} = 'social'` },
       { code: P.leadsViewTeam, condition: sql`true` },
+      // A salesperson sees (read-only) the social media leads they dealt with.
+      { code: P.leadsViewOwn, condition: sql`${lead.dealtById} = core.app_user_id()` },
     ],
     create: P.leadsCreate,
     update: P.leadsUpdate,
@@ -197,7 +199,7 @@ export const leadEntity: EntityConfig = {
     ownerId: { key: 'ownerId', schema: IdQuery },
     source: { key: 'source', schema: z.string().max(20) },
     // The CRO's tabs: social media (Meta ad) leads, or the salespeople's leads.
-    group: { key: 'source', schema: z.enum(['social', 'salespeople']), where: (v) => (v === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`) },
+    group: { key: 'source', schema: z.enum(['social', 'salespeople', 'all']), where: (v) => (v === 'all' ? sql`true` : v === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`) },
     // The Assistant Manager's queue: leads flagged by a duplicate-phone escalation.
     escalated: { key: 'escalatedAt', schema: BoolQuery, where: (v) => (v ? sql`${lead.escalatedAt} is not null` : sql`${lead.escalatedAt} is null`) },
     // Still open (new, follow-up, visited): the "Open leads" figure.
@@ -297,6 +299,27 @@ export const leadEntity: EntityConfig = {
   hooks: {
     beforeCreate: async (ctx, data) => {
       const mobileNormalized = normalizeMobile(String(data.prospectMobile))!;
+      // The customer of a social media lead came to the showroom: no second lead; the social lead becomes Visited
+      // and records who dealt with the customer.
+      const dealer = (data.ownerId as number | undefined) ?? ctx.access.userId;
+      const social = await ctx.tx.lead.findFirst({
+        where: { dealershipId: data.dealershipId as number, prospectMobileNormalized: mobileNormalized, source: 'social', status: { in: ['new', 'follow_up', 'visited'] } },
+        select: { id: true, ownerId: true, dealtById: true, campaignName: true },
+      });
+      if (social && social.ownerId !== dealer && (social.dealtById == null || social.dealtById === dealer)) {
+        // What the customer said is mandatory here: asked for first (nothing is saved until it is given).
+        const said = typeof data.visitRemarks === 'string' ? data.visitRemarks.trim() : '';
+        if (!said) {
+          const cro = await ctx.tx.user.findUnique({ where: { id: social.ownerId }, select: { fullName: true } });
+          throw conflict('This customer is a social media lead: write what the customer said (will buy, will not, needs time…)', {
+            socialLead: true,
+            ownerName: cro?.fullName ?? null,
+            campaignName: social.campaignName ?? null,
+          });
+        }
+        await markSocialLeadVisited(ctx, social.id, dealer, said);
+        return { $existingId: social.id };
+      }
       await assertNoActiveLead(ctx, data.dealershipId as number, mobileNormalized);
       if (data.interestedModelId) await assertActiveModel(ctx, data.interestedModelId as number);
       // A lead belongs to whoever logged it, unless a team leader logs it for a salesperson.
@@ -327,6 +350,7 @@ export const leadEntity: EntityConfig = {
         lostByName: { key: 'lostById', source: USER_NAME },
         customerAddress: { key: 'customerId', source: CUSTOMER_ADDRESS },
         createdByName: { key: 'createdById', source: USER_NAME },
+        dealtByName: { key: 'dealtById', source: USER_NAME },
         orderNo: { key: 'salesOrderId', source: ORDER_NO },
         // The car's progress (booked → in transit → received → ready), for the salesperson / AM.
         vehicleStage: { key: 'salesOrderId', source: ORDER_VEHICLE_STAGE },
@@ -740,6 +764,31 @@ export const stockVehicleEntity: EntityConfig = {
 export const leads = new EntityService(leadEntity);
 
 /**
+ * A salesperson tried to enter a customer who is already a social media lead (the customer visited): the social
+ * lead becomes Visited, the salesperson is recorded as the one who dealt with the customer (the lead stays with
+ * the CRO, who enters the conversion), a follow-up notes the visit, and the CRO is notified.
+ */
+async function markSocialLeadVisited(ctx: EntityCtx, leadId: number, dealerId: number, said: string) {
+  const l = await ctx.tx.lead.findUnique({ where: { id: leadId }, select: { dealershipId: true, branchId: true, status: true } });
+  const who = await ctx.tx.user.findUnique({ where: { id: dealerId }, select: { fullName: true } });
+  const remarks = `Visited the showroom: dealt with by ${who?.fullName ?? 'a salesperson'} (entered as a walk-in). The customer said: ${said}`;
+  await ctx.tx.leadFollowUp.create({ data: { dealershipId: l!.dealershipId, leadId, outcome: 'visited', remarks, createdById: dealerId } });
+  await ctx.tx.lead.update({
+    where: { id: leadId },
+    data: { dealtById: dealerId, dealtAt: new Date(), followUpCount: { increment: 1 }, lastFollowUpAt: new Date(), updatedById: ctx.access.userId },
+  });
+  if (l!.status !== 'visited') await leads.transition(ctx, leadId, 'visit', remarks, { system: true });
+  await ctx.audit({
+    entityType: 'sales.lead',
+    entityId: leadId,
+    action: 'social.visited',
+    dealershipId: l!.dealershipId,
+    branchId: l!.branchId,
+    changes: { dealtBy: who?.fullName ?? null, status: 'visited' },
+  });
+}
+
+/**
  * The caller's own leads: the list scope for personal figures (dashboard, today, action needed).
  * Someone who also sees other people's leads read-only (the CRO) still gets their own numbers.
  */
@@ -855,7 +904,11 @@ export const quotationEntity: EntityConfig = {
         // Removing a code needs a typed variant with it (the old text was the code's description).
         const typed = patch.variant !== undefined ? patch.variant : row.variantCode ? null : row.variant;
         if (!patch.variantCode && !typed) await assertVariantCodeGiven(ctx, row.dealershipId as number, null, (requestedModel ?? row.modelId) as number);
+        const edited = patch.variantCode ? patch.variant : undefined;
         Object.assign(patch, await resolveVariant(ctx, row.dealershipId as number, patch.variantCode as string | null));
+        // The salesperson may have edited the code's description: keep what they typed.
+        // (An unchanged text sent along with a different code is just the old description: the new code's wins.)
+        if (typeof edited === 'string' && edited.trim() && (edited !== row.variant || patch.variantCode === row.variantCode)) patch.variant = edited;
         // A picked code belongs to one model: it must be the model asked for.
         if (requestedModel !== undefined && patch.modelId !== undefined && patch.modelId !== requestedModel) {
           throw validationError([{ in: 'body', path: 'variantCode', message: 'This variant code belongs to another model: choose a code of the chosen model, or type the variant under "Other"' }]);

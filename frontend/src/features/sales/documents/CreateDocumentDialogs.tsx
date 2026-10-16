@@ -140,8 +140,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             // Empty stays empty: no booking amount is printed unless the salesperson enters one.
             bookingAmount: (v.bookingAmount.trim() || null) as string | undefined,
             modelId: Number(v.modelId),
-            // A picked code sets the printed description on the server; a typed variant is sent as is.
-            variant: v.variantCode ? null : blank(v.variant),
+            // The printed description: the picked code's, as the salesperson edited it, or the typed variant.
+            variant: blank(v.variant),
             color: blank(v.color),
             validDays: Number(v.validDays) || 7,
             notes: blank(v.notes),

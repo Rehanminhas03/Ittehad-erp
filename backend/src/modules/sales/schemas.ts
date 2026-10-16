@@ -71,6 +71,10 @@ export const LeadSchema = z.object({
   vehiclePrice: z.string().nullable().optional(),
   followUpCount: z.number().int(),
   lastFollowUpAt: Timestamp.nullable(),
+  /** A social media lead the customer visited: the salesperson who dealt with them (the lead stays with the CRO). */
+  dealtById: Id.nullable().optional(),
+  dealtByName: z.string().nullable().optional(),
+  dealtAt: Timestamp.nullable().optional(),
   /** hot | warm | cold, and the day the next follow-up is due (null once the schedule is complete). */
   temperature: z.enum(LEAD_TEMPERATURES).nullable().optional(),
   nextFollowUpOn: z.string().nullable().optional(),
@@ -139,8 +143,17 @@ export const LeadCreate = z
     ...leadFields,
     /** Team leaders (who see every lead) can log a lead for a salesperson; default: yourself. */
     ownerId: Id.optional(),
+    /**
+     * What the customer said during the visit (will buy, will not, needs time…). Required when the phone number
+     * is a social media lead (it becomes Visited and the salesperson is recorded as dealing with the customer).
+     */
+    visitRemarks: optionalText(2000),
   })
   .openapi('LeadCreate');
+/** What a customer said during / after a visit (for a social media lead the salesperson dealt with). */
+export const VisitRemarksBody = z
+  .object({ remarks: z.string({ error: 'Write what the customer said' }).trim().min(1, 'Write what the customer said').max(2000) })
+  .openapi('VisitRemarksRequest');
 export const LeadUpdate = z
   .object({ ...leadFields, source: leadFields.source.optional(), branchId: Id.nullish(), ownerId: Id.optional() })
   .partial()
@@ -972,6 +985,8 @@ export const LeadSummaryQuery = z
     ownerId: z.coerce.number().int().positive().optional(),
     source: z.enum(LEAD_SOURCES).optional(),
     escalated: BoolQuery.optional(),
+    /** Social media (Meta ad) leads, or the other leads, like the leads list's group filter. */
+    group: z.enum(['social', 'salespeople']).optional(),
   })
   .refine((q) => !q.activityFrom || !q.activityTo || q.activityFrom <= q.activityTo, {
     message: 'The start date must be on or before the end date',
@@ -1130,8 +1145,8 @@ export const ExportQuery = z.object({
   from: isoDate.optional(),
   to: isoDate.optional(),
   status: z.string().trim().max(30).optional(),
-  /** Leads only: social media (Meta ad) leads, or the other leads. */
-  group: z.enum(['social', 'salespeople']).optional(),
+  /** Leads only: social media (Meta ad) leads, or the other leads ("all": no split). */
+  group: z.enum(['social', 'salespeople', 'all']).optional(),
   /** Leads only: hot, warm or cold. */
   temperature: z.enum(LEAD_TEMPERATURES).optional(),
 });

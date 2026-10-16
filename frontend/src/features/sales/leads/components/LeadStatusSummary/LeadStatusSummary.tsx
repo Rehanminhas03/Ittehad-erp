@@ -19,6 +19,7 @@ export function LeadStatusSummary({ query, periodLabel }: { query: Record<string
     ownerId: pick('ownerId') ? Number(pick('ownerId')) : undefined,
     source: pick('source') as GetLeadSummaryApiArg['source'],
     escalated: pick('escalated') as GetLeadSummaryApiArg['escalated'],
+    group: (pick('group') === 'all' ? undefined : pick('group')) as GetLeadSummaryApiArg['group'],
   };
   const { data: leads } = useGetLeadSummaryQuery(arg);
   if (!leads) return null;

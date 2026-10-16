@@ -76,7 +76,7 @@ export async function exportLeads(ctx: EntityCtx, q: z.output<typeof ExportQuery
   if (q.to) conds.push(sql`${day(lead.updatedAt)} <= ${q.to}::date`);
   if (q.status) conds.push(sql`${lead.status} = ${q.status}`);
   if (q.temperature) conds.push(sql`${lead.temperature} = ${q.temperature}`);
-  if (q.group) conds.push(q.group === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`);
+  if (q.group && q.group !== 'all') conds.push(q.group === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`);
   return query<Record<string, unknown>>(
     ctx.tx,
     sql`select ${lead.id}::int as "leadId", d.name as "dealership", (${lead.createdAt} at time zone 'Asia/Karachi')::date::text as "loggedOn",

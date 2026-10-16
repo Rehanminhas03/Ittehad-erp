@@ -234,39 +234,12 @@ export function SalesDashboard() {
       {/* What is waiting for you (approvals, cars to hand over…), with a pop-up when something is new. */}
       <ActionNeeded />
 
-      {/* The CRO: social media (Meta ad) leads, apart from the other leads. */}
+      {/* Walk-ins and calls come first; the social media leads are shown under them. */}
       {data?.social && (
-        <section className="space-y-3" aria-label="Social media leads">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Social media leads (Meta ads)</h2>
-              <p className="text-sm text-slate-600">Every lead from our Facebook / Instagram ads at your dealership, to call.</p>
-            </div>
-            <ExportButtons kind="leads" group="social" query={{ activityFrom: data.period.from, activityTo: data.period.to }} periodLabel={periodLabel} />
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-            <StatTile label="New today" value={data.social.loggedToday} icon="today" tone="blue" to="/sales/leads?group=social&range=all" hint="From the ads" />
-            <StatTile label="Open social leads" value={data.social.open} icon="phone" tone="aqua" to="/sales/leads?group=social&open=true&range=all" hint={`of ${data.social.total} total`} />
-            <StatTile label="Logged" value={data.social.loggedInPeriod} icon="leads" tone="orange" to="/sales/leads?group=social&range=all" hint={periodLabel} />
-            <StatTile label="Converted" value={data.social.daily.reduce((n, d) => n + d.converted, 0)} icon="check" tone="violet" to={`/sales/leads?group=social&${inPeriod}&range=all`} hint={periodLabel} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Panel title="Social media leads per day" subtitle={periodLabel} to="/sales/leads?group=social&range=all" className="lg:col-span-2">
-              <TrendChart data={data.social.daily} series={[SERIES_LOGGED, SERIES_CONVERTED]} />
-            </Panel>
-            <Panel title="Social media leads by status" to="/sales/leads?group=social&range=all">
-              <BarList
-                items={LEAD_STATES.filter((s) => s !== 'visited' || showsVisited(perm)).map((s) => ({ label: humanize(s), value: data.social!.byStatus[s] ?? 0, to: `/sales/leads?group=social&status=${s}&range=all` }))}
-                total={data.social.total}
-                empty="No social media leads yet."
-              />
-            </Panel>
-          </div>
-          <div className="flex flex-wrap items-end justify-between gap-2 border-t border-slate-200/70 pt-4">
-            <h2 className="text-lg font-semibold text-slate-900">Other leads (walk-ins, calls)</h2>
-            <ExportButtons kind="leads" group="salespeople" query={{ activityFrom: data.period.from, activityTo: data.period.to }} periodLabel={periodLabel} />
-          </div>
-        </section>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-lg font-semibold text-slate-900">Other leads (walk-ins, calls)</h2>
+          <ExportButtons kind="leads" group="salespeople" query={{ activityFrom: data.period.from, activityTo: data.period.to }} periodLabel={periodLabel} />
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
@@ -347,6 +320,37 @@ export function SalesDashboard() {
             empty={layout === 'admin' ? 'No converted leads waiting.' : layout === 'am' ? 'No duplicate customers sent to you.' : 'No leads yet — log your first walk-in.'}
           />
         </Panel>
+      )}
+
+      {/* Social media (Meta ad) leads: under the other leads (walk-ins, calls). */}
+      {data?.social && (
+        <section className="space-y-3 border-t border-slate-200/70 pt-5" aria-label="Social media leads">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Social media leads (Meta ads)</h2>
+              <p className="text-sm text-slate-600">Every lead from our Facebook / Instagram ads at your dealership, to call.</p>
+            </div>
+            <ExportButtons kind="leads" group="social" query={{ activityFrom: data.period.from, activityTo: data.period.to }} periodLabel={periodLabel} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+            <StatTile label="New today" value={data.social.loggedToday} icon="today" tone="blue" to="/sales/leads?group=social&range=all" hint="From the ads" />
+            <StatTile label="Open social leads" value={data.social.open} icon="phone" tone="aqua" to="/sales/leads?group=social&open=true&range=all" hint={`of ${data.social.total} total`} />
+            <StatTile label="Logged" value={data.social.loggedInPeriod} icon="leads" tone="orange" to="/sales/leads?group=social&range=all" hint={periodLabel} />
+            <StatTile label="Converted" value={data.social.daily.reduce((n, d) => n + d.converted, 0)} icon="check" tone="violet" to={`/sales/leads?group=social&${inPeriod}&range=all`} hint={periodLabel} />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Panel title="Social media leads per day" subtitle={periodLabel} to="/sales/leads?group=social&range=all" className="lg:col-span-2">
+              <TrendChart data={data.social.daily} series={[SERIES_LOGGED, SERIES_CONVERTED]} />
+            </Panel>
+            <Panel title="Social media leads by status" to="/sales/leads?group=social&range=all">
+              <BarList
+                items={LEAD_STATES.filter((s) => s !== 'visited' || showsVisited(perm)).map((s) => ({ label: humanize(s), value: data.social!.byStatus[s] ?? 0, to: `/sales/leads?group=social&status=${s}&range=all` }))}
+                total={data.social.total}
+                empty="No social media leads yet."
+              />
+            </Panel>
+          </div>
+        </section>
       )}
     </div>
   );

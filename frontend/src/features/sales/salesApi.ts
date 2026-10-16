@@ -14,6 +14,7 @@ export const salesApi = enhancedApi
       receiveStockVehicle: { invalidatesTags: ['StockVehicle', 'SalesOrder', 'Vehicle', 'Lead'] },
       convertLead: { invalidatesTags: ['Lead', 'Customer', 'Search'] },
       recordLeadFollowUp: { invalidatesTags: ['Lead'] },
+      addLeadVisitRemarks: { invalidatesTags: ['Lead'] },
       commentOnFollowUp: { invalidatesTags: ['Lead'] },
       // Documents feed the monthly track record (SalesTeam).
       createLeadQuotation: { invalidatesTags: ['Quotation', 'SalesTeam'] },

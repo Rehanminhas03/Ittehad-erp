@@ -46,6 +46,7 @@ export async function leadSummary(ctx: EntityCtx, q: z.output<typeof LeadSummary
     q.ownerId ? eq(lead.ownerId, q.ownerId) : undefined,
     q.source ? eq(lead.source, q.source) : undefined,
     q.escalated === undefined ? undefined : q.escalated ? isNotNull(lead.escalatedAt) : isNull(lead.escalatedAt),
+    q.group ? (q.group === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`) : undefined,
     q.activityFrom ? sql`${karachiDate(lead.updatedAt)} >= ${q.activityFrom}::date` : undefined,
     q.activityTo ? sql`${karachiDate(lead.updatedAt)} <= ${q.activityTo}::date` : undefined,
   )!;
@@ -100,7 +101,8 @@ export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof Dashboar
 
   if (access.hasAny([P.leadsViewAll, P.leadsViewOwn, P.leadsViewConverted, P.leadsViewSocial])) {
     // The CRO's social media (Meta ad) leads have their own section; "leads" is then the other (own) leads.
-    const social = access.has(P.leadsViewSocial);
+    // Also the managers (who see every lead): their social media leads are shown apart from the other leads.
+    const social = access.hasAny([P.leadsViewSocial, P.leadsViewAll]);
     const scope = and(personalLeads(access), social ? sql`${lead.source} <> 'social'` : undefined, person ? eq(lead.ownerId, person) : undefined)!;
     const byStatus = await statusCounts(ctx, lead, scope);
     // "Today" figures always mean today, whatever period is chosen.

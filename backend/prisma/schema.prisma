@@ -1416,6 +1416,10 @@ model Lead {
   nextFollowUpOn           DateTime?      @map("next_follow_up_on") @db.Date
   /// The day the reminder for `next_follow_up_on` was sent (once per due date).
   followUpRemindedOn       DateTime?      @map("follow_up_reminded_on") @db.Date
+  /// A social media lead the customer then visited the showroom for: the salesperson who dealt with the customer
+  /// (they tried to enter the same phone number as a walk-in) and when. The lead stays with the CRO.
+  dealtById                BigInt?        @map("dealt_by_id")
+  dealtAt                  DateTime?      @map("dealt_at") @db.Timestamptz(6)
   /// Social media (Meta lead ads): the ad's campaign, the customer's city, and the Meta lead / form / ad ids.
   campaignName             String?        @map("campaign_name")
   city                     String?
@@ -1465,6 +1469,7 @@ model Lead {
   @@index([prospectName(ops: raw("gin_trgm_ops"))], map: "lead_name_trgm", type: Gin)
   @@index([ownerId], map: "lead_owner_id_index")
   @@index([nextFollowUpOn], map: "lead_next_follow_up_on_index")
+  @@index([dealtById], map: "lead_dealt_by_id_index")
   @@index([salesOrderId], map: "lead_sales_order_id_index")
   @@index([updatedById], map: "lead_updated_by_id_index")
   @@map("lead")

@@ -116,7 +116,8 @@ async function issueQuotation(ctx: EntityCtx, target: Target, ownerId: number, l
     ...(customer ?? {}),
     modelId,
     // A typed variant belongs to the quoted model; the lead's variant only when the model is the lead's.
-    variant: ('variant' in picked ? picked.variant : null) ?? input.variant ?? (l && modelId === l.interestedModelId ? l.variant : null) ?? null,
+    // The salesperson may edit the picked code's description (add a missing word): what they typed is printed.
+    variant: input.variant ?? ('variant' in picked ? picked.variant : null) ?? (l && modelId === l.interestedModelId ? l.variant : null) ?? null,
     variantCode: picked.variantCode,
     color: input.color ?? l?.preferredColor ?? null,
     bookingAmount: booking == null ? null : money2(booking),

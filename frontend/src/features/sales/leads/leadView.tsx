@@ -15,6 +15,7 @@ import {
 import { formatDate, formatDateTime, formatMoney, humanize } from '@/shared/lib';
 import { BulkTransfer } from './components/BulkTransfer';
 import { DuplicateLeadNotice } from './components/DuplicateLeadNotice';
+import { SocialVisitNotice } from './components/SocialVisitNotice';
 import { formatAppointment, LeadAppointment } from './components/LeadAppointment';
 import { LeadConversion } from './components/LeadConversion';
 import { LeadConversionEdit } from './components/LeadConversionEdit';
@@ -137,6 +138,8 @@ export const leadView: EntityViewConfig<Lead> = {
     defaultSort: '-updatedAt',
     dateRange: { label: 'Activity', fromParam: 'activityFrom', toParam: 'activityTo', defaultPreset: '30d' },
     searchPlaceholder: 'Search customer name, phone (e.g. 03001234567), PBO, CNIC or chassis',
+    // Managers (who see every lead, not being CROs): Leads is the salespeople's leads; the social media ones have their own tab.
+    defaults: (perm): Record<string, string> => (perm.can([P.leadsViewAll]) && !perm.can([P.leadsViewSocial]) ? { group: 'salespeople' } : {}),
     // Select several leads and give them to one salesperson / CRO. The Assistant Manager / Manager: any lead;
     // the CRO: own leads and social media ones.
     bulk: {
@@ -162,7 +165,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { param: 'followUpDue', label: 'Follow-up due', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       { param: 'source', label: 'Source', type: 'select', options: LEAD_SOURCES },
       // The CRO's tabs: social media (Meta ad) leads, or the salespeople's leads.
-      { param: 'group', label: 'Leads from', type: 'select', options: [{ value: 'social', label: 'Social media (Meta ads)' }, { value: 'salespeople', label: 'Salespeople (walk-in, calls…)' }], visible: (perm) => perm.can([P.leadsViewSocial, P.leadsViewTeam]) },
+      { param: 'group', label: 'Leads from', type: 'select', options: [{ value: 'social', label: 'Social media (Meta ads)' }, { value: 'salespeople', label: 'Salespeople (walk-in, calls…)' }, { value: 'all', label: 'All leads' }], visible: (perm) => perm.can([P.leadsViewSocial, P.leadsViewTeam, P.leadsViewAll]) },
       { param: 'ownerId', label: 'Salesperson', type: 'select', useOptions: useSalespersonOptions, visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted, P.leadsViewTeam]) },
       { param: 'escalated', label: 'Sent to AM', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       { param: 'upcomingAppointment', label: 'Appointment (today on)', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
@@ -187,6 +190,8 @@ export const leadView: EntityViewConfig<Lead> = {
             {l.escalatedAt && (OPEN_LEAD_STATES as readonly string[]).includes(l.status) && <Badge tone="amber">Sent to AM</Badge>}
             {!!l.previousPurchases && <Badge tone="green">{`Returning customer · ${l.previousPurchases} car${l.previousPurchases > 1 ? 's' : ''} before`}</Badge>}
             {l.customerType === 'corporate' && l.companyName && <Badge tone="blue">{l.companyName}</Badge>}
+            {/* A social media lead whose customer visited: dealt with by a salesperson. */}
+            {l.source === 'social' && l.dealtByName && <Badge tone="green">{`Social media · Deal by ${l.dealtByName}`}</Badge>}
             {l.appointmentAt && new Date(l.appointmentAt).getTime() >= Date.now() - 3_600_000 && <Badge tone="blue">{formatAppointment(l.appointmentAt)}</Badge>}
           </span>
         ),
@@ -248,6 +253,10 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Purchase order', value: (l) => (l.customerType === 'corporate' ? l.purchaseOrderNo || 'Without a purchase order' : null) },
       { label: 'Lost', value: (l) => (l.lostAt ? `${formatDateTime(l.lostAt)} by ${l.lostByName ?? '—'}${l.lostReason ? ` — ${l.lostReason}` : ''}` : null) },
       { label: 'Salesperson', value: (l) => l.ownerName },
+      {
+        label: 'Deal by',
+        value: (l) => (l.dealtByName ? <span className="inline-flex flex-wrap items-center gap-2"><Badge tone="green">Social media lead · Visited</Badge><span className="font-medium">{l.dealtByName}</span><span className="text-slate-500">dealt with the customer {formatDateTime(l.dealtAt)}</span></span> : null),
+      },
       { label: 'Campaign (Meta ad)', value: (l) => l.campaignName },
       { label: 'Ad', value: (l) => l.adName },
       { label: 'City', value: (l) => l.city },
@@ -321,9 +330,12 @@ export const leadView: EntityViewConfig<Lead> = {
       { name: 'notes', label: 'Notes', type: 'textarea', span: 2 },
     ],
     defaults: { source: 'walk_in' },
+    // The customer is a social media lead (the CRO's): no new lead; it is now Visited and dealt by this salesperson.
+    savedMessage: (saved) => (saved.source === 'social' && saved.dealtByName ? 'This customer is already a social media lead: it is now marked Visited and recorded as dealt with by you. The CRO enters the order details.' : null),
     createSchema: z.object({ dealershipId: idField('Dealership'), ownerId: optionalId(), ...fields }),
     updateSchema: z.object((({ branchId: _b, ...rest }) => rest)(fields)),
-    renderConflict: (details, values) => <DuplicateLeadNotice details={details} values={values} />,
+    renderConflict: (details, values) =>
+      details.socialLead ? <SocialVisitNotice details={details} values={values} /> : <DuplicateLeadNotice details={details} values={values} />,
   },
   api: {
     useList: useListLeadsQuery,

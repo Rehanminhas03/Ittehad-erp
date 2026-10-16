@@ -135,6 +135,21 @@ export async function commentOnFollowUp(ctx: EntityCtx, leadId: number, followUp
   return listFollowUps(ctx, leadId);
 }
 
+/**
+ * The salesperson who dealt with a social media lead's customer adds what the customer said, during or after
+ * the visit (the CRO follows the lead and is notified). Shown among the lead's follow-ups.
+ */
+export async function addVisitRemarks(ctx: EntityCtx, leadId: number, input: { remarks: string }) {
+  const l = await leads.findVisible(ctx, leadId);
+  if (l.dealtById !== ctx.access.userId) throw forbidden('Only the salesperson who dealt with this customer adds visit remarks');
+  await ctx.tx.leadFollowUp.create({
+    data: { dealershipId: l.dealershipId as number, leadId, outcome: 'visited', remarks: input.remarks, createdById: ctx.access.userId },
+  });
+  await ctx.tx.lead.update({ where: { id: leadId }, data: { updatedById: ctx.access.userId }, select: { id: true } });
+  await ctx.audit({ entityType: 'sales.lead', entityId: leadId, action: 'follow_up', ...targetOf(l), changes: { outcome: 'visited', remarks: input.remarks } });
+  return listFollowUps(ctx, leadId);
+}
+
 // ---- Convert to Lead ------------------------------------------------------------
 /**
  * Captures the qualifying details and hands the lead to the dealership's Admin.
@@ -149,7 +164,9 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
   const mine = l.ownerId === ctx.access.userId || l.createdById === ctx.access.userId;
   const asOwner = mine && ctx.access.canIn(P.leadsConvertOwn, target);
   const asEscalation = ctx.access.canIn(P.leadsConvertEscalated, target);
-  if (!asOwner) {
+  // Every CRO of the dealership sees every social media (Meta ad) lead and may convert any of them: it then becomes theirs.
+  const asSocial = !asOwner && l.source === 'social' && ctx.access.canIn(P.leadsViewSocial, target) && ctx.access.canIn(P.leadsConvertOwn, target);
+  if (!asOwner && !asSocial) {
     if (!asEscalation) throw forbidden('Only the lead owner can convert this lead');
     if (!l.escalatedAt) throw forbidden('Assistant Managers can convert only duplicate customers a salesperson sent to them');
   }
@@ -210,6 +227,8 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
     where: { id: leadId },
     data: {
       customerId,
+      // A CRO converting another CRO's social media lead takes it over (the conversion is credited to them).
+      ...(asSocial ? { ownerId: ctx.access.userId } : {}),
       prospectName: name,
       prospectMobile: phone,
       prospectMobileNormalized: phoneNormalized,
@@ -238,7 +257,7 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
     },
   });
   if (Object.keys(corrected).length) await ctx.audit({ entityType: 'sales.lead', entityId: leadId, action: 'details.update', ...target, changes: corrected });
-  await leads.transition(ctx, leadId, 'convert', asOwner ? undefined : 'Converted by the Assistant Manager (duplicate customer)', { system: true });
+  await leads.transition(ctx, leadId, 'convert', asOwner ? undefined : asSocial ? 'Converted by a CRO (social media lead)' : 'Converted by the Assistant Manager (duplicate customer)', { system: true });
   return leads.get(ctx, leadId);
 }
 

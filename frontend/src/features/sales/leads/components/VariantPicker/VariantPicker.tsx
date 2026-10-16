@@ -34,13 +34,16 @@ export function VariantPicker({ id, value, onChange, invalid, modelId, dealershi
     if (lastModel.current && lastModel.current !== modelId) {
       onChange('');
       setTyping(false);
+      setPickedId(null);
     }
     lastModel.current = modelId;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the model changes
   }, [modelId]);
 
   // The code behind the chosen variant (also for a variant filled in from the lead).
-  const picked = typing ? undefined : codes.find((c) => c.description === value);
+  // The chosen code stays chosen while its description is edited (a word added or corrected).
+  const [pickedId, setPickedId] = useState<number | null>(null);
+  const picked = typing ? undefined : (codes.find((c) => c.id === pickedId) ?? codes.find((c) => c.description === value));
   useEffect(() => {
     onCode?.(picked?.code ?? null, picked);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- report only when the code changes
@@ -61,6 +64,7 @@ export function VariantPicker({ id, value, onChange, invalid, modelId, dealershi
         onChange={(e) => {
           const next = e.target.value;
           setTyping(next === OTHER);
+          setPickedId(next && next !== OTHER ? Number(next) : null);
           onChange(next === OTHER ? '' : (codes.find((c) => String(c.id) === next)?.description ?? ''));
           if (next === OTHER) onCode?.(null);
         }}
@@ -73,6 +77,12 @@ export function VariantPicker({ id, value, onChange, invalid, modelId, dealershi
         ))}
         <option value={OTHER}>Other (type it)</option>
       </Select>
+      {picked && (
+        <div>
+          <Input aria-label="Variant description (editable)" value={value} onChange={(e) => onChange(e.target.value)} invalid={invalid && !value.trim()} />
+          <p className="mt-1 text-xs text-slate-500">This is printed on the quotation. Edit it if a word is missing or wrong; the code stays {picked.code}.</p>
+        </div>
+      )}
       {custom && (
         <Input aria-label="Variant (typed)" value={value} onChange={(e) => onChange(e.target.value)} invalid={invalid} placeholder="Type the variant" autoFocus={typing} />
       )}

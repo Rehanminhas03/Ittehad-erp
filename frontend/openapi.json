@@ -4164,6 +4164,19 @@
           "outcome"
         ]
       },
+      "VisitRemarksRequest": {
+        "type": "object",
+        "properties": {
+          "remarks": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "remarks"
+        ]
+      },
       "FollowUpCommentRequest": {
         "type": "object",
         "properties": {
@@ -8471,6 +8484,21 @@
             "nullable": true,
             "format": "date-time"
           },
+          "dealtById": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "dealtByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "dealtAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
           "temperature": {
             "type": "string",
             "nullable": true,
@@ -8765,6 +8793,11 @@
             "type": "integer",
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "visitRemarks": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
           }
         },
         "required": [
@@ -23399,7 +23432,8 @@
               "type": "string",
               "enum": [
                 "social",
-                "salespeople"
+                "salespeople",
+                "all"
               ]
             },
             "required": false,
@@ -23533,6 +23567,18 @@
             },
             "required": false,
             "name": "escalated",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "social",
+                "salespeople"
+              ]
+            },
+            "required": false,
+            "name": "group",
             "in": "query"
           }
         ],
@@ -23889,6 +23935,21 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "dealtById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealtByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "dealtAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
                     "temperature": {
                       "type": "string",
                       "nullable": true,
@@ -24098,6 +24159,87 @@
                     "updatedAt",
                     "availableActions"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/leads/{id}/visit-remarks": {
+      "post": {
+        "operationId": "addLeadVisitRemarks",
+        "summary": "The salesperson who dealt with a social media lead's customer adds what the customer said (during or after the visit)",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
+        "tags": [
+          "Lead"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitRemarksRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadFollowUp"
+                  }
                 }
               }
             }
@@ -24395,6 +24537,21 @@
                       "type": "integer"
                     },
                     "lastFollowUpAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "dealtById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealtByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "dealtAt": {
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
@@ -24814,6 +24971,21 @@
                       "type": "integer"
                     },
                     "lastFollowUpAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "dealtById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealtByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "dealtAt": {
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
@@ -25849,6 +26021,21 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "dealtById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealtByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "dealtAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
                     "temperature": {
                       "type": "string",
                       "nullable": true,
@@ -26334,6 +26521,21 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "dealtById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealtByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "dealtAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
                     "temperature": {
                       "type": "string",
                       "nullable": true,
@@ -26749,6 +26951,21 @@
                       "type": "integer"
                     },
                     "lastFollowUpAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "dealtById": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "dealtByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "dealtAt": {
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
@@ -29044,7 +29261,8 @@
               "type": "string",
               "enum": [
                 "social",
-                "salespeople"
+                "salespeople",
+                "all"
               ]
             },
             "required": false,
@@ -33549,7 +33767,7 @@
       "get": {
         "operationId": "listLeads",
         "summary": "List Leads",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.leads.view_own",
         "tags": [
           "Lead"
         ],
@@ -33640,7 +33858,8 @@
               "type": "string",
               "enum": [
                 "social",
-                "salespeople"
+                "salespeople",
+                "all"
               ]
             },
             "required": false,
@@ -33937,7 +34156,7 @@
       "get": {
         "operationId": "getLeadWorkflow",
         "summary": "Lead workflow definition",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.leads.view_own",
         "tags": [
           "Lead"
         ],
@@ -33994,7 +34213,7 @@
       "get": {
         "operationId": "getLead",
         "summary": "Get Lead",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.leads.view_own",
         "tags": [
           "Lead"
         ],
@@ -34139,7 +34358,7 @@
       "get": {
         "operationId": "getLeadHistory",
         "summary": "Lead audit and workflow history",
-        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team",
+        "description": "Requires: sales.leads.view_all | sales.leads.view_own | sales.leads.view_converted | sales.leads.view_social | sales.leads.view_team | sales.leads.view_own",
         "tags": [
           "Lead"
         ],

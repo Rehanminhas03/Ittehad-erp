@@ -53,7 +53,9 @@ export function LeadConversion({ lead }: { lead: Lead }) {
   const loggedIt = lead.createdById === perm.userId && lead.ownerId !== perm.userId;
   const asOwner = (lead.ownerId === perm.userId || loggedIt) && perm.canIn(P.leadsConvertOwn, lead.dealershipId, lead.branchId);
   const asEscalation = !!lead.escalatedAt && perm.canIn(P.leadsConvertEscalated, lead.dealershipId, lead.branchId);
-  if (!isOpenLead || !(asOwner || asEscalation)) return null;
+  // The CRO: any social media (Meta ad) lead of the dealership can be converted; it then becomes theirs.
+  const asSocial = !asOwner && lead.source === 'social' && perm.canIn(P.leadsViewSocial, lead.dealershipId, lead.branchId) && perm.canIn(P.leadsConvertOwn, lead.dealershipId, lead.branchId);
+  if (!isOpenLead || !(asOwner || asEscalation || asSocial)) return null;
 
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) =>
     setV((s) => ({ ...s, [k]: k === 'prospectMobile' ? digitsOnly(e.target.value) : e.target.value }));
@@ -136,7 +138,12 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           You logged this lead for {lead.ownerName ?? 'a salesperson'}: you can convert it; {lead.ownerName ?? 'the salesperson'} stays the owner.
         </p>
       )}
-      {!asOwner && (
+      {asSocial && (
+        <p className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          This is a social media lead of {lead.ownerName ?? 'another CRO'}. When you convert it, it becomes yours{lead.dealtByName ? `; ${lead.dealtByName} dealt with the customer` : ''}.
+        </p>
+      )}
+      {!asOwner && !asSocial && (
         <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Duplicate customer sent to you: you are converting it on behalf of {lead.ownerName ?? 'its salesperson'}, who stays the owner.
         </p>

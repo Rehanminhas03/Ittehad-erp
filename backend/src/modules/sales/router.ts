@@ -81,6 +81,7 @@ import {
   TrackRecordQuery,
   TrackRecordSchema,
   VariantImportBody,
+  VisitRemarksBody,
   VariantImportResultSchema,
 } from './schemas';
 import * as svc from './services';
@@ -147,6 +148,18 @@ const leadActions = new ApiRouter('/sales/leads', 'Lead')
     response: LeadRead,
     status: 201,
     handler: (ctx) => svc.recordFollowUp(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/visit-remarks',
+    operationId: 'addLeadVisitRemarks',
+    summary: 'The salesperson who dealt with a social media lead\'s customer adds what the customer said (during or after the visit)',
+    permission: LEAD_VIEWERS,
+    params: IdParam,
+    body: VisitRemarksBody,
+    response: z.array(LeadFollowUpSchema),
+    status: 201,
+    handler: (ctx) => svc.addVisitRemarks(ctx, ctx.params.id, ctx.body),
   })
   .route({
     method: 'post',

@@ -35,7 +35,8 @@ const ALL_SECTIONS: NavSection[] = [
     items: [
       { label: 'Leads', to: '/sales/leads', any: ['sales.leads.view_all', 'sales.leads.view_own', 'sales.leads.view_converted'] },
       // The CRO: every social media (Meta ad) lead of the dealership to call, and the salespeople's leads (read-only).
-      { label: 'Social media leads', to: '/sales/leads?group=social&range=all', any: ['sales.leads.view_social'] },
+      // Managers and the Assistant Manager too: their Leads tab is the salespeople's leads; the social media ones are here.
+      { label: 'Social media leads', to: '/sales/leads?group=social&range=all', any: ['sales.leads.view_social', 'sales.leads.view_all'] },
       { label: 'Salesperson leads', to: '/sales/leads?group=salespeople&range=all', any: ['sales.leads.view_team'] },
       // Leads the customer is not interested in (each person sees their own; managers the team's).
       { label: 'Lost leads', to: '/sales/leads?lost=true&range=all', any: ['sales.leads.view_all', 'sales.leads.view_own'] },

@@ -88,6 +88,7 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'follow_up') return { title: 'Follow-up recorded on a lead', weight: 35, href };
       if (e.action === 'follow_up.comment') return { title: 'New comment on a follow-up', weight: 65, href };
       if (e.action === 'details.update') return { title: 'Customer details corrected', weight: 40, href };
+      if (e.action === 'social.visited') return { title: 'A social media lead visited the showroom', weight: 80, href, detail: str(c.dealtBy) ? `dealt with by ${str(c.dealtBy)}` : undefined };
       if (e.action === 'conversion.correct') return { title: 'Conversion details corrected by a manager', weight: 55, href };
       if (e.action === 'escalate') return { title: 'Duplicate customer sent to the Assistant Manager', weight: 65, href };
       if (e.action === 'appointment') {

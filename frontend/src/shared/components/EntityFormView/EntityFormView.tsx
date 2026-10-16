@@ -58,7 +58,7 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
         mode === 'create'
           ? await createTrigger(config.api.create!.toArg(values)).unwrap()
           : await updateTrigger(config.api.update!.toArg(row!.id, values)).unwrap();
-      toast.success(`${config.singular} saved`);
+      toast.success(form.savedMessage?.(saved as T, perm) ?? `${config.singular} saved`);
       navigate(`${config.basePath}/${(saved as T).id}`);
     } catch (e) {
       // Not allowed (e.g. outside the user's dealership or branch): a popup saying what to do.

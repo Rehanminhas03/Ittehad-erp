@@ -178,6 +178,8 @@ export interface EntityViewConfig<T extends { id: number }> {
      * latest activity. `defaultPreset` applies when the URL names none (e.g. 'today').
      */
     dateRange?: { label: string; fromParam: string; toParam: string; defaultPreset?: string };
+    /** Filter values that apply when the address names none (they may depend on the user), e.g. managers' Leads: not the social media ones. */
+    defaults?: (perm: PermissionApi) => Record<string, string>;
     /**
      * Select several rows (a checkbox on each row the user may act on) and act on them together, e.g.
      * give leads to a salesperson. `bar` is shown above the list while rows are selected.
@@ -207,6 +209,8 @@ export interface EntityViewConfig<T extends { id: number }> {
     updateSchema?: ZodType;
     defaults?: Record<string, unknown>;
     toFormValues?: (row: T) => Record<string, unknown>;
+    /** The message after saving (default: "<Entity> saved"), e.g. when saving answered with an existing record. */
+    savedMessage?: (saved: T, perm: PermissionApi) => string | null;
     /** Custom notice for a 409 (default: message + link to `details.existingId`). */
     renderConflict?: (details: Record<string, unknown>, values: Record<string, unknown>) => ReactNode;
   };

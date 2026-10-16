@@ -9,7 +9,7 @@ const pakistanToday = () => new Date().toLocaleDateString('en-CA', { timeZone: '
 const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 /** The schedule's day for the next follow-up, once `done` have been made (null after the third). */
 const scheduled = (done: number) => (FOLLOW_UP_GAP_DAYS[done] === undefined ? '' : plusDays(pakistanToday(), FOLLOW_UP_GAP_DAYS[done]!));
-import { type Lead, type LeadFollowUp, useCommentOnFollowUpMutation, useListLeadFollowUpsQuery, useRecordLeadFollowUpMutation } from '../../../salesApi';
+import { type Lead, type LeadFollowUp, useAddLeadVisitRemarksMutation, useCommentOnFollowUpMutation, useListLeadFollowUpsQuery, useRecordLeadFollowUpMutation } from '../../../salesApi';
 
 const OUTCOME_TONES = { interested: 'green', not_interested: 'red', visited: 'blue' } as const;
 
@@ -31,6 +31,10 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
     (perm.canIn(P.leadsUpdate, lead.dealershipId, lead.branchId) ||
       (lead.ownerId === perm.userId && perm.canIn(P.leadsUpdateOwn, lead.dealershipId, lead.branchId)));
   const remaining = Math.max(0, MIN_FOLLOW_UPS_TO_EXHAUST - lead.followUpCount);
+  // The salesperson who dealt with a social media lead's customer adds what the customer said, during or after the visit.
+  const dealtByMe = !!lead.dealtById && lead.dealtById === perm.userId && isOpenLead;
+  const [addRemarks, { isLoading: adding }] = useAddLeadVisitRemarksMutation();
+  const [visitNote, setVisitNote] = useState('');
   // Visits are the CRO's (social / digital leads); a walk-in customer is already in the showroom.
   const outcomes = FOLLOW_UP_OUTCOMES.filter(
     (o) => o.value !== 'visited' || (lead.source !== 'walk_in' && perm.canIn(P.leadsRecordVisit, lead.dealershipId, lead.branchId)),
@@ -55,6 +59,30 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
               : 'No follow-up date set.'}
           {' '}Schedule: day 2, day 5 and about day 11 after the lead is logged.
         </p>
+      )}
+      {dealtByMe && (
+        <div className="mb-5 rounded-lg bg-emerald-50 px-3 py-3 ring-1 ring-emerald-200">
+          <p className="mb-2 text-sm font-medium text-emerald-900">You dealt with this customer. Add what the customer said (during or after the visit): the CRO sees it.</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <Textarea rows={2} value={visitNote} onChange={(e) => setVisitNote(e.target.value)} placeholder="e.g. will buy next week, asked for a discount, will not buy" aria-label="What the customer said" className="flex-1" maxLength={2000} />
+            <Button
+              size="sm"
+              disabled={!visitNote.trim()}
+              loading={adding}
+              onClick={async () => {
+                try {
+                  await addRemarks({ id: lead.id, visitRemarksRequest: { remarks: visitNote.trim() } }).unwrap();
+                  toast.success('Remarks added: the CRO is notified');
+                  setVisitNote('');
+                } catch (e) {
+                  toast.error(e);
+                }
+              }}
+            >
+              Add remarks
+            </Button>
+          </div>
+        </div>
       )}
       {canRecord && (
         <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-[12rem_10rem_1fr] sm:items-end">

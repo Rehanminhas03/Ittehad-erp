@@ -48,7 +48,8 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
   const page = Number(params.get('page') ?? 1) || 1;
   const sort = params.get('sort') ?? list.defaultSort;
   const q = params.get('q') ?? '';
-  const filterValues = Object.fromEntries((list.filters ?? []).map((f) => [f.param, params.get(f.param) ?? '']));
+  const defaults = list.defaults?.(perm) ?? {};
+  const filterValues = Object.fromEntries((list.filters ?? []).map((f) => [f.param, params.get(f.param) ?? defaults[f.param] ?? '']));
   // Date filter: a quick range (re-evaluated, so "today" stays today) or custom dates from the URL.
   const dr = list.dateRange;
   const rangeKey = dr ? (params.get('range') ?? (params.get(dr.fromParam) ? 'custom' : (dr.defaultPreset ?? 'all'))) : 'all';

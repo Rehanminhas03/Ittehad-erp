@@ -147,6 +147,7 @@ export const variantView: EntityViewConfig<VariantCode> = {
   scope: { dealershipKey: 'dealershipId' },
   list: {
     defaultSort: 'code',
+    createLabel: 'Add variant',
     searchPlaceholder: 'Search code or description',
     header: () => (
       <>

@@ -46,6 +46,7 @@ const injectedRtkApi = api
             ownerId: queryArg.ownerId,
             source: queryArg.source,
             escalated: queryArg.escalated,
+            group: queryArg.group,
           },
         }),
         providesTags: ["Lead"],
@@ -78,6 +79,17 @@ const injectedRtkApi = api
           url: `/api/sales/leads/${queryArg.id}/follow-ups`,
           method: "POST",
           body: queryArg.leadFollowUpCreate,
+        }),
+        invalidatesTags: ["Lead"],
+      }),
+      addLeadVisitRemarks: build.mutation<
+        AddLeadVisitRemarksApiResponse,
+        AddLeadVisitRemarksApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/leads/${queryArg.id}/visit-remarks`,
+          method: "POST",
+          body: queryArg.visitRemarksRequest,
         }),
         invalidatesTags: ["Lead"],
       }),
@@ -1092,7 +1104,7 @@ export type ExportLeadsApiArg = {
   from?: string;
   to?: string;
   status?: string;
-  group?: "social" | "salespeople";
+  group?: "social" | "salespeople" | "all";
   temperature?: "hot" | "warm" | "cold";
 };
 export type GetLeadSummaryApiResponse = /** status 200 Success */ LeadSummary;
@@ -1103,6 +1115,7 @@ export type GetLeadSummaryApiArg = {
   source?:
     "walk_in" | "phone" | "website" | "social" | "referral" | "event" | "other";
   escalated?: "true" | "false";
+  group?: "social" | "salespeople";
 };
 export type EscalateDuplicateLeadApiResponse =
   /** status 200 Success */ EscalationResult;
@@ -1151,6 +1164,9 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  dealtById?: number | null;
+  dealtByName?: string | null;
+  dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
   escalatedAt: string | null;
@@ -1199,6 +1215,12 @@ export type RecordLeadFollowUpApiArg = {
   id: number;
   leadFollowUpCreate: LeadFollowUpCreate;
 };
+export type AddLeadVisitRemarksApiResponse =
+  /** status 201 Success */ LeadFollowUp[];
+export type AddLeadVisitRemarksApiArg = {
+  id: number;
+  visitRemarksRequest: VisitRemarksRequest;
+};
 export type CommentOnFollowUpApiResponse =
   /** status 201 Success */ LeadFollowUp[];
 export type CommentOnFollowUpApiArg = {
@@ -1243,6 +1265,9 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  dealtById?: number | null;
+  dealtByName?: string | null;
+  dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
   escalatedAt: string | null;
@@ -1328,6 +1353,9 @@ export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  dealtById?: number | null;
+  dealtByName?: string | null;
+  dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
   escalatedAt: string | null;
@@ -1505,6 +1533,9 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  dealtById?: number | null;
+  dealtByName?: string | null;
+  dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
   escalatedAt: string | null;
@@ -1595,6 +1626,9 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  dealtById?: number | null;
+  dealtByName?: string | null;
+  dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
   escalatedAt: string | null;
@@ -1680,6 +1714,9 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  dealtById?: number | null;
+  dealtByName?: string | null;
+  dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
   escalatedAt: string | null;
@@ -1968,7 +2005,7 @@ export type ExportSalesOrdersApiArg = {
   from?: string;
   to?: string;
   status?: string;
-  group?: "social" | "salespeople";
+  group?: "social" | "salespeople" | "all";
   temperature?: "hot" | "warm" | "cold";
 };
 export type ListOrderPaymentsApiResponse =
@@ -2661,7 +2698,7 @@ export type ListLeadsApiArg = {
     | "lost";
   ownerId?: number;
   source?: string;
-  group?: "social" | "salespeople";
+  group?: "social" | "salespeople" | "all";
   escalated?: "true" | "false";
   open?: "true" | "false";
   convertedFrom?: string;
@@ -2957,6 +2994,9 @@ export type LeadFollowUpCreate = {
   temperature?: "hot" | "warm" | "cold";
   nextFollowUpOn?: string | null;
   markLost?: boolean;
+};
+export type VisitRemarksRequest = {
+  remarks: string;
 };
 export type FollowUpCommentRequest = {
   body: string;
@@ -3896,6 +3936,9 @@ export type Lead = {
   vehiclePrice?: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
+  dealtById?: number | null;
+  dealtByName?: string | null;
+  dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
   escalatedAt: string | null;
@@ -3960,6 +4003,7 @@ export type LeadCreate = {
   expectedCloseDate?: string | null;
   notes?: string | null;
   ownerId?: number;
+  visitRemarks?: string | null;
 };
 export type WorkflowDefinition = {
   stateKey: string;
@@ -4364,6 +4408,7 @@ export const {
   useListLeadFollowUpsQuery,
   useLazyListLeadFollowUpsQuery,
   useRecordLeadFollowUpMutation,
+  useAddLeadVisitRemarksMutation,
   useCommentOnFollowUpMutation,
   useCorrectLeadDetailsMutation,
   useCorrectLeadConversionMutation,

@@ -206,6 +206,8 @@ export class EntityService {
     }
 
     if (config.hooks?.beforeCreate) data = (await config.hooks.beforeCreate(ctx, data)) ?? data;
+    // The hook dealt with it by updating an existing record (e.g. a social media lead the customer visited).
+    if (typeof data.$existingId === 'number') return (await this.present(ctx, [await this.findById(ctx, data.$existingId)]))[0]!;
     if (config.workflow) data[config.workflow.stateKey] = config.workflow.initial;
     if (config.tracked !== false) {
       data.createdById = ctx.access.userId;
