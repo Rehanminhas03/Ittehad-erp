@@ -17,7 +17,7 @@ export function createApp() {
   app.set('trust proxy', 'loopback');
 
   app.use(helmet());
-  app.use(cors({ origin: 'https://ittehad-crmm-production.up.railway.app', credentials: true }));
+  app.use(cors({ origin: 'https://ittehad-crm-production.up.railway.app', credentials: true }));
   // The raw body is kept for the signature of the Meta webhook calls.
   app.use(
     express.json({
