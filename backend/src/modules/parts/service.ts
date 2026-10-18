@@ -9,7 +9,7 @@ import { lineAmount } from '../../lib/money';
 import { type PageQuery, offsetOf } from '../../lib/pagination';
 import type { z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
-import { user } from '../core/models';
+import { branch as branchTable, user } from '../core/models';
 import { jobCards } from '../service/entities';
 import {
   adjustments,
@@ -17,6 +17,7 @@ import {
   goodsReceipts,
   partsRequests,
   purchaseOrders,
+  normalizePartNo,
   resolvePart,
   transfers,
 } from './entities';
@@ -43,7 +44,11 @@ import {
   StockLineSchema,
   TransferLineCreate,
   TransferLineUpdate,
+  type DirectReceiveBody,
   type IssueBody,
+  type MonthlyReportQuery,
+  type PartImportBody,
+  type StockSheetQuery,
   type PartsRequestCreate,
   type ReceiveBody,
   type StockMovementQuery,
@@ -473,4 +478,159 @@ export async function returnParts(ctx: EntityCtx, requestId: number, input: z.ou
   });
   await ctx.audit({ entityType: 'parts.parts_request', entityId: req.id, action: 'return', dealershipId: req.dealershipId as number, branchId: req.branchId as number, changes: input });
   return partsRequestLines(ctx, requestId);
+}
+
+// =============================================================================
+// Store desk: stock in from head office, stock out against a repair order / job card, reports
+// =============================================================================
+const karachiDate = () => new Date(Date.now() + 5 * 3_600_000).toISOString().slice(0, 10);
+
+/** Each part number once, resolved against the catalogue. */
+export async function resolveLines<T extends { partNo: string }>(ctx: EntityCtx, lines: T[]) {
+  const seen = new Set<string>();
+  const out: (T & { part: Awaited<ReturnType<typeof resolvePart>> })[] = [];
+  for (const [i, l] of lines.entries()) {
+    const p = await resolvePart(ctx, l.partNo, `lines.${i}.partNo`);
+    if (seen.has(p.partNo)) throw validationError([{ in: 'body', path: `lines.${i}.partNo`, message: `${p.partNo} is on the list twice: add the quantities together` }]);
+    seen.add(p.partNo);
+    out.push({ ...l, part: p });
+  }
+  return out;
+}
+
+export async function assertBranch(ctx: EntityCtx, dealershipId: number, branchId: number) {
+  const b = await ctx.tx.branch.findFirst({ where: { id: branchId }, select: { dealershipId: true } });
+  if (!b || b.dealershipId !== dealershipId) throw validationError([{ in: 'body', path: 'branchId', message: 'Choose a branch of this dealership' }]);
+}
+
+/** Parts received from head office (a challan / invoice): priced per line, posted to stock. No purchase order needed. */
+export async function receiveDirect(ctx: EntityCtx, input: z.output<typeof DirectReceiveBody>) {
+  const target = { dealershipId: input.dealershipId, branchId: input.branchId };
+  if (!ctx.access.canIn(P.receiptsCreate, target)) throw forbidden();
+  const receivedDate = input.receivedDate ?? karachiDate();
+  if (receivedDate > karachiDate()) throw validationError([{ in: 'body', path: 'receivedDate', message: 'Cannot be in the future' }]);
+  await assertBranch(ctx, input.dealershipId, input.branchId);
+  const sup = await ctx.tx.supplier.findFirst({ where: { id: input.supplierId, dealershipId: input.dealershipId, isActive: true }, select: { id: true } });
+  if (!sup) throw validationError([{ in: 'body', path: 'supplierId', message: 'Choose a supplier of this dealership' }]);
+  const lines = await resolveLines(ctx, input.lines);
+
+  const grnNo = await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.goodsReceipt);
+  const amounts = lines.map((l) => lineAmount(l.unitCost, l.quantity));
+  const totalCost = await sumValues(ctx, amounts);
+  const grn = await ctx.tx.goodsReceipt.create({
+    data: { ...target, grnNo, purchaseOrderId: null, supplierId: input.supplierId, supplierInvoiceNo: input.supplierInvoiceNo ?? null, receivedDate, totalCost, notes: input.notes ?? null, receivedById: ctx.access.userId },
+  });
+  await ctx.tx.goodsReceiptLine.createMany({
+    data: lines.map((l, i) => ({ dealershipId: target.dealershipId, goodsReceiptId: grn!.id, purchaseOrderLineId: null, partId: l.part.id, quantity: l.quantity, unitCost: l.unitCost, amount: amounts[i]! })),
+  });
+  await moveStockLines(
+    ctx,
+    lines.map((l) => ({ ...target, partId: l.part.id, type: 'receipt' as const, quantity: l.quantity, unitCost: l.unitCost, referenceType: 'goods_receipt', referenceId: grn!.id, referenceNo: grnNo })),
+  );
+  await ctx.audit({ entityType: 'parts.goods_receipt', entityId: grn!.id, action: 'create', ...target, changes: { direct: true, totalCost, lines: input.lines } });
+  await publish(ctx, {
+    type: 'goods.received',
+    dealershipId: target.dealershipId,
+    aggregateType: 'parts.goods_receipt',
+    aggregateId: grn!.id,
+    payload: { goodsReceiptId: grn!.id, purchaseOrderId: null, supplierId: input.supplierId, branchId: target.branchId, totalCost },
+  });
+  return goodsReceipts.get(ctx, grn!.id);
+}
+
+/** A price list pasted from Excel: new parts added, known ones updated. */
+export async function importParts(ctx: EntityCtx, input: z.output<typeof PartImportBody>) {
+  if (!ctx.access.hasGlobal(P.catalogManage)) throw forbidden();
+  const rows = new Map(input.rows.map((r) => [normalizePartNo(r.partNo), r]));
+  const existing = new Map((await ctx.tx.part.findMany({ where: { partNo: { in: [...rows.keys()] } } })).map((p) => [p.partNo, p]));
+  let added = 0;
+  let updated = 0;
+  let unchanged = 0;
+  const fresh: { partNo: string; description: string; brand: string; category: string | null; sellingPrice: string; createdById: number; updatedById: number }[] = [];
+  for (const [partNo, r] of rows) {
+    const p = existing.get(partNo);
+    if (!p) {
+      fresh.push({ partNo, description: r.description, brand: input.brand, category: r.category ?? null, sellingPrice: r.sellingPrice, createdById: ctx.access.userId, updatedById: ctx.access.userId });
+      added++;
+      continue;
+    }
+    const { same } = await numeric<{ same: string }>(ctx, sql`select (${p.sellingPrice.toString()}::numeric = ${r.sellingPrice}::numeric)::text as same`);
+    if (p.description === r.description && same === 'true' && p.isActive) unchanged++;
+    else {
+      await ctx.tx.part.update({ where: { id: p.id }, data: { description: r.description, sellingPrice: r.sellingPrice, isActive: true, ...(r.category ? { category: r.category } : {}), updatedById: ctx.access.userId } });
+      updated++;
+    }
+  }
+  for (let i = 0; i < fresh.length; i += 500) await ctx.tx.part.createMany({ data: fresh.slice(i, i + 500) });
+  await ctx.audit({ entityType: 'parts.part', entityId: 0, action: 'import', dealershipId: null, branchId: null, changes: { brand: input.brand, added, updated, unchanged } });
+  return { added, updated, unchanged };
+}
+
+const moneyOf = (expr: SQL) => sql`coalesce(${expr}, 0)::numeric(14, 2)::text`;
+
+/** Parts in and out per month: at cost, at the price charged (revenue) and the margin; by category over the same months. */
+export async function monthlyReport(ctx: EntityCtx, f: z.output<typeof MonthlyReportQuery>) {
+  const conds: SQL[] = [scopeWhere(ctx.access.scope(P.stockView), { dealership: inventoryTransaction.dealershipId, branch: inventoryTransaction.branchId })];
+  if (f.dealershipId) conds.push(eq(inventoryTransaction.dealershipId, f.dealershipId));
+  if (f.branchId) conds.push(eq(inventoryTransaction.branchId, f.branchId));
+  const to = f.to ?? karachiDate().slice(0, 7);
+  const [ty, tm] = to.split('-').map(Number) as [number, number];
+  const from = f.from ?? new Date(Date.UTC(ty, tm - 1 - 5, 1)).toISOString().slice(0, 7);
+  const day = sql`(${inventoryTransaction.occurredAt} at time zone 'Asia/Karachi')`;
+  conds.push(sql`to_char(${day}, 'YYYY-MM') >= ${from} and to_char(${day}, 'YYYY-MM') <= ${to}`);
+  const where = and(...conds)!;
+  const price = sql`coalesce(${inventoryTransaction.unitPrice}, ${part.sellingPrice})`;
+  const figures = sql`
+    ${moneyOf(sql`sum(${inventoryTransaction.value}) filter (where ${inventoryTransaction.type} = 'receipt')`)} as "receivedCost",
+    ${moneyOf(sql`-sum(${inventoryTransaction.value}) filter (where ${inventoryTransaction.type} = 'issue')`)} as "issuedCost",
+    ${moneyOf(sql`-sum(${inventoryTransaction.quantity} * ${price}) filter (where ${inventoryTransaction.type} = 'issue')`)} as "issuedSales",
+    ${moneyOf(sql`sum(${inventoryTransaction.value}) filter (where ${inventoryTransaction.type} = 'return')`)} as "returnedCost",
+    ${moneyOf(sql`sum(${inventoryTransaction.quantity} * ${price}) filter (where ${inventoryTransaction.type} = 'return')`)} as "returnedSales",
+    ${moneyOf(sql`sum(${inventoryTransaction.value}) filter (where ${inventoryTransaction.type} = 'adjustment')`)} as "adjustmentCost"`;
+  type Fig = { receivedCost: string; issuedCost: string; issuedSales: string; returnedCost: string; returnedSales: string; adjustmentCost: string };
+  const withNet = async (r: Fig) => {
+    const [n] = await query<{ netCost: string; netSales: string; margin: string }>(
+      ctx.tx,
+      sql`select (${r.issuedCost}::numeric - ${r.returnedCost}::numeric)::numeric(14,2)::text as "netCost",
+                 (${r.issuedSales}::numeric - ${r.returnedSales}::numeric)::numeric(14,2)::text as "netSales",
+                 ((${r.issuedSales}::numeric - ${r.returnedSales}::numeric) - (${r.issuedCost}::numeric - ${r.returnedCost}::numeric))::numeric(14,2)::text as "margin"`,
+    );
+    return { ...r, ...n! };
+  };
+  const base = sql`from ${inventoryTransaction} inner join ${part} on ${part.id} = ${inventoryTransaction.partId} where ${where}`;
+  const months = await query<Fig & { month: string }>(ctx.tx, sql`select to_char(${day}, 'YYYY-MM') as "month", ${figures} ${base} group by 1 order by 1 desc`);
+  const [t] = await query<Fig>(ctx.tx, sql`select ${figures} ${base}`);
+  const cats = await query<Fig & { category: string }>(ctx.tx, sql`select coalesce(${part.category}, 'Uncategorised') as "category", ${figures} ${base} group by 1 order by 1`);
+  return {
+    months: await Promise.all(months.map(async (r) => ({ month: r.month, ...(await withNet(r)) }))),
+    categories: await Promise.all(
+      cats.map(async (r) => {
+        const n = await withNet(r);
+        return { category: r.category, receivedCost: r.receivedCost, netCost: n.netCost, netSales: n.netSales };
+      }),
+    ),
+    totals: await withNet(t!),
+  };
+}
+
+/** What is in the store now, one row per part and branch (for the stock sheet download). */
+export async function stockSheet(ctx: EntityCtx, q: z.output<typeof StockSheetQuery>) {
+  const conds: SQL[] = [scopeWhere(ctx.access.scope(P.stockView), { dealership: stockItem.dealershipId, branch: stockItem.branchId })];
+  if (q.dealershipId) conds.push(eq(stockItem.dealershipId, q.dealershipId));
+  if (q.branchId) conds.push(eq(stockItem.branchId, q.branchId));
+  if (!q.includeZero) conds.push(sql`${stockItem.quantityOnHand} > 0`);
+  return query<{ branchName: string; partNo: string; description: string; category: string | null; quantityOnHand: string; averageCost: string; stockValue: string; sellingPrice: string; saleValue: string; binLocation: string | null; reorderLevel: string }>(
+    ctx.tx,
+    sql`select ${branchTable.name} as "branchName", ${part.partNo} as "partNo", ${part.description} as "description", ${part.category} as "category",
+               ${stockItem.quantityOnHand}::text as "quantityOnHand", ${stockItem.averageCost}::text as "averageCost",
+               round(${stockItem.quantityOnHand} * ${stockItem.averageCost}, 2)::text as "stockValue", ${part.sellingPrice}::text as "sellingPrice",
+               round(${stockItem.quantityOnHand} * ${part.sellingPrice}, 2)::text as "saleValue",
+               ${stockItem.binLocation} as "binLocation", ${stockItem.reorderLevel}::text as "reorderLevel"
+          from ${stockItem}
+          inner join ${part} on ${part.id} = ${stockItem.partId}
+          inner join ${branchTable} on ${branchTable.id} = ${stockItem.branchId}
+         where ${and(...conds)!}
+         order by ${branchTable.name}, ${part.partNo}
+         limit 6000`,
+  );
 }

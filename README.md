@@ -526,6 +526,19 @@ Seeded for the DEV switcher (password `Demo@12345`):
 
 ---
 
+### Store desk (Jetour first)
+
+The Parts module is switched on (`parts: true` in `backend/src/config/modules.ts` and `frontend/src/shared/config/modules.ts`); Service and Accounts stay off.
+
+- **Price list:** the Jetour parts price list (2,096 parts, Final MRP incl. 18% sales tax = the selling price) is loaded in the catalogue with a category per part. `POST /api/parts/store/import-parts` loads a new list (global `parts.catalog.manage`).
+- **Receive parts** (`/parts/receive`, `POST /api/parts/store/receive`): parts from head office with quantity and price per piece, an invoice / challan number, no purchase order. Creates a goods receipt and posts stock at that cost (moving-average cost).
+- **Issue parts** (`/parts/issue`, `POST /api/parts/store/issue`): parts out against a repair order / job card number typed by the storekeeper (the Service module is not needed), or unused parts taken back. Out at average cost; the price charged (default the price list) is stored on the ledger row (`inventory_transaction.unit_price`) so revenue is exact.
+- **Store report** (`/parts/report`, `GET /api/parts/store/monthly-report`, `/stock-sheet`): per month parts received, issued, taken back, revenue and margin, by category; downloads: monthly report (Excel / PDF) and the stock sheet (Excel).
+- **Store manager** (`storemanager.<brand>@dms.local`, role *Parts Manager*): `/parts/manage` adds parts, changes a part number / name / category / price, and raises or lowers a brand's (or category's) prices by a percentage (`/api/parts/store/parts`, `/price-change`). A manager may change only the parts of their own dealership's brand; every change is audited.
+- **Store stock** (`/parts/inventory`, `GET /api/parts/store/inventory`): every part with stock now and in / out this month; Stock in / Stock out / History per part.
+- **Issue against an open job card:** `GET /api/parts/store/open-job-cards` feeds the drop-down on `/parts/issue`; the vehicle registration / chassis come from the job card and the parts are added to its lines. The Service module is switched on for this (`service: true`).
+- Migration `20261017100000_direct_goods_receipt`: goods receipts may have no purchase order; `inventory_transaction.unit_price`.
+
 ## Accounts (Phase 6)
 
 ```

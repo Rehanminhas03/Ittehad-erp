@@ -2,6 +2,7 @@ import { baseApi as api } from "../../shared/api/baseApi";
 export const addTagTypes = [
   "PurchaseOrder",
   "GoodsReceipt",
+  "Store",
   "StockMovement",
   "PartsRequest",
   "Part",
@@ -35,6 +36,128 @@ const injectedRtkApi = api
         }),
         providesTags: ["GoodsReceipt"],
       }),
+      receiveStock: build.mutation<ReceiveStockApiResponse, ReceiveStockApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/parts/store/receive`,
+            method: "POST",
+            body: queryArg.directReceiveRequest,
+          }),
+          invalidatesTags: ["Store"],
+        },
+      ),
+      issueStock: build.mutation<IssueStockApiResponse, IssueStockApiArg>({
+        query: (queryArg) => ({
+          url: `/api/parts/store/issue`,
+          method: "POST",
+          body: queryArg.directIssueRequest,
+        }),
+        invalidatesTags: ["Store"],
+      }),
+      importParts: build.mutation<ImportPartsApiResponse, ImportPartsApiArg>({
+        query: (queryArg) => ({
+          url: `/api/parts/store/import-parts`,
+          method: "POST",
+          body: queryArg.partImportRequest,
+        }),
+        invalidatesTags: ["Store"],
+      }),
+      addPart: build.mutation<AddPartApiResponse, AddPartApiArg>({
+        query: (queryArg) => ({
+          url: `/api/parts/store/parts`,
+          method: "POST",
+          body: queryArg.managePartCreate,
+        }),
+        invalidatesTags: ["Store"],
+      }),
+      changePart: build.mutation<ChangePartApiResponse, ChangePartApiArg>({
+        query: (queryArg) => ({
+          url: `/api/parts/store/parts/${queryArg.id}`,
+          method: "PATCH",
+          body: queryArg.managePartUpdate,
+        }),
+        invalidatesTags: ["Store"],
+      }),
+      changePrices: build.mutation<ChangePricesApiResponse, ChangePricesApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/parts/store/price-change`,
+            method: "POST",
+            body: queryArg.priceChangeRequest,
+          }),
+          invalidatesTags: ["Store"],
+        },
+      ),
+      listOpenJobCards: build.query<
+        ListOpenJobCardsApiResponse,
+        ListOpenJobCardsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/open-job-cards`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
+      getInventory: build.query<GetInventoryApiResponse, GetInventoryApiArg>({
+        query: (queryArg) => ({
+          url: `/api/parts/store/inventory`,
+          params: {
+            page: queryArg.page,
+            pageSize: queryArg.pageSize,
+            sort: queryArg.sort,
+            q: queryArg.q,
+            dealershipId: queryArg.dealershipId,
+            branchId: queryArg.branchId,
+            brand: queryArg.brand,
+            category: queryArg.category,
+            inStock: queryArg.inStock,
+            lowStock: queryArg.lowStock,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
+      listPartCategories: build.query<
+        ListPartCategoriesApiResponse,
+        ListPartCategoriesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/categories`,
+          params: {
+            brand: queryArg.brand,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
+      getPartsMonthlyReport: build.query<
+        GetPartsMonthlyReportApiResponse,
+        GetPartsMonthlyReportApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/monthly-report`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            branchId: queryArg.branchId,
+            from: queryArg["from"],
+            to: queryArg.to,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
+      getStockSheet: build.query<GetStockSheetApiResponse, GetStockSheetApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/parts/store/stock-sheet`,
+            params: {
+              dealershipId: queryArg.dealershipId,
+              branchId: queryArg.branchId,
+              includeZero: queryArg.includeZero,
+            },
+          }),
+          providesTags: ["Store"],
+        },
+      ),
       listStockMovements: build.query<
         ListStockMovementsApiResponse,
         ListStockMovementsApiArg
@@ -676,7 +799,7 @@ export type ReceiveGoodsApiResponse = /** status 201 Success */ {
   grnNo: string;
   dealershipId: number;
   branchId: number;
-  purchaseOrderId: number;
+  purchaseOrderId: number | null;
   poNo?: string | null;
   supplierId: number;
   supplierName?: string | null;
@@ -696,6 +819,107 @@ export type ListGoodsReceiptLinesApiResponse =
   /** status 200 Success */ GoodsReceiptLine[];
 export type ListGoodsReceiptLinesApiArg = {
   id: number;
+};
+export type ReceiveStockApiResponse = /** status 201 Success */ {
+  id: number;
+  grnNo: string;
+  dealershipId: number;
+  branchId: number;
+  purchaseOrderId: number | null;
+  poNo?: string | null;
+  supplierId: number;
+  supplierName?: string | null;
+  supplierInvoiceNo: string | null;
+  receivedDate: string;
+  totalCost: string;
+  notes: string | null;
+  receivedById: number;
+  receivedByName?: string | null;
+  createdAt: string;
+};
+export type ReceiveStockApiArg = {
+  directReceiveRequest: DirectReceiveRequest;
+};
+export type IssueStockApiResponse = /** status 201 Success */ DirectIssueResult;
+export type IssueStockApiArg = {
+  directIssueRequest: DirectIssueRequest;
+};
+export type ImportPartsApiResponse = /** status 200 Success */ PartImportResult;
+export type ImportPartsApiArg = {
+  partImportRequest: PartImportRequest;
+};
+export type AddPartApiResponse = /** status 201 Success */ {
+  id: number;
+  partNo: string;
+  description: string;
+  brand: string | null;
+  category: string | null;
+  uom: "each" | "set" | "litre" | "kg" | "metre";
+  sellingPrice: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+export type AddPartApiArg = {
+  managePartCreate: ManagePartCreate;
+};
+export type ChangePartApiResponse = /** status 200 Success */ {
+  id: number;
+  partNo: string;
+  description: string;
+  brand: string | null;
+  category: string | null;
+  uom: "each" | "set" | "litre" | "kg" | "metre";
+  sellingPrice: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+export type ChangePartApiArg = {
+  id: number;
+  managePartUpdate: ManagePartUpdate;
+};
+export type ChangePricesApiResponse =
+  /** status 200 Success */ PriceChangeResult;
+export type ChangePricesApiArg = {
+  priceChangeRequest: PriceChangeRequest;
+};
+export type ListOpenJobCardsApiResponse =
+  /** status 200 Success */ OpenJobCard[];
+export type ListOpenJobCardsApiArg = {
+  dealershipId: number;
+};
+export type GetInventoryApiResponse = /** status 200 Success */ InventoryPage;
+export type GetInventoryApiArg = {
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  q?: string;
+  dealershipId?: number;
+  branchId?: number;
+  brand?: string;
+  category?: string;
+  inStock?: "true" | "false";
+  lowStock?: "true" | "false";
+};
+export type ListPartCategoriesApiResponse = /** status 200 Success */ string[];
+export type ListPartCategoriesApiArg = {
+  brand?: string;
+};
+export type GetPartsMonthlyReportApiResponse =
+  /** status 200 Success */ PartsMonthlyReport;
+export type GetPartsMonthlyReportApiArg = {
+  dealershipId?: number;
+  branchId?: number;
+  from?: string;
+  to?: string;
+};
+export type GetStockSheetApiResponse =
+  /** status 200 Success */ StockSheetRow[];
+export type GetStockSheetApiArg = {
+  dealershipId?: number;
+  branchId?: number;
+  includeZero?: "true" | "false";
 };
 export type ListStockMovementsApiResponse =
   /** status 200 Success */ StockMovementPage;
@@ -1111,13 +1335,164 @@ export type ReceiveGoodsRequest = {
 };
 export type GoodsReceiptLine = {
   id: number;
-  purchaseOrderLineId: number;
+  purchaseOrderLineId: number | null;
   partId: number;
   partNo: string;
   description: string;
   quantity: string;
   unitCost: string;
   amount: string;
+};
+export type DirectReceiveRequest = {
+  dealershipId: number;
+  branchId: number;
+  supplierId: number;
+  receivedDate?: string;
+  supplierInvoiceNo?: string | null;
+  notes?: string | null;
+  lines: {
+    partNo: string;
+    quantity: string;
+    unitCost: string;
+  }[];
+};
+export type DirectIssueResult = {
+  referenceNo: string;
+  kind: "issue" | "return";
+  lines: {
+    partNo: string;
+    description: string;
+    quantity: string;
+    unitCost: string;
+    unitPrice: string;
+    balanceAfter: string;
+  }[];
+};
+export type DirectIssueRequest = {
+  dealershipId: number;
+  branchId: number;
+  kind?: "issue" | "return";
+  jobCardId?: number;
+  referenceNo?: string;
+  vehicleRef?: string | null;
+  notes?: string | null;
+  lines: {
+    partNo: string;
+    quantity: string;
+    unitPrice?: string;
+  }[];
+};
+export type PartImportResult = {
+  added: number;
+  updated: number;
+  unchanged: number;
+};
+export type PartImportRequest = {
+  brand: string;
+  rows: {
+    partNo: string;
+    description: string;
+    sellingPrice: string;
+    category?: string | null;
+  }[];
+};
+export type ManagePartCreate = {
+  brand: string;
+  partNo: string;
+  description: string;
+  category?: string | null;
+  uom?: "each" | "set" | "litre" | "kg" | "metre";
+  sellingPrice: string;
+};
+export type ManagePartUpdate = {
+  partNo?: string;
+  description?: string;
+  category?: string | null;
+  uom?: "each" | "set" | "litre" | "kg" | "metre";
+  sellingPrice?: string;
+  isActive?: boolean;
+};
+export type PriceChangeResult = {
+  changed: number;
+};
+export type PriceChangeRequest = {
+  brand: string;
+  category?: string | null;
+  percent: number;
+};
+export type OpenJobCard = {
+  id: number;
+  jobCardNo: string;
+  status: string;
+  registrationNo: string | null;
+  vin: string | null;
+  modelName: string | null;
+  customerName: string | null;
+};
+export type InventoryRow = {
+  partId: number;
+  partNo: string;
+  description: string;
+  brand: string | null;
+  category: string | null;
+  sellingPrice: string;
+  onHand: string;
+  stockValue: string;
+  reorderLevel: string;
+  inThisMonth: string;
+  outThisMonth: string;
+};
+export type InventoryPage = {
+  items: InventoryRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  stockValue: string;
+  partsInStock: number;
+};
+export type PartsMonthlyReport = {
+  months: {
+    month: string;
+    receivedCost: string;
+    issuedCost: string;
+    issuedSales: string;
+    returnedCost: string;
+    returnedSales: string;
+    adjustmentCost: string;
+    netCost: string;
+    netSales: string;
+    margin: string;
+  }[];
+  categories: {
+    category: string;
+    receivedCost: string;
+    netCost: string;
+    netSales: string;
+  }[];
+  totals: {
+    receivedCost: string;
+    issuedCost: string;
+    issuedSales: string;
+    returnedCost: string;
+    returnedSales: string;
+    adjustmentCost: string;
+    netCost: string;
+    netSales: string;
+    margin: string;
+  };
+};
+export type StockSheetRow = {
+  branchName: string;
+  partNo: string;
+  description: string;
+  category: string | null;
+  quantityOnHand: string;
+  averageCost: string;
+  stockValue: string;
+  sellingPrice: string;
+  saleValue: string;
+  binLocation: string | null;
+  reorderLevel: string;
 };
 export type StockMovement = {
   id: number;
@@ -1386,7 +1761,7 @@ export type GoodsReceipt = {
   grnNo: string;
   dealershipId: number;
   branchId: number;
-  purchaseOrderId: number;
+  purchaseOrderId: number | null;
   poNo?: string | null;
   supplierId: number;
   supplierName?: string | null;
@@ -1525,6 +1900,22 @@ export const {
   useReceiveGoodsMutation,
   useListGoodsReceiptLinesQuery,
   useLazyListGoodsReceiptLinesQuery,
+  useReceiveStockMutation,
+  useIssueStockMutation,
+  useImportPartsMutation,
+  useAddPartMutation,
+  useChangePartMutation,
+  useChangePricesMutation,
+  useListOpenJobCardsQuery,
+  useLazyListOpenJobCardsQuery,
+  useGetInventoryQuery,
+  useLazyGetInventoryQuery,
+  useListPartCategoriesQuery,
+  useLazyListPartCategoriesQuery,
+  useGetPartsMonthlyReportQuery,
+  useLazyGetPartsMonthlyReportQuery,
+  useGetStockSheetQuery,
+  useLazyGetStockSheetQuery,
   useListStockMovementsQuery,
   useLazyListStockMovementsQuery,
   useCreatePartsRequestMutation,

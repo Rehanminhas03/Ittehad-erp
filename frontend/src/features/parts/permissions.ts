@@ -43,8 +43,8 @@ export const ADJUSTMENT_REASONS = [
 ];
 export const MOVEMENT_LABELS: Record<string, string> = {
   receipt: 'Goods receipt',
-  issue: 'Issued to job card',
-  return: 'Returned from job card',
+  issue: 'Issued (RO / job card)',
+  return: 'Taken back from RO / job card',
   transfer_out: 'Transfer out',
   transfer_in: 'Transfer in',
   adjustment: 'Adjustment',

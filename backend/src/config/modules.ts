@@ -6,7 +6,7 @@
  * Core, customers & vehicles, Sales and the dashboards are always served; tests serve every module.
  */
 export const API_MODULES = {
-  service: false,
-  parts: false,
+  service: true,
+  parts: true,
   accounts: false,
 } as const;

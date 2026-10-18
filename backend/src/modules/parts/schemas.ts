@@ -131,7 +131,7 @@ export const GoodsReceiptSchema = z.object({
   grnNo: z.string(),
   dealershipId: Id,
   branchId: Id,
-  purchaseOrderId: Id,
+  purchaseOrderId: Id.nullable(),
   poNo: z.string().nullable().optional(),
   supplierId: Id,
   supplierName: z.string().nullable().optional(),
@@ -144,7 +144,7 @@ export const GoodsReceiptSchema = z.object({
   createdAt: Timestamp,
 });
 export const GoodsReceiptLineSchema = z
-  .object({ id: Id, purchaseOrderLineId: Id, partId: Id, partNo: z.string(), description: z.string(), quantity: z.string(), unitCost: z.string(), amount: z.string() })
+  .object({ id: Id, purchaseOrderLineId: Id.nullable(), partId: Id, partNo: z.string(), description: z.string(), quantity: z.string(), unitCost: z.string(), amount: z.string() })
   .openapi('GoodsReceiptLine');
 export const ReceiveBody = z
   .object({
@@ -154,6 +154,173 @@ export const ReceiveBody = z
     lines: z.array(z.object({ lineId: Id, quantity: Quantity })).min(1).max(200),
   })
   .openapi('ReceiveGoodsRequest');
+
+/** Stock received straight from head office (a challan / invoice), without a purchase order. */
+export const DirectReceiveBody = z
+  .object({
+    dealershipId: Id,
+    branchId: Id,
+    supplierId: Id,
+    receivedDate: z.iso.date().optional(),
+    supplierInvoiceNo: optionalText(60),
+    notes: optionalText(2000),
+    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitCost: Money })).min(1).max(200),
+  })
+  .openapi('DirectReceiveRequest');
+
+/** Parts out of the store against a repair order (RO) / job card number, or back in when unused. */
+export const DirectIssueBody = z
+  .object({
+    dealershipId: Id,
+    branchId: Id,
+    kind: z.enum(['issue', 'return']).default('issue'),
+    /** An open job card of the workshop (its number and vehicle are taken from it), or a typed repair order number. */
+    jobCardId: Id.optional(),
+    referenceNo: z.string().trim().max(40).optional(),
+    vehicleRef: optionalText(60),
+    notes: optionalText(500),
+    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitPrice: Money.optional() })).min(1).max(100),
+  })
+  .openapi('DirectIssueRequest');
+export const DirectIssueResultSchema = z
+  .object({
+    referenceNo: z.string(),
+    kind: z.enum(['issue', 'return']),
+    lines: z.array(z.object({ partNo: z.string(), description: z.string(), quantity: z.string(), unitCost: z.string(), unitPrice: z.string(), balanceAfter: z.string() })),
+  })
+  .openapi('DirectIssueResult');
+
+export const StockSheetQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  includeZero: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+});
+export const StockSheetRowSchema = z
+  .object({
+    branchName: z.string(),
+    partNo: z.string(),
+    description: z.string(),
+    category: z.string().nullable(),
+    quantityOnHand: z.string(),
+    averageCost: z.string(),
+    stockValue: z.string(),
+    sellingPrice: z.string(),
+    saleValue: z.string(),
+    binLocation: z.string().nullable(),
+    reorderLevel: z.string(),
+  })
+  .openapi('StockSheetRow');
+
+/** The store manager: a new part, or changes to a part's number, name, category and price. */
+export const ManagePartCreate = z
+  .object({
+    brand: z.string().trim().min(2).max(60),
+    partNo: PartNo,
+    description: z.string().trim().min(2).max(200),
+    category: optionalText(60),
+    uom: z.enum(UOMS).default('each'),
+    sellingPrice: Money,
+  })
+  .openapi('ManagePartCreate');
+export const ManagePartUpdate = z
+  .object({
+    partNo: PartNo,
+    description: z.string().trim().min(2).max(200),
+    category: optionalText(60),
+    uom: z.enum(UOMS),
+    sellingPrice: Money,
+    isActive: z.boolean(),
+  })
+  .partial()
+  .openapi('ManagePartUpdate');
+/** Raise (+) or lower (−) every price of a brand (or one category) by a percentage. */
+export const PriceChangeBody = z
+  .object({
+    brand: z.string().trim().min(2).max(60),
+    category: optionalText(60),
+    percent: z.coerce.number().min(-90).max(500).refine((v) => v !== 0, 'Enter a percentage other than 0'),
+  })
+  .openapi('PriceChangeRequest');
+export const PriceChangeResultSchema = z.object({ changed: z.number().int() }).openapi('PriceChangeResult');
+
+export const OpenJobCardSchema = z
+  .object({
+    id: Id,
+    jobCardNo: z.string(),
+    status: z.string(),
+    registrationNo: z.string().nullable(),
+    vin: z.string().nullable(),
+    modelName: z.string().nullable(),
+    customerName: z.string().nullable(),
+  })
+  .openapi('OpenJobCard');
+export const OpenJobCardQuery = z.object({ dealershipId: z.coerce.number().int().positive() });
+
+/** Every part with its stock now and what came in / went out this month. */
+export const InventoryQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  brand: z.string().max(60).optional(),
+  category: z.string().max(60).optional(),
+  inStock: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+  lowStock: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+});
+export const InventoryRowSchema = z
+  .object({
+    partId: Id,
+    partNo: z.string(),
+    description: z.string(),
+    brand: z.string().nullable(),
+    category: z.string().nullable(),
+    sellingPrice: z.string(),
+    onHand: z.string(),
+    stockValue: z.string(),
+    reorderLevel: z.string(),
+    inThisMonth: z.string(),
+    outThisMonth: z.string(),
+  })
+  .openapi('InventoryRow');
+export const InventoryPageSchema = z
+  .object({ items: z.array(InventoryRowSchema), total: z.number().int(), page: z.number().int(), pageSize: z.number().int(), stockValue: z.string(), partsInStock: z.number().int() })
+  .openapi('InventoryPage');
+
+/** The price list pasted from Excel: new parts are added, known ones get the new description / price. */
+export const PartImportBody = z
+  .object({
+    brand: z.string().trim().min(2).max(60),
+    rows: z
+      .array(z.object({ partNo: PartNo, description: z.string().trim().min(2).max(200), sellingPrice: Money, category: optionalText(60) }))
+      .min(1)
+      .max(5000),
+  })
+  .openapi('PartImportRequest');
+export const PartImportResultSchema = z.object({ added: z.number().int(), updated: z.number().int(), unchanged: z.number().int() }).openapi('PartImportResult');
+
+/** Parts in and out per month, at cost and at the price list. */
+export const MonthlyReportQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  from: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+});
+const MonthlyFigures = {
+  receivedCost: z.string(),
+  issuedCost: z.string(),
+  issuedSales: z.string(),
+  returnedCost: z.string(),
+  returnedSales: z.string(),
+  adjustmentCost: z.string(),
+  netCost: z.string(),
+  netSales: z.string(),
+  margin: z.string(),
+};
+export const MonthlyReportSchema = z
+  .object({
+    months: z.array(z.object({ month: z.string(), ...MonthlyFigures })),
+    categories: z.array(z.object({ category: z.string(), receivedCost: z.string(), netCost: z.string(), netSales: z.string() })),
+    totals: z.object(MonthlyFigures),
+  })
+  .openapi('PartsMonthlyReport');
 
 // ---- Stock -------------------------------------------------------------------------------------
 export const StockItemSchema = z.object({

@@ -14,7 +14,8 @@ export interface VehicleActivatedPayload {
 
 export interface GoodsReceivedPayload {
   goodsReceiptId: number;
-  purchaseOrderId: number;
+  /** Null for stock received straight from head office without a purchase order. */
+  purchaseOrderId: number | null;
   supplierId: number;
   branchId: number;
   /** Stock value received (quantity x cost), for payables and inventory postings. */

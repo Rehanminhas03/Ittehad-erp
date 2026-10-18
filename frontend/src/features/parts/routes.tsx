@@ -2,6 +2,12 @@ import { Navigate, Route, Routes } from 'react-router';
 import { RequirePermission } from '@/features/auth';
 import { entityRoutes } from '@/shared/routing';
 import { adjustmentView, goodsReceiptView, partView, partsRequestView, purchaseOrderView, stockItemView, supplierView, transferView } from './config';
+import InventoryPage from './pages/InventoryPage';
+import IssuePartsPage from './pages/IssuePartsPage';
+import ManagePartsPage from './pages/ManagePartsPage';
+import PriceListPage from './pages/PriceListPage';
+import PartsReportPage from './pages/PartsReportPage';
+import ReceiveStockPage from './pages/ReceiveStockPage';
 import StockMovementsPage from './pages/StockMovementsPage';
 import { P } from './permissions';
 
@@ -9,7 +15,7 @@ import { P } from './permissions';
 export default function PartsRoutes() {
   return (
     <Routes>
-      <Route index element={<Navigate to="stock" replace />} />
+      <Route index element={<Navigate to="inventory" replace />} />
       {entityRoutes('catalog', partView)}
       {entityRoutes('suppliers', supplierView)}
       {entityRoutes('purchase-orders', purchaseOrderView)}
@@ -18,6 +24,54 @@ export default function PartsRoutes() {
       {entityRoutes('requests', partsRequestView)}
       {entityRoutes('transfers', transferView)}
       {entityRoutes('adjustments', adjustmentView)}
+      <Route
+        path="prices"
+        element={
+          <RequirePermission any={[P.catalogView]}>
+            <PriceListPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="inventory"
+        element={
+          <RequirePermission any={[P.stockView]}>
+            <InventoryPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="manage"
+        element={
+          <RequirePermission any={[P.catalogManage]}>
+            <ManagePartsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="receive"
+        element={
+          <RequirePermission any={[P.receiptsCreate]}>
+            <ReceiveStockPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="issue"
+        element={
+          <RequirePermission any={[P.issuesCreate]}>
+            <IssuePartsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="report"
+        element={
+          <RequirePermission any={[P.stockView]}>
+            <PartsReportPage />
+          </RequirePermission>
+        }
+      />
       <Route
         path="movements"
         element={

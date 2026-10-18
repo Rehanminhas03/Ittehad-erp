@@ -28,11 +28,12 @@ export const partView: EntityViewConfig<Part> = {
   list: {
     defaultSort: 'partNo',
     searchPlaceholder: 'Search part number or description',
-    filters: [activeFilter],
+    filters: [{ param: 'brand', label: 'Brand', type: 'select', options: [{ value: 'Jetour', label: 'Jetour' }, { value: 'Hyundai', label: 'Hyundai' }] }, activeFilter],
     columns: [
       { key: 'partNo', header: 'Part no.', sortKey: 'partNo', render: (p) => mono(p.partNo) },
       { key: 'description', header: 'Description', sortKey: 'description', render: (p) => strong(p.description) },
       { key: 'brand', header: 'Brand', render: (p) => muted(p.brand) },
+      { key: 'category', header: 'Category', render: (p) => muted(p.category) },
       { key: 'uom', header: 'Unit', render: (p) => UOMS.find((u) => u.value === p.uom)?.label ?? p.uom },
       { key: 'sellingPrice', header: 'Selling price', sortKey: 'sellingPrice', className: 'text-right tabular-nums', render: (p) => formatMoney(p.sellingPrice) },
       { key: 'isActive', header: 'Status', render: (p) => <ActiveBadge active={p.isActive} /> },

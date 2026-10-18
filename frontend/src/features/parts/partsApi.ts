@@ -10,6 +10,12 @@ export const partsApi = enhancedApi
   .enhanceEndpoints({ addTagTypes: ['JobCard'] })
   .enhanceEndpoints({
     endpoints: {
+      receiveStock: { invalidatesTags: ['GoodsReceipt', 'Store', ...STOCK] },
+      issueStock: { invalidatesTags: ['Store', ...STOCK] },
+      importParts: { invalidatesTags: ['Part'] },
+      addPart: { invalidatesTags: ['Part', 'Store'] },
+      changePart: { invalidatesTags: ['Part', 'Store'] },
+      changePrices: { invalidatesTags: ['Part', 'Store'] },
       receiveGoods: { invalidatesTags: ['PurchaseOrder', 'GoodsReceipt', ...STOCK] },
       transitionPurchaseOrder: { invalidatesTags: ['PurchaseOrder'] },
       createPartsRequest: { invalidatesTags: ['PartsRequest'] },

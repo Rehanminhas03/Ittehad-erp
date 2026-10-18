@@ -871,7 +871,7 @@ model GoodsReceipt {
   dealershipId      BigInt             @map("dealership_id")
   branchId          BigInt             @map("branch_id")
   grnNo             String             @unique(map: "goods_receipt_grnNo_unique") @map("grn_no")
-  purchaseOrderId   BigInt             @map("purchase_order_id")
+  purchaseOrderId   BigInt?            @map("purchase_order_id")
   supplierId        BigInt             @map("supplier_id")
   supplierInvoiceNo String?            @map("supplier_invoice_no")
   receivedDate      DateTime           @map("received_date") @db.Date
@@ -881,7 +881,7 @@ model GoodsReceipt {
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   branch            Branch             @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_branch_id_dealership_id_branch_id_dealership_id_f")
   dealership        Dealership         @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_dealership_id_dealership_id_fk")
-  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_purchase_order_id_purchase_order_id_fk")
+  purchaseOrder     PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_purchase_order_id_purchase_order_id_fk")
   user              User               @relation(fields: [receivedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_received_by_id_user_id_fk")
   supplier          Supplier           @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_supplier_id_supplier_id_fk")
   goodsReceiptLines GoodsReceiptLine[]
@@ -901,7 +901,7 @@ model GoodsReceiptLine {
   id                  BigInt            @id @default(autoincrement())
   dealershipId        BigInt            @map("dealership_id")
   goodsReceiptId      BigInt            @map("goods_receipt_id")
-  purchaseOrderLineId BigInt            @map("purchase_order_line_id")
+  purchaseOrderLineId BigInt?           @map("purchase_order_line_id")
   partId              BigInt            @map("part_id")
   quantity            Decimal           @db.Decimal(12, 2)
   unitCost            Decimal           @map("unit_cost") @db.Decimal(14, 2)
@@ -909,7 +909,7 @@ model GoodsReceiptLine {
   dealership          Dealership        @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_dealership_id_dealership_id_fk")
   goodsReceipt        GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_goods_receipt_id_goods_receipt_id_fk")
   part                Part              @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_part_id_part_id_fk")
-  purchaseOrderLine   PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_purchase_order_line_id_purchase_order_line_i")
+  purchaseOrderLine   PurchaseOrderLine? @relation(fields: [purchaseOrderLineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_line_purchase_order_line_id_purchase_order_line_i")
 
   @@index([dealershipId], map: "goods_receipt_line_dealership_id_index")
   @@index([goodsReceiptId], map: "goods_receipt_line_goods_receipt_id_index")
@@ -929,6 +929,8 @@ model InventoryTransaction {
   type             String
   quantity         Decimal    @db.Decimal(12, 2)
   unitCost         Decimal    @map("unit_cost") @db.Decimal(14, 2)
+  /// What the part was sold / charged for (issues and returns): the revenue side of the monthly store report.
+  unitPrice        Decimal?   @map("unit_price") @db.Decimal(14, 2)
   value            Decimal    @db.Decimal(14, 2)
   balanceAfter     Decimal    @map("balance_after") @db.Decimal(12, 2)
   averageCostAfter Decimal    @map("average_cost_after") @db.Decimal(14, 2)

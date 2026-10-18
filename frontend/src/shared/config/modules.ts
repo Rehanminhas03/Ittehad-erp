@@ -7,8 +7,8 @@ export const MODULES = {
   sales: true,
   crm: true,
   admin: true,
-  service: false,
-  parts: false,
+  service: true,
+  parts: true,
   accounts: false,
 } as const;
 

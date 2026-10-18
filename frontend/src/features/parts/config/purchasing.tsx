@@ -115,9 +115,9 @@ export const goodsReceiptView: EntityViewConfig<GoodsReceipt> = {
   },
   detail: {
     title: (g) => g.grnNo,
-    subtitle: (g) => `${g.supplierName ?? ''} · ${g.poNo ?? ''}`,
+    subtitle: (g) => `${g.supplierName ?? ''} · ${g.poNo ?? 'No purchase order'}`,
     fields: [
-      { label: 'Purchase order', value: (g) => g.poNo },
+      { label: 'Purchase order', value: (g) => g.poNo ?? 'None: received straight from head office' },
       { label: 'Supplier', value: (g) => g.supplierName },
       { label: 'Supplier invoice', value: (g) => g.supplierInvoiceNo },
       { label: 'Received', value: (g) => formatDate(g.receivedDate) },

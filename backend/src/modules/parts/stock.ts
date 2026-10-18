@@ -15,6 +15,8 @@ export interface Movement {
   quantity: string;
   /** Cost for stock coming in (receipts, transfers in, returns, positive adjustments). Outbound uses the average cost. */
   unitCost?: string | null;
+  /** What the part is sold for (issues / returns); defaults to the catalogue price. */
+  unitPrice?: string | null;
   referenceType: string;
   referenceId: number;
   referenceNo?: string | null;
@@ -75,6 +77,10 @@ export async function moveStock(ctx: EntityCtx, m: Movement): Promise<MovementRe
     });
   }
 
+  // Issues and returns carry the selling price, for the monthly revenue figures.
+  const sells = m.type === 'issue' || m.type === 'return';
+  const unitPrice = sells ? (m.unitPrice ?? (await ctx.tx.part.findFirst({ where: { id: m.partId }, select: { sellingPrice: true } }))?.sellingPrice?.toString() ?? null) : null;
+
   const [{ value } = { value: '0' }] = await query<{ value: string }>(
     ctx.tx,
     sql`select round(${m.quantity}::numeric * ${cost}::numeric, 2)::text as value`,
@@ -88,6 +94,7 @@ export async function moveStock(ctx: EntityCtx, m: Movement): Promise<MovementRe
       type: m.type,
       quantity: m.quantity,
       unitCost: cost,
+      unitPrice,
       value,
       balanceAfter: updated.balanceAfter,
       averageCostAfter: updated.averageCostAfter,

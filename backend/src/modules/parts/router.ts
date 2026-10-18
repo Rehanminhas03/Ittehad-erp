@@ -23,17 +23,36 @@ import {
 } from './entities';
 import { PartsPerm as P } from './permissions';
 import {
+  DirectIssueBody,
+  DirectIssueResultSchema,
+  DirectReceiveBody,
+  InventoryPageSchema,
+  InventoryQuery,
+  ManagePartCreate,
+  ManagePartUpdate,
+  OpenJobCardQuery,
+  OpenJobCardSchema,
+  PartSchema,
+  PriceChangeBody,
+  PriceChangeResultSchema,
   GoodsReceiptLineSchema,
   GoodsReceiptSchema,
   IssueBody,
+  MonthlyReportQuery,
+  MonthlyReportSchema,
+  PartImportBody,
+  PartImportResultSchema,
   PartsRequestCreate,
   PartsRequestLineSchema,
   PartsRequestSchema,
   ReceiveBody,
   StockMovementQuery,
   StockMovementSchema,
+  StockSheetQuery,
+  StockSheetRowSchema,
 } from './schemas';
 import * as svc from './service';
+import * as store from './store';
 
 const RequestRead = PartsRequestSchema.extend({ availableActions: z.array(z.string()) });
 
@@ -60,6 +79,125 @@ const grnActions = new ApiRouter('/parts/goods-receipts', 'GoodsReceipt').route(
   response: z.array(GoodsReceiptLineSchema),
   handler: (ctx) => svc.goodsReceiptLines(ctx, ctx.params.id),
 });
+
+const storeDesk = new ApiRouter('/parts/store', 'Store')
+  .route({
+    method: 'post',
+    path: '/receive',
+    operationId: 'receiveStock',
+    summary: 'Receive parts from head office with their prices, without a purchase order (creates the GRN, posts stock)',
+    permission: P.receiptsCreate,
+    body: DirectReceiveBody,
+    response: GoodsReceiptSchema,
+    status: 201,
+    handler: (ctx) => svc.receiveDirect(ctx, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/issue',
+    operationId: 'issueStock',
+    summary: 'Issue parts against a repair order / job card number (or take unused parts back)',
+    permission: P.issuesCreate,
+    body: DirectIssueBody,
+    response: DirectIssueResultSchema,
+    status: 201,
+    handler: (ctx) => store.issueDirect(ctx, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/import-parts',
+    operationId: 'importParts',
+    summary: 'Paste a price list from Excel: adds new parts, updates known ones',
+    permission: P.catalogManage,
+    body: PartImportBody,
+    response: PartImportResultSchema,
+    handler: (ctx) => svc.importParts(ctx, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/parts',
+    operationId: 'addPart',
+    summary: 'Store manager: add a new part to the catalogue (of your own brand)',
+    permission: P.catalogManage,
+    body: ManagePartCreate,
+    response: PartSchema,
+    status: 201,
+    handler: async (ctx) => (await store.createManagedPart(ctx, ctx.body)) as never,
+  })
+  .route({
+    method: 'patch',
+    path: '/parts/:id',
+    operationId: 'changePart',
+    summary: 'Store manager: change a part number, name, category or price',
+    permission: P.catalogManage,
+    params: IdParam,
+    body: ManagePartUpdate,
+    response: PartSchema,
+    handler: async (ctx) => (await store.updateManagedPart(ctx, ctx.params.id, ctx.body)) as never,
+  })
+  .route({
+    method: 'post',
+    path: '/price-change',
+    operationId: 'changePrices',
+    summary: 'Store manager: raise or lower the prices of a brand (or one category) by a percentage',
+    permission: P.catalogManage,
+    body: PriceChangeBody,
+    response: PriceChangeResultSchema,
+    handler: (ctx) => store.changePrices(ctx, ctx.body),
+  })
+  .route({
+    method: 'get',
+    path: '/open-job-cards',
+    operationId: 'listOpenJobCards',
+    summary: 'Open job cards of a dealership (to issue parts to), with the vehicle registration / chassis',
+    permission: P.issuesCreate,
+    query: OpenJobCardQuery,
+    response: z.array(OpenJobCardSchema),
+    handler: (ctx) => store.openJobCards(ctx, ctx.query.dealershipId),
+  })
+  .route({
+    method: 'get',
+    path: '/inventory',
+    operationId: 'getInventory',
+    summary: 'Every part with its stock now and what came in / went out this month',
+    permission: P.stockView,
+    query: PageQuery.extend(InventoryQuery.shape),
+    response: InventoryPageSchema,
+    handler: (ctx) => {
+      const { page, pageSize, sort, q, ...filters } = ctx.query;
+      return store.inventory(ctx, { page, pageSize, sort, q }, filters);
+    },
+  })
+  .route({
+    method: 'get',
+    path: '/categories',
+    operationId: 'listPartCategories',
+    summary: 'Part categories (of a brand)',
+    permission: P.catalogView,
+    query: z.object({ brand: z.string().max(60).optional() }),
+    response: z.array(z.string()),
+    handler: (ctx) => store.partCategories(ctx, ctx.query.brand),
+  })
+  .route({
+    method: 'get',
+    path: '/monthly-report',
+    operationId: 'getPartsMonthlyReport',
+    summary: 'Parts in and out per month: at cost, at the price charged (revenue) and the margin',
+    permission: P.stockView,
+    query: MonthlyReportQuery,
+    response: MonthlyReportSchema,
+    handler: (ctx) => svc.monthlyReport(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/stock-sheet',
+    operationId: 'getStockSheet',
+    summary: 'What is in the store now: quantity, cost and value per part and branch',
+    permission: P.stockView,
+    query: StockSheetQuery,
+    response: z.array(StockSheetRowSchema),
+    handler: (ctx) => svc.stockSheet(ctx, ctx.query),
+  });
 
 const movements = new ApiRouter('/parts/movements', 'StockMovement').route({
   method: 'get',
@@ -121,6 +259,7 @@ const requestActions = new ApiRouter('/parts/requests', 'PartsRequest')
   });
 
 export const partsRouters = [
+  storeDesk,
   poActions,
   grnActions,
   movements,
