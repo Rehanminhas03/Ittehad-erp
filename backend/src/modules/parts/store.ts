@@ -14,7 +14,7 @@ import type { z } from '../../lib/zod';
 import { inventoryTransaction, part, stockItem } from './models';
 import { normalizePartNo } from './entities';
 import { PartsPerm as P } from './permissions';
-import type { DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PriceChangeBody } from './schemas';
+import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody } from './schemas';
 import { assertBranch, resolveLines } from './service';
 import { moveStockLines } from './stock';
 
@@ -38,7 +38,7 @@ export async function createManagedPart(ctx: EntityCtx, input: z.output<typeof M
   const dup = await ctx.tx.part.findFirst({ where: { partNo }, select: { id: true } });
   if (dup) throw conflict(`Part number ${partNo} already exists`, { existingId: dup.id });
   const row = await ctx.tx.part.create({
-    data: { partNo, description: input.description, brand: input.brand, category: input.category ?? null, uom: input.uom, sellingPrice: input.sellingPrice, createdById: ctx.access.userId, updatedById: ctx.access.userId },
+    data: { partNo, description: input.description, brand: input.brand, category: input.category ?? null, uom: input.uom, sellingPrice: input.sellingPrice, modelIds: input.modelIds ?? [], createdById: ctx.access.userId, updatedById: ctx.access.userId },
   });
   await ctx.audit({ entityType: 'parts.part', entityId: row.id, action: 'create', dealershipId: null, branchId: null, changes: { partNo, description: input.description, sellingPrice: input.sellingPrice } });
   return row;
@@ -68,6 +68,13 @@ export async function updateManagedPart(ctx: EntityCtx, id: number, input: z.out
   set('category', input.category, before.category);
   set('uom', input.uom, before.uom);
   set('isActive', input.isActive, before.isActive);
+  if (input.modelIds !== undefined) {
+    const to = [...new Set(input.modelIds)].sort((a, b) => a - b);
+    if (to.join() !== [...before.modelIds].sort((a, b) => a - b).join()) {
+      patch.modelIds = to;
+      changes.modelIds = { from: before.modelIds, to };
+    }
+  }
   if (input.sellingPrice !== undefined) {
     const [{ same } = { same: 'true' }] = await query<{ same: string }>(ctx.tx, sql`select (${before.sellingPrice.toString()}::numeric = ${input.sellingPrice}::numeric)::text as same`);
     if (same !== 'true') {
@@ -212,6 +219,7 @@ export async function inventory(ctx: EntityCtx, q: PageQuery, f: z.output<typeof
   const conds: SQL[] = [sql`${part.isActive}`];
   if (f.brand) conds.push(sql`lower(${part.brand}) = lower(${f.brand})`);
   if (f.category) conds.push(eq(part.category, f.category));
+  if (f.modelId) conds.push(sql`${f.modelId}::int = any(${part.modelIds})`);
   if (q.q?.trim()) {
     const like = `%${q.q.trim()}%`;
     conds.push(sql`(${part.partNo} ilike ${like} or ${part.description} ilike ${like})`);
@@ -247,6 +255,43 @@ export async function inventory(ctx: EntityCtx, q: PageQuery, f: z.output<typeof
     sql`select coalesce(round(sum(s.value), 2), 0)::text as "stockValue", (count(*) filter (where s.on_hand > 0))::int as "parts" from ${part} ${joins} where ${where}`,
   );
   return { items, total, page: q.page, pageSize: q.pageSize, stockValue: t?.stockValue ?? '0', partsInStock: t?.parts ?? 0 };
+}
+
+/** The brand's parts grouped by the first characters of the part code, with the models assigned to each group. */
+export async function partPrefixes(ctx: EntityCtx, f: z.output<typeof PartPrefixQuery>) {
+  await assertBrandRight(ctx, f.brand);
+  return query<{ prefix: string; parts: number; assigned: number; sample: string; modelIds: number[] }>(
+    ctx.tx,
+    sql`select left(${part.partNo}, ${f.length}::int) as "prefix", count(*)::int as "parts",
+               (count(*) filter (where cardinality(${part.modelIds}) > 0))::int as "assigned",
+               min(${part.description}) as "sample",
+               coalesce(min(${part.modelIds}::text) filter (where cardinality(${part.modelIds}) > 0), '{}')::int[] as "modelIds"
+          from ${part}
+         where lower(${part.brand}) = lower(${f.brand}) and ${part.isActive}
+         group by 1 order by 2 desc, 1 limit 200`,
+  );
+}
+
+/** Set (or add) the vehicle models of all parts of a brand whose code starts with a prefix. */
+export async function assignModels(ctx: EntityCtx, input: z.output<typeof AssignModelsBody>) {
+  await assertBrandRight(ctx, input.brand);
+  const ids = [...new Set(input.modelIds)];
+  if (ids.length) {
+    const ok = await ctx.tx.vehicleModel.findMany({ where: { id: { in: ids }, brand: { equals: input.brand, mode: 'insensitive' } }, select: { id: true } });
+    if (ok.length !== ids.length) throw validationError([{ in: 'body', path: 'modelIds', message: `Choose ${input.brand} models only` }]);
+  }
+  const prefix = normalizePartNo(input.prefix);
+  const arr = `{${ids.join(',')}}`;
+  const set = input.mode === 'add'
+    ? sql`(select coalesce(array_agg(distinct x order by x), '{}') from unnest(${part.modelIds} || ${arr}::int[]) x)`
+    : sql`${arr}::int[]`;
+  const rows = await query<{ id: number }>(
+    ctx.tx,
+    sql`update ${part} set ${raw('model_ids')} = ${set}, ${raw('updated_at')} = now(), ${raw('updated_by_id')} = ${ctx.access.userId}
+         where lower(${part.brand}) = lower(${input.brand}) and ${part.partNo} like ${prefix + '%'} returning ${part.id} as "id"`,
+  );
+  await ctx.audit({ entityType: 'parts.part', entityId: 0, action: 'assign_models', dealershipId: null, branchId: null, changes: { brand: input.brand, prefix, modelIds: ids, mode: input.mode, parts: rows.length } });
+  return { changed: rows.length };
 }
 
 /** Distinct categories of a brand's parts, for the filter lists. */

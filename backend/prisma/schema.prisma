@@ -968,6 +968,8 @@ model Part {
   category              String?
   uom                   String                 @default("each")
   sellingPrice          Decimal                @default(0) @map("selling_price") @db.Decimal(14, 2)
+  /// The vehicle models (core.vehicle_model ids) this part fits; empty: not assigned to a model.
+  modelIds              Int[]                  @default([]) @map("model_ids")
   isActive              Boolean                @default(true) @map("is_active")
   createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -985,6 +987,7 @@ model Part {
 
   @@index([createdById], map: "part_created_by_id_index")
   @@index([description(ops: raw("gin_trgm_ops"))], map: "part_description_trgm", type: Gin)
+  @@index([modelIds], map: "part_model_ids_gin", type: Gin)
   @@index([partNo(ops: raw("gin_trgm_ops"))], map: "part_no_trgm", type: Gin)
   @@index([updatedById], map: "part_updated_by_id_index")
   @@map("part")

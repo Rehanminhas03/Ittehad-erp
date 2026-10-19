@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Field, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
 import { downloadCsv, type Column } from '@/features/sales/exports/exporters';
+import { useVehicleModelOptions } from '@/features/crm';
 import { useAppDispatch, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { useStoreBrand } from '../../hooks/useStoreBrand';
@@ -35,6 +36,10 @@ export default function PriceListPage() {
   const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
+  // The vehicle (X70 Plus, Dashing, T1, T2): only the parts that fit it.
+  const [modelId, setModelId] = useState('');
+  const models = useVehicleModelOptions(brand ? [brand] : undefined);
+  const modelName = (id: number) => models.find((m) => m.value === String(id))?.label.replace(`${brand} `, '') ?? '';
   useEffect(() => {
     const t = setTimeout(() => {
       setQ(text.trim());
@@ -43,19 +48,23 @@ export default function PriceListPage() {
     return () => clearTimeout(t);
   }, [text]);
   const { data: categories } = useListPartCategoriesQuery({ brand: brand || undefined });
-  const { data, isFetching } = useListPartsQuery({ brand: brand || undefined, category: category || undefined, q: q || undefined, isActive: 'true', sort: 'partNo', page, pageSize: PAGE });
+  const { data, isFetching } = useListPartsQuery({ brand: brand || undefined, category: category || undefined, modelId: modelId ? Number(modelId) : undefined, q: q || undefined, isActive: 'true', sort: 'partNo', page, pageSize: PAGE });
 
   const download = async () => {
     setBusy(true);
     try {
       const rows: Part[] = [];
       for (let p = 1; ; p++) {
-        const r = await dispatch(partsApi.endpoints.listParts.initiate({ brand: brand || undefined, category: category || undefined, q: q || undefined, isActive: 'true', sort: 'partNo', page: p, pageSize: 100 }, { forceRefetch: true })).unwrap();
+        const r = await dispatch(partsApi.endpoints.listParts.initiate({ brand: brand || undefined, category: category || undefined, modelId: modelId ? Number(modelId) : undefined, q: q || undefined, isActive: 'true', sort: 'partNo', page: p, pageSize: 100 }, { forceRefetch: true })).unwrap();
         rows.push(...r.items);
         if (rows.length >= r.total || !r.items.length) break;
       }
       if (!rows.length) return toast.error('No part matches');
-      downloadCsv(`${brand || 'Parts'} price list - ${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })}`, COLUMNS, rows as unknown as Record<string, unknown>[]);
+      downloadCsv(
+        `${brand || 'Parts'}${modelId ? ` ${modelName(Number(modelId))}` : ''} price list - ${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })}`,
+        [...COLUMNS, { header: 'Fits', value: (r) => ((r.modelIds as number[] | undefined) ?? []).map(modelName).join(', ') }],
+        rows as unknown as Record<string, unknown>[],
+      );
     } catch (e) {
       toast.error(e);
     } finally {
@@ -87,6 +96,16 @@ export default function PriceListPage() {
             </Select>
           </Field>
         )}
+        <Field label="Vehicle" htmlFor="pl-model">
+          <Select id="pl-model" value={modelId} onChange={(e) => { setModelId(e.target.value); setPage(1); }}>
+            <option value="">All vehicles</option>
+            {models.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Category" htmlFor="pl-cat">
           <Select id="pl-cat" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
             <option value="">All categories</option>
@@ -105,6 +124,7 @@ export default function PriceListPage() {
               <th className="py-2 pr-3 font-medium">Part code</th>
               <th className="py-2 pr-3 font-medium">Part name</th>
               <th className="py-2 pr-3 font-medium">Category</th>
+              <th className="py-2 pr-3 font-medium">Fits</th>
               <th className="py-2 pr-3 text-right font-medium">MRP without sales tax</th>
               <th className="py-2 pr-3 text-right font-medium">Sales tax @ 18%</th>
               <th className="py-2 text-right font-medium">Final MRP with sales tax</th>
@@ -113,8 +133,8 @@ export default function PriceListPage() {
           <tbody className="divide-y divide-slate-100">
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-500">
-                  No part matches.
+                <td colSpan={7} className="py-8 text-center text-slate-500">
+                  {modelId ? 'No part is assigned to this vehicle yet. The store manager assigns vehicles under Parts and prices.' : 'No part matches.'}
                 </td>
               </tr>
             )}
@@ -125,6 +145,7 @@ export default function PriceListPage() {
                   <td className="py-2 pr-3 font-mono text-xs">{p.partNo}</td>
                   <td className="py-2 pr-3">{p.description}</td>
                   <td className="py-2 pr-3 text-slate-500">{p.category}</td>
+                  <td className="py-2 pr-3 text-xs text-slate-600">{(p.modelIds ?? []).length ? (p.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(String(s.ex))}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(String(s.tax))}</td>
                   <td className="py-2 text-right font-semibold tabular-nums">{formatMoney(String(s.final))}</td>

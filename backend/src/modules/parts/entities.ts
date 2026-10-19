@@ -99,6 +99,8 @@ export const partEntity: EntityConfig = {
   filters: {
     brand: { key: 'brand', schema: z.string().max(60) },
     category: { key: 'category', schema: z.string().max(60) },
+    // The parts that fit a vehicle model.
+    modelId: { key: 'modelIds', schema: IdQuery, where: (v) => sql`${v as number}::int = any(${part.modelIds})` },
     isActive: { key: 'isActive', schema: BoolQuery },
   },
   sort: { default: 'partNo', keys: ['partNo', 'description', 'sellingPrice', 'createdAt'] },

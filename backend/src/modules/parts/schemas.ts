@@ -25,6 +25,8 @@ export const PartSchema = z.object({
   category: z.string().nullable(),
   uom: z.enum(UOMS),
   sellingPrice: z.string(),
+  /** The vehicle models the part fits (ids); empty: not assigned to a model. */
+  modelIds: z.array(z.number().int()).default([]),
   isActive: z.boolean(),
   createdAt: Timestamp,
   updatedAt: Timestamp,
@@ -220,6 +222,7 @@ export const ManagePartCreate = z
     category: optionalText(60),
     uom: z.enum(UOMS).default('each'),
     sellingPrice: Money,
+    modelIds: z.array(Id).max(10).optional(),
   })
   .openapi('ManagePartCreate');
 export const ManagePartUpdate = z
@@ -230,9 +233,27 @@ export const ManagePartUpdate = z
     uom: z.enum(UOMS),
     sellingPrice: Money,
     isActive: z.boolean(),
+    modelIds: z.array(Id).max(10),
   })
   .partial()
   .openapi('ManagePartUpdate');
+/** Parts by part-code prefix: how many, a sample, and the models they are assigned to. */
+export const PartPrefixQuery = z.object({ brand: z.string().trim().min(2).max(60), length: z.coerce.number().int().min(2).max(8).default(3) });
+export const PartPrefixSchema = z
+  .object({ prefix: z.string(), parts: z.number().int(), assigned: z.number().int(), sample: z.string(), modelIds: z.array(z.number().int()) })
+  .openapi('PartPrefix');
+/** Set the vehicle models of every part of a brand whose code starts with the prefix. */
+export const AssignModelsBody = z
+  .object({
+    brand: z.string().trim().min(2).max(60),
+    prefix: z.string().trim().min(2).max(20),
+    modelIds: z.array(Id).max(10),
+    /** replace: exactly these models; add: also these. */
+    mode: z.enum(['replace', 'add']).default('replace'),
+  })
+  .openapi('AssignModelsRequest');
+export const AssignModelsResultSchema = z.object({ changed: z.number().int() }).openapi('AssignModelsResult');
+
 /** Raise (+) or lower (−) every price of a brand (or one category) by a percentage. */
 export const PriceChangeBody = z
   .object({
@@ -262,6 +283,7 @@ export const InventoryQuery = z.object({
   branchId: z.coerce.number().int().positive().optional(),
   brand: z.string().max(60).optional(),
   category: z.string().max(60).optional(),
+  modelId: z.coerce.number().int().positive().optional(),
   inStock: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
   lowStock: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
 });

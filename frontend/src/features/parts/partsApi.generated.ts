@@ -88,6 +88,30 @@ const injectedRtkApi = api
           invalidatesTags: ["Store"],
         },
       ),
+      listPartPrefixes: build.query<
+        ListPartPrefixesApiResponse,
+        ListPartPrefixesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/part-prefixes`,
+          params: {
+            brand: queryArg.brand,
+            length: queryArg.length,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
+      assignPartModels: build.mutation<
+        AssignPartModelsApiResponse,
+        AssignPartModelsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/assign-models`,
+          method: "POST",
+          body: queryArg.assignModelsRequest,
+        }),
+        invalidatesTags: ["Store"],
+      }),
       listOpenJobCards: build.query<
         ListOpenJobCardsApiResponse,
         ListOpenJobCardsApiArg
@@ -112,6 +136,7 @@ const injectedRtkApi = api
             branchId: queryArg.branchId,
             brand: queryArg.brand,
             category: queryArg.category,
+            modelId: queryArg.modelId,
             inStock: queryArg.inStock,
             lowStock: queryArg.lowStock,
           },
@@ -245,6 +270,7 @@ const injectedRtkApi = api
             q: queryArg.q,
             brand: queryArg.brand,
             category: queryArg.category,
+            modelId: queryArg.modelId,
             isActive: queryArg.isActive,
           },
         }),
@@ -856,6 +882,7 @@ export type AddPartApiResponse = /** status 201 Success */ {
   category: string | null;
   uom: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  modelIds?: number[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -871,6 +898,7 @@ export type ChangePartApiResponse = /** status 200 Success */ {
   category: string | null;
   uom: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  modelIds?: number[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -883,6 +911,17 @@ export type ChangePricesApiResponse =
   /** status 200 Success */ PriceChangeResult;
 export type ChangePricesApiArg = {
   priceChangeRequest: PriceChangeRequest;
+};
+export type ListPartPrefixesApiResponse =
+  /** status 200 Success */ PartPrefix[];
+export type ListPartPrefixesApiArg = {
+  brand: string;
+  length?: number;
+};
+export type AssignPartModelsApiResponse =
+  /** status 200 Success */ AssignModelsResult;
+export type AssignPartModelsApiArg = {
+  assignModelsRequest: AssignModelsRequest;
 };
 export type ListOpenJobCardsApiResponse =
   /** status 200 Success */ OpenJobCard[];
@@ -899,6 +938,7 @@ export type GetInventoryApiArg = {
   branchId?: number;
   brand?: string;
   category?: string;
+  modelId?: number;
   inStock?: "true" | "false";
   lowStock?: "true" | "false";
 };
@@ -998,6 +1038,7 @@ export type ListPartsApiArg = {
   q?: string;
   brand?: string;
   category?: string;
+  modelId?: number;
   isActive?: "true" | "false";
 };
 export type CreatePartApiResponse = /** status 201 Success */ Part;
@@ -1403,6 +1444,7 @@ export type ManagePartCreate = {
   category?: string | null;
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  modelIds?: number[];
 };
 export type ManagePartUpdate = {
   partNo?: string;
@@ -1411,6 +1453,7 @@ export type ManagePartUpdate = {
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice?: string;
   isActive?: boolean;
+  modelIds?: number[];
 };
 export type PriceChangeResult = {
   changed: number;
@@ -1419,6 +1462,22 @@ export type PriceChangeRequest = {
   brand: string;
   category?: string | null;
   percent: number;
+};
+export type PartPrefix = {
+  prefix: string;
+  parts: number;
+  assigned: number;
+  sample: string;
+  modelIds: number[];
+};
+export type AssignModelsResult = {
+  changed: number;
+};
+export type AssignModelsRequest = {
+  brand: string;
+  prefix: string;
+  modelIds: number[];
+  mode?: "replace" | "add";
 };
 export type OpenJobCard = {
   id: number;
@@ -1579,6 +1638,7 @@ export type Part = {
   category: string | null;
   uom: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  modelIds?: number[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -1906,6 +1966,9 @@ export const {
   useAddPartMutation,
   useChangePartMutation,
   useChangePricesMutation,
+  useListPartPrefixesQuery,
+  useLazyListPartPrefixesQuery,
+  useAssignPartModelsMutation,
   useListOpenJobCardsQuery,
   useLazyListOpenJobCardsQuery,
   useGetInventoryQuery,

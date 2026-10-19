@@ -26,12 +26,16 @@ import {
   DirectIssueBody,
   DirectIssueResultSchema,
   DirectReceiveBody,
+  AssignModelsBody,
+  AssignModelsResultSchema,
   InventoryPageSchema,
   InventoryQuery,
   ManagePartCreate,
   ManagePartUpdate,
   OpenJobCardQuery,
   OpenJobCardSchema,
+  PartPrefixQuery,
+  PartPrefixSchema,
   PartSchema,
   PriceChangeBody,
   PriceChangeResultSchema,
@@ -144,6 +148,26 @@ const storeDesk = new ApiRouter('/parts/store', 'Store')
     body: PriceChangeBody,
     response: PriceChangeResultSchema,
     handler: (ctx) => store.changePrices(ctx, ctx.body),
+  })
+  .route({
+    method: 'get',
+    path: '/part-prefixes',
+    operationId: 'listPartPrefixes',
+    summary: 'Store manager: parts grouped by the start of the part code, with their vehicle models',
+    permission: P.catalogManage,
+    query: PartPrefixQuery,
+    response: z.array(PartPrefixSchema),
+    handler: (ctx) => store.partPrefixes(ctx, ctx.query),
+  })
+  .route({
+    method: 'post',
+    path: '/assign-models',
+    operationId: 'assignPartModels',
+    summary: 'Store manager: set the vehicle models of all parts whose code starts with a prefix',
+    permission: P.catalogManage,
+    body: AssignModelsBody,
+    response: AssignModelsResultSchema,
+    handler: (ctx) => store.assignModels(ctx, ctx.body),
   })
   .route({
     method: 'get',

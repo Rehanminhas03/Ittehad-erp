@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Badge, Button, Dialog, Field, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
+import { useVehicleModelOptions } from '@/features/crm';
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { StockMovementsTable } from '../../components/StockMovementsTable';
@@ -21,6 +22,8 @@ export default function InventoryPage() {
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
   const [view, setView] = useState<'all' | 'inStock' | 'low'>('inStock');
+  const [modelId, setModelId] = useState('');
+  const models = useVehicleModelOptions(brand ? [brand] : undefined);
   const [page, setPage] = useState(1);
   const [history, setHistory] = useState<InventoryRow | null>(null);
   useEffect(() => {
@@ -34,6 +37,7 @@ export default function InventoryPage() {
   const { data, isFetching } = useGetInventoryQuery({
     brand: brand || undefined,
     category: category || undefined,
+    modelId: modelId ? Number(modelId) : undefined,
     q: q || undefined,
     inStock: view === 'inStock' ? 'true' : undefined,
     lowStock: view === 'low' ? 'true' : undefined,
@@ -84,6 +88,16 @@ export default function InventoryPage() {
             </Select>
           </Field>
         )}
+        <Field label="Vehicle" htmlFor="inv-model">
+          <Select id="inv-model" value={modelId} onChange={(e) => { setModelId(e.target.value); setPage(1); }}>
+            <option value="">All vehicles</option>
+            {models.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Category" htmlFor="inv-cat">
           <Select
             id="inv-cat"

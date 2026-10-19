@@ -10916,6 +10916,15 @@
           "sellingPrice": {
             "type": "string",
             "example": "1250000.00"
+          },
+          "modelIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "maxItems": 10
           }
         },
         "required": [
@@ -10959,6 +10968,15 @@
           },
           "isActive": {
             "type": "boolean"
+          },
+          "modelIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "maxItems": 10
           }
         }
       },
@@ -10995,6 +11013,84 @@
         "required": [
           "brand",
           "percent"
+        ]
+      },
+      "PartPrefix": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string"
+          },
+          "parts": {
+            "type": "integer"
+          },
+          "assigned": {
+            "type": "integer"
+          },
+          "sample": {
+            "type": "string"
+          },
+          "modelIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "prefix",
+          "parts",
+          "assigned",
+          "sample",
+          "modelIds"
+        ]
+      },
+      "AssignModelsResult": {
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changed"
+        ]
+      },
+      "AssignModelsRequest": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "prefix": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 20
+          },
+          "modelIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "maxItems": 10
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "replace",
+              "add"
+            ],
+            "default": "replace"
+          }
+        },
+        "required": [
+          "brand",
+          "prefix",
+          "modelIds"
         ]
       },
       "OpenJobCard": {
@@ -11608,6 +11704,13 @@
           },
           "sellingPrice": {
             "type": "string"
+          },
+          "modelIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "default": []
           },
           "isActive": {
             "type": "boolean"
@@ -38450,6 +38553,13 @@
                     "sellingPrice": {
                       "type": "string"
                     },
+                    "modelIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "default": []
+                    },
                     "isActive": {
                       "type": "boolean"
                     },
@@ -38585,6 +38695,13 @@
                     "sellingPrice": {
                       "type": "string"
                     },
+                    "modelIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "default": []
+                    },
                     "isActive": {
                       "type": "boolean"
                     },
@@ -38675,6 +38792,155 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PriceChangeResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/store/part-prefixes": {
+      "get": {
+        "operationId": "listPartPrefixes",
+        "summary": "Store manager: parts grouped by the start of the part code, with their vehicle models",
+        "description": "Requires: parts.catalog.manage",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 60
+            },
+            "required": true,
+            "name": "brand",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 8,
+              "default": 3
+            },
+            "required": false,
+            "name": "length",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PartPrefix"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/store/assign-models": {
+      "post": {
+        "operationId": "assignPartModels",
+        "summary": "Store manager: set the vehicle models of all parts whose code starts with a prefix",
+        "description": "Requires: parts.catalog.manage",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignModelsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignModelsResult"
                 }
               }
             }
@@ -38873,6 +39139,16 @@
             },
             "required": false,
             "name": "category",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "modelId",
             "in": "query"
           },
           {
@@ -39969,6 +40245,16 @@
             },
             "required": false,
             "name": "category",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "modelId",
             "in": "query"
           },
           {
