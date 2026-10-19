@@ -661,6 +661,16 @@ const stockActions = new ApiRouter('/sales/stock', 'StockVehicle').route({
   response: StockVehicleSchema,
   status: 201,
   handler: (ctx) => svc.receiveStockVehicle(ctx, ctx.body),
+}).route({
+  method: 'put',
+  path: '/:id/pdi',
+  operationId: 'recordStockVehiclePdi',
+  summary: 'Record or correct the PDI of a car in stock (done / pending / issue found)',
+  permission: P.stockManage,
+  params: IdParam,
+  body: PdiBody,
+  response: StockVehicleSchema,
+  handler: (ctx) => svc.recordStockPdi(ctx, ctx.params.id, ctx.body),
 });
 
 const deliveryActions = new ApiRouter('/sales/deliveries', 'Delivery')

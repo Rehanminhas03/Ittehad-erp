@@ -161,6 +161,7 @@ export const resultExtension = {
     warrantyEndsOn: { needs: { warrantyEndsOn: true }, compute: (r: { warrantyEndsOn: Date | null }) => fromDate(r.warrantyEndsOn) },
     soldByDealershipId: { needs: { soldByDealershipId: true }, compute: (r: { soldByDealershipId: bigint | null }) => fromBigInt(r.soldByDealershipId) },
     lastServiceOn: { needs: { lastServiceOn: true }, compute: (r: { lastServiceOn: Date | null }) => fromDate(r.lastServiceOn) },
+    pdiRecordedById: { needs: { pdiRecordedById: true }, compute: (r: { pdiRecordedById: bigint | null }) => fromBigInt(r.pdiRecordedById) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },
     updatedById: { needs: { updatedById: true }, compute: (r: { updatedById: bigint | null }) => fromBigInt(r.updatedById) },
   },

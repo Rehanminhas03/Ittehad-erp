@@ -1297,6 +1297,10 @@ export const StockVehicleSchema = z
     notes: z.string().nullable(),
     dealershipId: Id.nullable().optional(),
     dealershipName: z.string().nullable().optional(),
+    /** PDI when the car was received: done, pending, or issue (not clear: see pdiIssue). */
+    pdiStatus: z.enum(['done', 'pending', 'issue']).nullable().optional(),
+    pdiIssue: z.string().nullable().optional(),
+    pdiRecordedAt: Timestamp.nullable().optional(),
     orderId: Id.nullable().optional(),
     orderNo: z.string().nullable().optional(),
     orderStatus: z.enum(ORDER_STATES).nullable().optional(),
@@ -1320,6 +1324,17 @@ const stockFields = {
   modelYear: z.number().int().min(1950).max(2100).nullish(),
   notes: optionalText(2000),
 };
+/**
+ * The PDI (pre-delivery inspection) of the car, entered by the Delivery Team when it is received: PDI done
+ * and / or an issue found (then the description is required).
+ */
+export const PdiBody = z
+  .object({ done: z.boolean(), issue: z.boolean(), notes: optionalText(2000) })
+  .superRefine((v, c) => {
+    // Neither done nor an issue = PDI pending.
+    if (v.issue && !v.notes?.trim()) c.addIssue({ code: 'custom', path: ['notes'], message: 'Describe the issue found in the PDI' });
+  })
+  .openapi('PdiRequest');
 /** Registering an incoming vehicle: the chassis and engine numbers are both required. */
 export const StockVehicleCreate = z
   .object({
@@ -1329,6 +1344,8 @@ export const StockVehicleCreate = z
     ...stockFields,
     /** The booked order this car arrived for: linked to it and marked received. Empty: free stock. */
     orderId: Id.nullish(),
+    /** The PDI at receiving: done, pending, or an issue found (then described). */
+    pdi: PdiBody.optional(),
   })
   .openapi('StockVehicleCreate');
 export const StockVehicleUpdate = z
@@ -1337,17 +1354,6 @@ export const StockVehicleUpdate = z
   .openapi('StockVehicleUpdate');
 
 export const AllocationBody = z.object({ vehicleId: Id }).openapi('AllocationRequest');
-/**
- * The PDI (pre-delivery inspection) of the car, entered by the Delivery Team when it is received: PDI done
- * and / or an issue found (then the description is required).
- */
-export const PdiBody = z
-  .object({ done: z.boolean(), issue: z.boolean(), notes: optionalText(2000) })
-  .superRefine((v, c) => {
-    if (!v.done && !v.issue) c.addIssue({ code: 'custom', path: ['done'], message: 'Tick "PDI done", or report an issue found in the PDI' });
-    if (v.issue && !v.notes?.trim()) c.addIssue({ code: 'custom', path: ['notes'], message: 'Describe the issue found in the PDI' });
-  })
-  .openapi('PdiRequest');
 export const PdiCommentBody = z
   .object({ body: z.string({ error: 'Write the comment' }).trim().min(1, 'Write the comment').max(1000) })
   .openapi('PdiCommentRequest');

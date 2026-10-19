@@ -61,7 +61,7 @@ function extend(client: PrismaClient) {
 export function createDb(connectionString: string, max = 20) {
   // Idle connections stay open 5 minutes (pg's default is 10 s): a new one to a remote database
   // (Neon) costs a TLS handshake, about a second from Pakistan.
-  const base = new PrismaClient({ adapter: new PrismaPg({ connectionString, max, idleTimeoutMillis: 300_000 }) });
+  const base = new PrismaClient({ adapter: new PrismaPg({ connectionString, max, idleTimeoutMillis: 300_000, connectionTimeoutMillis: 20_000, keepAlive: true }) });
   return { db: extend(base), disconnect: () => base.$disconnect() };
 }
 

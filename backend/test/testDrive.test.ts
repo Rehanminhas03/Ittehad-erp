@@ -8,9 +8,9 @@ describe('test drive day', () => {
   });
   it('sets today when marked done, and clears the day when marked not done', () => {
     expect(testDriveDates({ testDriveDone: true }, null)).toEqual({ testDriveOn: pakistanToday() });
-    expect(testDriveDates({ testDriveDone: false }, { testDriveDone: true, testDriveOn: '2026-10-01' })).toEqual({ testDriveOn: null });
+    expect(testDriveDates({ testDriveDone: false }, { id: 1, testDriveDone: true, testDriveOn: '2026-10-01' })).toEqual({ testDriveOn: null });
   });
   it('keeps the day already recorded', () => {
-    expect(testDriveDates({ testDriveDone: true }, { testDriveDone: true, testDriveOn: '2026-10-01' })).toEqual({ testDriveOn: '2026-10-01' });
+    expect(testDriveDates({ testDriveDone: true }, { id: 1, testDriveDone: true, testDriveOn: '2026-10-01' })).toEqual({ testDriveOn: '2026-10-01' });
   });
 });

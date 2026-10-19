@@ -604,6 +604,17 @@ const injectedRtkApi = api
         }),
         providesTags: ["StockVehicle"],
       }),
+      recordStockVehiclePdi: build.mutation<
+        RecordStockVehiclePdiApiResponse,
+        RecordStockVehiclePdiApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/stock/${queryArg.id}/pdi`,
+          method: "PUT",
+          body: queryArg.pdiRequest,
+        }),
+        invalidatesTags: ["StockVehicle"],
+      }),
       getDeliveryNote: build.query<
         GetDeliveryNoteApiResponse,
         GetDeliveryNoteApiArg
@@ -2603,6 +2614,12 @@ export type ListStockVehiclesApiArg = {
   dealershipId?: number;
   allocated?: "true" | "false";
 };
+export type RecordStockVehiclePdiApiResponse =
+  /** status 200 Success */ StockVehicle;
+export type RecordStockVehiclePdiApiArg = {
+  id: number;
+  pdiRequest: PdiRequest;
+};
 export type GetDeliveryNoteApiResponse = /** status 200 Success */ DeliveryNote;
 export type GetDeliveryNoteApiArg = {
   id: number;
@@ -3741,6 +3758,9 @@ export type StockVehicle = {
   notes: string | null;
   dealershipId?: number | null;
   dealershipName?: string | null;
+  pdiStatus?: ("done" | "pending" | "issue" | null) | null;
+  pdiIssue?: string | null;
+  pdiRecordedAt?: string | null;
   orderId?: number | null;
   orderNo?: string | null;
   orderStatus?:
@@ -3760,6 +3780,7 @@ export type StockVehicleCreate = {
   modelYear?: number | null;
   notes?: string | null;
   orderId?: number | null;
+  pdi?: PdiRequest;
 };
 export type StockVehiclePage = {
   items: StockVehicle[];
@@ -4496,6 +4517,7 @@ export const {
   useReceiveStockVehicleMutation,
   useListStockVehiclesQuery,
   useLazyListStockVehiclesQuery,
+  useRecordStockVehiclePdiMutation,
   useGetDeliveryNoteQuery,
   useLazyGetDeliveryNoteQuery,
   useCompleteDeliveryMutation,

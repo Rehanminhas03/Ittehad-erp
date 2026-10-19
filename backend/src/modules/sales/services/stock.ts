@@ -6,7 +6,8 @@ import { assertActiveModel } from '../../master/entities';
 import { findVehicleByIdentifiers } from '../../master/repository';
 import { orders, salesOrderEntity, stock } from '../entities';
 import { SalesPerm as P } from '../permissions';
-import type { StockVehicleCreate } from '../schemas';
+import type { PdiBody, StockVehicleCreate } from '../schemas';
+import { saveVehiclePdi, savePdi } from './pdi';
 import { LIVE_ORDER_STATES } from './orders';
 
 /**
@@ -52,8 +53,10 @@ export async function receiveStockVehicle(ctx: EntityCtx, input: z.output<typeof
   await ctx.tx.vehicleDealership.create({ data: { vehicleId: v.id, dealershipId, source: 'manual', createdById: ctx.access.userId } });
   await ctx.audit({ entityType: 'sales.stock_vehicle', entityId: v.id, action: 'create', dealershipId, branchId: null, changes: input });
 
+  if (fields.pdi) await saveVehiclePdi(ctx, v.id, fields.pdi);
   if (o) {
     await ctx.tx.salesOrder.update({ where: { id: o.id }, data: { vehicleId: v.id, updatedById: ctx.access.userId } });
+    if (fields.pdi) await savePdi(ctx, { ...o, vehicleId: v.id }, fields.pdi);
     await ctx.audit({
       entityType: salesOrderEntity.entityType,
       entityId: o.id as number,
@@ -64,4 +67,23 @@ export async function receiveStockVehicle(ctx: EntityCtx, input: z.output<typeof
     });
   }
   return stock.get(ctx, v.id);
+}
+
+/**
+ * Record or correct the PDI of a car in stock (free stock, or one on an order: the order shows the same PDI).
+ * Delivery Team / Sales Admin of a dealership the car belongs to.
+ */
+export async function recordStockPdi(ctx: EntityCtx, vehicleId: number, input: z.output<typeof PdiBody>) {
+  const row = await stock.findVisible(ctx, vehicleId, { lock: true });
+  const links = await ctx.tx.vehicleDealership.findMany({ where: { vehicleId }, select: { dealershipId: true } });
+  if (!links.some((l) => ctx.access.canIn(P.stockManage, { dealershipId: l.dealershipId }))) throw forbidden();
+  await saveVehiclePdi(ctx, vehicleId, input);
+  // The order the car is on shows the same PDI.
+  const o = await ctx.tx.salesOrder.findFirst({ where: { vehicleId, status: { not: 'cancelled' } }, select: { id: true } });
+  if (o) {
+    const order = await orders.findById(ctx, o.id);
+    await savePdi(ctx, order, input);
+  }
+  await ctx.audit({ entityType: 'sales.stock_vehicle', entityId: row.id as number, action: 'pdi.record', dealershipId: links[0]!.dealershipId, branchId: null, changes: { pdi: input } });
+  return stock.get(ctx, vehicleId);
 }

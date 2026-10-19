@@ -47,8 +47,7 @@ export function OrderPdi({ orderId, dealershipId, branchId, hasCar }: { orderId:
       ) : (
         <div className="space-y-2 text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            {data.done && <Badge tone="green" dot>PDI done</Badge>}
-            {data.issue ? <Badge tone="red" dot>Issue found in the PDI</Badge> : <Badge tone="green" dot>No issue</Badge>}
+            {data.issue ? <Badge tone="red" dot>PDI not clear</Badge> : data.done ? <Badge tone="green" dot>PDI done</Badge> : <Badge tone="amber" dot>PDI pending</Badge>}
           </div>
           {data.notes && <p className={data.issue ? 'rounded-lg bg-red-50 px-3 py-2 text-red-900' : 'text-slate-800'}>{data.notes}</p>}
           <p className="text-xs text-slate-500">

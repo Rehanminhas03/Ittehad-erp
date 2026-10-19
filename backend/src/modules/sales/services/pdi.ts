@@ -13,9 +13,22 @@ import type { PdiBody, PdiCommentBody } from '../schemas';
 
 const targetOf = (o: Record<string, unknown>) => ({ dealershipId: o.dealershipId as number, branchId: (o.branchId as number | null) ?? null });
 
-/** Saves the PDI on the order (the caller has checked the right to do so). */
+/** done | pending | issue, from the PDI form (an issue found means the PDI is not clear). */
+export const pdiStatusOf = (p: { done: boolean; issue: boolean }) => (p.issue ? 'issue' : p.done ? 'done' : 'pending');
+
+/** The PDI on the car itself (free stock has no order to carry it). */
+export async function saveVehiclePdi(ctx: EntityCtx, vehicleId: number, input: z.output<typeof PdiBody>) {
+  await ctx.tx.vehicle.update({
+    where: { id: vehicleId },
+    data: { pdiStatus: pdiStatusOf(input), pdiIssue: input.issue ? (input.notes?.trim() || null) : null, pdiRecordedAt: new Date(), pdiRecordedById: ctx.access.userId },
+    select: { id: true },
+  });
+}
+
+/** Saves the PDI on the order and on its car (the caller has checked the right to do so). */
 export async function savePdi(ctx: EntityCtx, order: Row, input: z.output<typeof PdiBody>) {
   const notes = input.notes?.trim() || null;
+  if (order.vehicleId) await saveVehiclePdi(ctx, order.vehicleId as number, input);
   await ctx.tx.salesOrder.update({
     where: { id: order.id },
     data: { pdiDone: input.done, pdiIssue: input.issue, pdiNotes: notes, pdiRecordedAt: new Date(), pdiRecordedById: ctx.access.userId },

@@ -6,6 +6,8 @@ import { dealershipFilter, type EntityViewConfig, idField, mono, muted, optional
 import { formatDateTime } from '@/shared/lib';
 import { LeadModelSelect } from '../leads/components/LeadModelSelect';
 import { VariantPicker } from '../leads/components/VariantPicker';
+import { PdiChoices, pdiBody, type PdiChoice } from '../orders/components/OrderPdi';
+import { PdiBadge, StockPdi } from './StockPdi';
 import { P } from '../permissions';
 import {
   type StockVehicle,
@@ -67,11 +69,13 @@ export const stockView: EntityViewConfig<StockVehicle> = {
       { key: 'color', header: 'Colour', render: (v) => muted(v.color) },
       { key: 'modelYear', header: 'Year', sortKey: 'modelYear', render: (v) => v.modelYear ?? '—' },
       { key: 'status', header: 'Status', sortKey: 'status', render: (v) => <StatusBadge status={v.status} /> },
+      { key: 'pdiStatus', header: 'PDI', render: (v) => <PdiBadge status={v.pdiStatus} /> },
       { key: 'orderNo', header: 'Order', render: (v) => (v.orderNo ? <span className="font-mono text-xs">{v.orderNo}</span> : muted('Free')) },
       { key: 'customerName', header: 'Customer', render: (v) => muted(v.customerName) },
     ],
   },
   detail: {
+    sections: (v) => <StockPdi v={v} />,
     title: (v) => v.vin ?? v.engineNo ?? 'Stock vehicle',
     subtitle: (v) => [v.modelName, v.variant, v.color, v.modelYear].filter(Boolean).join(' · '),
     fields: [
@@ -93,6 +97,7 @@ export const stockView: EntityViewConfig<StockVehicle> = {
             'Free stock'
           ),
       },
+      { label: 'PDI', value: (v) => <PdiBadge status={v.pdiStatus} /> },
       { label: 'Notes', value: (v) => v.notes },
       { label: 'Registered', value: (v) => formatDateTime(v.createdAt) },
     ],
@@ -134,9 +139,31 @@ export const stockView: EntityViewConfig<StockVehicle> = {
       },
       { name: 'color', label: 'Colour', type: 'text' },
       { name: 'modelYear', label: 'Model year', type: 'number' },
+      // The PDI is entered when the car is received: done, pending, or not clear (with the issue).
+      {
+        name: 'pdiStatus',
+        label: 'PDI (pre-delivery inspection)',
+        type: 'custom',
+        span: 2,
+        mode: 'create',
+        required: true,
+        render: ({ value, onChange, invalid, values, setValues }) => (
+          <PdiChoices
+            choice={(value as PdiChoice | undefined) ?? ''}
+            onChoice={(c) => onChange(c)}
+            notes={String(values.pdiIssue ?? '')}
+            onNotes={(n) => setValues({ pdiIssue: n })}
+            invalid={invalid}
+          />
+        ),
+      },
       { name: 'notes', label: 'Notes', type: 'textarea', span: 2 },
     ],
-    createSchema: z.object({ dealershipId: idField('Dealership'), orderId: optionalId(), ...fields }),
+    createSchema: z
+      .object({ dealershipId: idField('Dealership'), orderId: optionalId(), ...fields, pdiStatus: z.enum(['done', 'pending', 'issue'], { error: 'Choose: PDI done, PDI pending, or PDI not clear' }), pdiIssue: optionalText(2000) })
+      .superRefine((v, c) => {
+        if (v.pdiStatus === 'issue' && !String(v.pdiIssue ?? '').trim()) c.addIssue({ code: 'custom', path: ['pdiStatus'], message: 'Describe the issue found in the PDI' });
+      }),
     updateSchema: z.object(fields),
     toFormValues: (v) => ({ ...v, modelId: String(v.modelId) }),
   },
@@ -144,7 +171,10 @@ export const stockView: EntityViewConfig<StockVehicle> = {
     useList: useListStockVehiclesQuery,
     useGet: useGetStockVehicleQuery,
     useHistory: useGetStockVehicleHistoryQuery,
-    create: { useMutation: useReceiveStockVehicleMutation, toArg: (v) => ({ stockVehicleCreate: v }) },
+    create: {
+      useMutation: useReceiveStockVehicleMutation,
+      toArg: ({ pdiStatus, pdiIssue, ...v }) => ({ stockVehicleCreate: { ...v, pdi: pdiBody(pdiStatus as PdiChoice, String(pdiIssue ?? '')) } }),
+    },
     update: { useMutation: useUpdateStockVehicleMutation, toArg: (id, v) => ({ id, stockVehicleUpdate: v }) },
   },
 };

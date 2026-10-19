@@ -1,2 +1,2 @@
 export { OrderPdi } from './OrderPdi';
-export { PdiForm } from './PdiForm';
+export { PdiChoices, PdiForm, pdiBody, pdiChoiceOf, type PdiChoice } from './PdiForm';

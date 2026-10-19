@@ -741,6 +741,11 @@ model Vehicle {
   serviceVisitCount    Int                 @default(0) @map("service_visit_count")
   lastServiceOn        DateTime?           @map("last_service_on") @db.Date
   lastOdometerKm       Int?                @map("last_odometer_km")
+  /// PDI (pre-delivery inspection) when the car was received: done | pending | issue (not clear, see pdi_issue).
+  pdiStatus            String?             @map("pdi_status")
+  pdiIssue             String?             @map("pdi_issue")
+  pdiRecordedAt        DateTime?           @map("pdi_recorded_at") @db.Timestamptz(6)
+  pdiRecordedById      BigInt?             @map("pdi_recorded_by_id")
   createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdById          BigInt?             @map("created_by_id")
