@@ -35,6 +35,7 @@ import {
   OpenJobCardQuery,
   OpenJobCardSchema,
   PartPrefixQuery,
+  PartVehicleModelSchema,
   PartPrefixSchema,
   PartSchema,
   PriceChangeBody,
@@ -148,6 +149,16 @@ const storeDesk = new ApiRouter('/parts/store', 'Store')
     body: PriceChangeBody,
     response: PriceChangeResultSchema,
     handler: (ctx) => store.changePrices(ctx, ctx.body),
+  })
+  .route({
+    method: 'get',
+    path: '/vehicle-models',
+    operationId: 'listPartVehicleModels',
+    summary: 'The vehicle models of a brand (for the Vehicle filter of the price list and stock)',
+    permission: P.catalogView,
+    query: z.object({ brand: z.string().max(60).optional() }),
+    response: z.array(PartVehicleModelSchema),
+    handler: (ctx) => store.partVehicleModels(ctx, ctx.query.brand),
   })
   .route({
     method: 'get',

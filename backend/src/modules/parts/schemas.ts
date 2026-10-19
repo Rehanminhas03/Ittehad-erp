@@ -237,6 +237,9 @@ export const ManagePartUpdate = z
   })
   .partial()
   .openapi('ManagePartUpdate');
+/** A vehicle model of a brand, for the "Vehicle" filter (the store staff need not see the master data). */
+export const PartVehicleModelSchema = z.object({ id: Id, brand: z.string(), name: z.string() }).openapi('PartVehicleModel');
+
 /** Parts by part-code prefix: how many, a sample, and the models they are assigned to. */
 export const PartPrefixQuery = z.object({ brand: z.string().trim().min(2).max(60), length: z.coerce.number().int().min(2).max(8).default(3) });
 export const PartPrefixSchema = z

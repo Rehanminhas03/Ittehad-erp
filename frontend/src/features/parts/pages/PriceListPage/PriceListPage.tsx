@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Button, Field, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
 import { downloadCsv, type Column } from '@/features/sales/exports/exporters';
-import { useVehicleModelOptions } from '@/features/crm';
 import { useAppDispatch, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
+import { usePartModelOptions } from '../../hooks/usePartModelOptions';
 import { useStoreBrand } from '../../hooks/useStoreBrand';
 import { type Part, partsApi, useListPartCategoriesQuery, useListPartsQuery } from '../../partsApi';
 import { P } from '../../permissions';
@@ -38,7 +38,7 @@ export default function PriceListPage() {
   const [busy, setBusy] = useState(false);
   // The vehicle (X70 Plus, Dashing, T1, T2): only the parts that fit it.
   const [modelId, setModelId] = useState('');
-  const models = useVehicleModelOptions(brand ? [brand] : undefined);
+  const models = usePartModelOptions(brand);
   const modelName = (id: number) => models.find((m) => m.value === String(id))?.label.replace(`${brand} `, '') ?? '';
   useEffect(() => {
     const t = setTimeout(() => {

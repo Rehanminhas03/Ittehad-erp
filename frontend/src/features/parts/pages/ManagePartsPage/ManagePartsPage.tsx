@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Dialog, Field, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
-import { useVehicleModelOptions } from '@/features/crm';
+import { usePartModelOptions } from '../../hooks/usePartModelOptions';
 import { useStoreBrand } from '../../hooks/useStoreBrand';
 import { type Part, useAddPartMutation, useAssignPartModelsMutation, useChangePartMutation, useChangePricesMutation, useListPartCategoriesQuery, useListPartPrefixesQuery, useListPartsQuery } from '../../partsApi';
 import { P } from '../../permissions';
@@ -25,7 +25,7 @@ export default function ManagePartsPage() {
   const [bulk, setBulk] = useState(false);
   const [fits, setFits] = useState(false);
   const [modelId, setModelId] = useState('');
-  const models = useVehicleModelOptions(brand ? [brand] : undefined);
+  const models = usePartModelOptions(brand);
   useEffect(() => {
     const t = setTimeout(() => {
       setQ(text.trim());

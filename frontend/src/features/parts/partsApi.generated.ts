@@ -88,6 +88,18 @@ const injectedRtkApi = api
           invalidatesTags: ["Store"],
         },
       ),
+      listPartVehicleModels: build.query<
+        ListPartVehicleModelsApiResponse,
+        ListPartVehicleModelsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/vehicle-models`,
+          params: {
+            brand: queryArg.brand,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
       listPartPrefixes: build.query<
         ListPartPrefixesApiResponse,
         ListPartPrefixesApiArg
@@ -912,6 +924,11 @@ export type ChangePricesApiResponse =
 export type ChangePricesApiArg = {
   priceChangeRequest: PriceChangeRequest;
 };
+export type ListPartVehicleModelsApiResponse =
+  /** status 200 Success */ PartVehicleModel[];
+export type ListPartVehicleModelsApiArg = {
+  brand?: string;
+};
 export type ListPartPrefixesApiResponse =
   /** status 200 Success */ PartPrefix[];
 export type ListPartPrefixesApiArg = {
@@ -1463,6 +1480,11 @@ export type PriceChangeRequest = {
   category?: string | null;
   percent: number;
 };
+export type PartVehicleModel = {
+  id: number;
+  brand: string;
+  name: string;
+};
 export type PartPrefix = {
   prefix: string;
   parts: number;
@@ -1966,6 +1988,8 @@ export const {
   useAddPartMutation,
   useChangePartMutation,
   useChangePricesMutation,
+  useListPartVehicleModelsQuery,
+  useLazyListPartVehicleModelsQuery,
   useListPartPrefixesQuery,
   useLazyListPartPrefixesQuery,
   useAssignPartModelsMutation,

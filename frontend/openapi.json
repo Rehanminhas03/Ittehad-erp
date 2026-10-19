@@ -11015,6 +11015,27 @@
           "percent"
         ]
       },
+      "PartVehicleModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "brand": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "brand",
+          "name"
+        ]
+      },
       "PartPrefix": {
         "type": "object",
         "properties": {
@@ -38792,6 +38813,77 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PriceChangeResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/store/vehicle-models": {
+      "get": {
+        "operationId": "listPartVehicleModels",
+        "summary": "The vehicle models of a brand (for the Vehicle filter of the price list and stock)",
+        "description": "Requires: parts.catalog.view",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "required": false,
+            "name": "brand",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PartVehicleModel"
+                  }
                 }
               }
             }

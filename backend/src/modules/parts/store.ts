@@ -294,6 +294,16 @@ export async function assignModels(ctx: EntityCtx, input: z.output<typeof Assign
   return { changed: rows.length };
 }
 
+/** The active vehicle models of a brand (all brands when none is given), for the Vehicle filter. */
+export async function partVehicleModels(ctx: EntityCtx, brand?: string) {
+  return ctx.tx.vehicleModel.findMany({
+    where: { isActive: true, ...(brand ? { brand: { equals: brand, mode: 'insensitive' as const } } : {}) },
+    select: { id: true, brand: true, name: true },
+    orderBy: [{ brand: 'asc' }, { name: 'asc' }],
+    take: 200,
+  });
+}
+
 /** Distinct categories of a brand's parts, for the filter lists. */
 export async function partCategories(ctx: EntityCtx, brand?: string) {
   const rows = await query<{ category: string }>(

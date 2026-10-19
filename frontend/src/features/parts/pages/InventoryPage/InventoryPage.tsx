@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Badge, Button, Dialog, Field, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
-import { useVehicleModelOptions } from '@/features/crm';
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { StockMovementsTable } from '../../components/StockMovementsTable';
+import { usePartModelOptions } from '../../hooks/usePartModelOptions';
 import { useStoreBrand } from '../../hooks/useStoreBrand';
 import { type InventoryRow, useGetInventoryQuery, useListPartCategoriesQuery } from '../../partsApi';
 import { P } from '../../permissions';
@@ -23,7 +23,7 @@ export default function InventoryPage() {
   const [category, setCategory] = useState('');
   const [view, setView] = useState<'all' | 'inStock' | 'low'>('inStock');
   const [modelId, setModelId] = useState('');
-  const models = useVehicleModelOptions(brand ? [brand] : undefined);
+  const models = usePartModelOptions(brand);
   const [page, setPage] = useState(1);
   const [history, setHistory] = useState<InventoryRow | null>(null);
   useEffect(() => {
