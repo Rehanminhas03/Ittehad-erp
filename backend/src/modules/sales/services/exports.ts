@@ -87,6 +87,7 @@ export async function exportLeads(ctx: EntityCtx, q: z.output<typeof ExportQuery
                u.full_name as "salesperson", cb.full_name as "loggedBy",
                ${lead.campaignName} as "campaign", ${lead.adName} as "ad", ${lead.city} as "city",
                ${lead.temperature} as "interest", ${lead.nextFollowUpOn}::text as "nextFollowUp",
+               case when ${lead.testDriveDone} then 'Done' || coalesce(' on ' || to_char(${lead.testDriveOn}, 'DD-Mon-YY'), '') else 'Not done' end as "testDrive",
                -- Every follow-up: date, who, outcome, interest and the remarks they entered (oldest first).
                (select string_agg(to_char(f.created_at at time zone 'Asia/Karachi', 'DD-Mon-YY') || ' · ' || coalesce(fu.full_name, '')
                          || ' · ' || initcap(replace(f.outcome, '_', ' ')) || coalesce(' · ' || initcap(f.temperature), '')

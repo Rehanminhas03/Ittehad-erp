@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Badge, Button, Field, Input, Section, Select, Spinner, Textarea } from '@/shared/components/ui';
+import { useEffect, useState } from 'react';
+import { Badge, Button, Checkbox, Field, Input, Section, Select, Spinner, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatDate, formatDateTime } from '@/shared/lib';
 import { FOLLOW_UP_GAP_DAYS, FOLLOW_UP_OUTCOMES, labelOf, LEAD_TEMPERATURES, MIN_FOLLOW_UPS_TO_EXHAUST, OPEN_LEAD_STATES, P } from '../../../permissions';
@@ -23,6 +23,8 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
   const [remarks, setRemarks] = useState('');
   // How interested the customer is, and when to call next (the schedule's day, which can be changed).
   const [temperature, setTemperature] = useState<string>(lead.temperature ?? '');
+  const [testDrive, setTestDrive] = useState<boolean>(!!lead.testDriveDone);
+  useEffect(() => setTestDrive(!!lead.testDriveDone), [lead.testDriveDone]);
   const [nextOn, setNextOn] = useState<string | null>(null);
 
   const isOpenLead = (OPEN_LEAD_STATES as readonly string[]).includes(lead.status);
@@ -112,6 +114,9 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
               ))}
             </Select>
           </Field>
+          <div className="flex items-center pb-2">
+            <Checkbox label="Test drive done" checked={testDrive} onChange={(e) => setTestDrive(e.target.checked)} />
+          </div>
           <Field label="Remarks" htmlFor="fu-remarks">
             <Textarea id="fu-remarks" rows={1} value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="What the customer said" />
           </Field>
@@ -133,6 +138,7 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
                     markLost: lost || undefined,
                     temperature: lost ? undefined : (temperature as never),
                     nextFollowUpOn: lost ? undefined : nextValue || null,
+                    testDriveDone: testDrive,
                   },
                 }).unwrap();
                 toast.success(lost ? 'Lead marked as lost: it moves to Lost leads' : 'Follow-up recorded');

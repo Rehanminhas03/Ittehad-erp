@@ -75,6 +75,7 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
       ...(temperature ? { temperature } : {}),
       nextFollowUpOn: next,
       followUpRemindedOn: null,
+      ...(input.testDriveDone === undefined ? {} : { testDriveDone: input.testDriveDone, testDriveOn: input.testDriveDone ? ((l.testDriveDone && l.testDriveOn) || today) : null }),
       updatedById: ctx.access.userId,
     },
   });
@@ -83,7 +84,7 @@ export async function recordFollowUp(ctx: EntityCtx, leadId: number, input: z.ou
     entityId: leadId,
     action: 'follow_up',
     ...targetOf(l),
-    changes: { outcome: input.outcome, remarks: input.remarks ?? null, temperature: temperature ?? null, nextFollowUpOn: next },
+    changes: { outcome: input.outcome, remarks: input.remarks ?? null, temperature: temperature ?? null, nextFollowUpOn: next, ...(input.testDriveDone === undefined ? {} : { testDriveDone: input.testDriveDone }) },
   });
 
   if (lost) {

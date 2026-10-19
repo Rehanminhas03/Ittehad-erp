@@ -115,6 +115,7 @@ export const LEAD_COLUMNS: Column[] = [
   { header: 'Salesperson', value: (r) => r.salesperson as string },
   { header: 'Logged by', value: (r) => r.loggedBy as string },
   { header: 'Interest (hot / warm / cold)', value: (r) => label(r.interest) },
+  { header: 'Test drive', value: (r) => String(r.testDrive ?? '') },
   { header: 'Follow-ups', value: (r) => r.followUps as number },
   { header: 'Last follow-up', value: (r) => date(r.lastFollowUp) },
   { header: 'Next follow-up', value: (r) => date(r.nextFollowUp) },

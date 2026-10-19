@@ -724,6 +724,7 @@ const injectedRtkApi = api
             source: queryArg.source,
             group: queryArg.group,
             escalated: queryArg.escalated,
+            testDriveDone: queryArg.testDriveDone,
             open: queryArg.open,
             convertedFrom: queryArg.convertedFrom,
             convertedTo: queryArg.convertedTo,
@@ -1169,6 +1170,8 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
+  testDriveDone?: boolean;
+  testDriveOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1270,6 +1273,8 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
+  testDriveDone?: boolean;
+  testDriveOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1358,6 +1363,8 @@ export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
   dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
+  testDriveDone?: boolean;
+  testDriveOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1538,6 +1545,8 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
+  testDriveDone?: boolean;
+  testDriveOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1631,6 +1640,8 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
+  testDriveDone?: boolean;
+  testDriveOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -1719,6 +1730,8 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
+  testDriveDone?: boolean;
+  testDriveOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -2700,6 +2713,7 @@ export type ListLeadsApiArg = {
   source?: string;
   group?: "social" | "salespeople" | "all";
   escalated?: "true" | "false";
+  testDriveDone?: "true" | "false";
   open?: "true" | "false";
   convertedFrom?: string;
   convertedTo?: string;
@@ -2994,6 +3008,7 @@ export type LeadFollowUpCreate = {
   temperature?: "hot" | "warm" | "cold";
   nextFollowUpOn?: string | null;
   markLost?: boolean;
+  testDriveDone?: boolean;
 };
 export type VisitRemarksRequest = {
   remarks: string;
@@ -3362,6 +3377,8 @@ export type SalesDashboard = {
     loggedToday: number;
     escalatedOpen: number;
     myFollowUpsToday: number;
+    testDrivesInPeriod: number;
+    testDrivesPending: number;
     daily: {
       date: string;
       logged: number;
@@ -3376,6 +3393,8 @@ export type SalesDashboard = {
     loggedInPeriod: number;
     open: number;
     loggedToday: number;
+    testDrivesInPeriod: number;
+    testDrivesPending: number;
     daily: {
       date: string;
       logged: number;
@@ -3941,6 +3960,8 @@ export type Lead = {
   dealtAt?: string | null;
   temperature?: ("hot" | "warm" | "cold" | null) | null;
   nextFollowUpOn?: string | null;
+  testDriveDone?: boolean;
+  testDriveOn?: string | null;
   escalatedAt: string | null;
   escalatedById: number | null;
   escalatedByName?: string | null;
@@ -4002,6 +4023,7 @@ export type LeadCreate = {
   preferredColor?: string | null;
   expectedCloseDate?: string | null;
   notes?: string | null;
+  testDriveDone?: boolean;
   ownerId?: number;
   visitRemarks?: string | null;
 };
@@ -4033,6 +4055,7 @@ export type LeadUpdate = {
   preferredColor?: string | null;
   expectedCloseDate?: string | null;
   notes?: string | null;
+  testDriveDone?: boolean;
   branchId?: number | null;
   ownerId?: number;
 };

@@ -115,6 +115,7 @@ const fields = {
   variant: optionalText(160),
   preferredColor: optionalText(40),
   notes: optionalText(2000),
+  testDriveDone: z.boolean().optional(),
   branchId: optionalId(),
 };
 // Empty email -> null; no salesperson chosen -> the lead is yours (the server's default).
@@ -167,6 +168,7 @@ export const leadView: EntityViewConfig<Lead> = {
       // The CRO's tabs: social media (Meta ad) leads, or the salespeople's leads.
       { param: 'group', label: 'Leads from', type: 'select', options: [{ value: 'social', label: 'Social media (Meta ads)' }, { value: 'salespeople', label: 'Salespeople (walk-in, calls…)' }, { value: 'all', label: 'All leads' }], visible: (perm) => perm.can([P.leadsViewSocial, P.leadsViewTeam, P.leadsViewAll]) },
       { param: 'ownerId', label: 'Salesperson', type: 'select', useOptions: useSalespersonOptions, visible: (perm) => perm.can([P.leadsViewAll, P.leadsViewConverted, P.leadsViewTeam]) },
+      { param: 'testDriveDone', label: 'Test drive done', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       { param: 'escalated', label: 'Sent to AM', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       { param: 'upcomingAppointment', label: 'Appointment (today on)', type: 'boolean', visible: (perm) => perm.can(WORKS_LEADS) },
       dealershipFilter,
@@ -207,6 +209,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { key: 'followUpCount', header: 'Follow-ups', sortKey: 'followUpCount', className: 'text-right tabular-nums', render: (l) => l.followUpCount },
       { key: 'status', header: 'Status', sortKey: 'status', render: (l) => <StatusBadge status={l.status} /> },
       { key: 'temperature', header: 'Interest', render: (l) => <TemperatureBadge value={l.temperature} /> },
+      { key: 'testDriveDone', header: 'Test drive', render: (l) => (l.testDriveDone ? <Badge tone="green">Done</Badge> : <Badge tone="gray">Not yet</Badge>) },
       { key: 'nextFollowUpOn', header: 'Next follow-up', sortKey: 'nextFollowUpOn', render: (l) => nextFollowUp(l) },
       // Partial / full payment, once converted.
       { key: 'paymentType', header: 'Payment', render: (l) => <PaymentTypeBadge type={l.paymentType} /> },
@@ -262,6 +265,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'City', value: (l) => l.city },
       { label: 'Interested in', value: (l) => [l.modelName, l.variant, l.preferredColor].filter(Boolean).join(' · ') || null },
       { label: 'Interest', value: (l) => <TemperatureBadge value={l.temperature} /> },
+      { label: 'Test drive', value: (l) => (l.testDriveDone ? `Done${l.testDriveOn ? ` on ${formatDate(l.testDriveOn)}` : ''}` : 'Not done yet') },
       { label: 'Last follow-up', value: (l) => formatDateTime(l.lastFollowUpAt) },
       { label: 'Next follow-up', value: (l) => (l.nextFollowUpOn && (OPEN_LEAD_STATES as readonly string[]).includes(l.status) ? nextFollowUp(l) : null) },
       { label: 'Appointment', value: (l) => (l.appointmentAt ? `${formatAppointment(l.appointmentAt)}${l.appointmentNote ? ` — ${l.appointmentNote}` : ''}` : null) },
@@ -326,6 +330,7 @@ export const leadView: EntityViewConfig<Lead> = {
         ),
       },
       { name: 'preferredColor', label: 'Colour', type: 'text' },
+      { name: 'testDriveDone', label: 'Test drive', type: 'boolean', hint: 'Tick if the customer has taken a test drive' },
       { name: 'branchId', label: 'Branch', type: 'branch', dealershipField: 'dealershipId', scopePermission: P.leadsCreate, mode: 'create' },
       { name: 'notes', label: 'Notes', type: 'textarea', span: 2 },
     ],

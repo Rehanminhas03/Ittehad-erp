@@ -248,6 +248,13 @@ export function SalesDashboard() {
         ))}
       </div>
 
+      {leads && layout !== 'delivery' && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+          <StatTile label="Test drives done" value={leads.testDrivesInPeriod} icon="check" tone="aqua" to={`/sales/leads?testDriveDone=true&range=all${who}`} hint={periodLabel} loading={isLoading} />
+          <StatTile label="Waiting for a test drive" value={leads.testDrivesPending} icon="clock" tone="violet" to={`/sales/leads?open=true&testDriveDone=false&range=all${who}`} hint="Open leads without one" loading={isLoading} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {layout === 'delivery' ? (
           <Panel title="Open stock by stage" subtitle="Undelivered vehicles at your dealership" to="/sales/stock" className="lg:col-span-2">
@@ -337,6 +344,8 @@ export function SalesDashboard() {
             <StatTile label="Open social leads" value={data.social.open} icon="phone" tone="aqua" to="/sales/leads?group=social&open=true&range=all" hint={`of ${data.social.total} total`} />
             <StatTile label="Logged" value={data.social.loggedInPeriod} icon="leads" tone="orange" to="/sales/leads?group=social&range=all" hint={periodLabel} />
             <StatTile label="Converted" value={data.social.daily.reduce((n, d) => n + d.converted, 0)} icon="check" tone="violet" to={`/sales/leads?group=social&${inPeriod}&range=all`} hint={periodLabel} />
+            <StatTile label="Test drives done" value={data.social.testDrivesInPeriod} icon="check" tone="aqua" to="/sales/leads?group=social&testDriveDone=true&range=all" hint={periodLabel} />
+            <StatTile label="Waiting for a test drive" value={data.social.testDrivesPending} icon="clock" tone="violet" to="/sales/leads?group=social&open=true&testDriveDone=false&range=all" hint="Open social leads without one" />
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Panel title="Social media leads per day" subtitle={periodLabel} to="/sales/leads?group=social&range=all" className="lg:col-span-2">

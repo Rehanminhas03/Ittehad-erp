@@ -355,6 +355,7 @@ export const resultExtension = {
     lostById: { needs: { lostById: true }, compute: (r: { lostById: bigint | null }) => fromBigInt(r.lostById) },
     nextFollowUpOn: { needs: { nextFollowUpOn: true }, compute: (r: { nextFollowUpOn: Date | null }) => fromDate(r.nextFollowUpOn) },
     followUpRemindedOn: { needs: { followUpRemindedOn: true }, compute: (r: { followUpRemindedOn: Date | null }) => fromDate(r.followUpRemindedOn) },
+    testDriveOn: { needs: { testDriveOn: true }, compute: (r: { testDriveOn: Date | null }) => fromDate(r.testDriveOn) },
     dealtById: { needs: { dealtById: true }, compute: (r: { dealtById: bigint | null }) => fromBigInt(r.dealtById) },
     convertedById: { needs: { convertedById: true }, compute: (r: { convertedById: bigint | null }) => fromBigInt(r.convertedById) },
     salesOrderId: { needs: { salesOrderId: true }, compute: (r: { salesOrderId: bigint | null }) => fromBigInt(r.salesOrderId) },

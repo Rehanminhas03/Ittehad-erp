@@ -1418,6 +1418,9 @@ model Lead {
   nextFollowUpOn           DateTime?      @map("next_follow_up_on") @db.Date
   /// The day the reminder for `next_follow_up_on` was sent (once per due date).
   followUpRemindedOn       DateTime?      @map("follow_up_reminded_on") @db.Date
+  /// A test drive: has the customer driven the car yet (set on the lead form or in a follow-up), and the day.
+  testDriveDone            Boolean        @default(false) @map("test_drive_done")
+  testDriveOn              DateTime?      @map("test_drive_on") @db.Date
   /// A social media lead the customer then visited the showroom for: the salesperson who dealt with the customer
   /// (they tried to enter the same phone number as a walk-in) and when. The lead stays with the CRO.
   dealtById                BigInt?        @map("dealt_by_id")

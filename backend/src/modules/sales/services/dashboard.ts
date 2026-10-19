@@ -86,7 +86,15 @@ async function leadFigures(ctx: EntityCtx, scope: SQL, from: string, to: string)
     open: OPEN.reduce((n, s) => n + (byStatus[s] ?? 0), 0),
     loggedToday: today?.n ?? 0,
     daily,
+    ...(await testDriveFigures(ctx, scope, from, to)),
   };
+}
+
+/** Test drives done in the period (by the day of the drive), and open leads still waiting for one. */
+async function testDriveFigures(ctx: EntityCtx, scope: SQL, from: string, to: string) {
+  const done = await countWhere(ctx, lead, and(scope, eq(lead.testDriveDone, true), sql`${lead.testDriveOn} between ${from}::date and ${to}::date`));
+  const pending = await countWhere(ctx, lead, and(scope, eq(lead.testDriveDone, false), sql`${lead.status} in ('new', 'follow_up', 'visited')`));
+  return { testDrivesInPeriod: done?.n ?? 0, testDrivesPending: pending?.n ?? 0 };
 }
 
 export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof DashboardQuery>) {
@@ -118,7 +126,9 @@ export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof Dashboar
       order by g.d`);
     const total = Object.values(byStatus).reduce((n, v) => n + v, 0);
     const inPeriod = await countWhere(ctx, lead, and(scope, sql`${karachiDate(lead.createdAt)} between ${from}::date and ${to}::date`));
+    const testDrives = await testDriveFigures(ctx, scope, from, to);
     out.leads = {
+      ...testDrives,
       byStatus,
       total,
       loggedInPeriod: inPeriod?.n ?? 0,

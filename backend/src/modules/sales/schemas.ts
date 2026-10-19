@@ -78,6 +78,9 @@ export const LeadSchema = z.object({
   /** hot | warm | cold, and the day the next follow-up is due (null once the schedule is complete). */
   temperature: z.enum(LEAD_TEMPERATURES).nullable().optional(),
   nextFollowUpOn: z.string().nullable().optional(),
+  /** Has the customer taken a test drive, and the day. */
+  testDriveDone: z.boolean().optional(),
+  testDriveOn: z.string().nullable().optional(),
   escalatedAt: Timestamp.nullable(),
   escalatedById: Id.nullable(),
   escalatedByName: z.string().nullable().optional(),
@@ -135,6 +138,8 @@ const leadFields = {
   preferredColor: optionalText(40),
   expectedCloseDate: isoDate.nullish(),
   notes: optionalText(2000),
+  /** The customer has taken a test drive (the day is set automatically). */
+  testDriveDone: z.boolean().optional(),
 };
 export const LeadCreate = z
   .object({
@@ -557,6 +562,8 @@ export const LeadFollowUpCreate = z
     nextFollowUpOn: isoDate.nullish(),
     /** With "not interested": the lead is lost (out of the leads list); the remarks are the reason. */
     markLost: z.boolean().optional(),
+    /** Test drive done (true) or not done (false) with this follow-up; left out: unchanged. */
+    testDriveDone: z.boolean().optional(),
   })
   .refine((v) => !v.markLost || v.outcome === 'not_interested', { message: 'Only a "not interested" follow-up marks the lead lost', path: ['markLost'] })
   .openapi('LeadFollowUpCreate');
@@ -1012,6 +1019,9 @@ export const SalesDashboardSchema = z
         loggedToday: z.number().int(),
         escalatedOpen: z.number().int(),
         myFollowUpsToday: z.number().int(),
+        /** Test drives done in the chosen period, and open leads still waiting for one. */
+        testDrivesInPeriod: z.number().int(),
+        testDrivesPending: z.number().int(),
         daily: z.array(z.object({ date: z.string(), logged: z.number().int(), converted: z.number().int() })),
       })
       .optional(),
@@ -1023,6 +1033,8 @@ export const SalesDashboardSchema = z
         loggedInPeriod: z.number().int(),
         open: z.number().int(),
         loggedToday: z.number().int(),
+        testDrivesInPeriod: z.number().int(),
+        testDrivesPending: z.number().int(),
         daily: z.array(z.object({ date: z.string(), logged: z.number().int(), converted: z.number().int() })),
       })
       .optional(),

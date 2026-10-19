@@ -202,6 +202,8 @@ export const leadEntity: EntityConfig = {
     group: { key: 'source', schema: z.enum(['social', 'salespeople', 'all']), where: (v) => (v === 'all' ? sql`true` : v === 'social' ? sql`${lead.source} = 'social'` : sql`${lead.source} <> 'social'`) },
     // The Assistant Manager's queue: leads flagged by a duplicate-phone escalation.
     escalated: { key: 'escalatedAt', schema: BoolQuery, where: (v) => (v ? sql`${lead.escalatedAt} is not null` : sql`${lead.escalatedAt} is null`) },
+    // Test drive done / not done yet.
+    testDriveDone: { key: 'testDriveDone', schema: BoolQuery },
     // Still open (new, follow-up, visited): the "Open leads" figure.
     open: {
       key: 'status',
@@ -326,7 +328,7 @@ export const leadEntity: EntityConfig = {
       const ownerId = (data.ownerId as number | undefined) ?? ctx.access.userId;
       if (ownerId !== ctx.access.userId) await assertCanLogFor(ctx, ownerId, data.dealershipId as number);
       // The first follow-up is due 2 days after the lead is logged.
-      return { ...data, ownerId, prospectMobileNormalized: mobileNormalized, nextFollowUpOn: nextFollowUpAfter(0, pakistanToday()) };
+      return { ...data, ...testDriveDates(data, null), ownerId, prospectMobileNormalized: mobileNormalized, nextFollowUpOn: nextFollowUpAfter(0, pakistanToday()) };
     },
     beforeUpdate: async (ctx, row, patch) => {
       if (!['new', 'follow_up', 'visited'].includes(row.status as string)) {
@@ -339,7 +341,7 @@ export const leadEntity: EntityConfig = {
         patch.prospectMobileNormalized = normalizeMobile(patch.prospectMobile);
         await assertNoActiveLead(ctx, target.dealershipId, patch.prospectMobileNormalized as string, row.id);
       }
-      return patch;
+      return { ...patch, ...testDriveDates(patch, row) };
     },
     decorate: async (ctx, rows) => withPreviousPurchases(ctx, await withNames(ctx.tx, rows, {
         ownerName: { key: 'ownerId', source: USER_NAME },
@@ -819,6 +821,16 @@ const docFilters = (t: typeof quotation | typeof ppfForm) => ({
   createdFrom: { key: 'createdAt', schema: z.iso.date(), where: (v: unknown) => sql`(${t.createdAt} at time zone 'Asia/Karachi')::date >= ${v}::date` },
   createdTo: { key: 'createdAt', schema: z.iso.date(), where: (v: unknown) => sql`(${t.createdAt} at time zone 'Asia/Karachi')::date <= ${v}::date` },
 });
+/**
+ * Test drive done: the day is today unless it was already recorded; not done: no day. Left out of the change:
+ * nothing changes.
+ */
+export function testDriveDates(change: Record<string, unknown>, row: Row | null): Record<string, unknown> {
+  if (change.testDriveDone === undefined) return {};
+  if (change.testDriveDone === false) return { testDriveOn: null };
+  return { testDriveOn: row?.testDriveDone && row.testDriveOn ? row.testDriveOn : pakistanToday() };
+}
+
 /** Always two decimals, like every other amount (9500000 -> 9500000.00). */
 export const money2 = (x: unknown) => fromPaisa(toPaisa(String(x)));
 

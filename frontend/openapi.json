@@ -4158,6 +4158,9 @@
           },
           "markLost": {
             "type": "boolean"
+          },
+          "testDriveDone": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -5909,6 +5912,12 @@
               "myFollowUpsToday": {
                 "type": "integer"
               },
+              "testDrivesInPeriod": {
+                "type": "integer"
+              },
+              "testDrivesPending": {
+                "type": "integer"
+              },
               "daily": {
                 "type": "array",
                 "items": {
@@ -5940,6 +5949,8 @@
               "loggedToday",
               "escalatedOpen",
               "myFollowUpsToday",
+              "testDrivesInPeriod",
+              "testDrivesPending",
               "daily"
             ]
           },
@@ -5962,6 +5973,12 @@
                 "type": "integer"
               },
               "loggedToday": {
+                "type": "integer"
+              },
+              "testDrivesInPeriod": {
+                "type": "integer"
+              },
+              "testDrivesPending": {
                 "type": "integer"
               },
               "daily": {
@@ -5993,6 +6010,8 @@
               "loggedInPeriod",
               "open",
               "loggedToday",
+              "testDrivesInPeriod",
+              "testDrivesPending",
               "daily"
             ]
           },
@@ -8515,6 +8534,13 @@
             "type": "string",
             "nullable": true
           },
+          "testDriveDone": {
+            "type": "boolean"
+          },
+          "testDriveOn": {
+            "type": "string",
+            "nullable": true
+          },
           "escalatedAt": {
             "type": "string",
             "nullable": true,
@@ -8791,6 +8817,9 @@
             "nullable": true,
             "maxLength": 2000
           },
+          "testDriveDone": {
+            "type": "boolean"
+          },
           "ownerId": {
             "type": "integer",
             "minimum": 0,
@@ -8877,6 +8906,9 @@
             "type": "string",
             "nullable": true,
             "maxLength": 2000
+          },
+          "testDriveDone": {
+            "type": "boolean"
           },
           "branchId": {
             "type": "integer",
@@ -24663,6 +24695,13 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "testDriveDone": {
+                      "type": "boolean"
+                    },
+                    "testDriveOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -25269,6 +25308,13 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "testDriveDone": {
+                      "type": "boolean"
+                    },
+                    "testDriveOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -25700,6 +25746,13 @@
                       ]
                     },
                     "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "testDriveDone": {
+                      "type": "boolean"
+                    },
+                    "testDriveOn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -26751,6 +26804,13 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "testDriveDone": {
+                      "type": "boolean"
+                    },
+                    "testDriveOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -27251,6 +27311,13 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "testDriveDone": {
+                      "type": "boolean"
+                    },
+                    "testDriveOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "escalatedAt": {
                       "type": "string",
                       "nullable": true,
@@ -27682,6 +27749,13 @@
                       ]
                     },
                     "nextFollowUpOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "testDriveDone": {
+                      "type": "boolean"
+                    },
+                    "testDriveOn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -34579,6 +34653,18 @@
             },
             "required": false,
             "name": "escalated",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "testDriveDone",
             "in": "query"
           },
           {
