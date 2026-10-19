@@ -5089,10 +5089,12 @@
                 "type": "string"
               },
               "freightInsurance": {
-                "type": "string"
+                "type": "string",
+                "nullable": true
               },
               "withholdingTax": {
-                "type": "string"
+                "type": "string",
+                "nullable": true
               },
               "taxStatus": {
                 "type": "string",
@@ -9733,10 +9735,12 @@
             "type": "string"
           },
           "freightInsurance": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "withholdingTax": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "withholdingTaxNonFiler": {
             "type": "string",
@@ -26061,10 +26065,12 @@
                       "type": "string"
                     },
                     "freightInsurance": {
-                      "type": "string"
+                      "type": "string",
+                      "nullable": true
                     },
                     "withholdingTax": {
-                      "type": "string"
+                      "type": "string",
+                      "nullable": true
                     },
                     "withholdingTaxNonFiler": {
                       "type": "string",
@@ -28377,10 +28383,12 @@
                       "type": "string"
                     },
                     "freightInsurance": {
-                      "type": "string"
+                      "type": "string",
+                      "nullable": true
                     },
                     "withholdingTax": {
-                      "type": "string"
+                      "type": "string",
+                      "nullable": true
                     },
                     "withholdingTaxNonFiler": {
                       "type": "string",

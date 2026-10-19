@@ -1425,8 +1425,8 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   quantity: number;
   unitPrice: string;
   discount: string;
-  freightInsurance: string;
-  withholdingTax: string;
+  freightInsurance: string | null;
+  withholdingTax: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -1854,8 +1854,8 @@ export type CreateStandaloneQuotationApiResponse = /** status 201 Success */ {
   quantity: number;
   unitPrice: string;
   discount: string;
-  freightInsurance: string;
-  withholdingTax: string;
+  freightInsurance: string | null;
+  withholdingTax: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -3229,8 +3229,8 @@ export type QuotationDocument = {
     quantity: number;
     unitPrice: string;
     discount: string;
-    freightInsurance: string;
-    withholdingTax: string;
+    freightInsurance: string | null;
+    withholdingTax: string | null;
     taxStatus: "filer" | "non_filer";
     withholdingTaxNonFiler: string | null;
     total: string;
@@ -4239,8 +4239,8 @@ export type Quotation = {
   quantity: number;
   unitPrice: string;
   discount: string;
-  freightInsurance: string;
-  withholdingTax: string;
+  freightInsurance: string | null;
+  withholdingTax: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;

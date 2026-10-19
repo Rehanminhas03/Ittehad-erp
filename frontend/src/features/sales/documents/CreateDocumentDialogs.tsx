@@ -62,8 +62,6 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
   const perm = usePermission();
   const brand = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === dealershipId)?.brand;
   const jetour = brand === 'Jetour';
-  // Hyundai and Jetour: the freight & transit insurance and the withholding tax (filer) are mandatory.
-  const chargesRequired = brand === 'Hyundai' || jetour;
   const [v, setV] = useState({
     // From the lead; the customer may now want another model or variant.
     modelId: lead?.interestedModelId ? String(lead.interestedModelId) : '',
@@ -128,12 +126,6 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     if (!v.modelId) return setErrors({ modelId: 'Choose the model' });
     if (needsVariant && !v.variantCode && !v.variant.trim()) return setErrors({ variantCode: 'Choose the variant code (it goes in the Ref), or type it under "Other"' });
     if (!hasOrder && !v.unitPrice.trim()) return setErrors({ unitPrice: 'Enter the price to quote' });
-    if (chargesRequired) {
-      const missing: Record<string, string> = {};
-      if (!v.freightInsurance.trim()) missing.freightInsurance = 'Enter the freight & transit insurance (0 if none)';
-      if (!v.withholdingTax.trim()) missing.withholdingTax = 'Enter the withholding tax (0 if none)';
-      if (Object.keys(missing).length) return setErrors(missing);
-    }
     const quotationCreate = {
             unitPrice: v.unitPrice.trim() || undefined,
             discount: v.discount.trim() || undefined,
@@ -148,8 +140,9 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             variantCode: blank(v.variantCode),
             billTo: blank(v.billTo),
             quantity: Number(v.quantity) || 1,
-            freightInsurance: v.freightInsurance.trim() || (chargesRequired ? undefined : '0'),
-            withholdingTax: v.withholdingTax.trim() || (chargesRequired ? undefined : '0'),
+            // Empty: the row is not printed on the quotation. 0: printed as 0.
+            freightInsurance: v.freightInsurance.trim() || undefined,
+            withholdingTax: v.withholdingTax.trim() || undefined,
             // Jetour's quotation has no non-filer tax.
             withholdingTaxNonFiler: jetour ? undefined : v.withholdingTaxNonFiler.trim() || undefined,
             deliveryDays: jetour ? null : v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
@@ -289,13 +282,13 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
               <span className="font-semibold">{formatMoney(String(netPrice))}</span>. The amounts below were filled in from it; you can change them.
             </p>
           )}
-          <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" required={chargesRequired} error={errors.freightInsurance}>
+          <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" error={errors.freightInsurance}>
             <Input id="qt-freight" inputMode="decimal" value={v.freightInsurance} onChange={set('freightInsurance')} invalid={!!errors.freightInsurance} placeholder="e.g. 68000" />
           </Field>
           <Field label="Quantity" htmlFor="qt-qty" error={errors.quantity}>
             <Input id="qt-qty" type="number" min={1} max={50} value={v.quantity} onChange={set('quantity')} />
           </Field>
-          <Field label={jetour && taxStatus === 'non_filer' ? 'Withholding tax — non-filer (PKR)' : 'Withholding tax — filer (PKR)'} htmlFor="qt-wht" required={chargesRequired} error={errors.withholdingTax} hint="Added as a line item">
+          <Field label={jetour && taxStatus === 'non_filer' ? 'Withholding tax — non-filer (PKR)' : 'Withholding tax — filer (PKR)'} htmlFor="qt-wht" error={errors.withholdingTax} hint="Leave empty to leave the row off the quotation; enter 0 to print it as 0">
             <Input id="qt-wht" inputMode="decimal" value={v.withholdingTax} onChange={set('withholdingTax')} invalid={!!errors.withholdingTax} placeholder="e.g. 246160" />
           </Field>
           {!jetour && (

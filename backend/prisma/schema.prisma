@@ -1578,8 +1578,9 @@ model Quotation {
   quantity               Int          @default(1)
   unitPrice              Decimal      @map("unit_price") @db.Decimal(14, 2)
   discount               Decimal      @default(0) @db.Decimal(14, 2)
-  freightInsurance       Decimal      @default(0) @map("freight_insurance") @db.Decimal(14, 2)
-  withholdingTax         Decimal      @default(0) @map("withholding_tax") @db.Decimal(14, 2)
+  /// Null: left empty (the row is not printed); 0: entered as zero (printed as 0).
+  freightInsurance       Decimal?     @map("freight_insurance") @db.Decimal(14, 2)
+  withholdingTax         Decimal?     @map("withholding_tax") @db.Decimal(14, 2)
   withholdingTaxNonFiler Decimal?     @map("withholding_tax_non_filer") @db.Decimal(14, 2)
   totalAmount            Decimal      @map("total_amount") @db.Decimal(14, 2)
   bookingAmount          Decimal?     @map("booking_amount") @db.Decimal(14, 2)

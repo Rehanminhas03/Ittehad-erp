@@ -209,8 +209,8 @@ export const QuotationSchema = z.object({
   quantity: z.number().int(),
   unitPrice: z.string(),
   discount: z.string(),
-  freightInsurance: z.string(),
-  withholdingTax: z.string(),
+  freightInsurance: z.string().nullable(),
+  withholdingTax: z.string().nullable(),
   withholdingTaxNonFiler: z.string().nullable(),
   totalAmount: z.string(),
   bookingAmount: z.string().nullable(),
@@ -273,8 +273,9 @@ const quotationTerms = {
   variantCode: z.string().trim().max(40).nullish(),
   billTo: optionalText(200),
   quantity: z.number().int().min(1).max(50),
-  freightInsurance: Money,
-  withholdingTax: Money,
+  /** Empty / null: the row is not printed; 0: printed as 0. */
+  freightInsurance: Money.nullish(),
+  withholdingTax: Money.nullish(),
   withholdingTaxNonFiler: Money.nullish(),
   deliveryDays: z.number().int().min(0).max(365).nullish(),
   deliveryPeriod: optionalText(120),
@@ -299,9 +300,6 @@ export const QuotationCreate = z
     ...quotationTerms,
     taxStatus: quotationTerms.taxStatus.default('filer'),
     quantity: quotationTerms.quantity.default(1),
-    // Required for Hyundai and Jetour (checked when the quotation is issued); CSM may leave them out (0).
-    freightInsurance: Money.optional(),
-    withholdingTax: Money.optional(),
   })
   .openapi('QuotationCreate');
 /** A quotation without a lead (a price asked for on the spot): the dealership, the customer and the model. */
@@ -498,8 +496,8 @@ export const QuotationDocumentSchema = z
       quantity: z.number().int(),
       unitPrice: z.string(),
       discount: z.string(),
-      freightInsurance: z.string(),
-      withholdingTax: z.string(),
+      freightInsurance: z.string().nullable(),
+      withholdingTax: z.string().nullable(),
       taxStatus: z.enum(TAX_STATUSES),
       withholdingTaxNonFiler: z.string().nullable(),
       total: z.string(),

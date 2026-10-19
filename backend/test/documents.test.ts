@@ -323,20 +323,18 @@ describe('PPF voucher', () => {
   });
 });
 
-describe('freight and withholding tax are mandatory (Hyundai, Jetour)', () => {
-  it('refuses a Hyundai or Jetour quotation without them, accepts 0, and CSM / other brands may leave them out', async () => {
+describe('freight and withholding tax: empty or 0', () => {
+  it('keeps an empty charge empty (no row) and an entered 0 as 0 (a row with 0), for every brand', async () => {
     const s = await setup();
     const id = await lead(s);
-    // Another brand: optional (0).
-    expect((await quoteRaw(s.sales1, id, { unitPrice: '9000000' })).status).toBe(201);
-    for (const brand of ['Hyundai', 'Jetour']) {
+    for (const brand of ['Hyundai', 'Jetour', 'CSM']) {
       await owner.db.dealership.update({ where: { id: s.d.id }, data: { brand } });
-      const missing = await quoteRaw(s.sales1, id, { unitPrice: '9000000' });
-      expect(missing.status, brand).toBe(422);
-      expect(JSON.stringify(missing.body)).toContain('freight');
-      expect(JSON.stringify(missing.body)).toContain('withholding tax');
-      expect((await quoteRaw(s.sales1, id, { unitPrice: '9000000', freightInsurance: '68000' })).status).toBe(422);
-      expect((await quoteRaw(s.sales1, id, { unitPrice: '9000000', freightInsurance: '68000', withholdingTax: '0' })).status).toBe(201);
+      const empty = await quoteRaw(s.sales1, id, { unitPrice: '9000000' });
+      expect(empty.status, brand).toBe(201);
+      expect(empty.body).toMatchObject({ freightInsurance: null, withholdingTax: null, totalAmount: '9000000.00' });
+      const zero = await quoteRaw(s.sales1, id, { unitPrice: '9000000', freightInsurance: '0', withholdingTax: '0' });
+      expect(zero.status, brand).toBe(201);
+      expect(zero.body).toMatchObject({ freightInsurance: '0.00', withholdingTax: '0.00', totalAmount: '9000000.00' });
     }
   });
 });

@@ -827,7 +827,8 @@ export const money2 = (x: unknown) => fromPaisa(toPaisa(String(x)));
  * with the order's discount rules.
  */
 export function priceQuotation(data: Record<string, unknown>, before?: Row) {
-  const v = (k: string, d: string) => String(data[k] ?? before?.[k] ?? d);
+  // A charge left empty (null) counts as 0 in the total; a patch that clears it overrides the stored value.
+  const v = (k: string, d: string) => String((k in data ? data[k] : before?.[k]) ?? d);
   const { totalAmount: net } = priceOrder({ unitPrice: v('unitPrice', '0'), discount: v('discount', '0') }) as { totalAmount: string };
   const quantity = Number(data.quantity ?? before?.quantity ?? 1);
   return { ...data, totalAmount: mulMoney(addMoney(net, v('freightInsurance', '0'), v('withholdingTax', '0')), quantity) };
