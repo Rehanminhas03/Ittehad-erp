@@ -27,6 +27,8 @@ import {
   DirectIssueResultSchema,
   DirectReceiveBody,
   AssignModelsBody,
+  EarlierSalesQuery,
+  EarlierSalesSchema,
   AssignModelsResultSchema,
   InventoryPageSchema,
   InventoryQuery,
@@ -224,6 +226,16 @@ const storeDesk = new ApiRouter('/parts/store', 'Store')
     query: MonthlyReportQuery,
     response: MonthlyReportSchema,
     handler: (ctx) => svc.monthlyReport(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/earlier-sales',
+    operationId: 'getEarlierSales',
+    summary: 'Sales recorded before the system (the store sale report sheet), by invoice number',
+    permission: P.stockView,
+    query: EarlierSalesQuery,
+    response: EarlierSalesSchema,
+    handler: (ctx) => store.earlierSales(ctx, ctx.query),
   })
   .route({
     method: 'get',

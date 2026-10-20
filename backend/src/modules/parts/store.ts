@@ -12,10 +12,10 @@ import type { PageQuery } from '../../lib/pagination';
 import { offsetOf } from '../../lib/pagination';
 import type { z } from '../../lib/zod';
 import { branch as branchTable, user } from '../core/models';
-import { inventoryTransaction, part, stockItem } from './models';
+import { inventoryTransaction, legacySale, part, stockItem } from './models';
 import { normalizePartNo } from './entities';
 import { PartsPerm as P } from './permissions';
-import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody, SaleReportQuery } from './schemas';
+import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody, SaleReportQuery, EarlierSalesQuery } from './schemas';
 import { assertBranch, resolveLines } from './service';
 import { moveStockLines } from './stock';
 
@@ -342,6 +342,31 @@ export async function saleReport(ctx: EntityCtx, f: z.output<typeof SaleReportQu
          order by ${inventoryTransaction.occurredAt} asc, ${inventoryTransaction.id} asc
          limit 20000`,
   );
+}
+
+/** The sales recorded before the system (the sale report sheet): a page of lines, with the totals of the whole search. */
+export async function earlierSales(ctx: EntityCtx, f: z.output<typeof EarlierSalesQuery>) {
+  const conds: SQL[] = [scopeWhere(ctx.access.scope(P.stockView), { dealership: legacySale.dealershipId })];
+  if (f.dealershipId) conds.push(eq(legacySale.dealershipId, f.dealershipId));
+  if (f.q) {
+    const like = `%${f.q}%`;
+    conds.push(sql`(${legacySale.invoiceNo} ilike ${like} or ${legacySale.roNo} ilike ${like} or ${legacySale.partNo} ilike ${like} or ${legacySale.partName} ilike ${like} or ${legacySale.remarks} ilike ${like})`);
+  }
+  const where = and(...conds)!;
+  const items = await query<{ lineNo: number; roNo: string | null; invoiceNo: string | null; partNo: string; partName: string; quantity: string; unitPrice: string; totalPrice: string; remarks: string | null }>(
+    ctx.tx,
+    sql`select ${legacySale.lineNo} as "lineNo", ${legacySale.roNo} as "roNo", ${legacySale.invoiceNo} as "invoiceNo", ${legacySale.partNo} as "partNo",
+               ${legacySale.partName} as "partName", ${legacySale.quantity}::text as "quantity", ${legacySale.unitPrice}::text as "unitPrice",
+               ${legacySale.totalPrice}::text as "totalPrice", ${legacySale.remarks} as "remarks"
+          from ${legacySale} where ${where} order by ${legacySale.lineNo} asc limit ${f.pageSize} offset ${(f.page - 1) * f.pageSize}`,
+  );
+  const [t] = await query<{ total: number; invoices: number; totalAmount: string; totalQuantity: string }>(
+    ctx.tx,
+    sql`select count(*)::int as "total", count(distinct ${legacySale.invoiceNo})::int as "invoices",
+               coalesce(sum(${legacySale.totalPrice}), 0)::text as "totalAmount", coalesce(sum(${legacySale.quantity}), 0)::text as "totalQuantity"
+          from ${legacySale} where ${where}`,
+  );
+  return { items, page: f.page, pageSize: f.pageSize, total: t?.total ?? 0, invoices: t?.invoices ?? 0, totalAmount: t?.totalAmount ?? '0', totalQuantity: t?.totalQuantity ?? '0' };
 }
 
 /** Distinct categories of a brand's parts, for the filter lists. */

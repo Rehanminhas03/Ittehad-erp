@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Button, Field, Input, PageHeader, Section, Select, Spinner } from '@/shared/components/ui';
+import { useEffect, useState } from 'react';
+import { Button, Field, Input, PageHeader, Pagination, Section, Select, Spinner } from '@/shared/components/ui';
 import { downloadCsv, downloadTablePdf, type Column } from '@/features/sales/exports/exporters';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
-import { useGetPartsMonthlyReportQuery, useLazyGetPartsSaleReportQuery, useLazyGetStockSheetQuery } from '../../partsApi';
+import { useGetEarlierSalesQuery, useGetPartsMonthlyReportQuery, useLazyGetEarlierSalesQuery, useLazyGetPartsSaleReportQuery, useLazyGetStockSheetQuery } from '../../partsApi';
 import { P } from '../../permissions';
 
 const monthName = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -51,10 +51,10 @@ const SALE_COLUMNS: Column[] = [
   { header: 'Issued by', value: (r) => String(r.issuedBy ?? '') },
 ];
 
-const Stat = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
+const Stat = ({ label, value, hint, plain }: { label: string; value: string; hint?: string; plain?: boolean }) => (
   <div className="surface p-4">
     <p className="text-xs font-medium tracking-wide text-slate-500">{label}</p>
-    <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{formatMoney(value)}</p>
+    <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{plain ? Number(value).toLocaleString() : formatMoney(value)}</p>
     {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
   </div>
 );
@@ -266,6 +266,121 @@ export default function PartsReportPage() {
           <p className="text-xs text-slate-500">Cost is the average cost of the parts in the store. Revenue is the price charged when the part was issued (the price list unless changed), less parts taken back. Prices include sales tax, as on the Jetour price list.</p>
         </div>
       )}
+      <EarlierSales dealershipId={arg.dealershipId} />
     </div>
+  );
+}
+
+const EARLIER_COLUMNS: Column[] = [
+  { header: 'RO No', value: (r) => String(r.roNo ?? '') },
+  { header: 'Invoice No', value: (r) => String(r.invoiceNo ?? '') },
+  { header: 'Part Code', value: (r) => String(r.partNo) },
+  { header: 'Part Name', value: (r) => String(r.partName) },
+  { header: 'Issued Qty', value: (r) => Number(r.quantity) },
+  { header: 'Unit Price', value: (r) => Number(r.unitPrice) },
+  { header: 'Total Price', value: (r) => Number(r.totalPrice) },
+  { header: 'Remarks', value: (r) => String(r.remarks ?? '') },
+];
+
+/**
+ * The sales recorded before the system (the store's sale report sheet): by invoice number, without dates.
+ * Searchable by invoice, RO, part or remarks, and downloadable. New sales are recorded with their date in the monthly report above.
+ */
+function EarlierSales({ dealershipId }: { dealershipId?: number }) {
+  const toast = useToast();
+  const [text, setText] = useState('');
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [load] = useLazyGetEarlierSalesQuery();
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(text.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [text]);
+  const { data, isFetching } = useGetEarlierSalesQuery({ dealershipId, q: q || undefined, page, pageSize: 50 });
+  if (data && data.total === 0 && !q) return null;
+
+  const download = async () => {
+    setBusy(true);
+    try {
+      const all: Record<string, unknown>[] = [];
+      for (let p = 1; ; p++) {
+        const r = await load({ dealershipId, q: q || undefined, page: p, pageSize: 500 }, false).unwrap();
+        all.push(...(r.items as unknown as Record<string, unknown>[]));
+        if (all.length >= r.total || !r.items.length) break;
+      }
+      const total = { roNo: 'TOTAL', quantity: String(all.reduce((n, r) => n + Number(r.quantity), 0)), totalPrice: String(all.reduce((n, r) => n + Number(r.totalPrice), 0)) };
+      downloadCsv(`Store sales before the system - ${stamp()}`, EARLIER_COLUMNS, [...all, total]);
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section
+      title="Earlier sales (from the store's sale report sheet)"
+      actions={
+        <Button size="sm" variant="secondary" loading={busy} onClick={download}>
+          Download (Excel)
+        </Button>
+      }
+    >
+      <p className="mb-3 text-sm text-slate-600">Sales made before the system was used, recorded by invoice number (the sheet has no dates). From now on every sale is recorded with its date and appears in the monthly figures above.</p>
+      {data && (
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Invoices" value={String(data.invoices)} plain />
+          <Stat label="Part lines" value={String(data.total)} plain />
+          <Stat label="Parts sold (qty)" value={String(Number(data.totalQuantity))} plain />
+          <Stat label="Total sales" value={data.totalAmount} hint={q ? 'of the search' : 'price charged'} />
+        </div>
+      )}
+      <Field label="Search" htmlFor="es-q" className="mb-3 max-w-md">
+        <Input id="es-q" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Invoice no., RO, part code or name, remarks" />
+      </Field>
+      <div className="relative overflow-x-auto">
+        {isFetching && <Spinner className="absolute top-1 right-1 size-4 text-slate-400" />}
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
+              <th className="py-2 pr-3 font-medium">RO no.</th>
+              <th className="py-2 pr-3 font-medium">Invoice no.</th>
+              <th className="py-2 pr-3 font-medium">Part code</th>
+              <th className="py-2 pr-3 font-medium">Part name</th>
+              <th className="py-2 pr-3 text-right font-medium">Qty</th>
+              <th className="py-2 pr-3 text-right font-medium">Unit price</th>
+              <th className="py-2 pr-3 text-right font-medium">Total price</th>
+              <th className="py-2 font-medium">Remarks</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {data?.items.length === 0 && (
+              <tr>
+                <td colSpan={8} className="py-6 text-center text-slate-500">
+                  Nothing matches.
+                </td>
+              </tr>
+            )}
+            {data?.items.map((r) => (
+              <tr key={r.lineNo}>
+                <td className="py-1.5 pr-3">{r.roNo}</td>
+                <td className="py-1.5 pr-3">{r.invoiceNo}</td>
+                <td className="py-1.5 pr-3 font-mono text-xs">{r.partNo}</td>
+                <td className="py-1.5 pr-3">{r.partName}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums">{Number(r.quantity)}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums">{formatMoney(r.unitPrice)}</td>
+                <td className="py-1.5 pr-3 text-right font-medium tabular-nums">{formatMoney(r.totalPrice)}</td>
+                <td className="py-1.5 text-slate-500">{r.remarks}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data && data.total > 50 && <Pagination page={page} pageSize={50} total={data.total} onPage={setPage} />}
+      </div>
+    </Section>
   );
 }

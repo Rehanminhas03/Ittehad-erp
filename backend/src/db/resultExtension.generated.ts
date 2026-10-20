@@ -556,4 +556,11 @@ export const resultExtension = {
     followUpId: { needs: { followUpId: true }, compute: (r: { followUpId: bigint }) => fromBigInt(r.followUpId) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint }) => fromBigInt(r.createdById) },
   },
+  legacySale: {
+    id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
+    dealershipId: { needs: { dealershipId: true }, compute: (r: { dealershipId: bigint }) => fromBigInt(r.dealershipId) },
+    quantity: { needs: { quantity: true }, compute: (r: { quantity: { toFixed(dp: number): string } }) => fromDecimal(r.quantity, 2) },
+    unitPrice: { needs: { unitPrice: true }, compute: (r: { unitPrice: { toFixed(dp: number): string } }) => fromDecimal(r.unitPrice, 2) },
+    totalPrice: { needs: { totalPrice: true }, compute: (r: { totalPrice: { toFixed(dp: number): string } }) => fromDecimal(r.totalPrice, 2) },
+  },
 } as const;

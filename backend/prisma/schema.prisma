@@ -2132,3 +2132,26 @@ model LeadFollowUpComment {
   @@map("lead_follow_up_comment")
   @@schema("sales")
 }
+
+/// Sales recorded before the system (the store's sale report sheet): one line per part issued, by invoice number, without dates.
+/// This model contains row level security.
+model LegacySale {
+  id           BigInt   @id @default(autoincrement())
+  dealershipId BigInt   @map("dealership_id")
+  lineNo       Int      @map("line_no")
+  roNo         String?  @map("ro_no")
+  invoiceNo    String?  @map("invoice_no")
+  partNo       String   @map("part_no")
+  partName     String   @map("part_name")
+  quantity     Decimal  @db.Decimal(12, 2)
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(14, 2)
+  totalPrice   Decimal  @map("total_price") @db.Decimal(14, 2)
+  remarks      String?
+  source       String   @default("sale_report_sheet")
+  importedAt   DateTime @default(now()) @map("imported_at") @db.Timestamptz(6)
+
+  @@index([dealershipId], map: "legacy_sale_dealership_id_index")
+  @@index([invoiceNo], map: "legacy_sale_invoice_no_index")
+  @@map("legacy_sale")
+  @@schema("parts")
+}

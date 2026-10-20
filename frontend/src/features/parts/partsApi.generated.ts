@@ -182,6 +182,21 @@ const injectedRtkApi = api
         }),
         providesTags: ["Store"],
       }),
+      getEarlierSales: build.query<
+        GetEarlierSalesApiResponse,
+        GetEarlierSalesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/earlier-sales`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            q: queryArg.q,
+            page: queryArg.page,
+            pageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
       getPartsSaleReport: build.query<
         GetPartsSaleReportApiResponse,
         GetPartsSaleReportApiArg
@@ -986,6 +1001,13 @@ export type GetPartsMonthlyReportApiArg = {
   from?: string;
   to?: string;
 };
+export type GetEarlierSalesApiResponse = /** status 200 Success */ EarlierSales;
+export type GetEarlierSalesApiArg = {
+  dealershipId?: number;
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
 export type GetPartsSaleReportApiResponse =
   /** status 200 Success */ SaleReportRow[];
 export type GetPartsSaleReportApiArg = {
@@ -1586,6 +1608,26 @@ export type PartsMonthlyReport = {
     margin: string;
   };
 };
+export type EarlierSaleRow = {
+  lineNo: number;
+  roNo: string | null;
+  invoiceNo: string | null;
+  partNo: string;
+  partName: string;
+  quantity: string;
+  unitPrice: string;
+  totalPrice: string;
+  remarks: string | null;
+};
+export type EarlierSales = {
+  items: EarlierSaleRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  invoices: number;
+  totalAmount: string;
+  totalQuantity: string;
+};
 export type SaleReportRow = {
   date: string;
   roNo: string | null;
@@ -2041,6 +2083,8 @@ export const {
   useLazyListPartCategoriesQuery,
   useGetPartsMonthlyReportQuery,
   useLazyGetPartsMonthlyReportQuery,
+  useGetEarlierSalesQuery,
+  useLazyGetEarlierSalesQuery,
   useGetPartsSaleReportQuery,
   useLazyGetPartsSaleReportQuery,
   useGetStockSheetQuery,

@@ -338,6 +338,15 @@ export const SaleReportRowSchema = z
   })
   .openapi('SaleReportRow');
 
+/** Sales recorded before the system (the sale report sheet): by invoice number, searchable. */
+export const EarlierSalesQuery = z.object({ dealershipId: z.coerce.number().int().positive().optional(), q: z.string().trim().max(60).optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(500).default(50) });
+export const EarlierSaleRowSchema = z
+  .object({ lineNo: z.number().int(), roNo: z.string().nullable(), invoiceNo: z.string().nullable(), partNo: z.string(), partName: z.string(), quantity: z.string(), unitPrice: z.string(), totalPrice: z.string(), remarks: z.string().nullable() })
+  .openapi('EarlierSaleRow');
+export const EarlierSalesSchema = z
+  .object({ items: z.array(EarlierSaleRowSchema), total: z.number().int(), page: z.number().int(), pageSize: z.number().int(), invoices: z.number().int(), totalAmount: z.string(), totalQuantity: z.string() })
+  .openapi('EarlierSales');
+
 /** The price list pasted from Excel: new parts are added, known ones get the new description / price. */
 export const PartImportBody = z
   .object({
