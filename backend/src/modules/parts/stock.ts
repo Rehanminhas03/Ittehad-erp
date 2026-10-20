@@ -17,6 +17,9 @@ export interface Movement {
   unitCost?: string | null;
   /** What the part is sold for (issues / returns); defaults to the catalogue price. */
   unitPrice?: string | null;
+  /** The customer invoice and remarks of an issue (the sale report). */
+  invoiceNo?: string | null;
+  remarks?: string | null;
   referenceType: string;
   referenceId: number;
   referenceNo?: string | null;
@@ -95,6 +98,8 @@ export async function moveStock(ctx: EntityCtx, m: Movement): Promise<MovementRe
       quantity: m.quantity,
       unitCost: cost,
       unitPrice,
+      invoiceNo: m.invoiceNo ?? null,
+      remarks: m.remarks ?? null,
       value,
       balanceAfter: updated.balanceAfter,
       averageCostAfter: updated.averageCostAfter,

@@ -39,6 +39,8 @@ import {
   PartPrefixSchema,
   PartSchema,
   PriceChangeBody,
+  SaleReportQuery,
+  SaleReportRowSchema,
   PriceChangeResultSchema,
   GoodsReceiptLineSchema,
   GoodsReceiptSchema,
@@ -222,6 +224,16 @@ const storeDesk = new ApiRouter('/parts/store', 'Store')
     query: MonthlyReportQuery,
     response: MonthlyReportSchema,
     handler: (ctx) => svc.monthlyReport(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/sale-report',
+    operationId: 'getPartsSaleReport',
+    summary: 'Every part issued (or taken back) in a period: RO / job card, invoice, part, quantity, price, remarks, cost',
+    permission: P.stockView,
+    query: SaleReportQuery,
+    response: z.array(SaleReportRowSchema),
+    handler: (ctx) => store.saleReport(ctx, ctx.query),
   })
   .route({
     method: 'get',

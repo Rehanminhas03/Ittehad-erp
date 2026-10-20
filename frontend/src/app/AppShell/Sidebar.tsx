@@ -56,22 +56,56 @@ function NotificationsLabel({ label }: { label: string }) {
   );
 }
 
+const OPEN_KEY = 'dms.nav.open';
+const readOpen = (): Record<string, boolean> => {
+  try {
+    return JSON.parse(localStorage.getItem(OPEN_KEY) ?? '{}') as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+};
+
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const perm = usePermission();
   const location = useLocation();
+  // Each department (Sales, After sales, Store...) is a drop-down. The one holding the current page is open,
+  // and what the person opens or closes is remembered.
+  const [chosen, setChosen] = useState<Record<string, boolean>>(readOpen);
+  const toggle = (title: string, now: boolean) =>
+    setChosen((c) => {
+      const next = { ...c, [title]: !now };
+      try {
+        localStorage.setItem(OPEN_KEY, JSON.stringify(next));
+      } catch {
+        /* private window: the choice just is not remembered */
+      }
+      return next;
+    });
   const sections = NAVIGATION.map((s) => ({ ...s, items: s.items.filter((i) => !i.any.length || perm.can(i.any)) })).filter(
     (s) => s.items.length,
   );
   const active = activeNavItem(sections.flatMap((s) => s.items.map((i) => i.to)), location.pathname, location.search);
   return (
-    <nav className="scrollbar-thin flex-1 space-y-5 overflow-y-auto px-3 pt-2 pb-4" aria-label="Main">
-      {sections.map((s) => (
+    <nav className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-3 pt-2 pb-4" aria-label="Main">
+      {sections.map((s) => {
+        const holdsActive = s.items.some((i) => i.to === active);
+        // Open: the section of the current page, the overview, or what the person chose.
+        const isOpen = chosen[s.title] ?? (holdsActive || s.title === 'Overview');
+        return (
         <div key={s.title}>
-          <div className="mb-1.5 flex items-center gap-1.5 px-2.5 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+          <button
+            type="button"
+            onClick={() => toggle(s.title, isOpen)}
+            aria-expanded={isOpen}
+            className="mb-1 flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold tracking-wider text-slate-500 uppercase transition hover:bg-white/50 hover:text-slate-800"
+          >
             <NavIcon title={s.title} className="size-3.5" />
-            {s.title}
-          </div>
-          <ul className="space-y-0.5">
+            <span className="flex-1">{s.label ?? s.title}</span>
+            <svg viewBox="0 0 20 20" className={cn('size-3.5 transition-transform', isOpen && 'rotate-180')} fill="none" aria-hidden>
+              <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <ul className={cn('space-y-0.5', !isOpen && 'hidden')}>
             {s.items.map((i) => (
               <li key={i.to}>
                 <NavLink
@@ -94,7 +128,8 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             ))}
           </ul>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }

@@ -11,10 +11,11 @@ import { lineAmount } from '../../lib/money';
 import type { PageQuery } from '../../lib/pagination';
 import { offsetOf } from '../../lib/pagination';
 import type { z } from '../../lib/zod';
+import { branch as branchTable, user } from '../core/models';
 import { inventoryTransaction, part, stockItem } from './models';
 import { normalizePartNo } from './entities';
 import { PartsPerm as P } from './permissions';
-import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody } from './schemas';
+import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody, SaleReportQuery } from './schemas';
 import { assertBranch, resolveLines } from './service';
 import { moveStockLines } from './stock';
 
@@ -148,7 +149,7 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
 
   const lines = await resolveLines(ctx, input.lines);
   const out = input.kind === 'issue';
-  const note = [vehicleRef ? `Vehicle ${vehicleRef}` : null, input.notes].filter(Boolean).join(' · ') || null;
+  const note = vehicleRef ? `Vehicle ${vehicleRef}` : null;
   const priceOf = (l: (typeof lines)[number]) => l.unitPrice ?? l.part.sellingPrice.toString();
 
   // The job card's own lines first, so a return can never take back more than was issued to it.
@@ -173,6 +174,8 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
       referenceId: jc ? jc.id : 0,
       referenceNo,
       notes: note,
+      invoiceNo: input.invoiceNo?.trim() || null,
+      remarks: input.notes?.trim() || null,
     })),
   );
 
@@ -302,6 +305,43 @@ export async function partVehicleModels(ctx: EntityCtx, brand?: string) {
     orderBy: [{ brand: 'asc' }, { name: 'asc' }],
     take: 200,
   });
+}
+
+/**
+ * The sale report: one line per part issued (a return is a negative line), with the RO / job card number, the
+ * invoice, the price charged and the cost, for a period. Within the caller's stores.
+ */
+export async function saleReport(ctx: EntityCtx, f: z.output<typeof SaleReportQuery>) {
+  const conds: SQL[] = [
+    scopeWhere(ctx.access.scope(P.stockView), { dealership: inventoryTransaction.dealershipId, branch: inventoryTransaction.branchId }),
+    sql`${inventoryTransaction.type} in ('issue', 'return')`,
+  ];
+  if (f.dealershipId) conds.push(eq(inventoryTransaction.dealershipId, f.dealershipId));
+  if (f.branchId) conds.push(eq(inventoryTransaction.branchId, f.branchId));
+  const day = sql`(${inventoryTransaction.occurredAt} at time zone 'Asia/Karachi')::date`;
+  if (f.from) conds.push(sql`${day} >= ${f.from}::date`);
+  if (f.to) conds.push(sql`${day} <= ${f.to}::date`);
+  const qty = sql`(-${inventoryTransaction.quantity})`;
+  const price = sql`coalesce(${inventoryTransaction.unitPrice}, ${part.sellingPrice})`;
+  return query<{
+    date: string; roNo: string | null; invoiceNo: string | null; partNo: string; partName: string; quantity: string;
+    unitPrice: string; totalPrice: string; remarks: string | null; unitCost: string; totalCost: string; vehicle: string | null; store: string; issuedBy: string | null;
+  }>(
+    ctx.tx,
+    sql`select to_char(${day}, 'DD-Mon-YYYY') as "date", ${inventoryTransaction.referenceNo} as "roNo", ${inventoryTransaction.invoiceNo} as "invoiceNo",
+               ${part.partNo} as "partNo", ${part.description} as "partName", ${qty}::text as "quantity",
+               ${price}::text as "unitPrice", round(${qty} * ${price}, 2)::text as "totalPrice",
+               ${inventoryTransaction.remarks} as "remarks", ${inventoryTransaction.unitCost}::text as "unitCost",
+               round(${qty} * ${inventoryTransaction.unitCost}, 2)::text as "totalCost",
+               ${inventoryTransaction.notes} as "vehicle", ${branchTable.name} as "store", ${user.fullName} as "issuedBy"
+          from ${inventoryTransaction}
+          inner join ${part} on ${part.id} = ${inventoryTransaction.partId}
+          inner join ${branchTable} on ${branchTable.id} = ${inventoryTransaction.branchId}
+          left join ${user} on ${user.id} = ${inventoryTransaction.actorId}
+         where ${and(...conds)!}
+         order by ${inventoryTransaction.occurredAt} asc, ${inventoryTransaction.id} asc
+         limit 20000`,
+  );
 }
 
 /** Distinct categories of a brand's parts, for the filter lists. */

@@ -13,7 +13,10 @@ export interface NavItem {
 }
 
 export interface NavSection {
+  /** The key (also picks the icon). */
   title: string;
+  /** What the menu shows, when different from the key ("After sales" for Service). */
+  label?: string;
   module?: ModuleKey;
   items: NavItem[];
 }
@@ -60,6 +63,7 @@ const ALL_SECTIONS: NavSection[] = [
   },
   {
     title: 'Service',
+    label: 'After sales',
     module: 'service',
     items: [
       { label: 'Service visits', to: '/service/visits', any: ['service.visits.view', 'service.visits.view_own'] },
@@ -71,6 +75,7 @@ const ALL_SECTIONS: NavSection[] = [
   },
   {
     title: 'Parts',
+    label: 'Store (parts)',
     module: 'parts',
     items: [
       { label: 'Store stock', to: '/parts/inventory', any: ['parts.stock.view'] },

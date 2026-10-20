@@ -3,7 +3,7 @@ import { Button, Field, Input, PageHeader, Section, Select, Spinner } from '@/sh
 import { downloadCsv, downloadTablePdf, type Column } from '@/features/sales/exports/exporters';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
-import { useGetPartsMonthlyReportQuery, useLazyGetStockSheetQuery } from '../../partsApi';
+import { useGetPartsMonthlyReportQuery, useLazyGetPartsSaleReportQuery, useLazyGetStockSheetQuery } from '../../partsApi';
 import { P } from '../../permissions';
 
 const monthName = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -31,6 +31,24 @@ const STOCK_COLUMNS: Column[] = [
   { header: 'Stock value (price list)', value: (r) => Number(r.saleValue) },
   { header: 'Bin', value: (r) => String(r.binLocation ?? '') },
   { header: 'Reorder level', value: (r) => Number(r.reorderLevel) },
+];
+
+/** The sale report: the same columns as the store's sale report sheet, then the extra details. */
+const SALE_COLUMNS: Column[] = [
+  { header: 'RO No', value: (r) => String(r.roNo ?? '') },
+  { header: 'Invoice No', value: (r) => String(r.invoiceNo ?? '') },
+  { header: 'Part Code', value: (r) => String(r.partNo) },
+  { header: 'Part Name', value: (r) => String(r.partName), w: 2 },
+  { header: 'Issued Qty', value: (r) => Number(r.quantity) },
+  { header: 'Unit Price', value: (r) => Number(r.unitPrice) },
+  { header: 'Total Price', value: (r) => Number(r.totalPrice) },
+  { header: 'Remarks', value: (r) => String(r.remarks ?? '') },
+  { header: 'Unit Cost', value: (r) => Number(r.unitCost) },
+  { header: 'Total Cost', value: (r) => Number(r.totalCost) },
+  { header: 'Date', value: (r) => String(r.date) },
+  { header: 'Vehicle', value: (r) => String(r.vehicle ?? '') },
+  { header: 'Store', value: (r) => String(r.store) },
+  { header: 'Issued by', value: (r) => String(r.issuedBy ?? '') },
 ];
 
 const Stat = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
@@ -62,11 +80,33 @@ export default function PartsReportPage() {
   };
   const { data, isFetching, isError } = useGetPartsMonthlyReportQuery(arg);
   const [loadSheet, { isFetching: loadingSheet }] = useLazyGetStockSheetQuery();
+  const [loadSales, { isFetching: loadingSales }] = useLazyGetPartsSaleReportQuery();
   const label = `${from ? monthName(from) : 'last 6 months'}${to ? ` to ${monthName(to)}` : ''}`;
   const where = dealerships.find((d) => String(d.id) === dealershipId)?.name ?? 'All dealerships';
 
   const monthRows = (data?.months ?? []) as Record<string, unknown>[];
   const downloadMonths = () => downloadCsv(`Store parts in and out - ${stamp()}`, MONTH_COLUMNS, [...monthRows, { month: 'Total', ...data!.totals }].map((r) => ({ ...r, month: r.month })) as never);
+  // The sale report of the chosen months: every part issued, line by line, with a total at the end.
+  const lastDay = (m: string) => new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate();
+  const downloadSales = async (as: 'csv' | 'pdf') => {
+    try {
+      const toM = to || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' }).slice(0, 7);
+      const rows = (await loadSales({
+        dealershipId: arg.dealershipId,
+        branchId: arg.branchId,
+        from: from ? `${from}-01` : undefined,
+        to: `${toM}-${String(lastDay(toM)).padStart(2, '0')}`,
+      }).unwrap()) as unknown as Record<string, unknown>[];
+      if (!rows.length) return toast.error('No parts were issued in this period');
+      const sum = (k: string) => Math.round(rows.reduce((n, r) => n + Number(r[k] ?? 0), 0) * 100) / 100;
+      const total = { roNo: 'TOTAL', quantity: String(sum('quantity')), totalPrice: String(sum('totalPrice')), totalCost: String(sum('totalCost')) };
+      const name = `Store sale report - ${from || 'start'} to ${toM}`;
+      if (as === 'csv') downloadCsv(name, SALE_COLUMNS, [...rows, total]);
+      else await downloadTablePdf(name, 'Store: sale report', `${where} · ${label}`, SALE_COLUMNS.slice(0, 10), [...rows, total], `Total price ${formatMoney(String(total.totalPrice))} · total cost ${formatMoney(String(total.totalCost))}`);
+    } catch (e) {
+      toast.error(e);
+    }
+  };
   const downloadStock = async () => {
     try {
       const rows = (await loadSheet({ dealershipId: arg.dealershipId, branchId: arg.branchId, includeZero: 'false' }).unwrap()) as unknown as Record<string, unknown>[];
@@ -93,6 +133,12 @@ export default function PartsReportPage() {
               onClick={() => downloadTablePdf(`Store parts in and out - ${stamp()}`, 'Store: parts in and out', `${where} · ${label}`, MONTH_COLUMNS, monthRows, 'Revenue is the price charged for the parts issued, less parts taken back. Margin = revenue − cost.')}
             >
               Monthly report (PDF)
+            </Button>
+            <Button variant="secondary" loading={loadingSales} onClick={() => downloadSales('csv')}>
+              Sale report (Excel)
+            </Button>
+            <Button variant="secondary" loading={loadingSales} onClick={() => downloadSales('pdf')}>
+              Sale report (PDF)
             </Button>
             <Button variant="secondary" loading={loadingSheet} onClick={downloadStock}>
               Stock sheet (Excel)

@@ -28,6 +28,7 @@ export default function IssuePartsPage() {
   const [referenceNo, setReferenceNo] = useState('');
   const [vehicleRef, setVehicleRef] = useState('');
   const [notes, setNotes] = useState('');
+  const [invoiceNo, setInvoiceNo] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<DirectIssueResult | null>(null);
@@ -41,7 +42,8 @@ export default function IssuePartsPage() {
 
   const submit = async () => {
     if (!t.dealershipId || !t.branchId) return setError('Choose the store');
-    if (!card && referenceNo.trim().length < 2) return setError(jobCardId === 'other' ? 'Enter the repair order number' : 'Choose the open job card');
+    const counter = jobCardId === 'counter';
+    if (!card && !counter && referenceNo.trim().length < 2) return setError(jobCardId === 'other' ? 'Enter the repair order number' : 'Choose the open job card, or counter sale');
     if (!lines.length) return setError('Add at least one part');
     const bad = lines.findIndex((l) => !(amountNumber(l.quantity) > 0));
     if (bad >= 0) return setError(`${lines[bad]!.partNo}: enter the quantity`);
@@ -53,7 +55,8 @@ export default function IssuePartsPage() {
           branchId: t.branchId,
           kind,
           jobCardId: card?.id,
-          referenceNo: card ? undefined : referenceNo.trim(),
+          referenceNo: card ? undefined : counter ? 'Counter Sale' : referenceNo.trim(),
+          invoiceNo: invoiceNo.trim() || undefined,
           vehicleRef: card ? undefined : vehicleRef.trim() || null,
           notes: notes.trim() || null,
           lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitPrice: l.unitPrice.trim() || undefined })),
@@ -65,6 +68,7 @@ export default function IssuePartsPage() {
       setJobCardId('');
       setVehicleRef('');
       setNotes('');
+      setInvoiceNo('');
       toast.success(out ? `Parts issued to ${r.referenceNo}` : `Parts from ${r.referenceNo} are back in stock`);
     } catch (e) {
       toast.error(e);
@@ -98,6 +102,7 @@ export default function IssuePartsPage() {
                     {[c.jobCardNo, c.registrationNo ?? c.vin, c.modelName, c.customerName].filter(Boolean).join(' · ')}
                   </option>
                 ))}
+                <option value="counter">Counter sale (no repair order)</option>
                 <option value="other">Other: type a repair order (RO) number</option>
               </Select>
             </Field>
@@ -119,7 +124,10 @@ export default function IssuePartsPage() {
                 </Field>
               </>
             )}
-            <Field label="Notes" htmlFor="ip-notes" className="sm:col-span-2">
+            <Field label="Invoice no." htmlFor="ip-inv" hint="The customer invoice the parts are billed on">
+              <Input id="ip-inv" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
+            </Field>
+            <Field label="Remarks" htmlFor="ip-notes" className="sm:col-span-2" hint="e.g. Campaign, 3% discount on this RO">
               <Textarea id="ip-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </Field>
           </div>

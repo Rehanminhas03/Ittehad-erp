@@ -180,6 +180,9 @@ export const DirectIssueBody = z
     jobCardId: Id.optional(),
     referenceNo: z.string().trim().max(40).optional(),
     vehicleRef: optionalText(60),
+    /** The customer invoice the parts are billed on. */
+    invoiceNo: optionalText(40),
+    /** Remarks, e.g. "3% discount on this RO", "Campaign". */
     notes: optionalText(500),
     lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitPrice: Money.optional() })).min(1).max(100),
   })
@@ -308,6 +311,32 @@ export const InventoryRowSchema = z
 export const InventoryPageSchema = z
   .object({ items: z.array(InventoryRowSchema), total: z.number().int(), page: z.number().int(), pageSize: z.number().int(), stockValue: z.string(), partsInStock: z.number().int() })
   .openapi('InventoryPage');
+
+/** The sale report: every part issued (and taken back) in a period, one line each, like the store's sale report sheet. */
+export const SaleReportQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+export const SaleReportRowSchema = z
+  .object({
+    date: z.string(),
+    roNo: z.string().nullable(),
+    invoiceNo: z.string().nullable(),
+    partNo: z.string(),
+    partName: z.string(),
+    quantity: z.string(),
+    unitPrice: z.string(),
+    totalPrice: z.string(),
+    remarks: z.string().nullable(),
+    unitCost: z.string(),
+    totalCost: z.string(),
+    vehicle: z.string().nullable(),
+    store: z.string(),
+    issuedBy: z.string().nullable(),
+  })
+  .openapi('SaleReportRow');
 
 /** The price list pasted from Excel: new parts are added, known ones get the new description / price. */
 export const PartImportBody = z

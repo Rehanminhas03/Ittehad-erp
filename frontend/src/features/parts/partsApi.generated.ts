@@ -182,6 +182,21 @@ const injectedRtkApi = api
         }),
         providesTags: ["Store"],
       }),
+      getPartsSaleReport: build.query<
+        GetPartsSaleReportApiResponse,
+        GetPartsSaleReportApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/sale-report`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            branchId: queryArg.branchId,
+            from: queryArg["from"],
+            to: queryArg.to,
+          },
+        }),
+        providesTags: ["Store"],
+      }),
       getStockSheet: build.query<GetStockSheetApiResponse, GetStockSheetApiArg>(
         {
           query: (queryArg) => ({
@@ -971,6 +986,14 @@ export type GetPartsMonthlyReportApiArg = {
   from?: string;
   to?: string;
 };
+export type GetPartsSaleReportApiResponse =
+  /** status 200 Success */ SaleReportRow[];
+export type GetPartsSaleReportApiArg = {
+  dealershipId?: number;
+  branchId?: number;
+  from?: string;
+  to?: string;
+};
 export type GetStockSheetApiResponse =
   /** status 200 Success */ StockSheetRow[];
 export type GetStockSheetApiArg = {
@@ -1433,6 +1456,7 @@ export type DirectIssueRequest = {
   jobCardId?: number;
   referenceNo?: string;
   vehicleRef?: string | null;
+  invoiceNo?: string | null;
   notes?: string | null;
   lines: {
     partNo: string;
@@ -1561,6 +1585,22 @@ export type PartsMonthlyReport = {
     netSales: string;
     margin: string;
   };
+};
+export type SaleReportRow = {
+  date: string;
+  roNo: string | null;
+  invoiceNo: string | null;
+  partNo: string;
+  partName: string;
+  quantity: string;
+  unitPrice: string;
+  totalPrice: string;
+  remarks: string | null;
+  unitCost: string;
+  totalCost: string;
+  vehicle: string | null;
+  store: string;
+  issuedBy: string | null;
 };
 export type StockSheetRow = {
   branchName: string;
@@ -2001,6 +2041,8 @@ export const {
   useLazyListPartCategoriesQuery,
   useGetPartsMonthlyReportQuery,
   useLazyGetPartsMonthlyReportQuery,
+  useGetPartsSaleReportQuery,
+  useLazyGetPartsSaleReportQuery,
   useGetStockSheetQuery,
   useLazyGetStockSheetQuery,
   useListStockMovementsQuery,

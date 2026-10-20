@@ -936,6 +936,9 @@ model InventoryTransaction {
   unitCost         Decimal    @map("unit_cost") @db.Decimal(14, 2)
   /// What the part was sold / charged for (issues and returns): the revenue side of the monthly store report.
   unitPrice        Decimal?   @map("unit_price") @db.Decimal(14, 2)
+  /// The customer invoice the parts were billed on (the sale report), and remarks like "3% discount on this RO".
+  invoiceNo        String?    @map("invoice_no")
+  remarks          String?
   value            Decimal    @db.Decimal(14, 2)
   balanceAfter     Decimal    @map("balance_after") @db.Decimal(12, 2)
   averageCostAfter Decimal    @map("average_cost_after") @db.Decimal(14, 2)

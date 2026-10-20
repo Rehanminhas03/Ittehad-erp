@@ -10773,6 +10773,11 @@
             "nullable": true,
             "maxLength": 60
           },
+          "invoiceNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
           "notes": {
             "type": "string",
             "nullable": true,
@@ -11371,6 +11376,74 @@
           "months",
           "categories",
           "totals"
+        ]
+      },
+      "SaleReportRow": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "roNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "partNo": {
+            "type": "string"
+          },
+          "partName": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "string"
+          },
+          "totalPrice": {
+            "type": "string"
+          },
+          "remarks": {
+            "type": "string",
+            "nullable": true
+          },
+          "unitCost": {
+            "type": "string"
+          },
+          "totalCost": {
+            "type": "string"
+          },
+          "vehicle": {
+            "type": "string",
+            "nullable": true
+          },
+          "store": {
+            "type": "string"
+          },
+          "issuedBy": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "date",
+          "roNo",
+          "invoiceNo",
+          "partNo",
+          "partName",
+          "quantity",
+          "unitPrice",
+          "totalPrice",
+          "remarks",
+          "unitCost",
+          "totalCost",
+          "vehicle",
+          "store",
+          "issuedBy"
         ]
       },
       "StockSheetRow": {
@@ -39443,6 +39516,106 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PartsMonthlyReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/store/sale-report": {
+      "get": {
+        "operationId": "getPartsSaleReport",
+        "summary": "Every part issued (or taken back) in a period: RO / job card, invoice, part, quantity, price, remarks, cost",
+        "description": "Requires: parts.stock.view",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SaleReportRow"
+                  }
                 }
               }
             }
