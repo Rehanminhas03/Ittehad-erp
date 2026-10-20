@@ -29,6 +29,7 @@ const VEHICLE_MODELS: { brand: string; name: string; bodyType: string }[] = [
 
 const USERS: { email: string; fullName: string; password: string; roles: { role: string; dealership: string | null }[] }[] = [
   { email: 'admin@dms.local', fullName: 'System Administrator', password: 'Admin@12345', roles: [{ role: 'System Admin', dealership: null }] },
+  { email: 'ceo@dms.local', fullName: 'CEO', password: 'Demo@12345', roles: [{ role: 'CEO', dealership: null }] },
   { email: 'management@dms.local', fullName: 'Group Management', password: 'Demo@12345', roles: [{ role: 'Management', dealership: null }] },
   { email: 'manager.hyundai@dms.local', fullName: 'Hyundai Islamabad Manager', password: 'Demo@12345', roles: [{ role: 'Dealership Manager', dealership: 'HYD-ISB' }] },
   { email: 'manager.jetour@dms.local', fullName: 'Jetour Ittehad Manager', password: 'Demo@12345', roles: [{ role: 'Dealership Manager', dealership: 'JET-ITH' }] },
@@ -78,7 +79,7 @@ for (const [code, label] of [['HYD-ISB', 'Hyundai'], ['JET-ITH', 'Jetour'], ['CS
   const slug = label.toLowerCase();
   USERS.push(
     { email: `store.${slug}@dms.local`, fullName: `${label} Storekeeper`, password: 'Demo@12345', roles: [{ role: 'Storekeeper', dealership: code }] },
-    { email: `storemanager.${slug}@dms.local`, fullName: `${label} Store Manager`, password: 'Demo@12345', roles: [{ role: 'Parts Manager', dealership: code }] },
+    { email: `storemanager.${slug}@dms.local`, fullName: `${label} Store Manager`, password: 'Demo@12345', roles: [{ role: 'Store Manager', dealership: code }] },
     { email: `accounts.${slug}@dms.local`, fullName: `${label} Accountant`, password: 'Demo@12345', roles: [{ role: 'Accountant', dealership: code }] },
   );
 }

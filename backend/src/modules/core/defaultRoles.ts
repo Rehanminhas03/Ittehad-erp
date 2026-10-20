@@ -30,6 +30,11 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     patterns: ['*.view', '*.view_all', 'reports.*', 'core.activity.*'],
   },
   {
+    name: 'CEO',
+    description: 'The administrator portal: sees everything across all dealerships, read-only: sales (leads, social media leads, quotations, orders, deliveries, stock), after-sales, the store (stock, receipts, price list, reports), dashboards and the activity log. Assign globally.',
+    patterns: ['*.view', '*.view_*', 'reports.*', 'core.activity.*'],
+  },
+  {
     name: 'Dealership Manager',
     description: 'Runs one dealership: all operational rights and approvals within it.',
     patterns: [
@@ -143,13 +148,13 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     ],
   },
   {
-    name: 'Parts Manager',
-    description: 'Suppliers, purchasing, receiving and stock control.',
+    name: 'Store Manager',
+    description: 'Runs the store: adds parts, changes part numbers and prices, receives and issues parts, approves stock adjustments, sees the store report. Assigned per dealership.',
     patterns: ['core.dealerships.view', 'core.branches.view', 'parts.*', 'reports.parts.*'],
   },
   {
     name: 'Storekeeper',
-    description: 'Parts desk: receives goods, issues parts to job cards, transfers stock.',
+    description: 'The store desk: receives parts from head office, issues them to job cards / repair orders, takes unused parts back, looks up prices.',
     patterns: [
       'core.dealerships.view', 'core.branches.view',
       'parts.catalog.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.receipts.*', 'parts.stock.view',
