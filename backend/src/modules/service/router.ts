@@ -22,6 +22,8 @@ import {
   JobCardLineSchema,
   JobCardSchema,
   VehicleScheduleEntrySchema,
+  RegisterVehicleBody,
+  RegisterVehicleResultSchema,
   VisitPreviewSchema,
 } from './schemas';
 import * as svc from './service';
@@ -53,7 +55,19 @@ const visitActions = new ApiRouter('/service/visits', 'Visit')
     handler: (ctx) => svc.openJobCard(ctx, ctx.params.id),
   });
 
-const scheduleRouter = new ApiRouter('/service/vehicles', 'VehicleSchedule').route({
+const scheduleRouter = new ApiRouter('/service/vehicles', 'VehicleSchedule')
+  .route({
+    method: 'post',
+    path: '/register',
+    operationId: 'registerVehicleAtCheckIn',
+    summary: 'Register a car bought elsewhere (and its owner) at check-in, so a visit can be opened',
+    permission: P.visitsCreate,
+    body: RegisterVehicleBody,
+    response: RegisterVehicleResultSchema,
+    status: 201,
+    handler: (ctx) => svc.registerVehicleAtCheckIn(ctx, ctx.body),
+  })
+  .route({
   method: 'get',
   path: '/:id/schedule',
   operationId: 'getVehicleServiceSchedule',

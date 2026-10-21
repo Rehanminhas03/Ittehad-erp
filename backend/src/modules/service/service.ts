@@ -10,7 +10,11 @@ import { DocType, nextDocumentNumber } from '../core/documents';
 import { vehicle } from '../master/models';
 import { vehicleVisibility } from '../master/repository';
 import { MasterPerm } from '../master/permissions';
-import { vehicles } from '../master/service';
+import { vehicles, link, setOwner } from '../master/service';
+import { assertActiveModel } from '../master/entities';
+import { findDuplicateCustomer, findVehicleByIdentifiers, isLinked, modelNames } from '../master/repository';
+import { normalizeCnic, normalizeIdentifier, normalizeMobile } from '../master/normalize';
+import { pakistanToday } from '../../lib/dates';
 import { previewCheckIn } from './checkin';
 import { estimates, jobCards, visits } from './entities';
 import { estimate, estimateLine, inspection, jobCardLine } from './models';
@@ -24,6 +28,7 @@ import {
   JobCardLineUpdate,
   type EstimateCreate,
   type InspectionItemsUpdate,
+  type RegisterVehicleBody,
 } from './schemas';
 
 // =============================================================================
@@ -44,6 +49,94 @@ export async function vehicleServiceSchedule(ctx: EntityCtx, vehicleId: number) 
   );
   if (!visible.length) throw notFound('Vehicle');
   return ctx.tx.vehicleSchedule.findMany({ where: { vehicleId }, orderBy: { sequence: 'asc' }, take: 100 });
+}
+
+/**
+ * A car that is not in the system (bought elsewhere) comes for service: record its owner and the car so the
+ * visit can be checked in. A car already known to the group is just added to this dealership, and a customer
+ * with the same mobile or CNIC is reused. Free scheduled services do not apply (no delivery by us).
+ */
+export async function registerVehicleAtCheckIn(ctx: EntityCtx, input: z.output<typeof RegisterVehicleBody>) {
+  const { dealershipId } = input;
+  if (!ctx.access.canIn(P.visitsCreate, { dealershipId })) throw forbidden();
+  await assertActiveModel(ctx, input.vehicle.modelId);
+
+  const mobile = normalizeMobile(input.customer.mobile);
+  if (!mobile) throw validationError([{ in: 'body', path: 'customer.mobile', message: 'Enter a valid mobile number, e.g. 03001234567' }]);
+  const cnic = input.customer.cnic ? normalizeCnic(input.customer.cnic) : null;
+  if (input.customer.cnic && !cnic) throw validationError([{ in: 'body', path: 'customer.cnic', message: 'CNIC must be 13 digits, e.g. 35202-1234567-1' }]);
+
+  // The car: known to the group already (e.g. delivered by another of our dealerships)? Then add it here.
+  const vin = normalizeIdentifier(input.vehicle.vin);
+  const engineNo = input.vehicle.engineNo ? normalizeIdentifier(input.vehicle.engineNo) : null;
+  const registrationNo = input.vehicle.registrationNo ? normalizeIdentifier(input.vehicle.registrationNo) : null;
+  const [known] = await findVehicleByIdentifiers(ctx.tx, { vin, engineNo, registrationNo });
+
+  // The customer: the same mobile / CNIC at this dealership is the same person.
+  const dup = await findDuplicateCustomer(ctx.tx, dealershipId, mobile, cnic);
+  const customerRow =
+    dup ??
+    (await ctx.tx.customer.create({
+      data: {
+        dealershipId,
+        kind: 'individual',
+        fullName: input.customer.fullName,
+        mobile: (input.customer.mobile.trim().startsWith('+') ? '+' : '') + input.customer.mobile.replace(/\D/g, ''),
+        mobileNormalized: mobile,
+        cnic,
+        address: input.customer.address ?? null,
+        city: input.customer.city ?? null,
+        createdById: ctx.access.userId,
+        updatedById: ctx.access.userId,
+      },
+      select: { id: true, fullName: true },
+    }));
+  if (!dup) await ctx.audit({ entityType: 'master.customer', entityId: customerRow.id, action: 'create', dealershipId, changes: { fullName: input.customer.fullName, via: 'service check-in' } });
+
+  let vehicleId: number;
+  let already = false;
+  if (known) {
+    vehicleId = known.id;
+    already = true;
+    if (!(await isLinked(ctx.tx, vehicleId, dealershipId))) await link(ctx, vehicleId, dealershipId, 'service');
+  } else {
+    const created = await ctx.tx.vehicle.create({
+      data: {
+        vin,
+        engineNo,
+        registrationNo,
+        modelId: input.vehicle.modelId,
+        variant: input.vehicle.variant ?? null,
+        color: input.vehicle.color ?? null,
+        modelYear: input.vehicle.modelYear ?? null,
+        // Bought elsewhere: with its customer, not in our stock (so it never shows in Open stock).
+        status: 'delivered',
+        notes: `Bought elsewhere${input.boughtFrom ? `: ${input.boughtFrom}` : ''}. Registered at service check-in.`,
+        warrantyEndsOn: input.warrantyEndsOn ?? null,
+        lastOdometerKm: input.odometerKm ?? null,
+        createdById: ctx.access.userId,
+        updatedById: ctx.access.userId,
+      },
+      select: { id: true },
+    });
+    vehicleId = created.id;
+    await link(ctx, vehicleId, dealershipId, 'service');
+    await ctx.audit({ entityType: 'master.vehicle', entityId: vehicleId, action: 'create', dealershipId, changes: { vin, registrationNo, boughtFrom: input.boughtFrom ?? null, via: 'service check-in' } });
+  }
+
+  // The customer is the owner here (unless they already are).
+  const open = await ctx.tx.vehicleOwnership.findFirst({ where: { vehicleId, dealershipId, endDate: null }, select: { customerId: true } });
+  if (open?.customerId !== customerRow.id) await setOwner(ctx, vehicleId, customerRow.id, dealershipId, pakistanToday());
+
+  const v = await ctx.tx.vehicle.findFirst({ where: { id: vehicleId } });
+  const model = (await modelNames(ctx.tx, [v!.modelId])).get(v!.modelId);
+  return {
+    vehicleId,
+    customerId: customerRow.id,
+    customerName: customerRow.fullName,
+    vehicleLabel: [v!.registrationNo ?? 'Unregistered', model, v!.vin].filter(Boolean).join(' · '),
+    alreadyInSystem: already,
+  };
 }
 
 /** Subscriber: when Sales activates a vehicle, build its schedule from the model's configuration. */

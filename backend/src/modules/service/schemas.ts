@@ -125,8 +125,49 @@ export const VisitPreviewSchema = z
     lastOdometerKm: z.number().int().nullable(),
     currentOwner: z.object({ customerId: Id, fullName: z.string() }).nullable(),
     openVisitId: Id.nullable(),
+    /** The car: its identity, and where it came from (delivered by us, or bought elsewhere). */
+    vehicle: z.object({ registrationNo: z.string().nullable(), vin: z.string().nullable(), modelName: z.string().nullable(), variant: z.string().nullable(), color: z.string().nullable(), modelYear: z.number().int().nullable() }),
+    delivered: z.object({ on: z.string(), odometerKm: z.number().int().nullable(), soldBy: z.string().nullable(), warrantyEndsOn: z.string().nullable() }).nullable(),
+    boughtElsewhere: z.boolean(),
+    warrantyEndsOn: z.string().nullable(),
+    /** Earlier visits of this car at the dealerships the caller sees, newest first. */
+    previousVisits: z.array(z.object({ id: Id, visitNo: z.string(), arrivedAt: Timestamp, odometerKm: z.number().int(), serviceNumber: z.number().int().nullable(), visitType: z.string(), freeService: z.boolean(), status: z.string(), complaints: z.string().nullable() })),
   })
   .openapi('VisitPreview');
+
+/**
+ * A car that came for service but is not in the system (bought from another dealership): its owner and the car
+ * are recorded at check-in, so the visit and its job card can start.
+ */
+export const RegisterVehicleBody = z
+  .object({
+    dealershipId: Id,
+    customer: z.object({
+      fullName: z.string().trim().min(2).max(120),
+      mobile: z.string().trim().min(10).max(20),
+      cnic: z.string().trim().max(20).nullish(),
+      address: optionalText(300),
+      city: optionalText(80),
+    }),
+    vehicle: z.object({
+      vin: z.string().trim().min(5).max(40),
+      engineNo: z.string().trim().max(40).nullish(),
+      registrationNo: z.string().trim().max(40).nullish(),
+      modelId: Id,
+      variant: optionalText(80),
+      color: optionalText(40),
+      modelYear: z.number().int().min(1950).max(2100).nullish(),
+    }),
+    /** Where it was bought (another dealership / showroom). */
+    boughtFrom: optionalText(120),
+    /** When its warranty ends, if known (free services and warranty visits depend on it). */
+    warrantyEndsOn: z.iso.date().nullish(),
+    odometerKm: z.number().int().min(0).max(2_000_000).nullish(),
+  })
+  .openapi('RegisterVehicleRequest');
+export const RegisterVehicleResultSchema = z
+  .object({ vehicleId: Id, customerId: Id, customerName: z.string(), vehicleLabel: z.string(), alreadyInSystem: z.boolean() })
+  .openapi('RegisterVehicleResult');
 
 // ---- Job cards -------------------------------------------------------------------------
 export const JobCardSchema = z.object({

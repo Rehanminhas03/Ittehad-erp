@@ -723,7 +723,8 @@ export const stockVehicleEntity: EntityConfig = {
   permissions: { view: P.stockView, update: P.stockManage },
   tenant: null,
   linkedScope: {
-    view: (access, codes) => and(isNull(vehicle.activatedOn), vehicleVisibility(access, codes))!,
+    // Not delivered yet, and not a car bought elsewhere that came for service (those are "delivered", with their customer).
+    view: (access, codes) => and(isNull(vehicle.activatedOn), sql`${vehicle.status} <> 'delivered'`, vehicleVisibility(access, codes))!,
     writeDealership: async (ctx, row, permission) => {
       const links = await ctx.tx.vehicleDealership.findMany({ where: { vehicleId: row.id }, select: { dealershipId: true }, orderBy: { id: 'asc' } });
       return links.find((l) => ctx.access.canIn(permission, { dealershipId: l.dealershipId }))?.dealershipId ?? null;

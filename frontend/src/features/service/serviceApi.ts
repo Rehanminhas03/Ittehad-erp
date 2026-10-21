@@ -9,6 +9,7 @@ export const serviceApi = enhancedApi
   .enhanceEndpoints({ addTagTypes: ['Vehicle', 'Search'] })
   .enhanceEndpoints({
     endpoints: {
+      registerVehicleAtCheckIn: { invalidatesTags: ['Vehicle', 'Search'] },
       createVisit: { invalidatesTags: ['Visit', 'Vehicle', 'VehicleSchedule'] },
       transitionVisit: { invalidatesTags: ['Visit', 'JobCard', 'Vehicle', 'VehicleSchedule'] },
       openJobCard: { invalidatesTags: ['JobCard', 'Visit'] },

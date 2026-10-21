@@ -1,10 +1,14 @@
 import { Link } from 'react-router';
 import { Badge, Spinner } from '@/shared/components/ui';
-import { formatDate, formatNumber } from '@/shared/lib';
-import { ordinal } from '../../permissions';
+import { formatDate, formatDateTime, formatNumber } from '@/shared/lib';
+import { ordinal, visitTypeLabel } from '../../permissions';
 import { usePreviewCheckInQuery } from '../../serviceApi';
 
-/** What check-in will compute for the chosen vehicle, shown before the visit is created. */
+/**
+ * What check-in will compute for the chosen vehicle, shown before the visit is created: where the car came from
+ * (delivered by us with its date, or bought elsewhere), its warranty, the next free service, and every earlier
+ * service of the car with the kilometres.
+ */
 export function CheckInSummary({ vehicleId, dealershipId }: { vehicleId: number | null; dealershipId: number | null }) {
   const { data, isFetching } = usePreviewCheckInQuery({ vehicleId: vehicleId!, dealershipId: dealershipId! }, { skip: !vehicleId || !dealershipId });
   if (!vehicleId || !dealershipId) return null;
@@ -20,36 +24,101 @@ export function CheckInSummary({ vehicleId, dealershipId }: { vehicleId: number 
     );
   }
   const next = data.nextScheduled;
+  const v = data.vehicle;
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+    <div className="space-y-3 rounded-xl bg-slate-50/80 p-3 ring-1 ring-slate-200">
+      <p className="text-sm">
+        <span className="font-semibold text-slate-900">{[v.modelName, v.variant, v.color, v.modelYear].filter(Boolean).join(' · ')}</span>
+        <span className="ml-2 text-slate-600">
+          {v.registrationNo ?? 'Unregistered'} · <span className="font-mono text-xs">{v.vin}</span>
+        </span>
+      </p>
+      <p className="text-sm">
+        {data.delivered ? (
+          <>
+            <Badge tone="green" dot>Delivered by us</Badge>{' '}
+            <span className="text-slate-700">
+              on {formatDate(data.delivered.on)}
+              {data.delivered.soldBy ? ` by ${data.delivered.soldBy}` : ''}
+              {data.delivered.odometerKm != null ? ` at ${formatNumber(data.delivered.odometerKm)} km` : ''}
+            </span>
+          </>
+        ) : (
+          <>
+            <Badge tone="amber" dot>Bought elsewhere</Badge> <span className="text-slate-700">registered at service check-in</span>
+          </>
+        )}
+      </p>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+        <div>
+          <dt className="text-xs text-slate-500">Visit</dt>
+          <dd>{ordinal(data.visitSequence)} visit</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-slate-500">Next scheduled service</dt>
+          <dd>
+            {next ? (
+              <>
+                {ordinal(next.sequence)} at {formatNumber(next.dueKm)} km / {formatDate(next.dueDate)}{' '}
+                {data.freeServiceIfScheduled ? <Badge tone="green">Free</Badge> : next.isFree ? <Badge tone="amber">Free period passed</Badge> : null}
+              </>
+            ) : (
+              'None pending'
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-slate-500">Warranty</dt>
+          <dd>
+            {data.warrantyValid ? <Badge tone="green">Valid</Badge> : <Badge>Not covered</Badge>}
+            {data.warrantyEndsOn && <span className="ml-1 text-xs text-slate-500">until {formatDate(data.warrantyEndsOn)}</span>}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-slate-500">Owner / last km</dt>
+          <dd>
+            {data.currentOwner?.fullName ?? 'Choose the customer below'}
+            {data.lastOdometerKm != null && <span className="text-slate-500"> · {formatNumber(data.lastOdometerKm)} km</span>}
+          </dd>
+        </div>
+      </dl>
       <div>
-        <dt className="text-xs text-slate-500">Visit</dt>
-        <dd>{ordinal(data.visitSequence)} visit</dd>
+        <p className="mb-1 text-xs font-medium tracking-wide text-slate-500 uppercase">Earlier services of this car</p>
+        {data.previousVisits.length === 0 ? (
+          <p className="text-sm text-slate-500">No earlier visit on record.</p>
+        ) : (
+          <div className="max-h-48 overflow-auto rounded-lg bg-white ring-1 ring-slate-200">
+            <table className="min-w-full text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-left text-slate-500">
+                <tr>
+                  <th className="px-2 py-1.5 font-medium">Visit</th>
+                  <th className="px-2 py-1.5 font-medium">Date</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Odometer</th>
+                  <th className="px-2 py-1.5 font-medium">Service</th>
+                  <th className="px-2 py-1.5 font-medium">Complaints</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.previousVisits.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-2 py-1.5">
+                      <Link to={`/service/visits/${p.id}`} className="font-mono text-brand-700 hover:underline">
+                        {p.visitNo}
+                      </Link>
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap">{formatDateTime(p.arrivedAt)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{formatNumber(p.odometerKm)} km</td>
+                    <td className="px-2 py-1.5">
+                      {p.serviceNumber ? `${ordinal(p.serviceNumber)} service` : visitTypeLabel(p.visitType)} {p.freeService && <Badge tone="green">Free</Badge>}
+                    </td>
+                    <td className="px-2 py-1.5 text-slate-600">{p.complaints}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-      <div>
-        <dt className="text-xs text-slate-500">Next scheduled service</dt>
-        <dd>
-          {next ? (
-            <>
-              {ordinal(next.sequence)} at {formatNumber(next.dueKm)} km / {formatDate(next.dueDate)}{' '}
-              {data.freeServiceIfScheduled ? <Badge tone="green">Free</Badge> : next.isFree ? <Badge tone="amber">Free period passed</Badge> : null}
-            </>
-          ) : (
-            'None pending'
-          )}
-        </dd>
-      </div>
-      <div>
-        <dt className="text-xs text-slate-500">Warranty</dt>
-        <dd>{data.warrantyValid ? <Badge tone="green">Valid</Badge> : <Badge>Not covered</Badge>}</dd>
-      </div>
-      <div>
-        <dt className="text-xs text-slate-500">Owner / last km</dt>
-        <dd>
-          {data.currentOwner?.fullName ?? 'Choose the customer below'}
-          {data.lastOdometerKm != null && <span className="text-slate-500"> · {formatNumber(data.lastOdometerKm)} km</span>}
-        </dd>
-      </div>
-    </dl>
+    </div>
   );
 }

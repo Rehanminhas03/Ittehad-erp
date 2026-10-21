@@ -13632,6 +13632,128 @@
             "nullable": true,
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "vehicle": {
+            "type": "object",
+            "properties": {
+              "registrationNo": {
+                "type": "string",
+                "nullable": true
+              },
+              "vin": {
+                "type": "string",
+                "nullable": true
+              },
+              "modelName": {
+                "type": "string",
+                "nullable": true
+              },
+              "variant": {
+                "type": "string",
+                "nullable": true
+              },
+              "color": {
+                "type": "string",
+                "nullable": true
+              },
+              "modelYear": {
+                "type": "integer",
+                "nullable": true
+              }
+            },
+            "required": [
+              "registrationNo",
+              "vin",
+              "modelName",
+              "variant",
+              "color",
+              "modelYear"
+            ]
+          },
+          "delivered": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "on": {
+                "type": "string"
+              },
+              "odometerKm": {
+                "type": "integer",
+                "nullable": true
+              },
+              "soldBy": {
+                "type": "string",
+                "nullable": true
+              },
+              "warrantyEndsOn": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "on",
+              "odometerKm",
+              "soldBy",
+              "warrantyEndsOn"
+            ]
+          },
+          "boughtElsewhere": {
+            "type": "boolean"
+          },
+          "warrantyEndsOn": {
+            "type": "string",
+            "nullable": true
+          },
+          "previousVisits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "visitNo": {
+                  "type": "string"
+                },
+                "arrivedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "odometerKm": {
+                  "type": "integer"
+                },
+                "serviceNumber": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "visitType": {
+                  "type": "string"
+                },
+                "freeService": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "complaints": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "id",
+                "visitNo",
+                "arrivedAt",
+                "odometerKm",
+                "serviceNumber",
+                "visitType",
+                "freeService",
+                "status",
+                "complaints"
+              ]
+            }
           }
         },
         "required": [
@@ -13641,7 +13763,153 @@
           "freeServiceIfScheduled",
           "lastOdometerKm",
           "currentOwner",
-          "openVisitId"
+          "openVisitId",
+          "vehicle",
+          "delivered",
+          "boughtElsewhere",
+          "warrantyEndsOn",
+          "previousVisits"
+        ]
+      },
+      "RegisterVehicleResult": {
+        "type": "object",
+        "properties": {
+          "vehicleId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "customerId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "vehicleLabel": {
+            "type": "string"
+          },
+          "alreadyInSystem": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vehicleId",
+          "customerId",
+          "customerName",
+          "vehicleLabel",
+          "alreadyInSystem"
+        ]
+      },
+      "RegisterVehicleRequest": {
+        "type": "object",
+        "properties": {
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "fullName": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "mobile": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 20
+              },
+              "cnic": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 20
+              },
+              "address": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 300
+              },
+              "city": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 80
+              }
+            },
+            "required": [
+              "fullName",
+              "mobile"
+            ]
+          },
+          "vehicle": {
+            "type": "object",
+            "properties": {
+              "vin": {
+                "type": "string",
+                "minLength": 5,
+                "maxLength": 40
+              },
+              "engineNo": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 40
+              },
+              "registrationNo": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 40
+              },
+              "modelId": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "variant": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 80
+              },
+              "color": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 40
+              },
+              "modelYear": {
+                "type": "integer",
+                "nullable": true,
+                "minimum": 1950,
+                "maximum": 2100
+              }
+            },
+            "required": [
+              "vin",
+              "modelId"
+            ]
+          },
+          "boughtFrom": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "warrantyEndsOn": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "odometerKm": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 2000000
+          }
+        },
+        "required": [
+          "dealershipId",
+          "customer",
+          "vehicle"
         ]
       },
       "VehicleScheduleEntry": {
@@ -45316,6 +45584,72 @@
                     "updatedAt",
                     "availableActions"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/vehicles/register": {
+      "post": {
+        "operationId": "registerVehicleAtCheckIn",
+        "summary": "Register a car bought elsewhere (and its owner) at check-in, so a visit can be opened",
+        "description": "Requires: service.visits.create",
+        "tags": [
+          "VehicleSchedule"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterVehicleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterVehicleResult"
                 }
               }
             }

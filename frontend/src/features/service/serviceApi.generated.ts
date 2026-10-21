@@ -33,6 +33,17 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Visit"],
       }),
+      registerVehicleAtCheckIn: build.mutation<
+        RegisterVehicleAtCheckInApiResponse,
+        RegisterVehicleAtCheckInApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/vehicles/register`,
+          method: "POST",
+          body: queryArg.registerVehicleRequest,
+        }),
+        invalidatesTags: ["VehicleSchedule"],
+      }),
       getVehicleServiceSchedule: build.query<
         GetVehicleServiceScheduleApiResponse,
         GetVehicleServiceScheduleApiArg
@@ -542,6 +553,11 @@ export type OpenJobCardApiResponse = /** status 201 Success */ {
 export type OpenJobCardApiArg = {
   id: number;
 };
+export type RegisterVehicleAtCheckInApiResponse =
+  /** status 201 Success */ RegisterVehicleResult;
+export type RegisterVehicleAtCheckInApiArg = {
+  registerVehicleRequest: RegisterVehicleRequest;
+};
 export type GetVehicleServiceScheduleApiResponse =
   /** status 200 Success */ VehicleScheduleEntry[];
 export type GetVehicleServiceScheduleApiArg = {
@@ -877,6 +893,33 @@ export type VisitPreview = {
     fullName: string;
   } | null;
   openVisitId: number | null;
+  vehicle: {
+    registrationNo: string | null;
+    vin: string | null;
+    modelName: string | null;
+    variant: string | null;
+    color: string | null;
+    modelYear: number | null;
+  };
+  delivered: {
+    on: string;
+    odometerKm: number | null;
+    soldBy: string | null;
+    warrantyEndsOn: string | null;
+  } | null;
+  boughtElsewhere: boolean;
+  warrantyEndsOn: string | null;
+  previousVisits: {
+    id: number;
+    visitNo: string;
+    arrivedAt: string;
+    odometerKm: number;
+    serviceNumber: number | null;
+    visitType: string;
+    freeService: boolean;
+    status: string;
+    complaints: string | null;
+  }[];
 };
 export type ApiError = {
   error: {
@@ -884,6 +927,35 @@ export type ApiError = {
     message: string;
     details?: any | null;
   };
+};
+export type RegisterVehicleResult = {
+  vehicleId: number;
+  customerId: number;
+  customerName: string;
+  vehicleLabel: string;
+  alreadyInSystem: boolean;
+};
+export type RegisterVehicleRequest = {
+  dealershipId: number;
+  customer: {
+    fullName: string;
+    mobile: string;
+    cnic?: string | null;
+    address?: string | null;
+    city?: string | null;
+  };
+  vehicle: {
+    vin: string;
+    engineNo?: string | null;
+    registrationNo?: string | null;
+    modelId: number;
+    variant?: string | null;
+    color?: string | null;
+    modelYear?: number | null;
+  };
+  boughtFrom?: string | null;
+  warrantyEndsOn?: string | null;
+  odometerKm?: number | null;
 };
 export type VehicleScheduleEntry = {
   id: number;
@@ -1215,6 +1287,7 @@ export const {
   usePreviewCheckInQuery,
   useLazyPreviewCheckInQuery,
   useOpenJobCardMutation,
+  useRegisterVehicleAtCheckInMutation,
   useGetVehicleServiceScheduleQuery,
   useLazyGetVehicleServiceScheduleQuery,
   useListJobCardTechniciansQuery,

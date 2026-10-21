@@ -4,6 +4,7 @@ import { POLICIES } from '../../config/policies';
 import type { EntityCtx } from '../../entity/types';
 import { validationError } from '../../lib/errors';
 import { customer, vehicle, vehicleOwnership } from '../master/models';
+import { modelNames } from '../master/repository';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const addDays = (d: string, days: number) => {
@@ -65,6 +66,38 @@ export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: n
     lastOdometerKm: lastKnownOdometer(v),
     currentOwner: await currentOwnerIn(ctx, v.id, dealershipId),
     openVisitId: live?.id ?? null,
+    vehicle: {
+      registrationNo: v.registrationNo,
+      vin: v.vin,
+      modelName: (await modelNames(ctx.tx, [v.modelId])).get(v.modelId) ?? null,
+      variant: v.variant,
+      color: v.color,
+      modelYear: v.modelYear,
+    },
+    delivered: v.activatedOn
+      ? {
+          on: v.activatedOn,
+          odometerKm: v.activationOdometerKm,
+          soldBy: v.soldByDealershipId ? ((await ctx.tx.dealership.findFirst({ where: { id: v.soldByDealershipId }, select: { name: true } }))?.name ?? null) : null,
+          warrantyEndsOn: v.warrantyEndsOn,
+        }
+      : null,
+    // Never delivered by us: it was bought from another dealership and registered at check-in.
+    boughtElsewhere: !v.activatedOn,
+    warrantyEndsOn: v.warrantyEndsOn,
+    previousVisits: (
+      await ctx.tx.visit.findMany({ where: { vehicleId: v.id }, orderBy: { arrivedAt: 'desc' }, take: 30 })
+    ).map((x) => ({
+      id: x.id,
+      visitNo: x.visitNo,
+      arrivedAt: x.arrivedAt,
+      odometerKm: x.odometerKm,
+      serviceNumber: x.serviceNumber,
+      visitType: x.visitType,
+      freeService: x.freeService,
+      status: x.status,
+      complaints: x.complaints,
+    })),
   };
 }
 

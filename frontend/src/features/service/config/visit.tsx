@@ -4,6 +4,7 @@ import { Badge, StatusBadge } from '@/shared/components/ui';
 import { dealershipFilter, type EntityViewConfig, idField, mono, muted, optionalId, optionalText, statusFilter, strong } from '@/shared/entity';
 import { formatDateTime, formatNumber } from '@/shared/lib';
 import { CheckInSummary } from '../components/CheckInSummary';
+import { RegisterVehicle } from '../components/RegisterVehicle';
 import { VehicleSchedulePanel } from '../components/VehicleSchedulePanel';
 import { VisitJobCard } from '../components/VisitJobCard';
 import { P, VISIT_STATES, VISIT_TYPES, ordinal, visitTypeLabel } from '../permissions';
@@ -86,9 +87,15 @@ export const visitView: EntityViewConfig<Visit> = {
         span: 2,
         mode: 'create',
         dealershipField: 'dealershipId',
-        render: ({ id, value, onChange, values }) => (
+        render: ({ id, value, onChange, values, setValues }) => (
           <div className="space-y-3">
             <VehicleField id={id} value={value} onChange={onChange} />
+            {!value && (
+              <RegisterVehicle
+                dealershipId={Number(values.dealershipId) || null}
+                onRegistered={(r) => setValues({ vehicleId: r.vehicleId, customerId: r.customerId })}
+              />
+            )}
             <CheckInSummary vehicleId={Number(value) || null} dealershipId={Number(values.dealershipId) || null} />
           </div>
         ),
