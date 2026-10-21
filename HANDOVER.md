@@ -212,7 +212,7 @@ does today and what is still open (section 10). Then wait for my next request.
   everywhere is `Ittehad-logo.png` (without "MOTORS"). PPF vouchers do not print the website line.
 - **Customers** tab for the AM and Manager (`master.customers.view`). **Hyundai Staria** switched off (`is_active = false`).
 - **"+ New Lead"** button on every salesperson's dashboard; mobile-friendly Action needed / Notifications dropdowns.
-- **User guide for staff**: `Sales-Portal-User-Guide.docx` (root) — every role's tasks with annotated screenshots.
+- **User guide for staff**: `documents/Sales-Portal-User-Guide.docx` — every role's tasks with annotated screenshots.
   Regenerate from the scripts in a session scratchpad (headless Chrome on the test copy + python-docx) if the UI changes a lot.
 
 ### CRO portal and Meta lead ads (2026-10-10)

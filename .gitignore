@@ -10,3 +10,6 @@ coverage/
 
 # Prisma Client (generated from prisma/schema.prisma by `prisma generate`)
 backend/src/generated/
+
+# Credentials document: working passwords, never upload
+documents/Ittehad DMS - Logins and Roles.docx
