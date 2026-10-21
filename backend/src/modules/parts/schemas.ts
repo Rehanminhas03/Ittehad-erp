@@ -279,6 +279,9 @@ export const OpenJobCardSchema = z
     vin: z.string().nullable(),
     modelName: z.string().nullable(),
     customerName: z.string().nullable(),
+    /** A free scheduled service: its labour is free, but parts and oil issued to it are charged to the customer. */
+    freeService: z.boolean(),
+    serviceLabel: z.string().nullable(),
   })
   .openapi('OpenJobCard');
 export const OpenJobCardQuery = z.object({ dealershipId: z.coerce.number().int().positive() });

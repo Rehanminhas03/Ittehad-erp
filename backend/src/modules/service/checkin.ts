@@ -53,6 +53,7 @@ async function currentOwnerIn(ctx: EntityCtx, vehicleId: number, dealershipId: n
 /** What check-in would decide right now (read-only; shown on the check-in screen). */
 export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: number) {
   const next = await nextScheduledService(ctx, v.id);
+  const scheduleNames = new Map((await ctx.tx.vehicleSchedule.findMany({ where: { vehicleId: v.id }, select: { id: true, name: true } })).map((s) => [s.id, s.name]));
   // A live visit at a dealership the caller can see (RLS); the unique index covers the whole group.
   const live = await ctx.tx.visit.findFirst({
     where: { vehicleId: v.id, status: { in: ['open', 'in_progress', 'ready'] } },
@@ -88,6 +89,7 @@ export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: n
     previousVisits: (
       await ctx.tx.visit.findMany({ where: { vehicleId: v.id }, orderBy: { arrivedAt: 'desc' }, take: 30 })
     ).map((x) => ({
+      serviceName: scheduleNames.get(x.scheduleEntryId ?? 0) ?? null,
       id: x.id,
       visitNo: x.visitNo,
       arrivedAt: x.arrivedAt,

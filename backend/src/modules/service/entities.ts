@@ -167,7 +167,10 @@ export const visitEntity: EntityConfig = {
         ? await ctx.tx.jobCard.findMany({ where: { visitId: { in: ids } }, select: { id: true, visitId: true } })
         : [];
       const byVisit = new Map(cards.map((c) => [c.visitId, c.id]));
-      return named.map((r) => ({ ...r, jobCardId: byVisit.get(r.id) ?? null }));
+      const entryIds = [...new Set(rows.map((r) => r.scheduleEntryId as number | null).filter((x): x is number => !!x))];
+      const entries = entryIds.length ? await ctx.tx.vehicleSchedule.findMany({ where: { id: { in: entryIds } }, select: { id: true, name: true } }) : [];
+      const nameOf = new Map(entries.map((e) => [e.id, e.name]));
+      return named.map((r) => ({ ...r, jobCardId: byVisit.get(r.id) ?? null, serviceName: nameOf.get((r.scheduleEntryId as number | null) ?? 0) ?? null }));
     },
   },
 };
@@ -324,9 +327,13 @@ export const estimateEntity: EntityConfig = {
         // Approved work goes onto the job card.
         effect: async (ctx, row) => {
           const lines = await ctx.tx.estimateLine.findMany({ where: { estimateId: row.id } });
+          const card = await ctx.tx.jobCard.findFirst({ where: { id: row.jobCardId as number }, select: { visit: { select: { freeService: true } } } });
+          const freeVisit = !!card?.visit.freeService;
           if (lines.length) {
             await ctx.tx.jobCardLine.createMany({
               data: lines.map((l) => ({
+                // Free service: the labour is free, parts and oil are charged to the customer.
+                billable: !(freeVisit && l.kind === 'labour'),
                 dealershipId: l.dealershipId,
                 jobCardId: row.jobCardId as number,
                 kind: l.kind,

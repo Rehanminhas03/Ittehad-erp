@@ -1555,6 +1555,8 @@ export type OpenJobCard = {
   vin: string | null;
   modelName: string | null;
   customerName: string | null;
+  freeService: boolean;
+  serviceLabel: string | null;
 };
 export type InventoryRow = {
   partId: number;

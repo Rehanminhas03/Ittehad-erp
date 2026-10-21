@@ -19,7 +19,7 @@ import {
   useUpdateVisitMutation,
 } from '../serviceApi';
 
-const serviceLabel = (v: Visit) => (v.serviceNumber ? `${ordinal(v.serviceNumber)} service` : visitTypeLabel(v.visitType));
+const serviceLabel = (v: Visit) => v.serviceName ?? (v.serviceNumber ? `${ordinal(v.serviceNumber)} service` : visitTypeLabel(v.visitType));
 
 export const visitView: EntityViewConfig<Visit> = {
   singular: 'Service visit',
@@ -59,7 +59,7 @@ export const visitView: EntityViewConfig<Visit> = {
       { label: 'Customer', value: (v) => v.customerName },
       { label: 'Type', value: (v) => visitTypeLabel(v.visitType) },
       { label: 'Service', value: (v) => serviceLabel(v) },
-      { label: 'Charge', value: (v) => (v.freeService ? <Badge tone="green">Free scheduled service</Badge> : 'Chargeable') },
+      { label: 'Charge', value: (v) => (v.freeService ? <><Badge tone="green">Free scheduled service</Badge> <span className="text-xs text-slate-500">labour and services are free; parts and oil are charged</span></> : 'Chargeable') },
       { label: 'Warranty', value: (v) => (v.warrantyValid ? <Badge tone="green">Valid</Badge> : 'Not covered') },
       { label: 'Odometer', value: (v) => `${formatNumber(v.odometerKm)} km` },
       { label: 'Arrived', value: (v) => formatDateTime(v.arrivedAt) },

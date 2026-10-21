@@ -235,7 +235,15 @@ export const jobCardLines = new LineService({
   locked: (p) => (['completed', 'cancelled'].includes(p.status as string) ? `This job card is ${p.status}` : null),
   // Customer-approved work and the scheduled service are fixed; change them through a new estimate.
   lineLocked: (l) => (l.source !== 'manual' ? 'This line comes from an approved estimate or the service schedule' : null),
-  prepare: priceLine,
+  prepare: async (ctx: EntityCtx, parent: Row, data: Record<string, unknown>, before?: Row) => {
+    const out: Record<string, unknown> = priceLine(ctx, parent, data);
+    // Jetour's free services: labour and services are free, parts and oil are always charged to the customer.
+    if (!before && data.billable === undefined) {
+      const v = await ctx.tx.visit.findFirst({ where: { id: parent.visitId as number }, select: { freeService: true } });
+      out.billable = !(v?.freeService && (data.kind ?? 'labour') === 'labour');
+    }
+    return out;
+  },
 });
 
 /** Technician marks a line done (or not done) while the job card is in progress. */

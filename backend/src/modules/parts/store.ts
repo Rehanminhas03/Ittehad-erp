@@ -116,6 +116,8 @@ export async function openJobCards(ctx: EntityCtx, dealershipId: number) {
     orderBy: { id: 'desc' },
     take: 200,
   });
+  const entryIds = cards.map((c) => c.visit.scheduleEntryId).filter((x): x is number => !!x);
+  const entryNames = new Map((entryIds.length ? await ctx.tx.vehicleSchedule.findMany({ where: { id: { in: entryIds } }, select: { id: true, name: true } }) : []).map((e) => [e.id, e.name]));
   const models = new Map((await ctx.tx.vehicleModel.findMany({ where: { id: { in: [...new Set(cards.map((c) => c.vehicle.modelId))] } }, select: { id: true, name: true } })).map((m) => [m.id, m.name]));
   const customers = new Map((await ctx.tx.customer.findMany({ where: { id: { in: [...new Set(cards.map((c) => c.visit.customerId))] } }, select: { id: true, fullName: true } })).map((c) => [c.id, c.fullName]));
   return cards.map((c) => ({
@@ -126,6 +128,8 @@ export async function openJobCards(ctx: EntityCtx, dealershipId: number) {
     vin: c.vehicle.vin,
     modelName: models.get(c.vehicle.modelId) ?? null,
     customerName: customers.get(c.visit.customerId) ?? null,
+    freeService: c.visit.freeService,
+    serviceLabel: entryNames.get(c.visit.scheduleEntryId ?? 0) ?? null,
   }));
 }
 

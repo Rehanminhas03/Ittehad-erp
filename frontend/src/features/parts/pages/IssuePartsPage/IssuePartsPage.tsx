@@ -106,6 +106,11 @@ export default function IssuePartsPage() {
                 <option value="other">Other: type a repair order (RO) number</option>
               </Select>
             </Field>
+            {card?.freeService && (
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:col-span-2 lg:col-span-3">
+                This is a <span className="font-semibold">free service</span>{card.serviceLabel ? ` (${card.serviceLabel})` : ''}: the labour is free, but the parts and oil you issue here are charged to the customer.
+              </p>
+            )}
             {card && (
               <div className="rounded-xl bg-slate-50 p-3 text-sm sm:col-span-2 lg:col-span-3">
                 <p className="font-medium text-slate-900">{card.jobCardNo}</p>

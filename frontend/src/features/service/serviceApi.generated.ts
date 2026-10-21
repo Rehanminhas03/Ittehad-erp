@@ -915,6 +915,7 @@ export type VisitPreview = {
     arrivedAt: string;
     odometerKm: number;
     serviceNumber: number | null;
+    serviceName: string | null;
     visitType: string;
     freeService: boolean;
     status: string;
@@ -1107,6 +1108,7 @@ export type Visit = {
     | "accident"
     | "inspection";
   serviceNumber: number | null;
+  serviceName?: string | null;
   scheduleEntryId: number | null;
   visitSequence: number;
   odometerKm: number;

@@ -11148,6 +11148,13 @@
           "customerName": {
             "type": "string",
             "nullable": true
+          },
+          "freeService": {
+            "type": "boolean"
+          },
+          "serviceLabel": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -11157,7 +11164,9 @@
           "registrationNo",
           "vin",
           "modelName",
-          "customerName"
+          "customerName",
+          "freeService",
+          "serviceLabel"
         ]
       },
       "InventoryPage": {
@@ -13728,6 +13737,10 @@
                   "type": "integer",
                   "nullable": true
                 },
+                "serviceName": {
+                  "type": "string",
+                  "nullable": true
+                },
                 "visitType": {
                   "type": "string"
                 },
@@ -13748,6 +13761,7 @@
                 "arrivedAt",
                 "odometerKm",
                 "serviceNumber",
+                "serviceName",
                 "visitType",
                 "freeService",
                 "status",
@@ -14495,6 +14509,10 @@
             "type": "integer",
             "nullable": true
           },
+          "serviceName": {
+            "type": "string",
+            "nullable": true
+          },
           "scheduleEntryId": {
             "type": "integer",
             "nullable": true,
@@ -14766,8 +14784,7 @@
             "example": "1250000.00"
           },
           "billable": {
-            "type": "boolean",
-            "default": true
+            "type": "boolean"
           }
         },
         "required": [

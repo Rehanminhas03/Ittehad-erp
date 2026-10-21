@@ -50,7 +50,7 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
           lines={lines ?? []}
           kinds={LINE_KINDS}
           editable={canEdit}
-          onAdd={(d) => withToast(add({ id: jobCard.id, jobCardLineCreate: { ...toBody(d), billable: true } }).unwrap())}
+          onAdd={(d) => withToast(add({ id: jobCard.id, jobCardLineCreate: toBody(d) }).unwrap())}
           onUpdate={(lineId, d) => withToast(update({ id: jobCard.id, lineId, jobCardLineUpdate: toBody(d) }).unwrap())}
           onRemove={(lineId) => withToast(remove({ id: jobCard.id, lineId }).unwrap())}
           lineLocked={(l) => (l.source === 'manual' ? null : l.source === 'estimate' ? 'Approved by the customer' : 'Scheduled service')}
@@ -58,7 +58,8 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
             <>
               {l.source === 'estimate' && 'From approved estimate'}
               {l.source === 'schedule' && 'Scheduled service'}
-              {!l.billable && <> · <Badge tone="green">Free / warranty</Badge></>}
+              {!l.billable && <> · <Badge tone="green">Free of charge</Badge></>}
+              {l.billable && l.kind === 'part' && <> · <Badge tone="amber">Charged to the customer</Badge></>}
             </>
           )}
           extraHeader="Done"

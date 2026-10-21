@@ -83,6 +83,8 @@ export const VisitSchema = z.object({
   advisorName: z.string().nullable().optional(),
   visitType: z.enum(VISIT_TYPES),
   serviceNumber: z.number().int().nullable(),
+  /** The scheduled service it is (e.g. "Free check-up (1,000 km)"), from the schedule. */
+  serviceName: z.string().nullable().optional(),
   scheduleEntryId: Id.nullable(),
   visitSequence: z.number().int(),
   odometerKm: z.number().int(),
@@ -131,7 +133,7 @@ export const VisitPreviewSchema = z
     boughtElsewhere: z.boolean(),
     warrantyEndsOn: z.string().nullable(),
     /** Earlier visits of this car at the dealerships the caller sees, newest first. */
-    previousVisits: z.array(z.object({ id: Id, visitNo: z.string(), arrivedAt: Timestamp, odometerKm: z.number().int(), serviceNumber: z.number().int().nullable(), visitType: z.string(), freeService: z.boolean(), status: z.string(), complaints: z.string().nullable() })),
+    previousVisits: z.array(z.object({ id: Id, visitNo: z.string(), arrivedAt: Timestamp, odometerKm: z.number().int(), serviceNumber: z.number().int().nullable(), serviceName: z.string().nullable(), visitType: z.string(), freeService: z.boolean(), status: z.string(), complaints: z.string().nullable() })),
   })
   .openapi('VisitPreview');
 
@@ -213,7 +215,8 @@ export const JobCardLineSchema = z.object({
   status: z.enum(['pending', 'done']),
   doneAt: Timestamp.nullable(),
 });
-export const JobCardLineCreate = z.object({ ...lineFields, billable: z.boolean().default(true) }).openapi('JobCardLineCreate');
+/** Left out: free for the labour of a free service visit, charged otherwise (parts and oil are always charged unless set). */
+export const JobCardLineCreate = z.object({ ...lineFields, billable: z.boolean().optional() }).openapi('JobCardLineCreate');
 export const JobCardLineUpdate = z.object({ ...lineFields, billable: z.boolean() }).partial().openapi('JobCardLineUpdate');
 
 // ---- Inspections --------------------------------------------------------------------------

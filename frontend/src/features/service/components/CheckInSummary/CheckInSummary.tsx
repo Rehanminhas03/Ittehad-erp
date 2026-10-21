@@ -59,13 +59,16 @@ export function CheckInSummary({ vehicleId, dealershipId }: { vehicleId: number 
           <dd>
             {next ? (
               <>
-                {ordinal(next.sequence)} at {formatNumber(next.dueKm)} km / {formatDate(next.dueDate)}{' '}
+                {next.name} at {formatNumber(next.dueKm)} km / {formatDate(next.dueDate)}{' '}
                 {data.freeServiceIfScheduled ? <Badge tone="green">Free</Badge> : next.isFree ? <Badge tone="amber">Free period passed</Badge> : null}
               </>
             ) : (
               'None pending'
             )}
           </dd>
+        </div>
+        <div className="col-span-2 sm:col-span-4">
+          {data.freeServiceIfScheduled && <p className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs text-emerald-900">This visit qualifies as a free scheduled service: the labour and services are free. Parts and oil are charged to the customer.</p>}
         </div>
         <div>
           <dt className="text-xs text-slate-500">Warranty</dt>
@@ -109,7 +112,7 @@ export function CheckInSummary({ vehicleId, dealershipId }: { vehicleId: number 
                     <td className="px-2 py-1.5 whitespace-nowrap">{formatDateTime(p.arrivedAt)}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{formatNumber(p.odometerKm)} km</td>
                     <td className="px-2 py-1.5">
-                      {p.serviceNumber ? `${ordinal(p.serviceNumber)} service` : visitTypeLabel(p.visitType)} {p.freeService && <Badge tone="green">Free</Badge>}
+                      {p.serviceName ?? (p.serviceNumber ? `${ordinal(p.serviceNumber)} service` : visitTypeLabel(p.visitType))} {p.freeService && <Badge tone="green">Free</Badge>}
                     </td>
                     <td className="px-2 py-1.5 text-slate-600">{p.complaints}</td>
                   </tr>
