@@ -521,7 +521,7 @@ Transfer: draft → dispatched (out of source) → received (into destination)  
 
 Seeded for the DEV switcher (password `Demo@12345`):
 
-- `store.hyundai@`, `store.jetour@`, `store.csm@dms.local` (Storekeepers).
+- `store.hyundai@dms.local`, `store@jetour.com`, `store.csm@dms.local` (Storekeepers); Jetour also has `storemanager@jetour.com` (Store Manager).
 - A starter parts catalogue, a supplier per dealership, and opening stock at each main branch.
 
 ---
