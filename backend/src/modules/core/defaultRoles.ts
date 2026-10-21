@@ -136,6 +136,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.*.view', 'master.*.create', 'master.*.update',
       'master.ownership.manage', 'service.*.view', 'service.*.create', 'service.*.update', 'service.estimates.submit', 'parts.requests.create', 'parts.requests.view',
+      'accounts.invoices.view', 'accounts.invoices.create',
       'parts.catalog.view', 'parts.stock.view', 'reports.service.view_own',
     ],
   },
@@ -159,6 +160,15 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.dealerships.view', 'core.branches.view',
       'parts.catalog.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.receipts.*', 'parts.stock.view',
       'parts.transfers.*', 'parts.requests.view', 'parts.issues.*', 'parts.adjustments.view', 'parts.adjustments.create',
+    ],
+  },
+  {
+    name: 'Cashier',
+    description: 'Takes the money at the counter: sees job cards and invoices, issues the invoice of a finished job card and records the customer payment (cash, card, transfer). Cannot change stock or prices.',
+    patterns: [
+      'core.dealerships.view', 'core.branches.view', 'master.customers.view', 'master.vehicles.view',
+      'service.visits.view', 'service.job_cards.view',
+      'accounts.invoices.view', 'accounts.invoices.create', 'accounts.invoices.issue', 'accounts.payments.view', 'accounts.payments.create',
     ],
   },
   {

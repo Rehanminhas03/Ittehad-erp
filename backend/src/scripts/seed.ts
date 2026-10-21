@@ -80,6 +80,7 @@ for (const [code, label] of [['HYD-ISB', 'Hyundai'], ['JET-ITH', 'Jetour'], ['CS
   USERS.push(
     { email: slug === 'jetour' ? 'store@jetour.com' : `store.${slug}@dms.local`, fullName: `${label} Storekeeper`, password: 'Demo@12345', roles: [{ role: 'Storekeeper', dealership: code }] },
     { email: slug === 'jetour' ? 'servicemanager@jetour.com' : `servicemanager.${slug}@dms.local`, fullName: `${label} Service Manager`, password: 'Demo@12345', roles: [{ role: 'Service Manager', dealership: code }] },
+    { email: slug === 'jetour' ? 'cashier@jetour.com' : `cashier.${slug}@dms.local`, fullName: `${label} Cashier`, password: 'Demo@12345', roles: [{ role: 'Cashier', dealership: code }] },
     { email: slug === 'jetour' ? 'storemanager@jetour.com' : `storemanager.${slug}@dms.local`, fullName: `${label} Store Manager`, password: 'Demo@12345', roles: [{ role: 'Store Manager', dealership: code }] },
     { email: `accounts.${slug}@dms.local`, fullName: `${label} Accountant`, password: 'Demo@12345', roles: [{ role: 'Accountant', dealership: code }] },
   );

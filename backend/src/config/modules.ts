@@ -8,5 +8,5 @@
 export const API_MODULES = {
   service: true,
   parts: true,
-  accounts: false,
+  accounts: true,
 } as const;

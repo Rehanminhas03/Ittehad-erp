@@ -9,7 +9,7 @@ export const MODULES = {
   admin: true,
   service: true,
   parts: true,
-  accounts: false,
+  accounts: true,
 } as const;
 
 export type ModuleKey = keyof typeof MODULES;
