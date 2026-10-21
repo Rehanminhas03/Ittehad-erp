@@ -79,12 +79,17 @@ for (const [code, label] of [['HYD-ISB', 'Hyundai'], ['JET-ITH', 'Jetour'], ['CS
   const slug = label.toLowerCase();
   USERS.push(
     { email: slug === 'jetour' ? 'store@jetour.com' : `store.${slug}@dms.local`, fullName: `${label} Storekeeper`, password: 'Demo@12345', roles: [{ role: 'Storekeeper', dealership: code }] },
-    { email: slug === 'jetour' ? 'servicemanager@jetour.com' : `servicemanager.${slug}@dms.local`, fullName: `${label} Service Manager`, password: 'Demo@12345', roles: [{ role: 'Service Manager', dealership: code }] },
-    { email: slug === 'jetour' ? 'cashier@jetour.com' : `cashier.${slug}@dms.local`, fullName: `${label} Cashier`, password: 'Demo@12345', roles: [{ role: 'Cashier', dealership: code }] },
     { email: slug === 'jetour' ? 'storemanager@jetour.com' : `storemanager.${slug}@dms.local`, fullName: `${label} Store Manager`, password: 'Demo@12345', roles: [{ role: 'Store Manager', dealership: code }] },
     { email: `accounts.${slug}@dms.local`, fullName: `${label} Accountant`, password: 'Demo@12345', roles: [{ role: 'Accountant', dealership: code }] },
   );
 }
+
+// After sales: Jetour has its own Service Manager and Cashier; Hyundai and CSM share one Service Manager and have no cashier yet.
+USERS.push(
+  { email: 'servicemanager@jetour.com', fullName: 'Jetour Service Manager', password: 'Demo@12345', roles: [{ role: 'Service Manager', dealership: 'JET-ITH' }] },
+  { email: 'cashier@jetour.com', fullName: 'Jetour Cashier', password: 'Demo@12345', roles: [{ role: 'Cashier', dealership: 'JET-ITH' }] },
+  { email: 'servicemanager@hyundai.com', fullName: 'Hyundai & CSM Service Manager', password: 'Demo@12345', roles: [{ role: 'Service Manager', dealership: 'HYD-ISB' }, { role: 'Service Manager', dealership: 'CSM-ITH' }] },
+);
 
 /** Starter parts catalogue (maintained under Parts → Parts catalogue) with opening stock per main branch. */
 const PARTS: { partNo: string; description: string; brand: string; uom: 'each' | 'litre' | 'set'; sellingPrice: string; cost: string; opening: string }[] = [
