@@ -4,10 +4,11 @@ import { formatCnic, maskCnic, VEHICLE_PIPELINE, VEHICLE_STATUSES } from '@/feat
 import { useGetCustomerQuery } from '@/features/crm/crmApi';
 import { Button, Field, Input, Section, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
-import { apiFieldErrors, formatMoney } from '@/shared/lib';
+import { apiFieldErrors, formatDate, formatMoney } from '@/shared/lib';
 import { labelOf, ORDER_TYPES, P, PAYMENT_INSTRUMENTS } from '../../../permissions';
 import { type Lead, useRaiseSalesOrderMutation } from '../../../salesApi';
 import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
+import { InvoiceBadge } from '../../../orders/components/OrderInvoice';
 import { OrderPdi } from '../../../orders/components/OrderPdi';
 
 const STAGE_STYLE: Record<string, { label: string; tone: string }> = {
@@ -117,6 +118,13 @@ export function LeadOrder({ lead }: { lead: Lead }) {
         {/* Where the car is (in big, clear letters), so the customer can be kept informed. */}
         {(lead.status === 'processing' || lead.status === 'completed') && <CarStatus stage={lead.status === 'completed' ? 'delivered' : lead.vehicleStage} />}
       </Section>
+      {/* The vehicle invoice received from the manufacturer, so the salesperson can tell the customer. */}
+      {(lead.status === 'completed' || (lead.status === 'processing' && !!lead.vehicleStage)) && (
+        <p className="text-sm">
+          <span className="text-slate-500">Vehicle invoice:</span> <InvoiceBadge no={lead.invoiceNo} />
+          {lead.invoiceNo && lead.invoiceReceivedOn && <span className="ml-2 text-slate-600">received on {formatDate(lead.invoiceReceivedOn)}</span>}
+        </p>
+      )}
       {/* The car's PDI (done / issue), so the salesperson can tell the customer. */}
       {lead.status === 'processing' && !!lead.vehicleStage && <OrderPdi orderId={lead.salesOrderId} dealershipId={lead.dealershipId} branchId={lead.branchId} hasCar />}
       </>

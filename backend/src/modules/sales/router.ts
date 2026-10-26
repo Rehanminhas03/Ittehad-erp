@@ -81,6 +81,7 @@ import {
   TrackRecordQuery,
   TrackRecordSchema,
   VariantImportBody,
+  VehicleInvoiceBody,
   VisitRemarksBody,
   VariantImportResultSchema,
 } from './schemas';
@@ -517,6 +518,27 @@ const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
     params: IdParam,
     response: PdiSchema,
     handler: (ctx) => svc.getPdi(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'put',
+    path: '/:id/invoice',
+    operationId: 'recordVehicleInvoice',
+    summary: 'Sales Admin / Assistant Manager / Manager: record (or correct) the vehicle invoice received for the car of an order',
+    permission: P.ordersInvoice,
+    params: IdParam,
+    body: VehicleInvoiceBody,
+    response: OrderRead,
+    handler: (ctx) => svc.recordVehicleInvoice(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'delete',
+    path: '/:id/invoice',
+    operationId: 'clearVehicleInvoice',
+    summary: 'Remove a wrongly recorded vehicle invoice',
+    permission: P.ordersInvoice,
+    params: IdParam,
+    response: OrderRead,
+    handler: (ctx) => svc.clearVehicleInvoice(ctx, ctx.params.id),
   })
   .route({
     method: 'put',

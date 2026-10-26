@@ -38,6 +38,8 @@ export const salesApi = enhancedApi
       // The PDI and its comments follow the order (the car being received, the Delivery Team's update, comments).
       getOrderPdi: { providesTags: ['SalesOrder'] },
       recordOrderPdi: { invalidatesTags: ['SalesOrder'] },
+      recordVehicleInvoice: { invalidatesTags: ['SalesOrder', 'Lead'] },
+      clearVehicleInvoice: { invalidatesTags: ['SalesOrder', 'Lead'] },
       commentOnPdi: { invalidatesTags: ['SalesOrder'] },
       addOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },
       removeOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },

@@ -110,7 +110,7 @@ describe('service schedule from vehicle activation', () => {
     await api.post(`/api/sales/orders/${o.body.id}/transitions`).set(bearer(approver.token)).send({ action: 'approve' }).expect(200);
     await api.put(`/api/sales/orders/${o.body.id}/allocation`).set(bearer(approver.token)).send({ vehicleId: v!.id }).expect(200);
     for (const status of ['in_transit', 'received']) {
-      await api.patch(`/api/sales/orders/${o.body.id}/vehicle-status`).set(bearer(approver.token)).send({ status }).expect(200);
+      await api.patch(`/api/sales/orders/${o.body.id}/vehicle-status`).set(bearer(approver.token)).send({ status, ...(status === 'received' ? { pdi: { done: true, issue: false } } : {}) }).expect(200);
     }
     const dl = await api.post(`/api/sales/orders/${o.body.id}/deliveries`).set(bearer(approver.token)).send({ scheduledDate: today() });
     await clearForDelivery();
@@ -293,5 +293,102 @@ describe('inspection and estimates', () => {
     await api.post(`${base}/transitions`).set(bearer(s.manager.token)).send({ action: 'reject', comment: 'Too expensive' }).expect(200);
     const revised = await api.post(`${base}/transitions`).set(bearer(s.advisor.token)).send({ action: 'revise' });
     expect(revised.body.status).toBe('draft');
+  });
+});
+
+describe('free service: labour free, parts and oil charged', () => {
+  it('labour lines of a free visit default to free; parts are charged; a paid visit charges everything', async () => {
+    const s = await setup();
+    const car = await deliveredCar(s);
+    const v = await checkIn(s, car.vehicleId);
+    expect(v.body.freeService).toBe(true);
+    const jc = await api.post(`/api/service/visits/${v.body.id}/job-card`).set(bearer(s.advisor.token));
+    const url = `/api/service/job-cards/${jc.body.id}/lines`;
+    const labour = await api.post(url).set(bearer(s.advisor.token)).send({ kind: 'labour', description: 'Wheel alignment', quantity: '1', unitPrice: '1500' });
+    expect(labour.status).toBe(201);
+    expect(labour.body.billable).toBe(false);
+    const oil = await api.post(url).set(bearer(s.advisor.token)).send({ kind: 'part', description: 'Engine oil 5W-30 4L', partNo: 'OIL4L', quantity: '1', unitPrice: '7699' });
+    expect(oil.status).toBe(201);
+    expect(oil.body.billable).toBe(true);
+
+    // An explicit choice is respected.
+    const gift = await api.post(url).set(bearer(s.advisor.token)).send({ kind: 'part', description: 'Wiper blades (goodwill)', quantity: '1', unitPrice: '900', billable: false });
+    expect(gift.body.billable).toBe(false);
+
+    // A paid visit (repair): the labour is charged.
+    await api.post(`/api/service/visits/${v.body.id}/transitions`).set(bearer(s.advisor.token)).send({ action: 'cancel', comment: 'test' }).expect(200);
+    const car2 = await deliveredCar(s, { vin: 'SERVICEVIN002' });
+    const paid = await checkIn(s, car2.vehicleId, { visitType: 'repair' });
+    const jc2 = await api.post(`/api/service/visits/${paid.body.id}/job-card`).set(bearer(s.advisor.token));
+    const l2 = await api.post(`/api/service/job-cards/${jc2.body.id}/lines`).set(bearer(s.advisor.token)).send({ kind: 'labour', description: 'Brake work', quantity: '1', unitPrice: '2000' });
+    expect(l2.body.billable).toBe(true);
+  });
+});
+
+describe('services due (the call list)', () => {
+  it('lists due services with the owner, records calls, and stays inside the dealership', async () => {
+    const s = await setup();
+    const car = await deliveredCar(s);
+    const caller = await createUser([{ permissions: ['service.reminders.view', 'service.reminders.update'], dealershipId: s.d.id }]);
+    const elsewhere = await createUser([{ permissions: ['service.reminders.view', 'service.reminders.update'], dealershipId: s.other.id }]);
+
+    const list = await api.get('/api/service/reminders?days=60').set(bearer(caller.token));
+    expect(list.status).toBe(200);
+    const first = list.body.items.find((i: { vehicleId: number; service: string }) => i.vehicleId === car.vehicleId && i.service === '1st service');
+    expect(first).toMatchObject({ isFree: true, overdue: false, callCount: 0, lastCall: null, dealershipId: s.d.id });
+    expect(first.customerName).toContain('Owner');
+
+    // Another dealership's caller sees nothing of this one, and cannot record a call for it.
+    expect((await api.get('/api/service/reminders?days=60').set(bearer(elsewhere.token))).body.items).toEqual([]);
+    // Hidden by the dealership boundary (not found), or refused: never recorded.
+    expect([403, 404]).toContain((await api.post('/api/service/reminders/calls').set(bearer(elsewhere.token)).send({ scheduleId: first.scheduleId, outcome: 'no_answer' })).status);
+
+    // A booked call needs the day; then it shows as the last call.
+    expect((await api.post('/api/service/reminders/calls').set(bearer(caller.token)).send({ scheduleId: first.scheduleId, outcome: 'booked' })).status).toBe(422);
+    const day = shift(0, 3);
+    await api.post('/api/service/reminders/calls').set(bearer(caller.token)).send({ scheduleId: first.scheduleId, outcome: 'booked', nextCallOn: day, remarks: 'Will come Saturday' }).expect(201);
+    const again = await api.get('/api/service/reminders?days=60').set(bearer(caller.token));
+    const row = again.body.items.find((i: { scheduleId: number }) => i.scheduleId === first.scheduleId);
+    expect(row.callCount).toBe(1);
+    expect(row.lastCall).toMatchObject({ outcome: 'booked', nextCallOn: day, remarks: 'Will come Saturday' });
+    expect((await api.get('/api/service/reminders?days=60&uncalledOnly=true').set(bearer(caller.token))).body.items.find((i: { scheduleId: number }) => i.scheduleId === first.scheduleId)).toBeUndefined();
+    const calls = await api.get(`/api/service/reminders/${first.scheduleId}/calls`).set(bearer(caller.token));
+    expect(calls.body).toHaveLength(1);
+
+    // Nobody without the permission sees the list.
+    expect((await api.get('/api/service/reminders').set(bearer(s.tech.token))).status).toBe(403);
+  });
+});
+
+describe('a car bought elsewhere', () => {
+  it('is registered with its owner at check-in, found again by its chassis, and never shows in open stock', async () => {
+    const s = await setup();
+    const body = {
+      dealershipId: s.d.id,
+      customer: { fullName: 'Walk-in Owner', mobile: '0300-5550001' },
+      vehicle: { vin: 'ELSEWHEREVIN01', registrationNo: 'ABC-123', modelId: s.modelId, color: 'White' },
+      boughtFrom: 'Another showroom',
+      odometerKm: 1500,
+    };
+    const reg = await api.post('/api/service/vehicles/register').set(bearer(s.advisor.token)).send(body);
+    expect(reg.status).toBe(201);
+    expect(reg.body).toMatchObject({ alreadyInSystem: false, customerName: 'Walk-in Owner' });
+
+    const preview = await api.get(`/api/service/visits/check-in-preview?vehicleId=${reg.body.vehicleId}&dealershipId=${s.d.id}`).set(bearer(s.advisor.token));
+    expect(preview.body).toMatchObject({ boughtElsewhere: true, delivered: null, warrantyValid: false, lastOdometerKm: 1500, currentOwner: { fullName: 'Walk-in Owner' }, previousVisits: [] });
+
+    // The same car again is recognised (and the same customer reused), not duplicated.
+    const again = await api.post('/api/service/vehicles/register').set(bearer(s.advisor.token)).send(body);
+    expect(again.body).toMatchObject({ alreadyInSystem: true, vehicleId: reg.body.vehicleId, customerId: reg.body.customerId });
+
+    // A visit can start (no free schedule for a car we did not deliver).
+    const visit = await checkIn(s, reg.body.vehicleId, { visitType: 'paid_service', odometerKm: 1600 });
+    expect(visit.status).toBe(201);
+    expect(visit.body.freeService).toBe(false);
+    const next = await api.get(`/api/service/visits/check-in-preview?vehicleId=${reg.body.vehicleId}&dealershipId=${s.d.id}`).set(bearer(s.advisor.token));
+    expect(next.body.openVisitId).toBe(visit.body.id);
+
+    // Another dealership's advisor cannot register cars for this one.
+    expect((await api.post('/api/service/vehicles/register').set(bearer(s.outsider.token)).send(body)).status).toBe(403);
   });
 });

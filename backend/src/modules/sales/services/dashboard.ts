@@ -150,7 +150,9 @@ export async function salesDashboard(ctx: EntityCtx, q: z.output<typeof Dashboar
     
     // Booked (not yet delivered or cancelled) and no car on it yet: the Delivery Team's to-do.
     const waiting = await countWhere(ctx, salesOrder, and(scope, sql`${salesOrder.status} in ('draft', 'submitted', 'approved')`, sql`${salesOrder.vehicleId} is null`));
-    out.orders = { byStatus: await statusCounts(ctx, salesOrder, scope), awaitingVehicle: waiting?.n ?? 0 };
+    const invPending = await countWhere(ctx, salesOrder, and(scope, sql`${salesOrder.invoiceNo} is null`, sql`${salesOrder.vehicleId} is not null`, sql`${salesOrder.status} in ('approved', 'delivered')`));
+    const invReceived = await countWhere(ctx, salesOrder, and(scope, sql`${salesOrder.invoiceNo} is not null`));
+    out.orders = { byStatus: await statusCounts(ctx, salesOrder, scope), awaitingVehicle: waiting?.n ?? 0, invoicesPending: invPending?.n ?? 0, invoicesReceived: invReceived?.n ?? 0 };
   }
 
   if (access.hasAny([P.stockView])) {

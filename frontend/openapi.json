@@ -6026,11 +6026,19 @@
               },
               "awaitingVehicle": {
                 "type": "integer"
+              },
+              "invoicesPending": {
+                "type": "integer"
+              },
+              "invoicesReceived": {
+                "type": "integer"
               }
             },
             "required": [
               "byStatus",
-              "awaitingVehicle"
+              "awaitingVehicle",
+              "invoicesPending",
+              "invoicesReceived"
             ]
           },
           "stock": {
@@ -7192,6 +7200,29 @@
           "recordedByName",
           "carStatus",
           "comments"
+        ]
+      },
+      "VehicleInvoiceRequest": {
+        "type": "object",
+        "properties": {
+          "invoiceNo": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "receivedOn": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "invoiceNo"
         ]
       },
       "PdiRequest": {
@@ -8700,6 +8731,14 @@
             "type": "string",
             "nullable": true
           },
+          "invoiceNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceReceivedOn": {
+            "type": "string",
+            "nullable": true
+          },
           "createdById": {
             "type": "integer",
             "nullable": true,
@@ -9167,6 +9206,22 @@
             "nullable": true
           },
           "clearanceDecisionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceReceivedOn": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceReceivedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceNotes": {
             "type": "string",
             "nullable": true
           },
@@ -13783,6 +13838,221 @@
           "boughtElsewhere",
           "warrantyEndsOn",
           "previousVisits"
+        ]
+      },
+      "ServicesDue": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceDueRow"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "overdue": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "overdue"
+        ]
+      },
+      "ServiceDueRow": {
+        "type": "object",
+        "properties": {
+          "scheduleId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "service": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "dueKm": {
+            "type": "integer"
+          },
+          "isFree": {
+            "type": "boolean"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "vehicleId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "registrationNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastOdometerKm": {
+            "type": "integer",
+            "nullable": true
+          },
+          "customerId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "dealershipName": {
+            "type": "string"
+          },
+          "callCount": {
+            "type": "integer"
+          },
+          "lastCall": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "outcome": {
+                "type": "string"
+              },
+              "remarks": {
+                "type": "string",
+                "nullable": true
+              },
+              "nextCallOn": {
+                "type": "string",
+                "nullable": true
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "by": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "outcome",
+              "remarks",
+              "nextCallOn",
+              "at",
+              "by"
+            ]
+          }
+        },
+        "required": [
+          "scheduleId",
+          "service",
+          "dueDate",
+          "dueKm",
+          "isFree",
+          "overdue",
+          "vehicleId",
+          "registrationNo",
+          "vin",
+          "modelName",
+          "lastOdometerKm",
+          "customerId",
+          "customerName",
+          "mobile",
+          "dealershipId",
+          "dealershipName",
+          "callCount",
+          "lastCall"
+        ]
+      },
+      "ReminderCallRequest": {
+        "type": "object",
+        "properties": {
+          "scheduleId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "booked",
+              "will_come",
+              "call_later",
+              "no_answer",
+              "wrong_number",
+              "not_interested",
+              "already_serviced"
+            ]
+          },
+          "remarks": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000
+          },
+          "nextCallOn": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          }
+        },
+        "required": [
+          "scheduleId",
+          "outcome"
+        ]
+      },
+      "ReminderCall": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "remarks": {
+            "type": "string",
+            "nullable": true
+          },
+          "nextCallOn": {
+            "type": "string",
+            "nullable": true
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "by": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "outcome",
+          "remarks",
+          "nextCallOn",
+          "at",
+          "by"
         ]
       },
       "RegisterVehicleResult": {
@@ -25427,6 +25697,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "createdById": {
                       "type": "integer",
                       "nullable": true,
@@ -26040,6 +26318,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "createdById": {
                       "type": "integer",
                       "nullable": true,
@@ -26478,6 +26764,14 @@
                       "nullable": true
                     },
                     "vehicleStage": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -27536,6 +27830,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "createdById": {
                       "type": "integer",
                       "nullable": true,
@@ -28043,6 +28345,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "createdById": {
                       "type": "integer",
                       "nullable": true,
@@ -28484,6 +28794,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "createdById": {
                       "type": "integer",
                       "nullable": true,
@@ -28814,6 +29132,22 @@
                       "nullable": true
                     },
                     "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -31061,6 +31395,723 @@
         }
       }
     },
+    "/api/sales/orders/{id}/invoice": {
+      "put": {
+        "operationId": "recordVehicleInvoice",
+        "summary": "Sales Admin / Assistant Manager / Manager: record (or correct) the vehicle invoice received for the car of an order",
+        "description": "Requires: sales.orders.invoice",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleInvoiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "orderNo": {
+                      "type": "string"
+                    },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "orderType": {
+                      "type": "string",
+                      "enum": [
+                        "pbo",
+                        "cbo"
+                      ]
+                    },
+                    "dealershipId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "branchId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "legalEntityId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "accountingEntityId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "leadId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "customerId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "customerName": {
+                      "type": "string"
+                    },
+                    "salespersonId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "salespersonName": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "modelName": {
+                      "type": "string"
+                    },
+                    "variant": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "color": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "unitPrice": {
+                      "type": "string"
+                    },
+                    "discount": {
+                      "type": "string"
+                    },
+                    "totalAmount": {
+                      "type": "string"
+                    },
+                    "bookingAmount": {
+                      "type": "string"
+                    },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
+                    "vehicleId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "vehicleLabel": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleStatus": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "available",
+                        "reserved",
+                        "booked",
+                        "in_transit",
+                        "received",
+                        "ready_for_delivery",
+                        "delivered",
+                        "transferred",
+                        "hold",
+                        null
+                      ]
+                    },
+                    "financingRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentReference": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleVin": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleEngineNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "submitted",
+                        "approved",
+                        "delivered",
+                        "cancelled"
+                      ]
+                    },
+                    "amountReceived": {
+                      "type": "string"
+                    },
+                    "balanceDue": {
+                      "type": "string"
+                    },
+                    "clearanceStatus": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "requested",
+                        "approved",
+                        "rejected"
+                      ]
+                    },
+                    "clearanceRequestedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "clearanceRequestedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceRequestNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceDecidedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "clearanceDecidedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerType": {
+                      "type": "string",
+                      "enum": [
+                        "individual",
+                        "corporate"
+                      ]
+                    },
+                    "companyName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactDesignation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "availableActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderNo",
+                    "pboNo",
+                    "orderType",
+                    "dealershipId",
+                    "branchId",
+                    "legalEntityId",
+                    "accountingEntityId",
+                    "leadId",
+                    "customerId",
+                    "salespersonId",
+                    "modelId",
+                    "variant",
+                    "color",
+                    "unitPrice",
+                    "discount",
+                    "totalAmount",
+                    "bookingAmount",
+                    "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
+                    "vehicleId",
+                    "financingRef",
+                    "paymentReference",
+                    "notes",
+                    "status",
+                    "createdAt",
+                    "updatedAt",
+                    "availableActions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearVehicleInvoice",
+        "summary": "Remove a wrongly recorded vehicle invoice",
+        "description": "Requires: sales.orders.invoice",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "orderNo": {
+                      "type": "string"
+                    },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "orderType": {
+                      "type": "string",
+                      "enum": [
+                        "pbo",
+                        "cbo"
+                      ]
+                    },
+                    "dealershipId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "branchId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "legalEntityId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "accountingEntityId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "leadId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "customerId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "customerName": {
+                      "type": "string"
+                    },
+                    "salespersonId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "salespersonName": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "modelName": {
+                      "type": "string"
+                    },
+                    "variant": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "color": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "unitPrice": {
+                      "type": "string"
+                    },
+                    "discount": {
+                      "type": "string"
+                    },
+                    "totalAmount": {
+                      "type": "string"
+                    },
+                    "bookingAmount": {
+                      "type": "string"
+                    },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
+                    "vehicleId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "vehicleLabel": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleStatus": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "available",
+                        "reserved",
+                        "booked",
+                        "in_transit",
+                        "received",
+                        "ready_for_delivery",
+                        "delivered",
+                        "transferred",
+                        "hold",
+                        null
+                      ]
+                    },
+                    "financingRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentReference": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleVin": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleEngineNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "submitted",
+                        "approved",
+                        "delivered",
+                        "cancelled"
+                      ]
+                    },
+                    "amountReceived": {
+                      "type": "string"
+                    },
+                    "balanceDue": {
+                      "type": "string"
+                    },
+                    "clearanceStatus": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "requested",
+                        "approved",
+                        "rejected"
+                      ]
+                    },
+                    "clearanceRequestedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "clearanceRequestedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceRequestNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceDecidedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "clearanceDecidedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerType": {
+                      "type": "string",
+                      "enum": [
+                        "individual",
+                        "corporate"
+                      ]
+                    },
+                    "companyName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactDesignation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "availableActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderNo",
+                    "pboNo",
+                    "orderType",
+                    "dealershipId",
+                    "branchId",
+                    "legalEntityId",
+                    "accountingEntityId",
+                    "leadId",
+                    "customerId",
+                    "salespersonId",
+                    "modelId",
+                    "variant",
+                    "color",
+                    "unitPrice",
+                    "discount",
+                    "totalAmount",
+                    "bookingAmount",
+                    "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
+                    "vehicleId",
+                    "financingRef",
+                    "paymentReference",
+                    "notes",
+                    "status",
+                    "createdAt",
+                    "updatedAt",
+                    "availableActions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales/orders/{id}/pdi-comments": {
       "post": {
         "operationId": "commentOnPdi",
@@ -31374,6 +32425,22 @@
                       "nullable": true
                     },
                     "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -31725,6 +32792,22 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -32070,6 +33153,22 @@
                       "nullable": true
                     },
                     "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -32493,6 +33592,22 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -32827,6 +33942,22 @@
                       "nullable": true
                     },
                     "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -33175,6 +34306,22 @@
                       "nullable": true
                     },
                     "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36142,6 +37289,18 @@
             },
             "required": false,
             "name": "hasVehicle",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "received",
+                "pending"
+              ]
+            },
+            "required": false,
+            "name": "invoice",
             "in": "query"
           },
           {
@@ -45601,6 +46760,259 @@
                     "updatedAt",
                     "availableActions"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/reminders": {
+      "get": {
+        "operationId": "listServicesDue",
+        "summary": "Cars whose next service is due soon or overdue, with the owner, the phone and the calls made",
+        "description": "Requires: service.reminders.view",
+        "tags": [
+          "ServiceReminder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0,
+              "maximum": 365,
+              "default": 30
+            },
+            "required": false,
+            "name": "days",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false"
+            },
+            "required": false,
+            "name": "overdueOnly",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false"
+            },
+            "required": false,
+            "name": "uncalledOnly",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicesDue"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/reminders/calls": {
+      "post": {
+        "operationId": "recordReminderCall",
+        "summary": "Record a call to the customer about a due service",
+        "description": "Requires: service.reminders.update",
+        "tags": [
+          "ServiceReminder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderCallRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/reminders/{id}/calls": {
+      "get": {
+        "operationId": "listReminderCalls",
+        "summary": "The calls made about one due service",
+        "description": "Requires: service.reminders.view",
+        "tags": [
+          "ServiceReminder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReminderCall"
+                  }
                 }
               }
             }

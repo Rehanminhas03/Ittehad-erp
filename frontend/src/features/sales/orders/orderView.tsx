@@ -19,6 +19,7 @@ import { formatDateTime, formatMoney } from '@/shared/lib';
 import { ExpectedDeliveryInput, formatExpectedDelivery, type ExpectedDeliveryValue } from './components/ExpectedDelivery';
 import { OrderClearance } from './components/OrderClearance';
 import { OrderDelivery } from './components/OrderDelivery';
+import { InvoiceBadge, OrderInvoice } from './components/OrderInvoice';
 import { OrderPayments } from './components/OrderPayments';
 import { ExportButtons } from '../exports/ExportButtons';
 import { PaymentTypeBadge } from '../leads/components/PaymentTypeBadge';
@@ -77,7 +78,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
         <OrderStatusSummary query={query} periodLabel={periodLabel} />
       </>
     ),
-    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Processing (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
+    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Processing (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, { param: 'invoice', label: 'Vehicle invoice', type: 'select', options: [{ value: 'received', label: 'Received' }, { value: 'pending', label: 'Not received yet' }] }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
     columns: [
       { key: 'orderNo', header: 'Order', sortKey: 'orderNo', render: (o) => mono(o.orderNo) },
       { key: 'pboNo', header: 'PBO', render: (o) => mono(o.pboNo) },
@@ -87,6 +88,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { key: 'totalAmount', header: 'Total', sortKey: 'totalAmount', className: 'text-right tabular-nums', render: (o) => formatMoney(o.totalAmount) },
       { key: 'balanceDue', header: 'Balance due', className: 'text-right tabular-nums', render: (o) => (o.status === 'delivered' || o.status === 'cancelled' ? muted(o.status === 'delivered' ? 'Delivered' : '—') : Number(o.balanceDue ?? 0) > 0 ? <span className="font-medium text-amber-700">{formatMoney(o.balanceDue ?? '0')}</span> : <span className="text-emerald-700">Paid</span>) },
       { key: 'salespersonName', header: 'Salesperson', render: (o) => muted(o.salespersonName) },
+      { key: 'invoiceNo', header: 'Vehicle invoice', render: (o) => <InvoiceBadge no={o.invoiceNo} hasCar={!!o.vehicleId && ['approved', 'delivered'].includes(o.status)} /> },
       {
         key: 'status',
         header: 'Status',
@@ -135,6 +137,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
         <OrderPdi orderId={o.id} dealershipId={o.dealershipId} branchId={o.branchId} hasCar={!!o.vehicleId} />
         <OrderClearance order={o} />
         <OrderDelivery order={o} />
+        <OrderInvoice order={o} />
         {isModuleEnabled('accounts') && (
           <SourceInvoice sourceType="sales_order" sourceId={o.id} dealershipId={o.dealershipId} ready={['approved', 'delivered'].includes(o.status)} />
         )}

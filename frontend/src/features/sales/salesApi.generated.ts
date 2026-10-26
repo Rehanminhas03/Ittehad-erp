@@ -460,6 +460,27 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["SalesOrder"],
       }),
+      recordVehicleInvoice: build.mutation<
+        RecordVehicleInvoiceApiResponse,
+        RecordVehicleInvoiceApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/invoice`,
+          method: "PUT",
+          body: queryArg.vehicleInvoiceRequest,
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
+      clearVehicleInvoice: build.mutation<
+        ClearVehicleInvoiceApiResponse,
+        ClearVehicleInvoiceApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/invoice`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
       commentOnPdi: build.mutation<CommentOnPdiApiResponse, CommentOnPdiApiArg>(
         {
           query: (queryArg) => ({
@@ -823,6 +844,7 @@ const injectedRtkApi = api
             awaitingApproval: queryArg.awaitingApproval,
             vehicleStage: queryArg.vehicleStage,
             hasVehicle: queryArg.hasVehicle,
+            invoice: queryArg.invoice,
             clearanceStatus: queryArg.clearanceStatus,
             bookedFrom: queryArg.bookedFrom,
             bookedTo: queryArg.bookedTo,
@@ -1219,6 +1241,8 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
   createdById: number | null;
   createdByName?: string | null;
   createdAt: string;
@@ -1322,6 +1346,8 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
   createdById: number | null;
   createdByName?: string | null;
   createdAt: string;
@@ -1412,6 +1438,8 @@ export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
   createdById: number | null;
   createdByName?: string | null;
   createdAt: string;
@@ -1594,6 +1622,8 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
   createdById: number | null;
   createdByName?: string | null;
   createdAt: string;
@@ -1689,6 +1719,8 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
   createdById: number | null;
   createdByName?: string | null;
   createdAt: string;
@@ -1779,6 +1811,8 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
   createdById: number | null;
   createdByName?: string | null;
   createdAt: string;
@@ -1844,6 +1878,10 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2058,6 +2096,149 @@ export type RecordOrderPdiApiArg = {
   id: number;
   pdiRequest: PdiRequest;
 };
+export type RecordVehicleInvoiceApiResponse = /** status 200 Success */ {
+  id: number;
+  orderNo: string;
+  pboNo: string | null;
+  orderType: "pbo" | "cbo";
+  dealershipId: number;
+  branchId: number | null;
+  legalEntityId: number | null;
+  accountingEntityId: number | null;
+  leadId: number | null;
+  customerId: number;
+  customerName?: string;
+  salespersonId: number;
+  salespersonName?: string;
+  modelId: number;
+  modelName?: string;
+  variant: string | null;
+  color: string | null;
+  unitPrice: string;
+  discount: string;
+  totalAmount: string;
+  bookingAmount: string;
+  expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
+  vehicleId: number | null;
+  vehicleLabel?: string | null;
+  vehicleStatus?:
+    | (
+        | "available"
+        | "reserved"
+        | "booked"
+        | "in_transit"
+        | "received"
+        | "ready_for_delivery"
+        | "delivered"
+        | "transferred"
+        | "hold"
+        | null
+      )
+    | null;
+  financingRef: string | null;
+  paymentReference: string | null;
+  vehicleVin?: string | null;
+  vehicleEngineNo?: string | null;
+  notes: string | null;
+  status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type RecordVehicleInvoiceApiArg = {
+  id: number;
+  vehicleInvoiceRequest: VehicleInvoiceRequest;
+};
+export type ClearVehicleInvoiceApiResponse = /** status 200 Success */ {
+  id: number;
+  orderNo: string;
+  pboNo: string | null;
+  orderType: "pbo" | "cbo";
+  dealershipId: number;
+  branchId: number | null;
+  legalEntityId: number | null;
+  accountingEntityId: number | null;
+  leadId: number | null;
+  customerId: number;
+  customerName?: string;
+  salespersonId: number;
+  salespersonName?: string;
+  modelId: number;
+  modelName?: string;
+  variant: string | null;
+  color: string | null;
+  unitPrice: string;
+  discount: string;
+  totalAmount: string;
+  bookingAmount: string;
+  expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
+  vehicleId: number | null;
+  vehicleLabel?: string | null;
+  vehicleStatus?:
+    | (
+        | "available"
+        | "reserved"
+        | "booked"
+        | "in_transit"
+        | "received"
+        | "ready_for_delivery"
+        | "delivered"
+        | "transferred"
+        | "hold"
+        | null
+      )
+    | null;
+  financingRef: string | null;
+  paymentReference: string | null;
+  vehicleVin?: string | null;
+  vehicleEngineNo?: string | null;
+  notes: string | null;
+  status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type ClearVehicleInvoiceApiArg = {
+  id: number;
+};
 export type CommentOnPdiApiResponse = /** status 201 Success */ Pdi;
 export type CommentOnPdiApiArg = {
   id: number;
@@ -2118,6 +2299,10 @@ export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2186,6 +2371,10 @@ export type DecideDeliveryClearanceApiResponse = /** status 200 Success */ {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2254,6 +2443,10 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2327,6 +2520,10 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2395,6 +2592,10 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2462,6 +2663,10 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2810,6 +3015,7 @@ export type ListSalesOrdersApiArg = {
     | "transferred"
     | "hold";
   hasVehicle?: "true" | "false";
+  invoice?: "received" | "pending";
   clearanceStatus?: "none" | "requested" | "approved" | "rejected";
   bookedFrom?: string;
   bookedTo?: string;
@@ -3423,6 +3629,8 @@ export type SalesDashboard = {
       [key: string]: number;
     };
     awaitingVehicle: number;
+    invoicesPending: number;
+    invoicesReceived: number;
   };
   stock?: {
     byStatus: {
@@ -3679,6 +3887,11 @@ export type Pdi = {
 export type PdiRequest = {
   done: boolean;
   issue: boolean;
+  notes?: string | null;
+};
+export type VehicleInvoiceRequest = {
+  invoiceNo: string;
+  receivedOn?: string | null;
   notes?: string | null;
 };
 export type PdiCommentRequest = {
@@ -4019,6 +4232,8 @@ export type Lead = {
   salesOrderId: number | null;
   orderNo?: string | null;
   vehicleStage?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
   createdById: number | null;
   createdByName?: string | null;
   createdAt: string;
@@ -4161,6 +4376,10 @@ export type SalesOrder = {
   clearanceDecidedAt?: string | null;
   clearanceDecidedByName?: string | null;
   clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -4501,6 +4720,8 @@ export const {
   useGetOrderPdiQuery,
   useLazyGetOrderPdiQuery,
   useRecordOrderPdiMutation,
+  useRecordVehicleInvoiceMutation,
+  useClearVehicleInvoiceMutation,
   useCommentOnPdiMutation,
   useRequestDeliveryClearanceMutation,
   useDecideDeliveryClearanceMutation,

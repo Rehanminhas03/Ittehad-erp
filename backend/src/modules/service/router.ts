@@ -22,10 +22,15 @@ import {
   JobCardLineSchema,
   JobCardSchema,
   VehicleScheduleEntrySchema,
+  ReminderCallBody,
+  ReminderCallSchema,
   RegisterVehicleBody,
+  ServicesDueQuery,
+  ServicesDueSchema,
   RegisterVehicleResultSchema,
   VisitPreviewSchema,
 } from './schemas';
+import * as remindersSvc from './reminders';
 import * as svc from './service';
 import './subscriptions';
 
@@ -53,6 +58,39 @@ const visitActions = new ApiRouter('/service/visits', 'Visit')
     response: JobCardRead,
     status: 201,
     handler: (ctx) => svc.openJobCard(ctx, ctx.params.id),
+  });
+
+const reminderRouter = new ApiRouter('/service/reminders', 'ServiceReminder')
+  .route({
+    method: 'get',
+    path: '/',
+    operationId: 'listServicesDue',
+    summary: 'Cars whose next service is due soon or overdue, with the owner, the phone and the calls made',
+    permission: P.remindersView,
+    query: ServicesDueQuery,
+    response: ServicesDueSchema,
+    handler: (ctx) => remindersSvc.servicesDue(ctx, ctx.query),
+  })
+  .route({
+    method: 'post',
+    path: '/calls',
+    operationId: 'recordReminderCall',
+    summary: 'Record a call to the customer about a due service',
+    permission: P.remindersUpdate,
+    body: ReminderCallBody,
+    response: z.object({ id: z.number().int() }),
+    status: 201,
+    handler: (ctx) => remindersSvc.recordReminderCall(ctx, ctx.body),
+  })
+  .route({
+    method: 'get',
+    path: '/:id/calls',
+    operationId: 'listReminderCalls',
+    summary: 'The calls made about one due service',
+    permission: P.remindersView,
+    params: IdParam,
+    response: z.array(ReminderCallSchema),
+    handler: (ctx) => remindersSvc.reminderCalls(ctx, ctx.params.id),
   });
 
 const scheduleRouter = new ApiRouter('/service/vehicles', 'VehicleSchedule')
@@ -158,6 +196,7 @@ const jobCardActions = new ApiRouter('/service/job-cards', 'JobCard')
 export const serviceRouters = [
   visitActions,
   scheduleRouter,
+  reminderRouter,
   jobCardActions,
   buildEntityRouter(scheduleItemEntity).router,
   buildEntityRouter(inspectionTemplateEntity).router,

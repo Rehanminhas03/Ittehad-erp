@@ -1,6 +1,7 @@
 import { baseApi as api } from "../../shared/api/baseApi";
 export const addTagTypes = [
   "Visit",
+  "ServiceReminder",
   "VehicleSchedule",
   "JobCard",
   "ScheduleItem",
@@ -32,6 +33,41 @@ const injectedRtkApi = api
           method: "POST",
         }),
         invalidatesTags: ["Visit"],
+      }),
+      listServicesDue: build.query<
+        ListServicesDueApiResponse,
+        ListServicesDueApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/reminders`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            days: queryArg.days,
+            overdueOnly: queryArg.overdueOnly,
+            uncalledOnly: queryArg.uncalledOnly,
+          },
+        }),
+        providesTags: ["ServiceReminder"],
+      }),
+      recordReminderCall: build.mutation<
+        RecordReminderCallApiResponse,
+        RecordReminderCallApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/reminders/calls`,
+          method: "POST",
+          body: queryArg.reminderCallRequest,
+        }),
+        invalidatesTags: ["ServiceReminder"],
+      }),
+      listReminderCalls: build.query<
+        ListReminderCallsApiResponse,
+        ListReminderCallsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/reminders/${queryArg.id}/calls`,
+        }),
+        providesTags: ["ServiceReminder"],
       }),
       registerVehicleAtCheckIn: build.mutation<
         RegisterVehicleAtCheckInApiResponse,
@@ -553,6 +589,24 @@ export type OpenJobCardApiResponse = /** status 201 Success */ {
 export type OpenJobCardApiArg = {
   id: number;
 };
+export type ListServicesDueApiResponse = /** status 200 Success */ ServicesDue;
+export type ListServicesDueApiArg = {
+  dealershipId?: number;
+  days?: number | null;
+  overdueOnly?: "true" | "false";
+  uncalledOnly?: "true" | "false";
+};
+export type RecordReminderCallApiResponse = /** status 201 Success */ {
+  id: number;
+};
+export type RecordReminderCallApiArg = {
+  reminderCallRequest: ReminderCallRequest;
+};
+export type ListReminderCallsApiResponse =
+  /** status 200 Success */ ReminderCall[];
+export type ListReminderCallsApiArg = {
+  id: number;
+};
 export type RegisterVehicleAtCheckInApiResponse =
   /** status 201 Success */ RegisterVehicleResult;
 export type RegisterVehicleAtCheckInApiArg = {
@@ -929,6 +983,58 @@ export type ApiError = {
     details?: any | null;
   };
 };
+export type ServiceDueRow = {
+  scheduleId: number;
+  service: string;
+  dueDate: string;
+  dueKm: number;
+  isFree: boolean;
+  overdue: boolean;
+  vehicleId: number;
+  registrationNo: string | null;
+  vin: string | null;
+  modelName: string | null;
+  lastOdometerKm: number | null;
+  customerId: number;
+  customerName: string;
+  mobile: string;
+  dealershipId: number;
+  dealershipName: string;
+  callCount: number;
+  lastCall: {
+    outcome: string;
+    remarks: string | null;
+    nextCallOn: string | null;
+    at: string;
+    by: string | null;
+  } | null;
+};
+export type ServicesDue = {
+  items: ServiceDueRow[];
+  total: number;
+  overdue: number;
+};
+export type ReminderCallRequest = {
+  scheduleId: number;
+  outcome:
+    | "booked"
+    | "will_come"
+    | "call_later"
+    | "no_answer"
+    | "wrong_number"
+    | "not_interested"
+    | "already_serviced";
+  remarks?: string | null;
+  nextCallOn?: string | null;
+};
+export type ReminderCall = {
+  id: number;
+  outcome: string;
+  remarks: string | null;
+  nextCallOn: string | null;
+  at: string;
+  by: string | null;
+};
 export type RegisterVehicleResult = {
   vehicleId: number;
   customerId: number;
@@ -1289,6 +1395,11 @@ export const {
   usePreviewCheckInQuery,
   useLazyPreviewCheckInQuery,
   useOpenJobCardMutation,
+  useListServicesDueQuery,
+  useLazyListServicesDueQuery,
+  useRecordReminderCallMutation,
+  useListReminderCallsQuery,
+  useLazyListReminderCallsQuery,
   useRegisterVehicleAtCheckInMutation,
   useGetVehicleServiceScheduleQuery,
   useLazyGetVehicleServiceScheduleQuery,

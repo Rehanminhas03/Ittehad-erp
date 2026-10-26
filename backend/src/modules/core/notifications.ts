@@ -122,6 +122,7 @@ export function describeChange(e: AuditEntry): Spec | null {
       if (e.action === 'allocate') return { title: 'Car allocated to a sales order', weight: 55, href };
       if (e.action === 'release') return { title: 'Car released back to stock', weight: 50, href };
       if (e.action === 'pdi.record') return c.issue ? { title: 'PDI: an issue was found on the car', weight: 95, href, detail: str(c.notes) } : { title: 'PDI done on the car', weight: 30, href };
+      if (e.action === 'invoice.record') return { title: 'Vehicle invoice received for a customer car', weight: 80, href, detail: str(c.invoiceNo) ? `Invoice ${str(c.invoiceNo)}` : undefined };
       if (e.action === 'pdi.comment') return { title: 'New comment on a PDI', weight: 65, href };
       if (e.action === 'payment.add') return { title: 'Payment received on a sales order', weight: 45, href, detail: str(c.amount) ? `Rs ${str(c.amount)}` : undefined };
       if (e.action === 'payment.remove') return { title: 'Payment removed from a sales order', weight: 40, href };

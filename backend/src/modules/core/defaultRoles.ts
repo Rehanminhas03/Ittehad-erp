@@ -67,6 +67,8 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'sales.leads.view_social', 'sales.leads.view_team', 'sales.leads.transfer',
       'sales.quotations.view_own', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_own', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.variants.view',
+      // After sales: the CRO calls customers whose service is due and sees their visits and job cards.
+      'service.reminders.view', 'service.reminders.update', 'service.visits.view', 'service.job_cards.view', 'master.customers.view', 'master.vehicles.view',
     ],
   },
   {
@@ -79,7 +81,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'sales.leads.view_all', 'sales.leads.convert_escalated',
       'sales.leads.reassign', 'sales.leads.appointment', 'sales.leads.correct_conversion',
       'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen',
-      'sales.orders.view_all', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
+      'sales.orders.view_all', 'sales.orders.dispatch', 'sales.orders.invoice', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
       'master.models.manage_brand',
       'sales.quotations.view_all', 'sales.quotations.create', 'sales.quotations.update', 'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update',
       'sales.templates.manage', 'sales.variants.view',
@@ -97,7 +99,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.users.view', 'core.users.create', 'core.users.update', 'core.users.assign_roles', 'sales.team.manage',
       'core.activity.view_team',
       'sales.leads.view_all', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen',
-      'sales.leads.reassign', 'sales.leads.appointment', 'sales.leads.correct_conversion', 'sales.orders.view_all', 'sales.orders.approve', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
+      'sales.leads.reassign', 'sales.leads.appointment', 'sales.leads.correct_conversion', 'sales.orders.view_all', 'sales.orders.approve', 'sales.orders.dispatch', 'sales.orders.invoice', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
       'sales.quotations.view_all', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.templates.manage', 'sales.variants.view',
       'sales.reports.view',
@@ -108,7 +110,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     delegatedBy: SALES_TEAM,
     description: 'Sees leads once converted and raises the sales order (PBO / CBO); enters the vehicle chassis / engine number; marks an approved order\'s car in transit and schedules the delivery once the car is received.',
     patterns: [
-      'sales.leave.apply', 'sales.payments.manage', 'sales.orders.clear', 'sales.leads.correct_conversion', 'sales.stock.manage',
+      'sales.leave.apply', 'sales.payments.manage', 'sales.orders.clear', 'sales.orders.invoice', 'sales.leads.correct_conversion', 'sales.stock.manage',
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'master.customers.view',
       'sales.leads.view_converted', 'sales.leads.update_converted', 'sales.orders.view_all', 'sales.orders.create', 'sales.orders.update',
       'sales.orders.submit', 'sales.orders.cancel', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view', 'sales.quotations.view_all', 'sales.ppf.view_all', 'sales.variants.view',

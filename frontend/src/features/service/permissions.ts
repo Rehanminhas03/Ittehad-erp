@@ -18,6 +18,8 @@ export const P = {
   estimatesCreate: 'service.estimates.create',
   estimatesUpdate: 'service.estimates.update',
   estimatesApprove: 'service.estimates.approve',
+  remindersView: 'service.reminders.view',
+  remindersUpdate: 'service.reminders.update',
 } as const;
 
 export const VISIT_STATES = ['open', 'in_progress', 'ready', 'delivered', 'cancelled'] as const;

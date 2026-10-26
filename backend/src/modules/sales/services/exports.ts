@@ -34,6 +34,7 @@ export async function exportOrders(ctx: EntityCtx, q: z.output<typeof ExportQuer
                ${salesOrder.expectedDeliveryDate}::text as "expectedDelivery", ${salesOrder.expectedDeliveryByMonth} as "expectedDeliveryByMonth",
                ${salesOrder.clearanceStatus} as "clearance",
                dl.scheduled_date::text as "deliveryScheduled", dl.delivered_on::text as "deliveredOn",
+               ${salesOrder.invoiceNo} as "invoiceNo", ${salesOrder.invoiceReceivedOn}::text as "invoiceReceivedOn",
                ${salesOrder.notes} as "notes"
           from ${salesOrder}
           join core.dealership d on d.id = ${salesOrder.dealershipId}

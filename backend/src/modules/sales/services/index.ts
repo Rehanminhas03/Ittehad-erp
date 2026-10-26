@@ -20,6 +20,7 @@ export * from './deliveryReport';
 export * from './handOver';
 export * from './leadActions';
 export * from './orderPayments';
+export * from './invoices';
 export * from './pdi';
 export * from './today';
 export * from './leave';

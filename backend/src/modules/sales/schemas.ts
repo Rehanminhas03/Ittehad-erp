@@ -116,6 +116,9 @@ export const LeadSchema = z.object({
   orderNo: z.string().nullable().optional(),
   /** Where the car on the lead's sales order is (booked, in_transit, received, ready_for_delivery, hold…); null until a car is on it. */
   vehicleStage: z.string().nullable().optional(),
+  /** The vehicle invoice received for the order's car (null until recorded): shown to the salesperson. */
+  invoiceNo: z.string().nullable().optional(),
+  invoiceReceivedOn: z.string().nullable().optional(),
   /** Who entered the lead: its salesperson, or a team leader who logged it for them. */
   createdById: Id.nullable(),
   createdByName: z.string().nullable().optional(),
@@ -1038,7 +1041,7 @@ export const SalesDashboardSchema = z
         daily: z.array(z.object({ date: z.string(), logged: z.number().int(), converted: z.number().int() })),
       })
       .optional(),
-    orders: z.object({ byStatus: counts, awaitingVehicle: z.number().int() }).optional(),
+    orders: z.object({ byStatus: counts, awaitingVehicle: z.number().int(), invoicesPending: z.number().int(), invoicesReceived: z.number().int() }).optional(),
     stock: z.object({ byStatus: counts, free: z.number().int() }).optional(),
     deliveries: z.object({ scheduled: z.number().int(), deliveredInPeriod: z.number().int() }).optional(),
   })
@@ -1089,6 +1092,11 @@ export const SalesOrderSchema = z.object({
   clearanceDecidedAt: Timestamp.nullable().optional(),
   clearanceDecidedByName: z.string().nullable().optional(),
   clearanceDecisionNote: z.string().nullable().optional(),
+  /** The vehicle invoice received from the manufacturer / head office for the car: its number, the day, who recorded it. */
+  invoiceNo: z.string().nullable().optional(),
+  invoiceReceivedOn: z.string().nullable().optional(),
+  invoiceReceivedByName: z.string().nullable().optional(),
+  invoiceNotes: z.string().nullable().optional(),
   /** Corporate customer (from the lead): billed to the company. */
   customerType: z.enum(CUSTOMER_TYPES).optional(),
   companyName: z.string().nullable().optional(),
@@ -1354,6 +1362,14 @@ export const StockVehicleUpdate = z
   .openapi('StockVehicleUpdate');
 
 export const AllocationBody = z.object({ vehicleId: Id }).openapi('AllocationRequest');
+/** The invoice received from the manufacturer / head office for a delivered car. */
+export const VehicleInvoiceBody = z
+  .object({
+    invoiceNo: z.string({ error: 'Enter the invoice number' }).trim().min(1, 'Enter the invoice number').max(40),
+    receivedOn: z.iso.date().nullish(),
+    notes: optionalText(500),
+  })
+  .openapi('VehicleInvoiceRequest');
 export const PdiCommentBody = z
   .object({ body: z.string({ error: 'Write the comment' }).trim().min(1, 'Write the comment').max(1000) })
   .openapi('PdiCommentRequest');

@@ -1667,6 +1667,11 @@ model SalesOrder {
   pdiNotes                String?           @map("pdi_notes")
   pdiRecordedAt           DateTime?         @map("pdi_recorded_at") @db.Timestamptz(6)
   pdiRecordedById         BigInt?           @map("pdi_recorded_by_id")
+  /// The vehicle invoice received from the manufacturer / head office for this car: its number, the day, who recorded it.
+  invoiceNo               String?           @map("invoice_no")
+  invoiceReceivedOn       DateTime?         @map("invoice_received_on") @db.Date
+  invoiceReceivedById     BigInt?           @map("invoice_received_by_id")
+  invoiceNotes            String?           @map("invoice_notes")
   payments                OrderPayment[]
   paymentReference        String?           @map("payment_reference")
   notes                   String?
@@ -2154,4 +2159,23 @@ model LegacySale {
   @@index([invoiceNo], map: "legacy_sale_invoice_no_index")
   @@map("legacy_sale")
   @@schema("parts")
+}
+
+/// A call to the customer about a due service (the CRO's / advisor's call list): what they said, and when to call again.
+/// This model contains row level security.
+model ReminderCall {
+  id           BigInt   @id @default(autoincrement())
+  dealershipId BigInt   @map("dealership_id")
+  scheduleId   BigInt   @map("schedule_id")
+  vehicleId    BigInt   @map("vehicle_id")
+  outcome      String
+  remarks      String?
+  nextCallOn   DateTime? @map("next_call_on") @db.Date
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt   @map("created_by_id")
+
+  @@index([dealershipId], map: "reminder_call_dealership_id_index")
+  @@index([scheduleId], map: "reminder_call_schedule_id_index")
+  @@map("reminder_call")
+  @@schema("service")
 }

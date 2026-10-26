@@ -117,6 +117,52 @@ export const VisitUpdate = z
   .partial()
   .openapi('VisitUpdate');
 
+/** Services due: the call list. */
+export const ServicesDueQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  /** Due within this many days from today (overdue ones are always included). */
+  days: z.coerce.number().int().min(0).max(365).default(30),
+  overdueOnly: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  uncalledOnly: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+});
+const ReminderLastCall = z.object({ outcome: z.string(), remarks: z.string().nullable(), nextCallOn: z.string().nullable(), at: Timestamp, by: z.string().nullable() });
+export const ServiceDueRowSchema = z
+  .object({
+    scheduleId: Id,
+    service: z.string(),
+    dueDate: z.string(),
+    dueKm: z.number().int(),
+    isFree: z.boolean(),
+    overdue: z.boolean(),
+    vehicleId: Id,
+    registrationNo: z.string().nullable(),
+    vin: z.string().nullable(),
+    modelName: z.string().nullable(),
+    lastOdometerKm: z.number().int().nullable(),
+    customerId: Id,
+    customerName: z.string(),
+    mobile: z.string(),
+    dealershipId: Id,
+    dealershipName: z.string(),
+    callCount: z.number().int(),
+    lastCall: ReminderLastCall.nullable(),
+  })
+  .openapi('ServiceDueRow');
+export const ServicesDueSchema = z.object({ items: z.array(ServiceDueRowSchema), total: z.number().int(), overdue: z.number().int() }).openapi('ServicesDue');
+export const REMINDER_OUTCOMES = ['booked', 'will_come', 'call_later', 'no_answer', 'wrong_number', 'not_interested', 'already_serviced'] as const;
+export const ReminderCallBody = z
+  .object({
+    scheduleId: Id,
+    outcome: z.enum(REMINDER_OUTCOMES),
+    remarks: optionalText(1000),
+    /** Booked / will come: the day; call later: the day to call again. */
+    nextCallOn: z.iso.date().nullish(),
+  })
+  .openapi('ReminderCallRequest');
+export const ReminderCallSchema = z
+  .object({ id: Id, outcome: z.string(), remarks: z.string().nullable(), nextCallOn: z.string().nullable(), at: Timestamp, by: z.string().nullable() })
+  .openapi('ReminderCall');
+
 /** What check-in would compute, shown before the visit is created. */
 export const VisitPreviewSchema = z
   .object({

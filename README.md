@@ -526,6 +526,20 @@ Seeded for the DEV switcher (password `Demo@12345`):
 
 ---
 
+### Vehicle invoice received (2026-10-26)
+
+- When the manufacturer / head office sends the invoice of a customer's car, the **Sales Admin, Assistant Manager or Manager** (permission `sales.orders.invoice`) records its number and the day it arrived on the sales order: **Sales orders → the order → Vehicle invoice** (`PUT /api/sales/orders/:id/invoice`; `DELETE` removes a wrong one). Only for an approved or delivered order with a car; one invoice number belongs to one car. Columns on `sales.sales_order`: `invoice_no`, `invoice_received_on`, `invoice_received_by_id`, `invoice_notes` (migration `20261026100000_vehicle_invoice_received`).
+- **Salesperson:** the lead's order section and the order show "Invoice received" with the number, or "Invoice not received".
+- **Manager / Admin:** orders list column and filter (`invoice=received|pending`), menu items **Vehicle invoices** and **Invoices not received**, dashboard tiles for the people who record invoices, the invoice number in the orders export, and a notification when one is recorded. Tests: `test/vehicleInvoice.test.ts`.
+
+### After sales (Jetour first)
+
+- **Roles:** Service Manager (own login for Jetour; one shared login for Hyundai and CSM), Service Advisor, Technician, Cashier (Jetour only for now), and the CRO (calls customers whose service is due). The Accounts module is on only so the cashier can issue the job-card invoice and record the payment.
+- **Check-in** (`/service/visits`): find the car by registration / chassis. The screen shows where it came from (delivered by us with date and km, or bought elsewhere), the warranty, the next free service and every earlier service of the car with its km. A car bought elsewhere is registered with its owner right there (`POST /api/service/vehicles/register`); it never shows in Open stock.
+- **Jetour free services:** the free check-up at 1,000 km and the 1st service at 5,000 km are free for labour and services only; parts and oil are always charged (lines are `billable`). The plan lives under Service setup → Service schedules.
+- **Job card** (`/service/job-cards/:id`): summary (customer, car, km, complaints, charged vs free totals) with a printable PDF, work lines, parts (issued by the store against the open job card), inspection, estimates and the invoice.
+- **Services due** (`/service/reminders`, `GET /api/service/reminders`): the call list of cars whose next service is due or overdue, with the owner's phone / WhatsApp; each call (booked, will come, call later, no answer…) is recorded (`service.reminder_call`). Permissions `service.reminders.view` / `.update` (Service Manager, Service Advisor, CRO).
+
 ### Store desk (Jetour first)
 
 The Parts module is switched on (`parts: true` in `backend/src/config/modules.ts` and `frontend/src/shared/config/modules.ts`); Service and Accounts stay off.

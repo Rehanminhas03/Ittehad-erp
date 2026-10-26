@@ -19,7 +19,7 @@ import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repositor
 import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, LEAD_TEMPERATURES, nextFollowUpAfter, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
 import { SalesPerm as P } from './permissions';
 import { detectModel } from './variantCatalog';
-import { LEAD_NAME, ORDER_NO, ORDER_VEHICLE_STAGE } from './repository';
+import { LEAD_NAME, ORDER_INVOICE_NO, ORDER_INVOICE_ON, ORDER_NO, ORDER_VEHICLE_STAGE } from './repository';
 import {
   DeliverySchema,
   LeadCreate,
@@ -356,6 +356,9 @@ export const leadEntity: EntityConfig = {
         orderNo: { key: 'salesOrderId', source: ORDER_NO },
         // The car's progress (booked → in transit → received → ready), for the salesperson / AM.
         vehicleStage: { key: 'salesOrderId', source: ORDER_VEHICLE_STAGE },
+        // The vehicle invoice received for the customer's car.
+        invoiceNo: { key: 'salesOrderId', source: ORDER_INVOICE_NO },
+        invoiceReceivedOn: { key: 'salesOrderId', source: ORDER_INVOICE_ON },
       })),
   },
 };
@@ -460,6 +463,15 @@ export const salesOrderEntity: EntityConfig = {
     },
     // Orders still waiting for a vehicle (with `live`: the Delivery Team's to-do).
     hasVehicle: { key: 'vehicleId', schema: BoolQuery, where: (v) => (v ? sql`${salesOrder.vehicleId} is not null` : sql`${salesOrder.vehicleId} is null`) },
+    // The vehicle invoice: received (recorded), or pending (a car on an approved / delivered order, no invoice yet).
+    invoice: {
+      key: 'invoiceNo',
+      schema: z.enum(['received', 'pending']),
+      where: (v) =>
+        v === 'received'
+          ? sql`${salesOrder.invoiceNo} is not null`
+          : sql`(${salesOrder.invoiceNo} is null and ${salesOrder.vehicleId} is not null and ${salesOrder.status} in ('approved', 'delivered'))`,
+    },
     // Delivery clearance (e.g. requested: waiting for the Sales Admin).
     clearanceStatus: { key: 'clearanceStatus', schema: z.enum(['none', 'requested', 'approved', 'rejected']) },
     // Booked between two Pakistan calendar days (inclusive).
@@ -573,6 +585,7 @@ export const salesOrderEntity: EntityConfig = {
         vehicleStatus: { key: 'vehicleId', source: VEHICLE_STATUS },
         clearanceRequestedByName: { key: 'clearanceRequestedById', source: USER_NAME },
         clearanceDecidedByName: { key: 'clearanceDecidedById', source: USER_NAME },
+        invoiceReceivedByName: { key: 'invoiceReceivedById', source: USER_NAME },
       });
       const orderIds = rows.map((r) => r.id as number);
       const leadIds = rows.map((r) => r.leadId).filter((x): x is number => typeof x === 'number');

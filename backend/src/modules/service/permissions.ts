@@ -24,4 +24,7 @@ export const ServicePerm = definePermissions('service', {
   estimatesUpdate: ['service.estimates.update', 'Edit draft estimates'],
   estimatesSubmit: ['service.estimates.submit', 'Submit estimates for approval'],
   estimatesApprove: ['service.estimates.approve', 'Approve or reject estimates'],
+
+  remindersView: ['service.reminders.view', 'See the services due and the calls made to customers'],
+  remindersUpdate: ['service.reminders.update', 'Call customers whose service is due and record the call'],
 });

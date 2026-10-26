@@ -75,6 +75,8 @@ export const ORDER_COLUMNS: Column[] = [
   { header: 'Delivery clearance', value: (r) => label(r.clearance) },
   { header: 'Delivery scheduled', value: (r) => date(r.deliveryScheduled) },
   { header: 'Delivered on', value: (r) => date(r.deliveredOn) },
+  { header: 'Vehicle invoice no.', value: (r) => r.invoiceNo as string },
+  { header: 'Vehicle invoice received on', value: (r) => date(r.invoiceReceivedOn) },
   { header: 'Notes', value: (r) => r.notes as string },
 ];
 /** The PDF's columns (a page is narrower than a spreadsheet). */

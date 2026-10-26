@@ -248,6 +248,12 @@ export function SalesDashboard() {
         ))}
       </div>
 
+      {orders && perm.can(P.ordersInvoice) && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+          <StatTile label="Vehicle invoices not received" value={orders.invoicesPending} icon="clock" tone="orange" to="/sales/orders?invoice=pending&range=all" hint="Cars on approved or delivered orders" loading={isLoading} />
+          <StatTile label="Vehicle invoices received" value={orders.invoicesReceived} icon="check" tone="aqua" to="/sales/orders?invoice=received&range=all" hint="Recorded with their numbers" loading={isLoading} />
+        </div>
+      )}
       {leads && layout !== 'delivery' && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           <StatTile label="Test drives done" value={leads.testDrivesInPeriod} icon="check" tone="aqua" to={`/sales/leads?testDriveDone=true&range=all${who}`} hint={periodLabel} loading={isLoading} />

@@ -46,6 +46,7 @@ export const P = {
   deliveriesSchedule: 'sales.deliveries.schedule',
   deliveriesComplete: 'sales.deliveries.complete',
   paymentsManage: 'sales.payments.manage',
+  ordersInvoice: 'sales.orders.invoice',
   ordersClear: 'sales.orders.clear',
   leaveApply: 'sales.leave.apply',
   leaveApprove: 'sales.leave.approve',

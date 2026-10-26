@@ -84,6 +84,11 @@ export async function dropAll(url: string) {
 /** Applies pending migrations and the app-role grants, then registers the permission catalog and default roles. */
 export async function migrateDatabase(url: string) {
   prismaCli(['migrate', 'deploy'], url);
+  return applyGrantsAndCatalog(url);
+}
+
+/** The app-role grants, then the permission catalog and default roles (what follows the migrations). */
+export async function applyGrantsAndCatalog(url: string) {
   return withOwner(url, (db) =>
     transaction(db, async (tx) => {
       for (const stmt of APP_GRANTS) await tx.$executeRawUnsafe(stmt);

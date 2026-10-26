@@ -6,6 +6,7 @@ import { dealershipFilter, type EntityViewConfig, mono, muted, optionalId, optio
 import { formatDateTime } from '@/shared/lib';
 import { InspectionPanel } from '../components/InspectionPanel';
 import { JobCardEstimates } from '../components/JobCardEstimates';
+import { JobCardSummary } from '../components/JobCardSummary';
 import { JobCardWork } from '../components/JobCardWork';
 import { TechnicianSelect } from '../components/TechnicianSelect';
 import { JOB_CARD_STATES, P } from '../permissions';
@@ -54,6 +55,7 @@ export const jobCardView: EntityViewConfig<JobCard> = {
     ],
     sections: (j) => (
       <>
+        <JobCardSummary jobCard={j} />
         <JobCardWork jobCard={j} />
         <JobCardPartsRequests jobCard={j} />
         <InspectionPanel jobCard={j} />

@@ -422,6 +422,8 @@ export const resultExtension = {
     clearanceRequestedById: { needs: { clearanceRequestedById: true }, compute: (r: { clearanceRequestedById: bigint | null }) => fromBigInt(r.clearanceRequestedById) },
     clearanceDecidedById: { needs: { clearanceDecidedById: true }, compute: (r: { clearanceDecidedById: bigint | null }) => fromBigInt(r.clearanceDecidedById) },
     pdiRecordedById: { needs: { pdiRecordedById: true }, compute: (r: { pdiRecordedById: bigint | null }) => fromBigInt(r.pdiRecordedById) },
+    invoiceReceivedOn: { needs: { invoiceReceivedOn: true }, compute: (r: { invoiceReceivedOn: Date | null }) => fromDate(r.invoiceReceivedOn) },
+    invoiceReceivedById: { needs: { invoiceReceivedById: true }, compute: (r: { invoiceReceivedById: bigint | null }) => fromBigInt(r.invoiceReceivedById) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },
     updatedById: { needs: { updatedById: true }, compute: (r: { updatedById: bigint | null }) => fromBigInt(r.updatedById) },
   },
@@ -562,5 +564,13 @@ export const resultExtension = {
     quantity: { needs: { quantity: true }, compute: (r: { quantity: { toFixed(dp: number): string } }) => fromDecimal(r.quantity, 2) },
     unitPrice: { needs: { unitPrice: true }, compute: (r: { unitPrice: { toFixed(dp: number): string } }) => fromDecimal(r.unitPrice, 2) },
     totalPrice: { needs: { totalPrice: true }, compute: (r: { totalPrice: { toFixed(dp: number): string } }) => fromDecimal(r.totalPrice, 2) },
+  },
+  reminderCall: {
+    id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
+    dealershipId: { needs: { dealershipId: true }, compute: (r: { dealershipId: bigint }) => fromBigInt(r.dealershipId) },
+    scheduleId: { needs: { scheduleId: true }, compute: (r: { scheduleId: bigint }) => fromBigInt(r.scheduleId) },
+    vehicleId: { needs: { vehicleId: true }, compute: (r: { vehicleId: bigint }) => fromBigInt(r.vehicleId) },
+    nextCallOn: { needs: { nextCallOn: true }, compute: (r: { nextCallOn: Date | null }) => fromDate(r.nextCallOn) },
+    createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint }) => fromBigInt(r.createdById) },
   },
 } as const;

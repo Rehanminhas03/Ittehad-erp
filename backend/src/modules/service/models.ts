@@ -1,6 +1,6 @@
 // Tables: defined in prisma/schema.prisma (Prisma ORM); these are their generated identifiers for
 // hand-written SQL (see src/db/tables.generated.ts). Prisma Client: tx.<table>.findMany(...).
-export { scheduleItem, inspectionTemplateItem, vehicleSchedule, visit, jobCard, jobCardLine, inspection, inspectionItem, estimate, estimateLine } from '../../db/tables.generated';
+export { reminderCall, scheduleItem, inspectionTemplateItem, vehicleSchedule, visit, jobCard, jobCardLine, inspection, inspectionItem, estimate, estimateLine } from '../../db/tables.generated';
 
 export const VISIT_TYPES = ['scheduled', 'paid_service', 'repair', 'warranty', 'accident', 'inspection'] as const;
 export const VISIT_STATES = ['open', 'in_progress', 'ready', 'delivered', 'cancelled'] as const;

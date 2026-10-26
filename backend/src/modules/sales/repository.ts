@@ -15,6 +15,9 @@ export const DEALERSHIP_MANAGER_ROLE = 'Dealership Manager';
 export const dealershipManagersSql = (dealershipId: number) => sql`
   select ur.user_id from core.user_role ur join core.role r on r.id = ur.role_id
    where ur.dealership_id = ${dealershipId} and r.name = ${DEALERSHIP_MANAGER_ROLE}`;
+/** The vehicle invoice received for the car on a sales order (the number, and the day). */
+export const ORDER_INVOICE_NO: NameSource = { table: salesOrder, id: salesOrder.id, label: salesOrder.invoiceNo };
+export const ORDER_INVOICE_ON: NameSource = { table: salesOrder, id: salesOrder.id, label: sql`${salesOrder.invoiceReceivedOn}::text` };
 /** Where the car on a sales order is (booked, in transit, received, ready for delivery…); null until a car is on it. */
 export const ORDER_VEHICLE_STAGE: NameSource = {
   table: salesOrder,
