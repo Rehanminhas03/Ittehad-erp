@@ -20,6 +20,8 @@ export interface Movement {
   /** The customer invoice and remarks of an issue (the sale report). */
   invoiceNo?: string | null;
   remarks?: string | null;
+  /** Discount given (percent of the price), for the revenue. */
+  discountPercent?: string | null;
   referenceType: string;
   referenceId: number;
   referenceNo?: string | null;
@@ -100,6 +102,7 @@ export async function moveStock(ctx: EntityCtx, m: Movement): Promise<MovementRe
       unitPrice,
       invoiceNo: m.invoiceNo ?? null,
       remarks: m.remarks ?? null,
+      discountPercent: sells && m.discountPercent && Number(m.discountPercent) > 0 ? m.discountPercent : null,
       value,
       balanceAfter: updated.balanceAfter,
       averageCostAfter: updated.averageCostAfter,

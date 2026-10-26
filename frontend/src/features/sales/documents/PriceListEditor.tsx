@@ -9,6 +9,8 @@ const FIELDS = [
   ['advanceTaxFiler', 'Advance tax (filer)'],
   ['advanceTaxNonFiler', 'Advance tax (non-filer)'],
   ['freightCharges', 'Freight charges'],
+  ['nevLevy', 'NEV levy'],
+  ['cvt', 'CVT (1%)'],
   ['bookingPrice', 'Booking price'],
 ] as const;
 type Key = (typeof FIELDS)[number][0];
@@ -25,7 +27,7 @@ function Row({ variant }: { variant: VariantCode }) {
   const saved = toValues(variant);
   const [v, setV] = useState<Values>(saved);
   const dirty = FIELDS.some(([k]) => plain(v[k]) !== plain(saved[k]));
-  const net = (nonFiler: boolean) => (plain(v.exFactoryPrice) ? num(v.exFactoryPrice) + num(nonFiler ? v.advanceTaxNonFiler : v.advanceTaxFiler) + num(v.freightCharges) : null);
+  const net = (nonFiler: boolean) => (plain(v.exFactoryPrice) ? num(v.exFactoryPrice) + num(nonFiler ? v.advanceTaxNonFiler : v.advanceTaxFiler) + num(v.freightCharges) + num(v.nevLevy) + num(v.cvt) : null);
   const nf = net(true);
 
   const save = async () => {

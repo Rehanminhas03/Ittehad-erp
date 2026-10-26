@@ -17,6 +17,7 @@ const toBody = (d: LineDraft) => ({
   partNo: d.partNo || null,
   quantity: d.quantity,
   unitPrice: d.unitPrice.replace(/,/g, ''),
+  discountPercent: d.discountPercent.replace('%', '').trim() || '0',
 });
 
 /** Estimate lines: editable while the estimate is a draft; totals are computed by the server. */
@@ -43,6 +44,7 @@ export function EstimateLines({ estimate }: { estimate: Estimate }) {
         <Spinner className="size-4 text-slate-400" />
       ) : (
         <LineItemsTable<EstimateLine>
+          discountable
           lines={lines ?? []}
           kinds={LINE_KINDS}
           editable={editable}

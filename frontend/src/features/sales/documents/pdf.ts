@@ -386,7 +386,9 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
   if (Number(q.pricing.discount) > 0) items.push(['LESS: DISCOUNT', -Number(q.pricing.discount)]);
   // A charge left empty has no row; one entered as 0 prints with 0.
   if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
+  if (q.pricing.nevLevy != null && q.pricing.nevLevy !== '') items.push(['NEV LEVY', Number(q.pricing.nevLevy)]);
   if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
+  if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
   items.forEach(([label, unit], i) => {
     p.font(8.5);
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
@@ -604,7 +606,9 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   if (Number(q.pricing.discount) > 0) items.push(['LESS: DISCOUNT', -Number(q.pricing.discount)]);
   // A charge left empty has no row; one entered as 0 prints with 0.
   if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
+  if (q.pricing.nevLevy != null && q.pricing.nevLevy !== '') items.push(['NEV LEVY', Number(q.pricing.nevLevy)]);
   if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
+  if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
   items.forEach(([label, unit], i) => {
     p.font(9.5);
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];

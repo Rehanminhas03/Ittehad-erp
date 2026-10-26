@@ -4,7 +4,7 @@ import { POLICIES } from '../../config/policies';
 import { LineService } from '../../entity/lines';
 import type { EntityCtx, Row } from '../../entity/types';
 import { conflict, forbidden, notFound, validationError } from '../../lib/errors';
-import { lineAmount } from '../../lib/money';
+import { lessPercent, lineAmount } from '../../lib/money';
 import type { z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
 import { vehicle } from '../master/models';
@@ -220,7 +220,8 @@ export async function openJobCard(ctx: EntityCtx, visitId: number) {
 
 const priceLine = (_ctx: EntityCtx, _parent: Row, data: Record<string, unknown>) => ({
   ...data,
-  amount: lineAmount(String(data.unitPrice), String(data.quantity)),
+  // The price x quantity, less the discount (percent) given on the line.
+  amount: lessPercent(lineAmount(String(data.unitPrice), String(data.quantity)), String(data.discountPercent ?? '0')),
 });
 
 export const jobCardLines = new LineService({

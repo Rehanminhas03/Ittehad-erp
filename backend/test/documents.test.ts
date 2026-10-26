@@ -89,6 +89,21 @@ describe('vehicle quotations', () => {
     expect((await quote(s.sales1, id, { unitPrice: '9500000' })).body.quotationNo).toMatch(/-00002$/);
   });
 
+  it('adds the NEV levy and CVT (1%) of a hybrid car to the total (Palisade HEV price list)', async () => {
+    const s = await setup();
+    const id = await lead(s);
+    const res = await quote(s.sales1, id, { unitPrice: '22625000', freightInsurance: '76000', withholdingTax: '1649607', nevLevy: '684169', cvt: '180639' });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ nevLevy: '684169.00', cvt: '180639.00', totalAmount: '25215415.00' });
+    const doc = (await get(s.sales1, `quotations/${res.body.id}/document`)).body;
+    expect(doc.pricing).toMatchObject({ nevLevy: '684169.00', cvt: '180639.00', total: '25215415.00' });
+    // Left empty, they are not printed and add nothing; a correction recomputes the total.
+    const plain = await quote(s.sales1, id, { unitPrice: '1000000' });
+    expect(plain.body).toMatchObject({ nevLevy: null, cvt: null, totalAmount: '1000000.00' });
+    const fixed = await patch(s.sales1, `quotations/${res.body.id}`, { cvt: '200000' });
+    expect(fixed.body.totalAmount).toBe('25234776.00');
+  });
+
   it('adds freight & insurance and withholding tax as line items, per vehicle; corrections recompute the total', async () => {
     const s = await setup();
     const id = await lead(s);

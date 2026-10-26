@@ -939,6 +939,8 @@ model InventoryTransaction {
   /// The customer invoice the parts were billed on (the sale report), and remarks like "3% discount on this RO".
   invoiceNo        String?    @map("invoice_no")
   remarks          String?
+  /// A discount given on the part when it was issued (percent of the price); the revenue is the price less this.
+  discountPercent  Decimal?   @map("discount_percent") @db.Decimal(5, 2)
   value            Decimal    @db.Decimal(14, 2)
   balanceAfter     Decimal    @map("balance_after") @db.Decimal(12, 2)
   averageCostAfter Decimal    @map("average_cost_after") @db.Decimal(14, 2)
@@ -971,6 +973,8 @@ model Part {
   category              String?
   uom                   String                 @default("each")
   sellingPrice          Decimal                @default(0) @map("selling_price") @db.Decimal(14, 2)
+  /// The price received from the company (head office): the last price paid for the part; empty until known.
+  purchasePrice         Decimal?               @map("purchase_price") @db.Decimal(14, 2)
   /// The vehicle models (core.vehicle_model ids) this part fits; empty: not assigned to a model.
   modelIds              Int[]                  @default([]) @map("model_ids")
   isActive              Boolean                @default(true) @map("is_active")
@@ -1594,6 +1598,9 @@ model Quotation {
   discount               Decimal      @default(0) @db.Decimal(14, 2)
   /// Null: left empty (the row is not printed); 0: entered as zero (printed as 0).
   freightInsurance       Decimal?     @map("freight_insurance") @db.Decimal(14, 2)
+  /// NEV levy and CVT (1%) quoted for the car: empty = not printed, 0 = printed as 0; both are part of the total.
+  nevLevy                Decimal?     @map("nev_levy") @db.Decimal(14, 2)
+  cvt                    Decimal?     @map("cvt") @db.Decimal(14, 2)
   withholdingTax         Decimal?     @map("withholding_tax") @db.Decimal(14, 2)
   withholdingTaxNonFiler Decimal?     @map("withholding_tax_non_filer") @db.Decimal(14, 2)
   totalAmount            Decimal      @map("total_amount") @db.Decimal(14, 2)
@@ -1723,6 +1730,9 @@ model VehicleVariant {
   advanceTaxFiler    Decimal? @map("advance_tax_filer") @db.Decimal(14, 2)
   advanceTaxNonFiler Decimal? @map("advance_tax_non_filer") @db.Decimal(14, 2)
   freightCharges     Decimal? @map("freight_charges") @db.Decimal(14, 2)
+  /// New energy vehicle (NEV) levy and capital value tax (CVT, 1%) of the price list (hybrid / electric cars): filled into the quotation.
+  nevLevy            Decimal? @map("nev_levy") @db.Decimal(14, 2)
+  cvt                Decimal? @map("cvt") @db.Decimal(14, 2)
   bookingPrice       Decimal? @map("booking_price") @db.Decimal(14, 2)
   isActive     Boolean       @default(true) @map("is_active")
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1791,6 +1801,8 @@ model EstimateLine {
   quantity         Decimal         @db.Decimal(10, 2)
   unitPrice        Decimal         @map("unit_price") @db.Decimal(14, 2)
   amount           Decimal         @db.Decimal(14, 2)
+  /// A discount given on the line (percent); the amount is already net of it.
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
   inspectionItemId BigInt?         @map("inspection_item_id")
   sortOrder        Int             @default(0) @map("sort_order")
   createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1930,6 +1942,8 @@ model JobCardLine {
   quantity       Decimal    @db.Decimal(10, 2)
   unitPrice      Decimal    @map("unit_price") @db.Decimal(14, 2)
   amount         Decimal    @db.Decimal(14, 2)
+  /// A discount given on the line (percent); the amount is already net of it.
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
   billable       Boolean    @default(true)
   source         String     @default("manual")
   estimateLineId BigInt?    @map("estimate_line_id")

@@ -632,6 +632,7 @@ export type SetJobCardLineDoneApiResponse = /** status 200 Success */ {
   partNo: string | null;
   quantity: string;
   unitPrice: string;
+  discountPercent: string;
   amount: string;
   billable: boolean;
   source: "schedule" | "estimate" | "manual" | "parts";
@@ -1281,6 +1282,7 @@ export type JobCardLine = {
   partNo: string | null;
   quantity: string;
   unitPrice: string;
+  discountPercent: string;
   amount: string;
   billable: boolean;
   source: "schedule" | "estimate" | "manual" | "parts";
@@ -1293,6 +1295,7 @@ export type JobCardLineCreate = {
   partNo?: string | null;
   quantity: string;
   unitPrice: string;
+  discountPercent?: string;
   billable?: boolean;
 };
 export type JobCardLineUpdate = {
@@ -1301,6 +1304,7 @@ export type JobCardLineUpdate = {
   partNo?: string | null;
   quantity?: string;
   unitPrice?: string;
+  discountPercent?: string;
   billable?: boolean;
 };
 export type JobCard = {
@@ -1342,6 +1346,7 @@ export type EstimateLine = {
   partNo: string | null;
   quantity: string;
   unitPrice: string;
+  discountPercent: string;
   amount: string;
   inspectionItemId: number | null;
   sortOrder: number;
@@ -1352,6 +1357,7 @@ export type EstimateLineCreate = {
   partNo?: string | null;
   quantity: string;
   unitPrice: string;
+  discountPercent?: string;
   inspectionItemId?: number | null;
   sortOrder?: number;
 };
@@ -1361,6 +1367,7 @@ export type EstimateLineUpdate = {
   partNo?: string | null;
   quantity?: string;
   unitPrice?: string;
+  discountPercent?: string;
   sortOrder?: number;
 };
 export type Estimate = {

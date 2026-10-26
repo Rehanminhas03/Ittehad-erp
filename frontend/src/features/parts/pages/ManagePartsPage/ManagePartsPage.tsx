@@ -94,7 +94,8 @@ export default function ManagePartsPage() {
               <th className="py-2 pr-3 font-medium">Description</th>
               <th className="py-2 pr-3 font-medium">Category</th>
               <th className="py-2 pr-3 font-medium">Fits</th>
-              <th className="py-2 pr-3 text-right font-medium">Price (PKR)</th>
+              <th className="py-2 pr-3 text-right font-medium">Received (PKR)</th>
+              <th className="py-2 pr-3 text-right font-medium">Customer price (PKR)</th>
               <th />
             </tr>
           </thead>
@@ -112,6 +113,7 @@ export default function ManagePartsPage() {
                 <td className="py-2 pr-3">{p.description}</td>
                 <td className="py-2 pr-3 text-slate-500">{p.category}</td>
                 <td className="py-2 pr-3 text-xs text-slate-600">{(p.modelIds ?? []).length ? (p.modelIds ?? []).map((id) => models.find((m) => m.value === String(id))?.label.replace(`${brand} `, '') ?? id).join(', ') : 'Not set'}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{p.purchasePrice == null ? <span className="text-slate-400">not set</span> : formatMoney(p.purchasePrice)}</td>
                 <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(p.sellingPrice)}</td>
                 <td className="py-2 text-right">
                   <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => setEditing(p)}>
@@ -141,6 +143,7 @@ function PartDialog({ part, brand, categories, models, onClose, toast }: { part:
   const [description, setDescription] = useState(part?.description ?? '');
   const [category, setCategory] = useState(part?.category ?? '');
   const [price, setPrice] = useState(part ? String(Number(part.sellingPrice)) : '');
+  const [received, setReceived] = useState(part?.purchasePrice != null ? String(Number(part.purchasePrice)) : '');
   const [active, setActive] = useState(part?.isActive ?? true);
   const [error, setError] = useState<string | null>(null);
   const [add, { isLoading: adding }] = useAddPartMutation();
@@ -152,10 +155,10 @@ function PartDialog({ part, brand, categories, models, onClose, toast }: { part:
     setError(null);
     try {
       if (part) {
-        await change({ id: part.id, managePartUpdate: { partNo: partNo.trim(), description: description.trim(), category: category.trim() || null, sellingPrice: clean(price), isActive: active, modelIds } }).unwrap();
+        await change({ id: part.id, managePartUpdate: { partNo: partNo.trim(), description: description.trim(), category: category.trim() || null, sellingPrice: clean(price), purchasePrice: clean(received) || undefined, isActive: active, modelIds } }).unwrap();
         toast.success(`${partNo.trim().toUpperCase()} saved`);
       } else {
-        await add({ managePartCreate: { brand, partNo: partNo.trim(), description: description.trim(), category: category.trim() || null, sellingPrice: clean(price), modelIds } }).unwrap();
+        await add({ managePartCreate: { brand, partNo: partNo.trim(), description: description.trim(), category: category.trim() || null, sellingPrice: clean(price), purchasePrice: clean(received) || undefined, modelIds } }).unwrap();
         toast.success(`${partNo.trim().toUpperCase()} added to the catalogue`);
       }
       onClose();
@@ -195,7 +198,10 @@ function PartDialog({ part, brand, categories, models, onClose, toast }: { part:
             ))}
           </datalist>
         </Field>
-        <Field label="Price (PKR)" htmlFor="pd-price" hint="Including sales tax, as on the price list">
+        <Field label="Received price (PKR)" htmlFor="pd-received" hint="The price received from the company. Updated automatically when parts are received with a price">
+          <Input id="pd-received" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} />
+        </Field>
+        <Field label="Customer price (PKR)" htmlFor="pd-price" hint="The price told to the customer, including sales tax, as on the price list">
           <Input id="pd-price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
         </Field>
         <Field label="Fits vehicle" htmlFor="pd-models" hint="Tick every vehicle this part fits">

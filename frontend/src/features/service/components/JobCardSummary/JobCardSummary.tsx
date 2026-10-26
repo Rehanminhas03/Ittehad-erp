@@ -24,13 +24,15 @@ export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
   const parts = sum((l) => l.billable && l.kind === 'part');
   const labour = sum((l) => l.billable && l.kind === 'labour');
   const free = sum((l) => !l.billable);
+  // The discount given on the lines (price x quantity less what is charged).
+  const discount = lines.reduce((n, l) => n + (num(l.unitPrice) * num(l.quantity) - num(l.amount)), 0);
   const payable = parts + labour;
   const done = lines.filter((l) => l.status === 'done').length;
 
   const print = async () => {
     setBusy(true);
     try {
-      await downloadJobCardPdf(jobCard, visit, lines, { parts, labour, free, payable });
+      await downloadJobCardPdf(jobCard, visit, lines, { parts, labour, free, payable, discount });
     } catch (e) {
       toast.error(e);
     } finally {
@@ -107,6 +109,12 @@ export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
           <p className="text-xs text-emerald-800">Free of charge</p>
           <p className="mt-0.5 text-lg font-semibold text-emerald-900 tabular-nums">{formatMoney(String(free))}</p>
         </div>
+        {discount > 0.005 && (
+          <div className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
+            <p className="text-xs text-amber-800">Discount given</p>
+            <p className="mt-0.5 text-lg font-semibold text-amber-900 tabular-nums">{formatMoney(String(Math.round(discount * 100) / 100))}</p>
+          </div>
+        )}
         <div className="rounded-xl bg-brand-50 p-3 ring-1 ring-brand-200">
           <p className="text-xs text-brand-800">Customer pays</p>
           <p className="mt-0.5 text-lg font-semibold text-brand-900 tabular-nums">{formatMoney(String(payable))}</p>

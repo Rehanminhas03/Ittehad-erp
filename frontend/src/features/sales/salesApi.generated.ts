@@ -1473,6 +1473,8 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   discount: string;
   freightInsurance: string | null;
   withholdingTax: string | null;
+  nevLevy?: string | null;
+  cvt?: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -1918,6 +1920,8 @@ export type CreateStandaloneQuotationApiResponse = /** status 201 Success */ {
   discount: string;
   freightInsurance: string | null;
   withholdingTax: string | null;
+  nevLevy?: string | null;
+  cvt?: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -3286,6 +3290,8 @@ export type QuotationCreate = {
   quantity?: number;
   freightInsurance?: string;
   withholdingTax?: string;
+  nevLevy?: string;
+  cvt?: string;
   withholdingTaxNonFiler?: string;
   deliveryDays?: number | null;
   deliveryPeriod?: string | null;
@@ -3469,6 +3475,8 @@ export type QuotationDocument = {
     discount: string;
     freightInsurance: string | null;
     withholdingTax: string | null;
+    nevLevy?: string | null;
+    cvt?: string | null;
     taxStatus: "filer" | "non_filer";
     withholdingTaxNonFiler: string | null;
     total: string;
@@ -4504,6 +4512,8 @@ export type Quotation = {
   discount: string;
   freightInsurance: string | null;
   withholdingTax: string | null;
+  nevLevy?: string | null;
+  cvt?: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -4543,6 +4553,8 @@ export type QuotationUpdate = {
   quantity?: number;
   freightInsurance?: string;
   withholdingTax?: string;
+  nevLevy?: string;
+  cvt?: string;
   withholdingTaxNonFiler?: string;
   deliveryDays?: number | null;
   deliveryPeriod?: string | null;
@@ -4628,6 +4640,8 @@ export type VariantCode = {
   advanceTaxFiler?: string | null;
   advanceTaxNonFiler?: string | null;
   freightCharges?: string | null;
+  nevLevy?: string | null;
+  cvt?: string | null;
   bookingPrice?: string | null;
   isActive: boolean;
   createdAt: string;
@@ -4648,6 +4662,8 @@ export type VehicleVariantCreate = {
   advanceTaxFiler?: string;
   advanceTaxNonFiler?: string;
   freightCharges?: string;
+  nevLevy?: string;
+  cvt?: string;
   bookingPrice?: string;
   isActive?: boolean;
 };
@@ -4659,6 +4675,8 @@ export type VehicleVariantUpdate = {
   advanceTaxFiler?: string;
   advanceTaxNonFiler?: string;
   freightCharges?: string;
+  nevLevy?: string;
+  cvt?: string;
   bookingPrice?: string;
   isActive?: boolean;
 };

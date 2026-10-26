@@ -93,6 +93,8 @@ async function issueQuotation(ctx: EntityCtx, target: Target, ownerId: number, l
     discount: money2(discount),
     quantity: input.quantity,
     freightInsurance: input.freightInsurance == null ? null : money2(input.freightInsurance),
+    nevLevy: input.nevLevy == null ? null : money2(input.nevLevy),
+    cvt: input.cvt == null ? null : money2(input.cvt),
     withholdingTax: input.withholdingTax == null ? null : money2(input.withholdingTax),
   });
   const booking = input.bookingAmount !== undefined ? input.bookingAmount : (order?.bookingAmount ?? ((l?.paymentAmount as string | null) ?? null));
@@ -253,6 +255,8 @@ export async function quotationDocument(ctx: EntityCtx, id: number) {
       unitPrice: q.unitPrice as string,
       discount: q.discount as string,
       freightInsurance: (q.freightInsurance as string | null) ?? null,
+      nevLevy: (q.nevLevy as string | null) ?? null,
+      cvt: (q.cvt as string | null) ?? null,
       withholdingTax: (q.withholdingTax as string | null) ?? null,
       taxStatus: q.taxStatus as 'filer',
       withholdingTaxNonFiler: (q.withholdingTaxNonFiler as string | null) ?? null,

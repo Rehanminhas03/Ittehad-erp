@@ -8,11 +8,16 @@ import { usePrefillPart } from '../../hooks/usePrefillPart';
 import { type DirectIssueResult, useIssueStockMutation, useListOpenJobCardsQuery } from '../../partsApi';
 import { P } from '../../permissions';
 
+const pct = (v: string) => Math.min(100, Math.max(0, Number(v.replace('%', '')) || 0));
+/** Price x quantity less the discount in percent. */
+const net = (l: { quantity: string; unitPrice: string; discountPercent: string }) => amountNumber(l.quantity) * amountNumber(l.unitPrice) * (1 - pct(l.discountPercent) / 100);
+
 interface Line {
   partNo: string;
   description: string;
   quantity: string;
   unitPrice: string;
+  discountPercent: string;
 }
 
 /**
@@ -34,11 +39,14 @@ export default function IssuePartsPage() {
   const [done, setDone] = useState<DirectIssueResult | null>(null);
   const [issue, { isLoading }] = useIssueStockMutation();
   const set = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
-  const total = lines.reduce((s, l) => s + amountNumber(l.quantity) * amountNumber(l.unitPrice), 0);
+  const total = lines.reduce((s, l) => s + net(l), 0);
+  const gross = lines.reduce((s, l) => s + amountNumber(l.quantity) * amountNumber(l.unitPrice), 0);
+  // One discount for every part on the list (a line can still be changed).
+  const [allPct, setAllPct] = useState('');
   const out = kind === 'issue';
   const { data: cards } = useListOpenJobCardsQuery({ dealershipId: t.dealershipId ?? 0 }, { skip: !t.dealershipId });
   const card = cards?.find((c) => String(c.id) === jobCardId);
-  usePrefillPart((p) => setLines((ls) => (ls.some((l) => l.partNo === p.partNo) ? ls : [...ls, { partNo: p.partNo, description: p.description, quantity: '1', unitPrice: String(Number(p.sellingPrice)) }])));
+  usePrefillPart((p) => setLines((ls) => (ls.some((l) => l.partNo === p.partNo) ? ls : [...ls, { partNo: p.partNo, description: p.description, quantity: '1', unitPrice: String(Number(p.sellingPrice)), discountPercent: allPct }])));
 
   const submit = async () => {
     if (!t.dealershipId || !t.branchId) return setError('Choose the store');
@@ -59,7 +67,7 @@ export default function IssuePartsPage() {
           invoiceNo: invoiceNo.trim() || undefined,
           vehicleRef: card ? undefined : vehicleRef.trim() || null,
           notes: notes.trim() || null,
-          lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitPrice: l.unitPrice.trim() || undefined })),
+          lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitPrice: l.unitPrice.trim() || undefined, discountPercent: l.discountPercent.replace('%', '').trim() || undefined })),
         },
       }).unwrap();
       setDone(r);
@@ -139,9 +147,17 @@ export default function IssuePartsPage() {
         </Section>
 
         <Section title="Parts">
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <Field label="Discount on all parts (%)" htmlFor="ip-all" hint="Type 1, 2, 3 ... to give the same discount on every part below">
+              <Input id="ip-all" className="w-28" inputMode="decimal" placeholder="e.g. 5" value={allPct} onChange={(e) => setAllPct(e.target.value)} />
+            </Field>
+            <Button variant="secondary" disabled={!lines.length} onClick={() => setLines((ls) => ls.map((l) => ({ ...l, discountPercent: allPct })))}>
+              Apply to all
+            </Button>
+          </div>
           <PartPicker
             onPick={(p) =>
-              setLines((ls) => (ls.some((l) => l.partNo === p.partNo) ? ls : [...ls, { partNo: p.partNo, description: p.description, quantity: '1', unitPrice: String(Number(p.sellingPrice)) }]))
+              setLines((ls) => (ls.some((l) => l.partNo === p.partNo) ? ls : [...ls, { partNo: p.partNo, description: p.description, quantity: '1', unitPrice: String(Number(p.sellingPrice)), discountPercent: allPct }]))
             }
           />
           {lines.length > 0 && (
@@ -152,6 +168,7 @@ export default function IssuePartsPage() {
                     <th className="py-2 pr-2 font-medium">Part</th>
                     <th className="py-2 pr-2 text-right font-medium">Quantity</th>
                     <th className="py-2 pr-2 text-right font-medium">Price charged (PKR)</th>
+                    <th className="py-2 pr-2 text-right font-medium">Discount %</th>
                     <th className="py-2 pr-2 text-right font-medium">Amount</th>
                     <th />
                   </tr>
@@ -168,7 +185,10 @@ export default function IssuePartsPage() {
                       <td className="py-2 pr-2 text-right">
                         <Input value={l.unitPrice} onChange={(e) => set(i, { unitPrice: e.target.value })} className="ml-auto w-32 py-1 text-right text-xs" inputMode="decimal" aria-label={`Price of ${l.partNo}`} />
                       </td>
-                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(String(amountNumber(l.quantity) * amountNumber(l.unitPrice)))}</td>
+                      <td className="py-2 pr-2 text-right">
+                        <Input value={l.discountPercent} onChange={(e) => set(i, { discountPercent: e.target.value })} className="ml-auto w-20 py-1 text-right text-xs" inputMode="decimal" placeholder="%" aria-label={`Discount of ${l.partNo} in percent`} />
+                      </td>
+                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(String(Math.round(net(l) * 100) / 100))}</td>
                       <td className="py-2 text-right">
                         <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => setLines((ls) => ls.filter((_, k) => k !== i))}>
                           Remove
@@ -179,10 +199,10 @@ export default function IssuePartsPage() {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={3} className="py-2 pr-2 text-right text-sm font-medium">
-                      Total
+                    <td colSpan={4} className="py-2 pr-2 text-right text-sm font-medium">
+                      {gross - total > 0.005 ? `Total (discount given ${formatMoney(String(Math.round((gross - total) * 100) / 100))})` : 'Total'}
                     </td>
-                    <td className="py-2 pr-2 text-right font-semibold tabular-nums">{formatMoney(String(total))}</td>
+                    <td className="py-2 pr-2 text-right font-semibold tabular-nums">{formatMoney(String(Math.round(total * 100) / 100))}</td>
                     <td />
                   </tr>
                 </tfoot>
@@ -206,7 +226,7 @@ export default function IssuePartsPage() {
                     <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
                   </span>
                   <span className="shrink-0 text-xs text-slate-500">
-                    {Number(l.quantity)} × {formatMoney(l.unitPrice)} · {Number(l.balanceAfter)} left in store
+                    {Number(l.quantity)} × {formatMoney(l.unitPrice)}{Number(l.discountPercent) > 0 ? ` − ${Number(l.discountPercent)}% = ${formatMoney(l.netAmount)}` : ''} · {Number(l.balanceAfter)} left in store
                   </span>
                 </li>
               ))}

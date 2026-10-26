@@ -4427,6 +4427,14 @@
             "type": "string",
             "example": "1250000.00"
           },
+          "nevLevy": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "cvt": {
+            "type": "string",
+            "example": "1250000.00"
+          },
           "withholdingTaxNonFiler": {
             "type": "string",
             "example": "1250000.00"
@@ -5096,6 +5104,14 @@
                 "nullable": true
               },
               "withholdingTax": {
+                "type": "string",
+                "nullable": true
+              },
+              "nevLevy": {
+                "type": "string",
+                "nullable": true
+              },
+              "cvt": {
                 "type": "string",
                 "nullable": true
               },
@@ -9851,6 +9867,14 @@
             "type": "string",
             "nullable": true
           },
+          "nevLevy": {
+            "type": "string",
+            "nullable": true
+          },
+          "cvt": {
+            "type": "string",
+            "nullable": true
+          },
           "withholdingTaxNonFiler": {
             "type": "string",
             "nullable": true
@@ -10023,6 +10047,14 @@
             "example": "1250000.00"
           },
           "withholdingTax": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "nevLevy": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "cvt": {
             "type": "string",
             "example": "1250000.00"
           },
@@ -10454,6 +10486,14 @@
             "type": "string",
             "nullable": true
           },
+          "nevLevy": {
+            "type": "string",
+            "nullable": true
+          },
+          "cvt": {
+            "type": "string",
+            "nullable": true
+          },
           "bookingPrice": {
             "type": "string",
             "nullable": true
@@ -10521,6 +10561,14 @@
             "type": "string",
             "example": "1250000.00"
           },
+          "nevLevy": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "cvt": {
+            "type": "string",
+            "example": "1250000.00"
+          },
           "bookingPrice": {
             "type": "string",
             "example": "1250000.00"
@@ -10568,6 +10616,14 @@
             "example": "1250000.00"
           },
           "freightCharges": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "nevLevy": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "cvt": {
             "type": "string",
             "example": "1250000.00"
           },
@@ -10772,6 +10828,12 @@
                 "unitPrice": {
                   "type": "string"
                 },
+                "discountPercent": {
+                  "type": "string"
+                },
+                "netAmount": {
+                  "type": "string"
+                },
                 "balanceAfter": {
                   "type": "string"
                 }
@@ -10782,6 +10844,8 @@
                 "quantity",
                 "unitCost",
                 "unitPrice",
+                "discountPercent",
+                "netAmount",
                 "balanceAfter"
               ]
             }
@@ -10855,6 +10919,10 @@
                 "unitPrice": {
                   "type": "string",
                   "example": "1250000.00"
+                },
+                "discountPercent": {
+                  "type": "string",
+                  "example": "2.5"
                 }
               },
               "required": [
@@ -10977,6 +11045,10 @@
             "type": "string",
             "example": "1250000.00"
           },
+          "purchasePrice": {
+            "type": "string",
+            "example": "1250000.00"
+          },
           "modelIds": {
             "type": "array",
             "items": {
@@ -11023,6 +11095,10 @@
             ]
           },
           "sellingPrice": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "purchasePrice": {
             "type": "string",
             "example": "1250000.00"
           },
@@ -11620,6 +11696,9 @@
           "unitPrice": {
             "type": "string"
           },
+          "discountPercent": {
+            "type": "string"
+          },
           "totalPrice": {
             "type": "string"
           },
@@ -11653,6 +11732,7 @@
           "partName",
           "quantity",
           "unitPrice",
+          "discountPercent",
           "totalPrice",
           "remarks",
           "unitCost",
@@ -12014,6 +12094,10 @@
           },
           "sellingPrice": {
             "type": "string"
+          },
+          "purchasePrice": {
+            "type": "string",
+            "nullable": true
           },
           "modelIds": {
             "type": "array",
@@ -15050,6 +15134,9 @@
           "unitPrice": {
             "type": "string"
           },
+          "discountPercent": {
+            "type": "string"
+          },
           "amount": {
             "type": "string"
           },
@@ -15086,6 +15173,7 @@
           "partNo",
           "quantity",
           "unitPrice",
+          "discountPercent",
           "amount",
           "billable",
           "source",
@@ -15120,6 +15208,10 @@
           "unitPrice": {
             "type": "string",
             "example": "1250000.00"
+          },
+          "discountPercent": {
+            "type": "string",
+            "example": "2.5"
           },
           "billable": {
             "type": "boolean"
@@ -15159,6 +15251,10 @@
           "unitPrice": {
             "type": "string",
             "example": "1250000.00"
+          },
+          "discountPercent": {
+            "type": "string",
+            "example": "2.5"
           },
           "billable": {
             "type": "boolean"
@@ -15355,6 +15451,9 @@
           "unitPrice": {
             "type": "string"
           },
+          "discountPercent": {
+            "type": "string"
+          },
           "amount": {
             "type": "string"
           },
@@ -15376,6 +15475,7 @@
           "partNo",
           "quantity",
           "unitPrice",
+          "discountPercent",
           "amount",
           "inspectionItemId",
           "sortOrder"
@@ -15408,6 +15508,10 @@
           "unitPrice": {
             "type": "string",
             "example": "1250000.00"
+          },
+          "discountPercent": {
+            "type": "string",
+            "example": "2.5"
           },
           "inspectionItemId": {
             "type": "integer",
@@ -15456,6 +15560,10 @@
           "unitPrice": {
             "type": "string",
             "example": "1250000.00"
+          },
+          "discountPercent": {
+            "type": "string",
+            "example": "2.5"
           },
           "sortOrder": {
             "type": "integer",
@@ -27075,6 +27183,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "nevLevy": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "cvt": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "withholdingTaxNonFiler": {
                       "type": "string",
                       "nullable": true
@@ -29451,6 +29567,14 @@
                       "nullable": true
                     },
                     "withholdingTax": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "nevLevy": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "cvt": {
                       "type": "string",
                       "nullable": true
                     },
@@ -40243,6 +40367,10 @@
                     "sellingPrice": {
                       "type": "string"
                     },
+                    "purchasePrice": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "modelIds": {
                       "type": "array",
                       "items": {
@@ -40384,6 +40512,10 @@
                     },
                     "sellingPrice": {
                       "type": "string"
+                    },
+                    "purchasePrice": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "modelIds": {
                       "type": "array",
@@ -47496,6 +47628,9 @@
                     "unitPrice": {
                       "type": "string"
                     },
+                    "discountPercent": {
+                      "type": "string"
+                    },
                     "amount": {
                       "type": "string"
                     },
@@ -47532,6 +47667,7 @@
                     "partNo",
                     "quantity",
                     "unitPrice",
+                    "discountPercent",
                     "amount",
                     "billable",
                     "source",

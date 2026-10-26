@@ -71,6 +71,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     unitPrice: '',
     discount: '',
     freightInsurance: '',
+    nevLevy: '',
+    cvt: '',
     withholdingTax: '',
     withholdingTaxNonFiler: '',
     bookingAmount: '',
@@ -106,11 +108,14 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
       ...s,
       ...(row.exFactoryPrice && !hasOrder ? { unitPrice: amt(row.exFactoryPrice) } : {}),
       ...(row.freightCharges ? { freightInsurance: amt(row.freightCharges) } : {}),
+      // Hybrid / electric cars: the NEV levy and CVT (1%) of the price list (cleared again for a car without them).
+      nevLevy: amt(row.nevLevy),
+      cvt: amt(row.cvt),
       withholdingTax: status === 'filer' ? amt(row.advanceTaxFiler) || s.withholdingTax : amt(row.advanceTaxNonFiler),
       ...(!jetour && row.advanceTaxNonFiler ? { withholdingTaxNonFiler: amt(row.advanceTaxNonFiler) } : {}),
     }));
   const netPrice = prices?.exFactoryPrice
-    ? Number(prices.exFactoryPrice) + Number((taxStatus === 'filer' ? prices.advanceTaxFiler : prices.advanceTaxNonFiler) ?? 0) + Number(prices.freightCharges ?? 0)
+    ? Number(prices.exFactoryPrice) + Number((taxStatus === 'filer' ? prices.advanceTaxFiler : prices.advanceTaxNonFiler) ?? 0) + Number(prices.freightCharges ?? 0) + Number(prices.nevLevy ?? 0) + Number(prices.cvt ?? 0)
     : null;
   // Hyundai (a Ref prefix): the chosen model's variant codes; the code goes in the Ref (HI/<code>/<date>).
   // A typed variant ("Other") is allowed too; its Ref is then the quotation number.
@@ -142,6 +147,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             quantity: Number(v.quantity) || 1,
             // Empty: the row is not printed on the quotation. 0: printed as 0.
             freightInsurance: v.freightInsurance.trim() || undefined,
+            nevLevy: v.nevLevy.trim() || undefined,
+            cvt: v.cvt.trim() || undefined,
             withholdingTax: v.withholdingTax.trim() || undefined,
             // Jetour's quotation has no non-filer tax.
             withholdingTaxNonFiler: jetour ? undefined : v.withholdingTaxNonFiler.trim() || undefined,
@@ -278,13 +285,23 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           {netPrice !== null && (
             <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 sm:col-span-2">
               Price list: ex-factory {formatMoney(String(prices!.exFactoryPrice))} + advance tax ({taxStatus === 'filer' ? 'filer' : 'non-filer'}){' '}
-              {formatMoney(String((taxStatus === 'filer' ? prices!.advanceTaxFiler : prices!.advanceTaxNonFiler) ?? 0))} + freight {formatMoney(String(prices!.freightCharges ?? 0))} = net price{' '}
+              {formatMoney(String((taxStatus === 'filer' ? prices!.advanceTaxFiler : prices!.advanceTaxNonFiler) ?? 0))} + freight {formatMoney(String(prices!.freightCharges ?? 0))}{prices!.nevLevy ? ` + NEV levy ${formatMoney(String(prices!.nevLevy))}` : ''}{prices!.cvt ? ` + CVT (1%) ${formatMoney(String(prices!.cvt))}` : ''} = net price{' '}
               <span className="font-semibold">{formatMoney(String(netPrice))}</span>. The amounts below were filled in from it; you can change them.
             </p>
           )}
           <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" error={errors.freightInsurance}>
             <Input id="qt-freight" inputMode="decimal" value={v.freightInsurance} onChange={set('freightInsurance')} invalid={!!errors.freightInsurance} placeholder="e.g. 68000" />
           </Field>
+          {!jetour && (
+            <>
+              <Field label="NEV levy (PKR)" htmlFor="qt-nev" error={errors.nevLevy} hint="Hybrid / electric cars (e.g. Palisade HEV): from the price list. Empty: not printed">
+                <Input id="qt-nev" inputMode="decimal" value={v.nevLevy} onChange={set('nevLevy')} invalid={!!errors.nevLevy} placeholder="e.g. 684169" />
+              </Field>
+              <Field label="CVT 1% (PKR)" htmlFor="qt-cvt" error={errors.cvt} hint="Capital value tax. Empty: not printed">
+                <Input id="qt-cvt" inputMode="decimal" value={v.cvt} onChange={set('cvt')} invalid={!!errors.cvt} placeholder="e.g. 180639" />
+              </Field>
+            </>
+          )}
           <Field label="Quantity" htmlFor="qt-qty" error={errors.quantity}>
             <Input id="qt-qty" type="number" min={1} max={50} value={v.quantity} onChange={set('quantity')} />
           </Field>

@@ -935,6 +935,7 @@ export type AddPartApiResponse = /** status 201 Success */ {
   category: string | null;
   uom: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  purchasePrice?: string | null;
   modelIds?: number[];
   isActive: boolean;
   createdAt: string;
@@ -951,6 +952,7 @@ export type ChangePartApiResponse = /** status 200 Success */ {
   category: string | null;
   uom: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  purchasePrice?: string | null;
   modelIds?: number[];
   isActive: boolean;
   createdAt: string;
@@ -1484,6 +1486,8 @@ export type DirectIssueResult = {
     quantity: string;
     unitCost: string;
     unitPrice: string;
+    discountPercent: string;
+    netAmount: string;
     balanceAfter: string;
   }[];
 };
@@ -1500,6 +1504,7 @@ export type DirectIssueRequest = {
     partNo: string;
     quantity: string;
     unitPrice?: string;
+    discountPercent?: string;
   }[];
 };
 export type PartImportResult = {
@@ -1523,6 +1528,7 @@ export type ManagePartCreate = {
   category?: string | null;
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  purchasePrice?: string;
   modelIds?: number[];
 };
 export type ManagePartUpdate = {
@@ -1531,6 +1537,7 @@ export type ManagePartUpdate = {
   category?: string | null;
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice?: string;
+  purchasePrice?: string;
   isActive?: boolean;
   modelIds?: number[];
 };
@@ -1667,6 +1674,7 @@ export type SaleReportRow = {
   partName: string;
   quantity: string;
   unitPrice: string;
+  discountPercent: string;
   totalPrice: string;
   remarks: string | null;
   unitCost: string;
@@ -1773,6 +1781,7 @@ export type Part = {
   category: string | null;
   uom: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
+  purchasePrice?: string | null;
   modelIds?: number[];
   isActive: boolean;
   createdAt: string;

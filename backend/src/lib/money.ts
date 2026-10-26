@@ -46,6 +46,16 @@ export function taxOf(amount: string | number, rate: string | number): string {
   return fromPaisa(neg ? -rounded : rounded);
 }
 
+/** `amount` less `percent` (0 to 100, up to 2 decimals, e.g. "2.5"), rounded half-up to the paisa. */
+export function lessPercent(amount: string | number, percent: string | number): string {
+  const keep = 10000n - toPaisa(percent); // hundredths of a percent kept
+  const raw = toPaisa(amount) * keep;
+  const neg = raw < 0n;
+  const abs = neg ? -raw : raw;
+  const rounded = (abs + 5000n) / 10000n;
+  return fromPaisa(neg ? -rounded : rounded);
+}
+
 /** `part` as a percentage of `whole`, e.g. discount % of list price (2 decimals). */
 export function percentOf(part: string | number, whole: string | number): number {
   const w = toPaisa(whole);

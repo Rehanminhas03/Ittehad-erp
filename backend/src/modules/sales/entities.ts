@@ -857,7 +857,7 @@ export function priceQuotation(data: Record<string, unknown>, before?: Row) {
   const v = (k: string, d: string) => String((k in data ? data[k] : before?.[k]) ?? d);
   const { totalAmount: net } = priceOrder({ unitPrice: v('unitPrice', '0'), discount: v('discount', '0') }) as { totalAmount: string };
   const quantity = Number(data.quantity ?? before?.quantity ?? 1);
-  return { ...data, totalAmount: mulMoney(addMoney(net, v('freightInsurance', '0'), v('withholdingTax', '0')), quantity) };
+  return { ...data, totalAmount: mulMoney(addMoney(net, v('freightInsurance', '0'), v('withholdingTax', '0'), v('nevLevy', '0'), v('cvt', '0')), quantity) };
 }
 
 /**
@@ -941,7 +941,7 @@ export const quotationEntity: EntityConfig = {
           throw validationError([{ in: 'body', path: 'variantCode', message: 'This variant code belongs to another model: choose a code of the chosen model, or type the variant under "Other"' }]);
         }
       }
-      return ['unitPrice', 'discount', 'quantity', 'freightInsurance', 'withholdingTax'].some((k) => patch[k] !== undefined) ? priceQuotation(patch, row) : patch;
+      return ['unitPrice', 'discount', 'quantity', 'freightInsurance', 'withholdingTax', 'nevLevy', 'cvt'].some((k) => patch[k] !== undefined) ? priceQuotation(patch, row) : patch;
     },
     // The lead's customer; a quotation without a lead: the customer written on it.
     decorate: async (ctx, rows) =>

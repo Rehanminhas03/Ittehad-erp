@@ -1,4 +1,4 @@
-import { Id, Money, Timestamp, z } from '../../lib/zod';
+import { DiscountPercent, Id, Money, Timestamp, z } from '../../lib/zod';
 import { CONDITIONS, ESTIMATE_STATES, INSPECTION_STATES, JOB_CARD_STATES, LINE_KINDS, VISIT_STATES, VISIT_TYPES } from './models';
 
 const optionalText = (max = 200) => z.string().trim().max(max).nullish();
@@ -246,6 +246,8 @@ const lineFields = {
   partNo: z.string().trim().max(60).nullish(),
   quantity: Quantity,
   unitPrice: Money,
+  /** A discount on the line, in percent (the amount is the price x quantity less this). */
+  discountPercent: DiscountPercent.optional(),
 };
 export const JobCardLineSchema = z.object({
   id: Id,
@@ -255,6 +257,7 @@ export const JobCardLineSchema = z.object({
   partNo: z.string().nullable(),
   quantity: z.string(),
   unitPrice: z.string(),
+  discountPercent: z.string(),
   amount: z.string(),
   billable: z.boolean(),
   source: z.enum(['schedule', 'estimate', 'manual', 'parts']),
@@ -323,6 +326,7 @@ export const EstimateLineSchema = z.object({
   partNo: z.string().nullable(),
   quantity: z.string(),
   unitPrice: z.string(),
+  discountPercent: z.string(),
   amount: z.string(),
   inspectionItemId: Id.nullable(),
   sortOrder: z.number().int(),

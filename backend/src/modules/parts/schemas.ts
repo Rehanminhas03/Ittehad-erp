@@ -1,4 +1,4 @@
-import { Id, Money, Timestamp, z } from '../../lib/zod';
+import { DiscountPercent, Id, Money, Timestamp, z } from '../../lib/zod';
 import { ADJUSTMENT_STATES, MOVEMENT_TYPES, PO_STATES, REQUEST_STATES, TRANSFER_STATES, UOMS } from './models';
 
 const optionalText = (max = 200) => z.string().trim().max(max).nullish();
@@ -25,6 +25,8 @@ export const PartSchema = z.object({
   category: z.string().nullable(),
   uom: z.enum(UOMS),
   sellingPrice: z.string(),
+  /** The price received from the company (head office); null until known. */
+  purchasePrice: z.string().nullable().optional(),
   /** The vehicle models the part fits (ids); empty: not assigned to a model. */
   modelIds: z.array(z.number().int()).default([]),
   isActive: z.boolean(),
@@ -184,14 +186,14 @@ export const DirectIssueBody = z
     invoiceNo: optionalText(40),
     /** Remarks, e.g. "3% discount on this RO", "Campaign". */
     notes: optionalText(500),
-    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitPrice: Money.optional() })).min(1).max(100),
+    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitPrice: Money.optional(), discountPercent: DiscountPercent.optional() })).min(1).max(100),
   })
   .openapi('DirectIssueRequest');
 export const DirectIssueResultSchema = z
   .object({
     referenceNo: z.string(),
     kind: z.enum(['issue', 'return']),
-    lines: z.array(z.object({ partNo: z.string(), description: z.string(), quantity: z.string(), unitCost: z.string(), unitPrice: z.string(), balanceAfter: z.string() })),
+    lines: z.array(z.object({ partNo: z.string(), description: z.string(), quantity: z.string(), unitCost: z.string(), unitPrice: z.string(), discountPercent: z.string(), netAmount: z.string(), balanceAfter: z.string() })),
   })
   .openapi('DirectIssueResult');
 
@@ -225,6 +227,7 @@ export const ManagePartCreate = z
     category: optionalText(60),
     uom: z.enum(UOMS).default('each'),
     sellingPrice: Money,
+    purchasePrice: Money.nullish(),
     modelIds: z.array(Id).max(10).optional(),
   })
   .openapi('ManagePartCreate');
@@ -235,6 +238,7 @@ export const ManagePartUpdate = z
     category: optionalText(60),
     uom: z.enum(UOMS),
     sellingPrice: Money,
+    purchasePrice: Money.nullable(),
     isActive: z.boolean(),
     modelIds: z.array(Id).max(10),
   })
@@ -343,6 +347,7 @@ export const SaleReportRowSchema = z
     partName: z.string(),
     quantity: z.string(),
     unitPrice: z.string(),
+    discountPercent: z.string(),
     totalPrice: z.string(),
     remarks: z.string().nullable(),
     unitCost: z.string(),

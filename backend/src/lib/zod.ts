@@ -18,6 +18,13 @@ export const Id = z.number().int().positive();
 /** Response-only: Dates serialize to ISO strings via JSON.stringify. */
 export const Timestamp = z.iso.datetime();
 
+/** A discount in percent: 0 to 100, up to 2 decimals ("2", "2.5"). */
+export const DiscountPercent = z
+  .union([z.string(), z.number()])
+  .transform((v) => String(v).replace(/[%\s]/g, ''))
+  .refine((v) => /^\d{1,3}(\.\d{1,2})?$/.test(v) && Number(v) <= 100, 'Discount must be between 0 and 100 (up to 2 decimals)')
+  .openapi({ type: 'string', example: '2.5' });
+
 /** An amount: commas and spaces ("9,500,000") are accepted, and more than two decimals are rounded to two. */
 export const Money = z
   .union([z.string(), z.number()])

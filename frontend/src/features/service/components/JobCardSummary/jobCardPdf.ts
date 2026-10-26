@@ -8,7 +8,7 @@ export async function downloadJobCardPdf(
   jc: JobCard,
   visit: Visit,
   lines: JobCardLine[],
-  t: { parts: number; labour: number; free: number; payable: number },
+  t: { parts: number; labour: number; free: number; payable: number; discount: number },
 ) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
@@ -58,11 +58,12 @@ export async function downloadJobCardPdf(
   // lines
   const cols = [
     { h: '#', w: 8, a: 'left' as const },
-    { h: 'Description', w: 78, a: 'left' as const },
+    { h: 'Description', w: 72, a: 'left' as const },
     { h: 'Part no.', w: 28, a: 'left' as const },
     { h: 'Qty', w: 12, a: 'right' as const },
-    { h: 'Unit price', w: 24, a: 'right' as const },
-    { h: 'Amount', w: 24, a: 'right' as const },
+    { h: 'Unit price', w: 22, a: 'right' as const },
+    { h: 'Disc.', w: 10, a: 'right' as const },
+    { h: 'Amount', w: 22, a: 'right' as const },
     { h: 'Charge', w: 8, a: 'left' as const },
   ];
   const header = () => {
@@ -89,10 +90,10 @@ export async function downloadJobCardPdf(
       doc.rect(M, y, W, h, 'F');
     }
     let x = M;
-    const cells = [String(i + 1), '', l.partNo ?? '', String(Number(l.quantity)), money(Number(l.unitPrice)), money(Number(l.amount)), l.billable ? 'Pay' : 'Free'];
+    const cells = [String(i + 1), '', l.partNo ?? '', String(Number(l.quantity)), money(Number(l.unitPrice)), Number(l.discountPercent) > 0 ? `${Number(l.discountPercent)}%` : '', money(Number(l.amount)), l.billable ? 'Pay' : 'Free'];
     cells.forEach((c, k) => {
       if (k === 1) desc.forEach((d, n) => text(d, x + 1.5, y + 4 + n * 4, { size: 8.5 }));
-      else text(c, cols[k]!.a === 'right' ? x + cols[k]!.w - 1.5 : x + 1.5, y + 4, { size: 8.5, align: cols[k]!.a, color: k === 6 && !l.billable ? [6, 95, 70] : [17, 24, 39] });
+      else text(c, cols[k]!.a === 'right' ? x + cols[k]!.w - 1.5 : x + 1.5, y + 4, { size: 8.5, align: cols[k]!.a, color: k === 7 && !l.billable ? [6, 95, 70] : [17, 24, 39] });
       x += cols[k]!.w;
     });
     y += h;
@@ -109,6 +110,7 @@ export async function downloadJobCardPdf(
   total('Parts and oil (charged)', t.parts);
   total('Labour (charged)', t.labour);
   total('Free of charge', t.free, false, [6, 95, 70]);
+  if (t.discount > 0.005) total('Discount given (already deducted)', t.discount, false, [146, 64, 14]);
   total('Customer pays', t.payable, true, [30, 58, 138]);
 
   // signatures

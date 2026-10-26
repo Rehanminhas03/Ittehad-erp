@@ -7,7 +7,7 @@ import { query } from '../../db/client';
 import { type SQL, and, eq, raw, sql } from '../../db/sql';
 import type { EntityCtx } from '../../entity/types';
 import { conflict, forbidden, validationError } from '../../lib/errors';
-import { lineAmount } from '../../lib/money';
+import { lessPercent, lineAmount } from '../../lib/money';
 import type { PageQuery } from '../../lib/pagination';
 import { offsetOf } from '../../lib/pagination';
 import type { z } from '../../lib/zod';
@@ -39,7 +39,7 @@ export async function createManagedPart(ctx: EntityCtx, input: z.output<typeof M
   const dup = await ctx.tx.part.findFirst({ where: { partNo }, select: { id: true } });
   if (dup) throw conflict(`Part number ${partNo} already exists`, { existingId: dup.id });
   const row = await ctx.tx.part.create({
-    data: { partNo, description: input.description, brand: input.brand, category: input.category ?? null, uom: input.uom, sellingPrice: input.sellingPrice, modelIds: input.modelIds ?? [], createdById: ctx.access.userId, updatedById: ctx.access.userId },
+    data: { partNo, description: input.description, brand: input.brand, category: input.category ?? null, uom: input.uom, sellingPrice: input.sellingPrice, purchasePrice: input.purchasePrice ?? null, modelIds: input.modelIds ?? [], createdById: ctx.access.userId, updatedById: ctx.access.userId },
   });
   await ctx.audit({ entityType: 'parts.part', entityId: row.id, action: 'create', dealershipId: null, branchId: null, changes: { partNo, description: input.description, sellingPrice: input.sellingPrice } });
   return row;
@@ -69,6 +69,15 @@ export async function updateManagedPart(ctx: EntityCtx, id: number, input: z.out
   set('category', input.category, before.category);
   set('uom', input.uom, before.uom);
   set('isActive', input.isActive, before.isActive);
+  if (input.purchasePrice !== undefined) {
+    const to = input.purchasePrice;
+    const from = before.purchasePrice?.toString() ?? null;
+    const [{ same } = { same: 'false' }] = to === null || from === null ? [{ same: String(to === from) }] : await query<{ same: string }>(ctx.tx, sql`select (${from}::numeric = ${to}::numeric)::text as same`);
+    if (same !== 'true') {
+      patch.purchasePrice = to;
+      changes.purchasePrice = { from, to };
+    }
+  }
   if (input.modelIds !== undefined) {
     const to = [...new Set(input.modelIds)].sort((a, b) => a - b);
     if (to.join() !== [...before.modelIds].sort((a, b) => a - b).join()) {
@@ -174,6 +183,7 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
       type: out ? ('issue' as const) : ('return' as const),
       quantity: out ? `-${l.quantity}` : l.quantity,
       unitPrice: priceOf(l),
+      discountPercent: l.discountPercent ?? null,
       referenceType: jc ? 'job_card' : 'repair_order',
       referenceId: jc ? jc.id : 0,
       referenceNo,
@@ -185,16 +195,20 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
 
   if (jc) {
     for (const l of lines) {
-      const existing = await ctx.tx.jobCardLine.findFirst({ where: { jobCardId: jc.id, partNo: l.part.partNo, source: 'parts' } });
+      const pct = l.discountPercent ?? '0';
+      // A line of the same part with the same discount is added to; a different discount is its own line.
+      const existing =
+        (await ctx.tx.jobCardLine.findFirst({ where: { jobCardId: jc.id, partNo: l.part.partNo, source: 'parts', discountPercent: pct } })) ??
+        (out ? null : await ctx.tx.jobCardLine.findFirst({ where: { jobCardId: jc.id, partNo: l.part.partNo, source: 'parts' } }));
       const delta = out ? Number(l.quantity) : -Number(l.quantity);
       const qty = (existing ? Number(existing.quantity) : 0) + delta;
       if (existing) {
         if (qty <= 0) await ctx.tx.jobCardLine.deleteMany({ where: { id: existing.id } });
-        else await ctx.tx.jobCardLine.update({ where: { id: existing.id }, data: { quantity: String(qty), amount: lineAmount(existing.unitPrice.toString(), String(qty)) } });
+        else await ctx.tx.jobCardLine.update({ where: { id: existing.id }, data: { quantity: String(qty), amount: lessPercent(lineAmount(existing.unitPrice.toString(), String(qty)), existing.discountPercent.toString()) } });
       } else if (out) {
         const price = priceOf(l);
         await ctx.tx.jobCardLine.create({
-          data: { dealershipId: jc.dealershipId, jobCardId: jc.id, kind: 'part', description: l.part.description, partNo: l.part.partNo, quantity: l.quantity, unitPrice: price, amount: lineAmount(price, l.quantity), source: 'parts', status: 'done', doneById: ctx.access.userId, doneAt: new Date() },
+          data: { dealershipId: jc.dealershipId, jobCardId: jc.id, kind: 'part', description: l.part.description, partNo: l.part.partNo, quantity: l.quantity, unitPrice: price, discountPercent: pct, amount: lessPercent(lineAmount(price, l.quantity), pct), source: 'parts', status: 'done', doneById: ctx.access.userId, doneAt: new Date() },
         });
       }
     }
@@ -203,7 +217,7 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
   return {
     referenceNo,
     kind: input.kind,
-    lines: lines.map((l, i) => ({ partNo: l.part.partNo, description: l.part.description, quantity: l.quantity, unitCost: results[i]!.unitCost, unitPrice: priceOf(l), balanceAfter: results[i]!.balanceAfter })),
+    lines: lines.map((l, i) => ({ partNo: l.part.partNo, description: l.part.description, quantity: l.quantity, unitCost: results[i]!.unitCost, unitPrice: priceOf(l), discountPercent: l.discountPercent ?? '0', netAmount: lessPercent(lineAmount(priceOf(l), l.quantity), l.discountPercent ?? '0'), balanceAfter: results[i]!.balanceAfter })),
   };
 }
 
@@ -327,14 +341,15 @@ export async function saleReport(ctx: EntityCtx, f: z.output<typeof SaleReportQu
   if (f.to) conds.push(sql`${day} <= ${f.to}::date`);
   const qty = sql`(-${inventoryTransaction.quantity})`;
   const price = sql`coalesce(${inventoryTransaction.unitPrice}, ${part.sellingPrice})`;
+  const disc = sql`coalesce(${inventoryTransaction.discountPercent}, 0)`;
   return query<{
     date: string; roNo: string | null; invoiceNo: string | null; partNo: string; partName: string; quantity: string;
-    unitPrice: string; totalPrice: string; remarks: string | null; unitCost: string; totalCost: string; vehicle: string | null; store: string; issuedBy: string | null;
+    unitPrice: string; discountPercent: string; totalPrice: string; remarks: string | null; unitCost: string; totalCost: string; vehicle: string | null; store: string; issuedBy: string | null;
   }>(
     ctx.tx,
     sql`select to_char(${day}, 'DD-Mon-YYYY') as "date", ${inventoryTransaction.referenceNo} as "roNo", ${inventoryTransaction.invoiceNo} as "invoiceNo",
                ${part.partNo} as "partNo", ${part.description} as "partName", ${qty}::text as "quantity",
-               ${price}::text as "unitPrice", round(${qty} * ${price}, 2)::text as "totalPrice",
+               ${price}::text as "unitPrice", ${disc}::text as "discountPercent", round(${qty} * ${price} * (1 - ${disc} / 100), 2)::text as "totalPrice",
                ${inventoryTransaction.remarks} as "remarks", ${inventoryTransaction.unitCost}::text as "unitCost",
                round(${qty} * ${inventoryTransaction.unitCost}, 2)::text as "totalCost",
                ${inventoryTransaction.notes} as "vehicle", ${branchTable.name} as "store", ${user.fullName} as "issuedBy"

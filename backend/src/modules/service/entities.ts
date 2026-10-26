@@ -341,6 +341,7 @@ export const estimateEntity: EntityConfig = {
                 partNo: l.partNo,
                 quantity: l.quantity,
                 unitPrice: l.unitPrice,
+                discountPercent: l.discountPercent,
                 amount: l.amount,
                 source: 'estimate' as const,
                 estimateLineId: l.id,

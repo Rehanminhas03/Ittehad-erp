@@ -527,6 +527,8 @@ export async function receiveDirect(ctx: EntityCtx, input: z.output<typeof Direc
     ctx,
     lines.map((l) => ({ ...target, partId: l.part.id, type: 'receipt' as const, quantity: l.quantity, unitCost: l.unitCost, referenceType: 'goods_receipt', referenceId: grn!.id, referenceNo: grnNo })),
   );
+  // The price received from the company is the latest price paid.
+  for (const l of lines) await ctx.tx.part.update({ where: { id: l.part.id }, data: { purchasePrice: l.unitCost } });
   await ctx.audit({ entityType: 'parts.goods_receipt', entityId: grn!.id, action: 'create', ...target, changes: { direct: true, totalCost, lines: input.lines } });
   await publish(ctx, {
     type: 'goods.received',
@@ -579,7 +581,8 @@ export async function monthlyReport(ctx: EntityCtx, f: z.output<typeof MonthlyRe
   const day = sql`(${inventoryTransaction.occurredAt} at time zone 'Asia/Karachi')`;
   conds.push(sql`to_char(${day}, 'YYYY-MM') >= ${from} and to_char(${day}, 'YYYY-MM') <= ${to}`);
   const where = and(...conds)!;
-  const price = sql`coalesce(${inventoryTransaction.unitPrice}, ${part.sellingPrice})`;
+  // What the customer paid: the price charged less the discount given.
+  const price = sql`(coalesce(${inventoryTransaction.unitPrice}, ${part.sellingPrice}) * (1 - coalesce(${inventoryTransaction.discountPercent}, 0) / 100))`;
   const figures = sql`
     ${moneyOf(sql`sum(${inventoryTransaction.value}) filter (where ${inventoryTransaction.type} = 'receipt')`)} as "receivedCost",
     ${moneyOf(sql`-sum(${inventoryTransaction.value}) filter (where ${inventoryTransaction.type} = 'issue')`)} as "issuedCost",

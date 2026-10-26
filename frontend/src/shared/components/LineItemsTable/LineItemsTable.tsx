@@ -10,6 +10,8 @@ export interface DocumentLine {
   partNo?: string | null;
   quantity: string;
   unitPrice?: string | null;
+  /** A discount on the line in percent (the amount is already net of it). */
+  discountPercent?: string | null;
   amount?: string | null;
 }
 
@@ -19,6 +21,8 @@ export interface LineDraft {
   partNo: string;
   quantity: string;
   unitPrice: string;
+  /** Discount in percent, e.g. "2" or "2.5"; empty: none. */
+  discountPercent: string;
 }
 
 export interface LineItemsTableProps<L extends DocumentLine> {
@@ -48,16 +52,20 @@ export interface LineItemsTableProps<L extends DocumentLine> {
   /** A note under the description (source, free/warranty...). */
   rowNote?: (line: L) => ReactNode;
   showTotal?: boolean;
+  /** A "Disc. %" column: type 1, 2, 3 ... and the amount is worked out less that discount. */
+  discountable?: boolean;
 }
 
-const empty = (kind = ''): LineDraft => ({ kind, description: '', partNo: '', quantity: '1', unitPrice: '' });
+const empty = (kind = ''): LineDraft => ({ kind, description: '', partNo: '', quantity: '1', unitPrice: '', discountPercent: '' });
 const toDraft = (l: DocumentLine): LineDraft => ({
   kind: l.kind ?? '',
   description: l.description,
   partNo: l.partNo ?? '',
   quantity: l.quantity,
   unitPrice: l.unitPrice ?? '',
+  discountPercent: Number(l.discountPercent ?? 0) > 0 ? String(Number(l.discountPercent)) : '',
 });
+const pctOk = (v: string) => v.trim() === '' || (/^\d{1,3}(\.\d{1,2})?$/.test(v.trim().replace('%', '')) && Number(v.replace('%', '')) <= 100);
 const clean = (v: string) => v.replace(/,/g, '').trim();
 
 /**
@@ -81,6 +89,7 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
     renderExtra,
     extraHeader,
     rowNote,
+    discountable,
   } = props;
   const showTotal = (props.showTotal ?? true) && priced;
   const [draft, setDraft] = useState<LineDraft>(empty(kinds?.[0]?.value));
@@ -91,9 +100,9 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
   const qtyOk = (q: string) => /^-?\d+(\.\d{1,2})?$/.test(q.trim()) && (allowNegative ? Number(q) !== 0 : Number(q) > 0);
   const priceOk = (p: string) => (priceOptional && clean(p) === '') || /^\d+(\.\d{1,2})?$/.test(clean(p));
   const valid = (d: LineDraft) =>
-    (descriptionFromPart ? d.partNo.trim().length >= 2 : d.description.trim().length >= 2) && qtyOk(d.quantity) && (!priced || priceOk(d.unitPrice));
+    (descriptionFromPart ? d.partNo.trim().length >= 2 : d.description.trim().length >= 2) && qtyOk(d.quantity) && (!priced || priceOk(d.unitPrice)) && (!discountable || pctOk(d.discountPercent));
   const preview = (d: LineDraft) => {
-    const v = Number(d.quantity) * Number(clean(d.unitPrice));
+    const v = Number(d.quantity) * Number(clean(d.unitPrice)) * (1 - (Number(d.discountPercent.replace('%', '')) || 0) / 100);
     return Number.isFinite(v) && clean(d.unitPrice) !== '' ? v.toFixed(2) : '';
   };
 
@@ -156,13 +165,25 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
               aria-label={priceLabel}
             />
           </td>
+          {discountable && (
+            <td className="py-1.5 pr-2">
+              <Input
+                value={d.discountPercent}
+                onChange={(e) => set({ ...d, discountPercent: e.target.value })}
+                className="w-16 py-1 text-right text-xs"
+                inputMode="decimal"
+                placeholder="%"
+                aria-label="Discount in percent"
+              />
+            </td>
+          )}
           <td className="py-1.5 pr-2 text-right text-xs text-slate-400 tabular-nums">{preview(d) && formatMoney(preview(d))}</td>
         </>
       )}
     </>
   );
 
-  const cols = (kinds ? 1 : 0) + 3 + (priced ? 2 : 0) + (renderExtra ? 1 : 0) + (editable ? 1 : 0);
+  const cols = (kinds ? 1 : 0) + 3 + (priced ? 2 : 0) + (priced && discountable ? 1 : 0) + (renderExtra ? 1 : 0) + (editable ? 1 : 0);
 
   return (
     <div className="overflow-x-auto">
@@ -176,6 +197,7 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
             {priced && (
               <>
                 <th className="py-2 pr-2 text-right font-medium">{priceLabel}</th>
+                {discountable && <th className="py-2 pr-2 text-right font-medium">Disc. %</th>}
                 <th className="py-2 pr-2 text-right font-medium">Amount</th>
               </>
             )}
@@ -214,6 +236,7 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
                 {priced && (
                   <>
                     <td className="py-2 pr-2 text-right tabular-nums">{l.unitPrice == null ? '—' : formatMoney(l.unitPrice)}</td>
+                    {discountable && <td className="py-2 pr-2 text-right tabular-nums text-slate-600">{Number(l.discountPercent ?? 0) > 0 ? `${Number(l.discountPercent)}%` : ''}</td>}
                     <td className="py-2 pr-2 text-right font-medium tabular-nums">{l.amount == null ? '—' : formatMoney(l.amount)}</td>
                   </>
                 )}
@@ -265,7 +288,7 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
         {showTotal && (
           <tfoot>
             <tr className="border-t border-slate-200">
-              <td colSpan={(kinds ? 1 : 0) + 4} className="py-2 pr-2 text-right text-xs font-medium tracking-wide text-slate-500">
+              <td colSpan={(kinds ? 1 : 0) + 4 + (discountable ? 1 : 0)} className="py-2 pr-2 text-right text-xs font-medium tracking-wide text-slate-500">
                 Total
               </td>
               <td className="py-2 pr-2 text-right font-semibold tabular-nums">{formatMoney(total.toFixed(2))}</td>

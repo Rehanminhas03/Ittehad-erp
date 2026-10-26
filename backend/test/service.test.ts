@@ -392,3 +392,22 @@ describe('a car bought elsewhere', () => {
     expect((await api.post('/api/service/vehicles/register').set(bearer(s.outsider.token)).send(body)).status).toBe(403);
   });
 });
+
+describe('discount on job card lines', () => {
+  it('takes the discount percent off the line amount, and keeps it when the line changes', async () => {
+    const s = await setup();
+    const car = await deliveredCar(s);
+    const v = await checkIn(s, car.vehicleId, { visitType: 'repair' });
+    const jc = await api.post(`/api/service/visits/${v.body.id}/job-card`).set(bearer(s.advisor.token));
+    const url = `/api/service/job-cards/${jc.body.id}/lines`;
+    const line = await api.post(url).set(bearer(s.advisor.token)).send({ kind: 'part', description: 'Brake pads', quantity: '2', unitPrice: '1000', discountPercent: '5' });
+    expect(line.status).toBe(201);
+    expect(line.body).toMatchObject({ unitPrice: '1000.00', discountPercent: '5.00', amount: '1900.00' });
+    // Changing only the quantity keeps the discount; changing the discount re-prices the line.
+    expect((await api.patch(`${url}/${line.body.id}`).set(bearer(s.advisor.token)).send({ quantity: '3' })).body.amount).toBe('2850.00');
+    expect((await api.patch(`${url}/${line.body.id}`).set(bearer(s.advisor.token)).send({ discountPercent: '10' })).body.amount).toBe('2700.00');
+    // No discount given: the full price. Out of range: refused.
+    expect((await api.post(url).set(bearer(s.advisor.token)).send({ kind: 'labour', description: 'Fitting', quantity: '1', unitPrice: '800' })).body.amount).toBe('800.00');
+    expect((await api.post(url).set(bearer(s.advisor.token)).send({ kind: 'labour', description: 'Bad', quantity: '1', unitPrice: '800', discountPercent: '150' })).status).toBe(422);
+  });
+});

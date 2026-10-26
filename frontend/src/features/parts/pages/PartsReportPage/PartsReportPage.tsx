@@ -41,6 +41,7 @@ const SALE_COLUMNS: Column[] = [
   { header: 'Part Name', value: (r) => String(r.partName), w: 2 },
   { header: 'Issued Qty', value: (r) => Number(r.quantity) },
   { header: 'Unit Price', value: (r) => Number(r.unitPrice) },
+  { header: 'Discount %', value: (r) => (Number(r.discountPercent) > 0 ? Number(r.discountPercent) : '') },
   { header: 'Total Price', value: (r) => Number(r.totalPrice) },
   { header: 'Remarks', value: (r) => String(r.remarks ?? '') },
   { header: 'Unit Cost', value: (r) => Number(r.unitCost) },

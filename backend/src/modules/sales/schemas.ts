@@ -219,6 +219,9 @@ export const QuotationSchema = z.object({
   discount: z.string(),
   freightInsurance: z.string().nullable(),
   withholdingTax: z.string().nullable(),
+  /** NEV levy and CVT (1%), part of the total; null = not quoted. */
+  nevLevy: z.string().nullable().optional(),
+  cvt: z.string().nullable().optional(),
   withholdingTaxNonFiler: z.string().nullable(),
   totalAmount: z.string(),
   bookingAmount: z.string().nullable(),
@@ -244,6 +247,9 @@ export const VehicleVariantSchema = z
     advanceTaxFiler: z.string().nullable().optional(),
     advanceTaxNonFiler: z.string().nullable().optional(),
     freightCharges: z.string().nullable().optional(),
+    /** NEV levy and CVT (1%) of the price list (hybrid / electric cars). */
+    nevLevy: z.string().nullable().optional(),
+    cvt: z.string().nullable().optional(),
     bookingPrice: z.string().nullable().optional(),
     isActive: z.boolean(),
     createdAt: Timestamp,
@@ -255,6 +261,8 @@ const variantPrices = {
   advanceTaxFiler: Money.nullish(),
   advanceTaxNonFiler: Money.nullish(),
   freightCharges: Money.nullish(),
+  nevLevy: Money.nullish(),
+  cvt: Money.nullish(),
   bookingPrice: Money.nullish(),
 };
 const variantCode = z.string().trim().min(2).max(40).transform((v) => v.toUpperCase().replace(/\s+/g, ''));
@@ -284,6 +292,8 @@ const quotationTerms = {
   /** Empty / null: the row is not printed; 0: printed as 0. */
   freightInsurance: Money.nullish(),
   withholdingTax: Money.nullish(),
+  nevLevy: Money.nullish(),
+  cvt: Money.nullish(),
   withholdingTaxNonFiler: Money.nullish(),
   deliveryDays: z.number().int().min(0).max(365).nullish(),
   deliveryPeriod: optionalText(120),
@@ -506,6 +516,8 @@ export const QuotationDocumentSchema = z
       discount: z.string(),
       freightInsurance: z.string().nullable(),
       withholdingTax: z.string().nullable(),
+      nevLevy: z.string().nullable().optional(),
+      cvt: z.string().nullable().optional(),
       taxStatus: z.enum(TAX_STATUSES),
       withholdingTaxNonFiler: z.string().nullable(),
       total: z.string(),

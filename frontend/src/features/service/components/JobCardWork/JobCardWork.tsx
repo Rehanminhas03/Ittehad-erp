@@ -18,6 +18,7 @@ const toBody = (d: LineDraft) => ({
   partNo: d.partNo || null,
   quantity: d.quantity,
   unitPrice: d.unitPrice.replace(/,/g, ''),
+  discountPercent: d.discountPercent.replace('%', '').trim() || '0',
 });
 
 /** The work on a job card: advisors add/edit manual lines, technicians mark lines done. */
@@ -48,6 +49,7 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
       ) : (
         <LineItemsTable<JobCardLine>
           lines={lines ?? []}
+          discountable
           kinds={LINE_KINDS}
           editable={canEdit}
           onAdd={(d) => withToast(add({ id: jobCard.id, jobCardLineCreate: toBody(d) }).unwrap())}

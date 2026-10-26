@@ -21,9 +21,10 @@ const COLUMNS: Column[] = [
   { header: 'Part code', value: (r) => String(r.partNo) },
   { header: 'Part name', value: (r) => String(r.description) },
   { header: 'Category', value: (r) => String(r.category ?? '') },
+  { header: 'Price received from the company', value: (r) => (r.purchasePrice == null ? '' : Number(r.purchasePrice)) },
   { header: 'MRP without sales tax', value: (r) => split(String(r.sellingPrice)).ex },
   { header: 'Sales tax @ 18%', value: (r) => split(String(r.sellingPrice)).tax },
-  { header: 'Final MRP with sales tax', value: (r) => split(String(r.sellingPrice)).final },
+  { header: 'Customer price (final MRP with sales tax)', value: (r) => split(String(r.sellingPrice)).final },
 ];
 
 /** The price list: look up any part's price. Read-only; the whole list can be downloaded. */
@@ -125,15 +126,16 @@ export default function PriceListPage() {
               <th className="py-2 pr-3 font-medium">Part name</th>
               <th className="py-2 pr-3 font-medium">Category</th>
               <th className="py-2 pr-3 font-medium">Fits</th>
+              <th className="py-2 pr-3 text-right font-medium">Received price (from the company)</th>
               <th className="py-2 pr-3 text-right font-medium">MRP without sales tax</th>
               <th className="py-2 pr-3 text-right font-medium">Sales tax @ 18%</th>
-              <th className="py-2 text-right font-medium">Final MRP with sales tax</th>
+              <th className="py-2 text-right font-medium">Customer price (with sales tax)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-500">
+                <td colSpan={8} className="py-8 text-center text-slate-500">
                   {modelId ? 'No part is assigned to this vehicle yet. The store manager assigns vehicles under Parts and prices.' : 'No part matches.'}
                 </td>
               </tr>
@@ -146,6 +148,7 @@ export default function PriceListPage() {
                   <td className="py-2 pr-3">{p.description}</td>
                   <td className="py-2 pr-3 text-slate-500">{p.category}</td>
                   <td className="py-2 pr-3 text-xs text-slate-600">{(p.modelIds ?? []).length ? (p.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{p.purchasePrice == null ? <span className="text-slate-400">not set</span> : formatMoney(p.purchasePrice)}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(String(s.ex))}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(String(s.tax))}</td>
                   <td className="py-2 text-right font-semibold tabular-nums">{formatMoney(String(s.final))}</td>
