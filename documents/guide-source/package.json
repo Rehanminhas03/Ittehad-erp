@@ -1,0 +1,7 @@
+{
+  "name": "ittehad-guide-source",
+  "private": true,
+  "description": "Builds the After Sales and Store user guide (Word) from content.js",
+  "scripts": { "build": "node make.js" },
+  "dependencies": { "docx": "9.13.0" }
+}
