@@ -30,6 +30,10 @@ import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } fro
 const isJetourStaff = (perm: ReturnType<typeof usePermission>) =>
   [P.quotationsViewAll, P.quotationsViewOwn].flatMap((c) => perm.dealershipsFor(c)).some((d) => d.brand === 'Jetour');
 
+/** CSM staff: their quotations list the battery / torque lines and print the advance and a delivery-time sentence. */
+const isCsmStaff = (perm: ReturnType<typeof usePermission>) =>
+  [P.quotationsViewAll, P.quotationsViewOwn].flatMap((c) => perm.dealershipsFor(c)).some((d) => d.brand === 'Capital Smart Motors');
+
 /** Salesperson filter for team views (the dealership's sales staff). */
 function useSalespersonOptions() {
   const perm = usePermission();
@@ -186,19 +190,20 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { name: 'unitPrice', label: 'Price (PKR)', type: 'money', required: true },
       { name: 'discount', label: 'Discount (PKR)', type: 'money', hint: 'Limited by the group discount policy' },
       { name: 'freightInsurance', label: 'Freight & transit insurance (PKR)', type: 'money', hint: 'Empty: not printed. 0: printed as 0' },
-      { name: 'nevLevy', label: 'NEV levy (PKR)', type: 'money', hint: 'Hybrid / electric cars. Empty: not printed', visible: (perm) => !isJetourStaff(perm) },
+      { name: 'nevLevy', label: 'NEV levy (PKR)', type: 'money', hint: 'Hybrid / electric cars. Empty: not printed', visible: (perm) => !isJetourStaff(perm) && !isCsmStaff(perm) },
       { name: 'cvt', label: 'CVT 1% (PKR)', type: 'money', hint: 'Capital value tax. Empty: not printed', visible: (perm) => !isJetourStaff(perm) },
       { name: 'quantity', label: 'Quantity', type: 'number', required: true },
       { name: 'taxStatus', label: 'Withholding / advance tax', type: 'select', options: [{ value: 'filer', label: 'Filer' }, { value: 'non_filer', label: 'Non-filer' }], visible: isJetourStaff },
       { name: 'withholdingTax', label: 'Withholding tax (PKR)', type: 'money', hint: 'Empty: not printed. 0: printed as 0 (filer or non-filer, as chosen above for Jetour)' },
-      { name: 'withholdingTaxNonFiler', label: 'Withholding tax — non-filer (PKR)', type: 'money', visible: (perm) => !isJetourStaff(perm) },
+      { name: 'withholdingTaxNonFiler', label: 'Withholding tax — non-filer (PKR)', type: 'money', visible: (perm) => !isJetourStaff(perm) && !isCsmStaff(perm) },
       { name: 'variant', label: 'Variant', type: 'text' },
       { name: 'color', label: 'Colour', type: 'text' },
-      { name: 'bookingAmount', label: 'Booking amount (PKR)', type: 'money' },
+      { name: 'bookingAmount', label: 'Booking / advance payment (PKR)', type: 'money' },
       { name: 'validUntil', label: 'Valid until', type: 'date', required: true },
-      { name: 'deliveryDays', label: 'Tentative delivery (days)', type: 'number', visible: (perm) => !isJetourStaff(perm) },
-      { name: 'deliveryPeriod', label: 'Tentative delivery period', type: 'text', hint: 'e.g. ONE MONTH AFTER FULL PAYMENT.', visible: isJetourStaff },
-      { name: 'paymentMode', label: 'Payment mode', type: 'text' },
+      { name: 'deliveryDays', label: 'Tentative delivery (days)', type: 'number', visible: (perm) => !isJetourStaff(perm) && !isCsmStaff(perm) },
+      { name: 'deliveryPeriod', label: 'Tentative delivery period', type: 'text', hint: 'e.g. ONE MONTH AFTER FULL PAYMENT. (CSM: 60 to 90 days)', visible: (perm) => isJetourStaff(perm) || isCsmStaff(perm) },
+      { name: 'paymentMode', label: 'Payment mode', type: 'text', visible: (perm) => !isCsmStaff(perm) },
+      { name: 'specs', label: 'Specifications (one per line)', type: 'textarea', span: 2, hint: 'Printed under the vehicle, e.g. Battery Capacity: 66 kWh', visible: isCsmStaff },
       { name: 'notes', label: 'Notes on the quotation', type: 'textarea', span: 2 },
     ],
     createSchema: z.object({}),
@@ -222,6 +227,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       deliveryDays: z.union([z.literal('').transform(() => null), z.coerce.number().int().min(0).max(365)]).nullish(),
       deliveryPeriod: optionalText(120),
       paymentMode: optionalText(80),
+      specs: optionalText(600),
       variant: optionalText(160),
       color: optionalText(40),
       bookingAmount: optionalMoney('Booking amount'),

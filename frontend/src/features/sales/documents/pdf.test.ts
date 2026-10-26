@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountInWords, fillTemplateLine, jetourVehicleLine, quotationRef } from './pdf';
+import { amountInWords, csmVehicleLine, fillTemplateLine, jetourVehicleLine, quotationRef } from './pdf';
 
 describe('amountInWords (Pakistani lakh / crore)', () => {
   it('writes typical vehicle prices', () => {
@@ -49,5 +49,27 @@ describe('jetourVehicleLine', () => {
     expect(jetourVehicleLine('Jetour T2', 'T2 i-DM PHEV')).toBe('JETOUR T2 i-DM PHEV');
     expect(jetourVehicleLine('Jetour X70 Plus', '1.5 TCI')).toBe('JETOUR X70 PLUS 1.5 TCI');
     expect(jetourVehicleLine('Jetour T1', null)).toBe('JETOUR T1');
+  });
+});
+
+describe('csmVehicleLine', () => {
+  it('writes the vehicle as CSM does, with the model when the variant does not name it', () => {
+    expect(csmVehicleLine('Capital Smart Motors JMEV EV3', 'JMEV EV3 Premium')).toBe('CSM – JMEV EV3 PREMIUM');
+    expect(csmVehicleLine('JMEV EV3', 'JMEV EV3 Premium', 'Capital Smart Motors', true)).toBe('CSM – JMEV EV3 Premium');
+    expect(csmVehicleLine('Zeekr X', 'Flagship AWD')).toBe('CSM – ZEEKR X FLAGSHIP AWD');
+    expect(csmVehicleLine('Riddara RD6', null)).toBe('CSM – RIDDARA RD6');
+  });
+});
+
+describe('CSM quotation lines', () => {
+  const ctx = { vehicle: 'JMEV EV3 Premium', nonFilerTax: null, validityDays: 7, deliveryStation: 'CSM', dealership: 'CSM Ittehad', hybrid: false, advance: '1,500,000', deliveryPeriod: '60 to 90 days', advancePercent: '30', balancePercent: '70' };
+  it('fills the advance, the delivery time and the percentages', () => {
+    expect(fillTemplateLine('Rs. Advance payment/ ({advance}) in favor of CSM', ctx)).toBe('Rs. Advance payment/ (1,500,000) in favor of CSM');
+    expect(fillTemplateLine('The vehicle delivery time is {deliveryPeriod} from the date of Advance Payment Clearing.', ctx)).toBe('The vehicle delivery time is 60 to 90 days from the date of Advance Payment Clearing.');
+    expect(fillTemplateLine('{advancePercent}% Advance payment and {balancePercent}% 30 days before vehicle delivery.', ctx)).toBe('30% Advance payment and 70% 30 days before vehicle delivery.');
+  });
+  it('leaves out the percentage line when there is no advance', () => {
+    expect(fillTemplateLine('{advancePercent}% Advance', { ...ctx, advancePercent: null, balancePercent: null })).toBeNull();
+    expect(fillTemplateLine('({advance})', { ...ctx, advance: '' })).toBeNull();
   });
 });

@@ -142,7 +142,18 @@ export default function DocumentFormatsPage() {
             vehicle: { model: 'Jetour T2', variant: 'T2 i-DM PHEV', color: 'Black', vin: null, engineNo: null },
             pricing: { quantity: 1, unitPrice: '12795000', discount: '0', freightInsurance: '75000', withholdingTax: '257400', taxStatus: 'filer', withholdingTaxNonFiler: null, total: '13127400', bookingAmount: '2500000' },
           }
-        : base;
+        : dealer.brand === 'Capital Smart Motors'
+          ? {
+              ...base,
+              variantCode: null,
+              billTo: 'Sample Housing Society',
+              deliveryDays: null,
+              deliveryPeriod: '60 to 90 days',
+              specs: 'Battery Capacity: 30.24 kWh' + String.fromCharCode(10) + 'Maximum Torque (N m): 125',
+              vehicle: { model: 'JMEV EV3', variant: 'JMEV EV3 Premium', color: null, vin: null, engineNo: null },
+              pricing: { quantity: 1, unitPrice: '4999999', discount: '0', freightInsurance: null, cvt: '0', withholdingTax: null, taxStatus: 'filer', withholdingTaxNonFiler: null, total: '4999999', bookingAmount: '1500000' },
+            }
+          : base;
     return () => buildQuotationPdf(sample);
   }, [previewing, form, dealer, data, user]);
   const pdf = usePdf(build);

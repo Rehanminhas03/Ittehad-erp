@@ -62,6 +62,11 @@ export interface TemplateContext {
   deliveryStation: string;
   dealership: string;
   hybrid: boolean;
+  /** CSM's quotation: the advance (amount), the delivery period and the advance / balance percentages. */
+  advance?: string;
+  deliveryPeriod?: string;
+  advancePercent?: string | null;
+  balancePercent?: string | null;
 }
 const HYBRID_ONLY = /^\[hybrid only\]\s*/i;
 /**
@@ -71,13 +76,18 @@ const HYBRID_ONLY = /^\[hybrid only\]\s*/i;
 export function fillTemplateLine(line: string, c: TemplateContext): string | null {
   if (HYBRID_ONLY.test(line) && !c.hybrid) return null;
   if (line.includes('{nonFilerTax}') && !c.nonFilerTax) return null;
+  if ((line.includes('{advancePercent}') && !c.advancePercent) || (line.includes('{advance}') && !c.advance)) return null;
   return line
     .replace(HYBRID_ONLY, '')
     .replaceAll('{vehicle}', c.vehicle)
     .replaceAll('{nonFilerTax}', c.nonFilerTax ?? '')
     .replaceAll('{validityDays}', String(c.validityDays).padStart(2, '0'))
     .replaceAll('{deliveryStation}', c.deliveryStation)
-    .replaceAll('{dealership}', c.dealership);
+    .replaceAll('{dealership}', c.dealership)
+    .replaceAll('{advancePercent}', c.advancePercent ?? '')
+    .replaceAll('{balancePercent}', c.balancePercent ?? '')
+    .replaceAll('{advance}', c.advance ?? '')
+    .replaceAll('{deliveryPeriod}', c.deliveryPeriod ?? '');
 }
 
 type Img = { data: string; w: number; h: number };
@@ -312,7 +322,7 @@ export async function buildQuotationPdf(q: QuotationDocument, opts: { letterhead
   let built: BuiltPdf | null = null;
   const letterheadPaper = opts.letterhead ?? false;
   // Jetour Ittehad prints its own quotation layout (one format for every Jetour model).
-  const draw = isJetour(q) ? drawJetourQuotation : drawQuotation;
+  const draw = isJetour(q) ? drawJetourQuotation : isCsm(q) ? drawCsmQuotation : drawQuotation;
   for (const k of [1, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64]) {
     built = await draw(q, k, letterheadPaper);
     if (built.doc.getNumberOfPages() === 1) break;
@@ -721,6 +731,202 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   doc.text('STAMP & SIGNATURE', W - M - 8, top + (letterheadPaper ? 10 : 16), { align: 'right' });
 
   if (!letterheadPaper) footer(p, q.quotationNo);
+  doc.setProperties({ title: `Quotation ${q.quotationNo}`, subject: `${vehicleLine} for ${q.billTo || q.customer.name}`, author: t.companyName });
+  return { doc, fileName: fileNameOf('Quotation', q.quotationNo, q.customer.name) };
+}
+
+// ---- CSM Ittehad's quotation ---------------------------------------------------------------------
+const isCsm = (q: QuotationDocument) => q.dealership.code.startsWith('CSM') || q.dealership.brand === 'Capital Smart Motors';
+/** 7-July-2026, as on CSM's quotations (Pakistan time). */
+const monthDate = (d: string | Date) => {
+  const [y, m, day] = new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' }).split('-');
+  const month = new Date(Date.UTC(2000, Number(m) - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' });
+  return `${Number(day)}-${month}-${y}`;
+};
+const rs = (v: string | number) => `Rs. ${num(v)}/-`;
+
+/**
+ * The vehicle as CSM writes it: "CSM – JMEV EV3 PREMIUM" (the variant, with the model when the variant does
+ * not name it). `plain` keeps the case ("CSM – JMEV EV3 Premium") for the sentence above the table.
+ */
+export function csmVehicleLine(model: string, variant: string | null | undefined, brand = 'Capital Smart Motors', plain = false) {
+  const name = model.replace(new RegExp(`^${brand}\\s+`, 'i'), '');
+  const v = variant?.trim();
+  const base = !v ? name : v.toLowerCase().startsWith(name.toLowerCase()) ? v : `${name} ${v}`;
+  return `CSM – ${plain ? base : base.toUpperCase()}`;
+}
+
+/**
+ * CSM Ittehad's layout (its Word quotation): CSM and Ittehad logos with the phone and email, "Quotation",
+ * To / Date, the thank-you sentence, a table (vehicle with its unit price, specifications and CVT, total in
+ * figures and words), the advance / validity / delivery / balance rows and the terms as dashes.
+ */
+async function drawCsmQuotation(q: QuotationDocument, k: number): Promise<BuiltPdf> {
+  const p = await newPage(284);
+  const { doc } = p;
+  const t = q.template;
+  const [logo, group] = await Promise.all([loadImage('/logo/CSM-Logo.png'), loadImage(GROUP_LOGO)]);
+
+  // ---- Header: logos, contact lines --------------------------------------------------------------------
+  if (logo) {
+    const s = Math.min(52 / logo.w, 15 / logo.h);
+    doc.addImage(logo.data, 'JPEG', M, 9, logo.w * s, logo.h * s);
+  }
+  if (group) {
+    const s = Math.min(40 / group.w, 13 / group.h);
+    doc.addImage(group.data, 'JPEG', W - M - group.w * s, 9, group.w * s, group.h * s);
+  }
+  p.font(8.5);
+  let hy = 27;
+  for (const l of [t.phone && `PHONE : ${t.phone}`, t.email && `Email: ${t.email}`].filter(Boolean) as string[]) {
+    doc.text(l, W - M, hy, { align: 'right' });
+    hy += 4;
+  }
+  doc.setDrawColor(...rule);
+  doc.line(M, 34, W - M, 34);
+  doc.setDrawColor(0, 0, 0);
+
+  // ---- Title, To, Date, thank-you ----------------------------------------------------------------------
+  p.y = 44;
+  p.font(15, 'bold');
+  doc.text('Quotation', W / 2, p.y, { align: 'center' });
+  p.y += 11;
+  p.font(10, 'bold');
+  doc.text('To:', M, p.y);
+  p.y += 7;
+  for (const l of doc.splitTextToSize(q.billTo || q.customer.name, CW - 70) as string[]) {
+    doc.text(l, M, p.y);
+    p.y += 5;
+  }
+  doc.text(`Date: ${monthDate(q.issuedAt)}`, M, p.y);
+  p.y += 9;
+  const plainLine = csmVehicleLine(q.vehicle.model, q.vehicle.variant, q.dealership.brand, true);
+  const vehicleLine = csmVehicleLine(q.vehicle.model, q.vehicle.variant, q.dealership.brand);
+  p.rich(`Thank you for your interest in the ${plainLine}. We are pleased to quote below for your kind consideration.`, M, CW, 9.5, 4.8, true);
+  p.y += 3;
+
+  // ---- Table: description, qty, unit price -------------------------------------------------------------
+  const cols = [CW - 18 - 40, 18, 40];
+  const xs = cols.reduce<number[]>((a, w, i) => [...a, a[i]! + w], [M]);
+  const qty = q.pricing.quantity;
+  const unit = Number(q.pricing.unitPrice);
+  const has = (v: string | null | undefined) => v != null && v !== '';
+  const cvtNum = has(q.pricing.cvt) ? Number(q.pricing.cvt) : null;
+  // The lines under the vehicle name: unit price, specifications, then whatever else is quoted.
+  const lines: { text: string; bold?: boolean }[] = [{ text: '' }, { text: `${String(qty).padStart(2, '0')} Unit Price is ${rs(unit)}`, bold: true }];
+  for (const s of (q.specs ?? '').split('\n').map((l) => l.trim()).filter(Boolean)) lines.push({ text: s });
+  if (Number(q.pricing.discount) > 0) lines.push({ text: `Less: Discount ${rs(q.pricing.discount)}` });
+  if (cvtNum !== null) lines.push({ text: cvtNum === 0 ? 'CVT 0%' : `CVT 1%: ${rs(cvtNum)}` });
+  if (has(q.pricing.nevLevy)) lines.push({ text: `NEV Levy: ${rs(q.pricing.nevLevy!)}` });
+  if (has(q.pricing.withholdingTax)) lines.push({ text: `Withholding Tax (${q.pricing.taxStatus === 'non_filer' ? 'Non-Filer' : 'Filer'}): ${rs(q.pricing.withholdingTax!)}` });
+  lines.push({ text: has(q.pricing.freightInsurance) ? `Freight and Insurance: ${rs(q.pricing.freightInsurance!)}` : 'Freight and Insurance will be decided at the time of delivery.' });
+
+  const box = (x: number, y: number, w: number, h: number) => doc.rect(x, y, w, h);
+  // header row
+  p.font(9, 'bold');
+  box(xs[0]!, p.y, cols[0]!, 8);
+  box(xs[1]!, p.y, cols[1]!, 8);
+  box(xs[2]!, p.y, cols[2]!, 8);
+  doc.text('Description', (xs[0]! + xs[1]!) / 2, p.y + 5.4, { align: 'center' });
+  doc.text('Qty', (xs[1]! + xs[2]!) / 2, p.y + 5.4, { align: 'center' });
+  doc.text(qty > 1 ? `${qty} Units Price` : '1 Unit Price', (xs[2]! + xs[3]!) / 2, p.y + 5.4, { align: 'center' });
+  p.y += 8;
+  // the vehicle row
+  const lineH = 4.6 * k;
+  const bodyH = 6 + (1 + lines.length) * lineH;
+  box(xs[0]!, p.y, cols[0]!, bodyH);
+  box(xs[1]!, p.y, cols[1]!, bodyH);
+  box(xs[2]!, p.y, cols[2]!, bodyH);
+  p.font(9.5 * k, 'bold');
+  let ly = p.y + 5.5;
+  doc.text(vehicleLine + (q.vehicle.color ? ` (${q.vehicle.color})` : ''), xs[0]! + 2, ly, { maxWidth: cols[0]! - 4 });
+  for (const l of lines) {
+    ly += lineH;
+    p.font(9 * k, l.bold ? 'bold' : 'normal');
+    doc.text(l.text, xs[0]! + 2, ly, { maxWidth: cols[0]! - 4 });
+  }
+  p.font(9.5 * k);
+  doc.text(String(qty), (xs[1]! + xs[2]!) / 2, p.y + 5.5, { align: 'center' });
+  p.font(9.5 * k, 'bold');
+  doc.text(`Rs.${num(unit)}/-`, (xs[2]! + xs[3]!) / 2, p.y + 5.5, { align: 'center' });
+  p.y += bodyH;
+  // total in figures
+  box(xs[0]!, p.y, cols[0]! + cols[1]!, 8);
+  box(xs[2]!, p.y, cols[2]!, 8);
+  p.font(9.5, 'bold');
+  doc.text('Total Company Price', xs[0]! + 2, p.y + 5.4);
+  doc.text(`Rs. ${num(q.pricing.total)}/-`, (xs[2]! + xs[3]!) / 2, p.y + 5.4, { align: 'center' });
+  p.y += 8;
+
+  // ---- Label / text rows -------------------------------------------------------------------------------
+  const labelW = 58;
+  const row = (label: string, text: string, bold = false, size = 9) => {
+    p.font(size * k, bold ? 'bold' : 'normal');
+    const parts = doc.splitTextToSize(text, CW - labelW - 4) as string[];
+    const h = Math.max(8, 3.4 + parts.length * 4.2 * k);
+    p.ensure(h);
+    box(M, p.y, labelW, h);
+    box(M + labelW, p.y, CW - labelW, h);
+    p.font(size * k, label.startsWith('Total') ? 'bold' : 'normal');
+    doc.text(label, M + 2, p.y + h / 2 + 1.3, { maxWidth: labelW - 4 });
+    p.font(size * k, bold ? 'bold' : 'normal');
+    parts.forEach((l, i) => doc.text(l, M + labelW + 2, p.y + 5.3 + i * 4.2 * k));
+    p.y += h;
+  };
+  row('Total Company Price in words', amountInWords(q.pricing.total), true, 9.5);
+
+  const issued = new Date(q.issuedAt);
+  const validityDays = Math.max(1, Math.round((Date.parse(`${q.validUntil}T00:00:00+05:00`) - Date.parse(`${issued.toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })}T00:00:00+05:00`)) / 86400_000));
+  const total = Number(q.pricing.total);
+  const advance = q.pricing.bookingAmount != null && Number(q.pricing.bookingAmount) > 0 ? Number(q.pricing.bookingAmount) : null;
+  const advancePercent = advance !== null && total > 0 ? Math.round((advance / total) * 100) : null;
+  const deliveryDays = q.deliveryDays ?? t.defaultDeliveryDays;
+  const ctx: TemplateContext = {
+    vehicle: plainLine.replace(/^CSM – /, ''),
+    nonFilerTax: null,
+    validityDays,
+    deliveryStation: t.deliveryStation ?? q.dealership.name,
+    dealership: q.dealership.name,
+    hybrid: false,
+    advance: advance !== null ? num(advance) : '',
+    deliveryPeriod: q.deliveryPeriod?.trim() || (deliveryDays != null ? `${deliveryDays} days` : '60 to 90 days'),
+    advancePercent: advancePercent !== null ? String(advancePercent) : null,
+    balancePercent: advancePercent !== null ? String(100 - advancePercent) : null,
+  };
+  const advanceText = q.paymentMode?.trim() || (advance !== null ? fillTemplateLine(t.defaultPaymentMode ?? '', ctx) : null);
+  if (advanceText) row('Advance Payment', advanceText, true);
+  row('Validity', `This quote is valid from the date of the issuance to a maximum of ${validityDays}-Days.`);
+  const [delivery, balance] = t.deliveryNotes.map((l) => fillTemplateLine(l, ctx));
+  if (delivery) row('Delivery Time', delivery);
+  if (balance) row('Balance Payment', balance);
+
+  // ---- Terms & conditions ------------------------------------------------------------------------------
+  p.y += 7;
+  p.font(10 * k, 'bold');
+  doc.text('Terms & Conditions', M, p.y);
+  doc.line(M, p.y + 1, M + doc.getTextWidth('Terms & Conditions'), p.y + 1);
+  p.y += 5.5 * k;
+  const dash = (text: string) => {
+    p.ensure(5);
+    p.font(9 * k);
+    doc.text('-', M + 1, p.y);
+    p.rich(text, M + 8, CW - 8, 9 * k, 4.3 * k);
+  };
+  for (const l of t.terms) {
+    const line = fillTemplateLine(l, ctx);
+    if (line) dash(line);
+  }
+  if (q.notes) dash(`**Note:** ${q.notes}`);
+
+  // ---- Stamp & signature (once uploaded under Document formats) ----------------------------------------
+  if (t.signatureImage || t.stampImage) {
+    p.y += 6;
+    p.ensure(32);
+    const used = await stampAndSignature(p, t, W - M - 4, p.y, 'right');
+    p.y += used + 2;
+  }
+
+  footer(p, q.quotationNo);
   doc.setProperties({ title: `Quotation ${q.quotationNo}`, subject: `${vehicleLine} for ${q.billTo || q.customer.name}`, author: t.companyName });
   return { doc, fileName: fileNameOf('Quotation', q.quotationNo, q.customer.name) };
 }

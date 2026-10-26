@@ -1601,6 +1601,8 @@ model Quotation {
   /// NEV levy and CVT (1%) quoted for the car: empty = not printed, 0 = printed as 0; both are part of the total.
   nevLevy                Decimal?     @map("nev_levy") @db.Decimal(14, 2)
   cvt                    Decimal?     @map("cvt") @db.Decimal(14, 2)
+  /// CSM: the specification lines printed under the vehicle (battery capacity, torque ...), one per line.
+  specs                  String?
   withholdingTax         Decimal?     @map("withholding_tax") @db.Decimal(14, 2)
   withholdingTaxNonFiler Decimal?     @map("withholding_tax_non_filer") @db.Decimal(14, 2)
   totalAmount            Decimal      @map("total_amount") @db.Decimal(14, 2)
@@ -1733,6 +1735,8 @@ model VehicleVariant {
   /// New energy vehicle (NEV) levy and capital value tax (CVT, 1%) of the price list (hybrid / electric cars): filled into the quotation.
   nevLevy            Decimal? @map("nev_levy") @db.Decimal(14, 2)
   cvt                Decimal? @map("cvt") @db.Decimal(14, 2)
+  /// CSM: the specification lines of the variant (battery capacity, torque ...), one per line; copied onto its quotations.
+  specs              String?
   bookingPrice       Decimal? @map("booking_price") @db.Decimal(14, 2)
   isActive     Boolean       @default(true) @map("is_active")
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)

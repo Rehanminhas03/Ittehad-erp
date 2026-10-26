@@ -121,6 +121,7 @@ async function issueQuotation(ctx: EntityCtx, target: Target, ownerId: number, l
     deliveryDays: input.deliveryDays ?? null,
     deliveryPeriod: input.deliveryPeriod ?? null,
     paymentMode: input.paymentMode ?? null,
+    specs: input.specs ?? null,
   });
 }
 
@@ -247,6 +248,7 @@ export async function quotationDocument(ctx: EntityCtx, id: number) {
     deliveryDays: (q.deliveryDays as number | null) ?? null,
     deliveryPeriod: (q.deliveryPeriod as string | null) ?? null,
     paymentMode: (q.paymentMode as string | null) ?? null,
+    specs: (q.specs as string | null) ?? null,
     // Always the dealership's current format, so an edited format shows on every quotation.
     template: await loadTemplate(ctx, q.dealershipId as number, 'quotation'),
     ...(await parties(ctx, q, q.modelId as number)),

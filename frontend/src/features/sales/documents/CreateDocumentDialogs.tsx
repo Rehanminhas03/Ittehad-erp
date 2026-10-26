@@ -23,6 +23,8 @@ import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } fro
 const P_QUOTATIONS_CREATE = 'sales.quotations.create';
 
 export const JETOUR_DELIVERY_PERIOD = 'ONE MONTH AFTER FULL PAYMENT.';
+/** CSM's usual delivery time (its quotation prints "The vehicle delivery time is ... from the date of Advance Payment Clearing"). */
+export const CSM_DELIVERY_PERIOD = '90 to 120 days';
 
 /** From a lead's page (lead), or on its own from the Quotations / PPF vouchers list (dealershipId: no lead, the customer is typed in). */
 type Props = { lead?: Lead; dealershipId?: number; open: boolean; onClose: () => void; onCreated: (id: number) => void };
@@ -62,6 +64,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
   const perm = usePermission();
   const brand = perm.dealershipsFor(P_QUOTATIONS_CREATE).find((d) => d.id === dealershipId)?.brand;
   const jetour = brand === 'Jetour';
+  // CSM's quotation: the battery / torque lines, the advance payment and a delivery-time sentence.
+  const csm = brand === 'Capital Smart Motors';
   const [v, setV] = useState({
     // From the lead; the customer may now want another model or variant.
     modelId: lead?.interestedModelId ? String(lead.interestedModelId) : '',
@@ -82,6 +86,7 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     deliveryDays: '',
     deliveryPeriod: '',
     paymentMode: '',
+    specs: '',
     notes: '',
   });
   // Validity, delivery period and payment mode start from the dealership's quotation format.
@@ -92,8 +97,9 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
       ...s,
       validDays: String(format.defaultValidityDays),
       deliveryDays: format.defaultDeliveryDays != null ? String(format.defaultDeliveryDays) : s.deliveryDays,
-      paymentMode: s.paymentMode || (format.defaultPaymentMode ?? ''),
-      deliveryPeriod: s.deliveryPeriod || (jetour ? JETOUR_DELIVERY_PERIOD : ''),
+      // CSM's payment text is built from the advance on the quotation, not typed.
+      paymentMode: csm ? '' : s.paymentMode || (format.defaultPaymentMode ?? ''),
+      deliveryPeriod: s.deliveryPeriod || (jetour ? JETOUR_DELIVERY_PERIOD : csm ? CSM_DELIVERY_PERIOD : ''),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once the format is known
   }, [format]);
@@ -111,6 +117,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
       // Hybrid / electric cars: the NEV levy and CVT (1%) of the price list (cleared again for a car without them).
       nevLevy: amt(row.nevLevy),
       cvt: amt(row.cvt),
+      // CSM: the specification lines and the advance (booking) of the price list.
+      ...(csm ? { specs: row.specs ?? '', ...(row.bookingPrice ? { bookingAmount: amt(row.bookingPrice) } : {}) } : {}),
       withholdingTax: status === 'filer' ? amt(row.advanceTaxFiler) || s.withholdingTax : amt(row.advanceTaxNonFiler),
       ...(!jetour && row.advanceTaxNonFiler ? { withholdingTaxNonFiler: amt(row.advanceTaxNonFiler) } : {}),
     }));
@@ -151,10 +159,11 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             cvt: v.cvt.trim() || undefined,
             withholdingTax: v.withholdingTax.trim() || undefined,
             // Jetour's quotation has no non-filer tax.
-            withholdingTaxNonFiler: jetour ? undefined : v.withholdingTaxNonFiler.trim() || undefined,
-            deliveryDays: jetour ? null : v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
-            deliveryPeriod: jetour ? blank(v.deliveryPeriod) : null,
-            paymentMode: blank(v.paymentMode),
+            withholdingTaxNonFiler: jetour || csm ? undefined : v.withholdingTaxNonFiler.trim() || undefined,
+            deliveryDays: jetour || csm ? null : v.deliveryDays.trim() ? Number(v.deliveryDays) : null,
+            deliveryPeriod: jetour || csm ? blank(v.deliveryPeriod) : null,
+            paymentMode: csm ? null : blank(v.paymentMode),
+            specs: csm ? blank(v.specs) : null,
             taxStatus: jetour ? taxStatus : undefined,
           };
     return run(
@@ -292,7 +301,7 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           <Field label="Freight & transit insurance (PKR)" htmlFor="qt-freight" error={errors.freightInsurance}>
             <Input id="qt-freight" inputMode="decimal" value={v.freightInsurance} onChange={set('freightInsurance')} invalid={!!errors.freightInsurance} placeholder="e.g. 68000" />
           </Field>
-          {!jetour && (
+          {!jetour && !csm && (
             <>
               <Field label="NEV levy (PKR)" htmlFor="qt-nev" error={errors.nevLevy} hint="Hybrid / electric cars (e.g. Palisade HEV): from the price list. Empty: not printed">
                 <Input id="qt-nev" inputMode="decimal" value={v.nevLevy} onChange={set('nevLevy')} invalid={!!errors.nevLevy} placeholder="e.g. 684169" />
@@ -308,7 +317,7 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           <Field label={jetour && taxStatus === 'non_filer' ? 'Withholding tax — non-filer (PKR)' : 'Withholding tax — filer (PKR)'} htmlFor="qt-wht" error={errors.withholdingTax} hint="Leave empty to leave the row off the quotation; enter 0 to print it as 0">
             <Input id="qt-wht" inputMode="decimal" value={v.withholdingTax} onChange={set('withholdingTax')} invalid={!!errors.withholdingTax} placeholder="e.g. 246160" />
           </Field>
-          {!jetour && (
+          {!jetour && !csm && (
             <Field label="Withholding tax — non-filer (PKR)" htmlFor="qt-wht-nf" error={errors.withholdingTaxNonFiler} hint="Quoted in the terms">
               <Input id="qt-wht-nf" inputMode="decimal" value={v.withholdingTaxNonFiler} onChange={set('withholdingTaxNonFiler')} invalid={!!errors.withholdingTaxNonFiler} placeholder="e.g. 1311450" />
             </Field>
@@ -316,14 +325,14 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           <Field label="Colour" htmlFor="qt-color">
             <Input id="qt-color" value={v.color} onChange={set('color')} />
           </Field>
-          <Field label="Booking amount (PKR)" htmlFor="qt-booking" error={errors.bookingAmount} hint={jetour ? 'Empty by default. Enter it only if you want it printed as "Booking Price" in the table' : 'Empty by default: enter it only if there is a booking amount'}>
+          <Field label={csm ? 'Advance payment (PKR)' : 'Booking amount (PKR)'} htmlFor="qt-booking" error={errors.bookingAmount} hint={csm ? 'Printed in the Advance Payment row, with the advance and balance percentages in the terms. Empty: not printed' : jetour ? 'Empty by default. Enter it only if you want it printed as "Booking Price" in the table' : 'Empty by default: enter it only if there is a booking amount'}>
             <Input id="qt-booking" inputMode="decimal" value={v.bookingAmount} onChange={set('bookingAmount')} invalid={!!errors.bookingAmount} />
           </Field>
           <Field label="Valid for (days)" htmlFor="qt-valid" error={errors.validDays}>
             <Input id="qt-valid" type="number" min={1} max={60} value={v.validDays} onChange={set('validDays')} />
           </Field>
-          {jetour ? (
-            <Field label="Tentative delivery period" htmlFor="qt-delivery" error={errors.deliveryPeriod} hint="e.g. ONE MONTH AFTER FULL PAYMENT. or DECEMBER 26 & JANUARY 27.">
+          {jetour || csm ? (
+            <Field label={csm ? 'Delivery time' : 'Tentative delivery period'} htmlFor="qt-delivery" error={errors.deliveryPeriod} hint={csm ? 'e.g. 60 to 90 days: printed as "The vehicle delivery time is ... from the date of Advance Payment Clearing"' : 'e.g. ONE MONTH AFTER FULL PAYMENT. or DECEMBER 26 & JANUARY 27.'}>
               <Input id="qt-delivery" value={v.deliveryPeriod} onChange={set('deliveryPeriod')} />
             </Field>
           ) : (
@@ -331,9 +340,16 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
               <Input id="qt-delivery" type="number" min={0} max={365} value={v.deliveryDays} onChange={set('deliveryDays')} />
             </Field>
           )}
-          <Field label="Payment mode" htmlFor="qt-payment" error={errors.paymentMode}>
-            <Input id="qt-payment" value={v.paymentMode} onChange={set('paymentMode')} />
-          </Field>
+          {!csm && (
+            <Field label="Payment mode" htmlFor="qt-payment" error={errors.paymentMode}>
+              <Input id="qt-payment" value={v.paymentMode} onChange={set('paymentMode')} />
+            </Field>
+          )}
+          {csm && (
+            <Field label="Specifications (one per line)" htmlFor="qt-specs" className="sm:col-span-2" error={errors.specs} hint="Printed under the vehicle, e.g. Battery Capacity: 66 kWh. From the price list; you can change it">
+              <Textarea id="qt-specs" rows={3} value={v.specs} onChange={set('specs')} placeholder="Battery Capacity: 30.24 kWh, then Maximum Torque (N m): 125" />
+            </Field>
+          )}
           <Field label={jetour ? 'Note (printed under QUOTATION)' : 'Notes on the quotation'} htmlFor="qt-notes" className="sm:col-span-2">
             <Textarea id="qt-notes" rows={2} value={v.notes} onChange={set('notes')} placeholder={jetour ? '(Limited Stock & Limited Time Offer Price)' : 'e.g. Includes registration and one-year insurance'} />
           </Field>

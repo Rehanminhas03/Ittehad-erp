@@ -1475,6 +1475,7 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   withholdingTax: string | null;
   nevLevy?: string | null;
   cvt?: string | null;
+  specs?: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -1922,6 +1923,7 @@ export type CreateStandaloneQuotationApiResponse = /** status 201 Success */ {
   withholdingTax: string | null;
   nevLevy?: string | null;
   cvt?: string | null;
+  specs?: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -3296,6 +3298,7 @@ export type QuotationCreate = {
   deliveryDays?: number | null;
   deliveryPeriod?: string | null;
   paymentMode?: string | null;
+  specs?: string | null;
 };
 export type LeadOrderVehicle = {
   orderNo: string | null;
@@ -3436,6 +3439,7 @@ export type QuotationDocument = {
   deliveryDays: number | null;
   deliveryPeriod: string | null;
   paymentMode: string | null;
+  specs?: string | null;
   template: DocumentTemplate;
   issuedAt: string;
   dealership: {
@@ -4514,6 +4518,7 @@ export type Quotation = {
   withholdingTax: string | null;
   nevLevy?: string | null;
   cvt?: string | null;
+  specs?: string | null;
   withholdingTaxNonFiler: string | null;
   totalAmount: string;
   bookingAmount: string | null;
@@ -4559,6 +4564,7 @@ export type QuotationUpdate = {
   deliveryDays?: number | null;
   deliveryPeriod?: string | null;
   paymentMode?: string | null;
+  specs?: string | null;
 };
 export type PpfForm = {
   id: number;
@@ -4642,6 +4648,7 @@ export type VariantCode = {
   freightCharges?: string | null;
   nevLevy?: string | null;
   cvt?: string | null;
+  specs?: string | null;
   bookingPrice?: string | null;
   isActive: boolean;
   createdAt: string;
@@ -4664,6 +4671,7 @@ export type VehicleVariantCreate = {
   freightCharges?: string;
   nevLevy?: string;
   cvt?: string;
+  specs?: string | null;
   bookingPrice?: string;
   isActive?: boolean;
 };
@@ -4677,6 +4685,7 @@ export type VehicleVariantUpdate = {
   freightCharges?: string;
   nevLevy?: string;
   cvt?: string;
+  specs?: string | null;
   bookingPrice?: string;
   isActive?: boolean;
 };

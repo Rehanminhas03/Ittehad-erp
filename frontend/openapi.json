@@ -4454,6 +4454,11 @@
             "type": "string",
             "nullable": true,
             "maxLength": 80
+          },
+          "specs": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 600
           }
         }
       },
@@ -4948,6 +4953,10 @@
             "nullable": true
           },
           "paymentMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "specs": {
             "type": "string",
             "nullable": true
           },
@@ -9875,6 +9884,10 @@
             "type": "string",
             "nullable": true
           },
+          "specs": {
+            "type": "string",
+            "nullable": true
+          },
           "withholdingTaxNonFiler": {
             "type": "string",
             "nullable": true
@@ -10077,6 +10090,11 @@
             "type": "string",
             "nullable": true,
             "maxLength": 80
+          },
+          "specs": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 600
           }
         }
       },
@@ -10494,6 +10512,10 @@
             "type": "string",
             "nullable": true
           },
+          "specs": {
+            "type": "string",
+            "nullable": true
+          },
           "bookingPrice": {
             "type": "string",
             "nullable": true
@@ -10569,6 +10591,11 @@
             "type": "string",
             "example": "1250000.00"
           },
+          "specs": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 600
+          },
           "bookingPrice": {
             "type": "string",
             "example": "1250000.00"
@@ -10626,6 +10653,11 @@
           "cvt": {
             "type": "string",
             "example": "1250000.00"
+          },
+          "specs": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 600
           },
           "bookingPrice": {
             "type": "string",
@@ -27191,6 +27223,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "specs": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "withholdingTaxNonFiler": {
                       "type": "string",
                       "nullable": true
@@ -29575,6 +29611,10 @@
                       "nullable": true
                     },
                     "cvt": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "specs": {
                       "type": "string",
                       "nullable": true
                     },

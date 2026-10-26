@@ -85,3 +85,47 @@ export async function seedHyundaiVariants(ex: Executor, dealershipId: number) {
     await ex.vehicleVariant.create({ data: { dealershipId, code, description, modelId: await detectModel(ex, 'Hyundai', description) }, select: { id: true } });
   }
 }
+
+/**
+ * CSM Ittehad (Capital Smart Motors) models: the group's electric / new-energy brands. The model name carries
+ * the make ("Zeekr X"), as CSM's own quotation writes it.
+ */
+export const CSM_MODELS: { name: string; bodyType: string }[] = [
+  { name: 'Zeekr X', bodyType: 'SUV' },
+  { name: 'Forthing Friday', bodyType: 'SUV' },
+  { name: 'Riddara RD6', bodyType: 'Pickup' },
+  { name: 'JMEV Elight', bodyType: 'Hatchback' },
+  { name: 'JMEV EV3', bodyType: 'Hatchback' },
+];
+
+/**
+ * CSM's price list (PKR, ex-port) with the CVT (1%) and the booking amount, and the battery as the
+ * specification line. The quotation total is the price + CVT. JMEV EV3 Premium is from CSM's own quotation
+ * (CVT 0%, advance 1,500,000). The Assistant Manager / Sales Manager keep it up to date under Price list.
+ */
+export const CSM_VARIANTS: { code: string; description: string; model: string; exFactoryPrice: string; cvt: string; bookingPrice: string; specs: string }[] = [
+  { code: 'ZEEKR-X-PREMIUM', description: 'Zeekr X Premium', model: 'Zeekr X', exFactoryPrice: '17990000', cvt: '179900', bookingPrice: '3598000', specs: 'Battery Capacity: 66 kWh' },
+  { code: 'ZEEKR-X-FLAGSHIP', description: 'Zeekr X Flagship AWD', model: 'Zeekr X', exFactoryPrice: '18990000', cvt: '189900', bookingPrice: '3798000', specs: 'Battery Capacity: 66 kWh' },
+  { code: 'FRIDAY-BEV-LUXURY', description: 'Forthing Friday BEV Luxury', model: 'Forthing Friday', exFactoryPrice: '8999999', cvt: '89999', bookingPrice: '1799900', specs: 'Battery Capacity: 64.4 kWh' },
+  { code: 'FRIDAY-BEV-EXCLUSIVE', description: 'Forthing Friday BEV Exclusive', model: 'Forthing Friday', exFactoryPrice: '10499999', cvt: '104990', bookingPrice: '2099900', specs: 'Battery Capacity: 64.4 kWh' },
+  { code: 'FRIDAY-REEV', description: 'Forthing Friday REEV', model: 'Forthing Friday', exFactoryPrice: '9999000', cvt: '0', bookingPrice: '1999800', specs: 'Battery Capacity: 31.94 kWh' },
+  { code: 'RD6-ECON', description: 'Riddara RD6 Econ 4x4', model: 'Riddara RD6', exFactoryPrice: '14499000', cvt: '144990', bookingPrice: '2899800', specs: 'Battery Capacity: 73 kWh' },
+  { code: 'RD6-PRO', description: 'Riddara RD6 Pro 4x4', model: 'Riddara RD6', exFactoryPrice: '17999000', cvt: '179990', bookingPrice: '3599800', specs: 'Battery Capacity: 73 kWh' },
+  { code: 'ELIGHT-COMFORT', description: 'JMEV Elight Comfort', model: 'JMEV Elight', exFactoryPrice: '8499000', cvt: '84990', bookingPrice: '1699800', specs: 'Battery Capacity: 56.3 kWh' },
+  { code: 'ELIGHT-PREMIUM', description: 'JMEV Elight Premium', model: 'JMEV Elight', exFactoryPrice: '9999000', cvt: '99990', bookingPrice: '1999800', specs: 'Battery Capacity: 56.3 kWh' },
+  { code: 'EV3-PREMIUM', description: 'JMEV EV3 Premium', model: 'JMEV EV3', exFactoryPrice: '4999999', cvt: '0', bookingPrice: '1500000', specs: 'Battery Capacity: 30.24 kWh\nMaximum Torque (N m): 125' },
+];
+
+/** Adds the missing CSM models and variants (with prices) to CSM's dealership; what exists is left as it is. */
+export async function seedCsmCatalog(ex: Executor, dealershipId: number, brand: string) {
+  for (const m of CSM_MODELS) {
+    const has = await ex.vehicleModel.findFirst({ where: { brand, name: m.name }, select: { id: true } });
+    if (!has) await ex.vehicleModel.create({ data: { brand, name: m.name, bodyType: m.bodyType }, select: { id: true } });
+  }
+  for (const { code, description, model, ...prices } of CSM_VARIANTS) {
+    const exists = await ex.vehicleVariant.findFirst({ where: { dealershipId, code }, select: { id: true } });
+    if (exists) continue;
+    const m = await ex.vehicleModel.findFirst({ where: { brand, name: model }, select: { id: true } });
+    await ex.vehicleVariant.create({ data: { dealershipId, code, description, modelId: m?.id ?? null, ...prices }, select: { id: true } });
+  }
+}

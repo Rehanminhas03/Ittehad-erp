@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, ErrorState, Input, Section, Spinner } from '@/shared/components/ui';
+import { Button, ErrorState, Input, Section, Spinner, Textarea } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { apiErrorMessage, formatAmount, formatMoney } from '@/shared/lib';
 import { type VariantCode, useListVariantCodesQuery, useUpdateVariantCodeMutation } from '../salesApi';
@@ -26,7 +26,8 @@ function Row({ variant }: { variant: VariantCode }) {
   const [update, { isLoading }] = useUpdateVariantCodeMutation();
   const saved = toValues(variant);
   const [v, setV] = useState<Values>(saved);
-  const dirty = FIELDS.some(([k]) => plain(v[k]) !== plain(saved[k]));
+  const [specs, setSpecs] = useState(variant.specs ?? '');
+  const dirty = FIELDS.some(([k]) => plain(v[k]) !== plain(saved[k])) || specs.trim() !== (variant.specs ?? '').trim();
   const net = (nonFiler: boolean) => (plain(v.exFactoryPrice) ? num(v.exFactoryPrice) + num(nonFiler ? v.advanceTaxNonFiler : v.advanceTaxFiler) + num(v.freightCharges) + num(v.nevLevy) + num(v.cvt) : null);
   const nf = net(true);
 
@@ -34,7 +35,7 @@ function Row({ variant }: { variant: VariantCode }) {
     try {
       await update({
         id: variant.id,
-        vehicleVariantUpdate: Object.fromEntries(FIELDS.map(([k]) => [k, plain(v[k]) || null])),
+        vehicleVariantUpdate: { ...Object.fromEntries(FIELDS.map(([k]) => [k, plain(v[k]) || null])), specs: specs.trim() || null },
       }).unwrap();
       toast.success(`Prices of ${variant.code} saved: new quotations use them`);
     } catch (e) {
@@ -53,6 +54,9 @@ function Row({ variant }: { variant: VariantCode }) {
           <Input inputMode="decimal" aria-label={`${label} of ${variant.code}`} value={v[k]} onChange={(e) => setV((s) => ({ ...s, [k]: e.target.value }))} className="min-w-28 text-right tabular-nums" placeholder="—" />
         </td>
       ))}
+      <td className="px-2 py-2">
+        <Textarea rows={2} aria-label={`Specifications of ${variant.code}`} value={specs} onChange={(e) => setSpecs(e.target.value)} className="min-w-56 text-xs" placeholder="CSM: Battery Capacity: 66 kWh" />
+      </td>
       <td className="px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums text-slate-900">{net(false) === null ? '—' : formatMoney(String(net(false)))}</td>
       <td className="px-3 py-2.5 text-right text-sm whitespace-nowrap tabular-nums text-slate-700">{nf === null || !plain(v.advanceTaxNonFiler) ? '—' : formatMoney(String(nf))}</td>
       <td className="px-3 py-2.5 text-right">
@@ -94,6 +98,7 @@ export function PriceListEditor({ dealershipId, brand }: { dealershipId: number;
                     {label}
                   </th>
                 ))}
+                <th className="px-2 py-2 text-left font-medium whitespace-nowrap">Specifications</th>
                 <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Net price (filer)</th>
                 <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Net price (non-filer)</th>
                 <th className="px-3 py-2" />

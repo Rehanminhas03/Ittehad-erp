@@ -11,7 +11,7 @@ import { hashPassword } from '../modules/core/service';
 import type { EntityCtx } from '../entity/types';
 import { addMoney, lineAmount } from '../lib/money';
 import { ensureChart, post } from '../modules/accounts/ledger';
-import { seedHyundaiVariants, seedJetourVariants } from '../modules/sales/variantCatalog';
+import { seedCsmCatalog, seedHyundaiVariants, seedJetourVariants } from '../modules/sales/variantCatalog';
 
 /** Starter model catalogue; maintained afterwards under Administration → Vehicle models. */
 const VEHICLE_MODELS: { brand: string; name: string; bodyType: string }[] = [
@@ -183,6 +183,8 @@ try {
     }
 
     await tx.vehicleModel.createMany({ data: VEHICLE_MODELS, skipDuplicates: true });
+    // CSM Ittehad's models (Zeekr, Forthing, Riddara, JMEV) and price list.
+    for (const d of DEALERSHIPS) if (d.code.startsWith('CSM')) await seedCsmCatalog(tx, dealershipIds.get(d.code)!, d.brand);
 
     for (const m of await tx.vehicleModel.findMany({ select: { id: true } })) {
       await tx.scheduleItem.createMany({ data: SCHEDULE.map((s) => ({ ...s, modelId: m.id })), skipDuplicates: true });

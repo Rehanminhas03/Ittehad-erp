@@ -222,6 +222,8 @@ export const QuotationSchema = z.object({
   /** NEV levy and CVT (1%), part of the total; null = not quoted. */
   nevLevy: z.string().nullable().optional(),
   cvt: z.string().nullable().optional(),
+  /** CSM: specification lines printed under the vehicle (one per line). */
+  specs: z.string().nullable().optional(),
   withholdingTaxNonFiler: z.string().nullable(),
   totalAmount: z.string(),
   bookingAmount: z.string().nullable(),
@@ -250,6 +252,7 @@ export const VehicleVariantSchema = z
     /** NEV levy and CVT (1%) of the price list (hybrid / electric cars). */
     nevLevy: z.string().nullable().optional(),
     cvt: z.string().nullable().optional(),
+    specs: z.string().nullable().optional(),
     bookingPrice: z.string().nullable().optional(),
     isActive: z.boolean(),
     createdAt: Timestamp,
@@ -263,6 +266,7 @@ const variantPrices = {
   freightCharges: Money.nullish(),
   nevLevy: Money.nullish(),
   cvt: Money.nullish(),
+  specs: optionalText(600),
   bookingPrice: Money.nullish(),
 };
 const variantCode = z.string().trim().min(2).max(40).transform((v) => v.toUpperCase().replace(/\s+/g, ''));
@@ -298,6 +302,7 @@ const quotationTerms = {
   deliveryDays: z.number().int().min(0).max(365).nullish(),
   deliveryPeriod: optionalText(120),
   paymentMode: optionalText(80),
+  specs: optionalText(600),
 };
 /**
  * Issuing a quotation from a lead. The vehicle comes from the lead; the price is what the salesperson
@@ -507,6 +512,7 @@ export const QuotationDocumentSchema = z
     deliveryDays: z.number().int().nullable(),
     deliveryPeriod: z.string().nullable(),
     paymentMode: z.string().nullable(),
+    specs: z.string().nullable().optional(),
     /** The dealership's current quotation format. */
     template: DocumentTemplateSchema,
     ...documentParties,

@@ -129,8 +129,52 @@ const JETOUR_QUOTATION: Fields = {
   customFields: [],
 };
 
+/**
+ * CSM Ittehad's quotation (from its own Word quotation, 2026-10): printed with CSM's layout (frontend pdf.ts).
+ * The advance payment, delivery time and balance payment sit in the table under the price; {advance},
+ * {deliveryPeriod}, {advancePercent} and {balancePercent} are filled from the quotation.
+ */
+const CSM_QUOTATION: Fields = {
+  companyName: 'Capital Smart Motors',
+  refPrefix: null,
+  tagline: null,
+  address: 'Plot # 415, 9th Avenue, Sector 1-9/3, Islamabad, Pakistan',
+  phone: '0330-9138842',
+  email: 'sales1@ittehadmotors.com',
+  deliveryNotes: [
+    'The vehicle delivery time is {deliveryPeriod} from the date of Advance Payment Clearing.',
+    'The remaining balance payment shall be due 30 days before the tentative delivery month.',
+  ],
+  deliveryStation: 'CSM Ittehad Islamabad',
+  defaultPaymentMode: 'Rs. Advance payment/ ({advance}) in favor of M/S CAPITAL SMART MOTORS (PRIVATE) LIMITED',
+  defaultValidityDays: 7,
+  defaultDeliveryDays: null,
+  highlightLine: null,
+  standardEquipment: null,
+  terms: [
+    'Prices prevailing at the time of delivery will apply.',
+    'Prices and Specifications are subject to change without prior notice.',
+    'Tentative Delivery time will be communicated after confirmation of Advance Payment.',
+    'It is hereby confirmed that as per provision of sub-section 5 (a) of section 153 of the Income Tax Ordinance, 2001 (ITO, 2001), tax is not deductible under sub-section 1 (a) of Section 153 in respect of payment received by us against supply of {vehicle} Advance. We hereby confirm that the import stage income tax under section 148 of the ITO, 2001 would be paid at time of import and such Vehicle would be sold in the same condition as they would be at time of import.',
+    'All taxes will be applicable on the time of Delivery.',
+    'Pay order in favor of Capital Smart Motors (Pvt.) Ltd. {advancePercent}% Advance payment and {balancePercent}% 30 days before vehicle delivery.',
+  ],
+  closingLines: [],
+  signOff: [],
+  title: null,
+  fieldLabels: {},
+  hiddenFields: [],
+  customFields: [],
+};
+
 const quotationDefaults = (d: Dealer): Fields =>
-  d.code.startsWith('HYD') || d.brand === 'Hyundai' ? HYUNDAI_QUOTATION : d.brand === 'Jetour' ? JETOUR_QUOTATION : groupQuotation(d);
+  d.code.startsWith('HYD') || d.brand === 'Hyundai'
+    ? HYUNDAI_QUOTATION
+    : d.brand === 'Jetour'
+      ? JETOUR_QUOTATION
+      : d.code.startsWith('CSM') || d.brand === 'Capital Smart Motors'
+        ? CSM_QUOTATION
+        : groupQuotation(d);
 
 /** The PPF voucher as the dealership uses it: the fields it asked for and a manager's signature. */
 function ppfDefaults(d: Dealer): Fields {
