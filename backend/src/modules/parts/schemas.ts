@@ -286,6 +286,17 @@ export const OpenJobCardSchema = z
   .openapi('OpenJobCard');
 export const OpenJobCardQuery = z.object({ dealershipId: z.coerce.number().int().positive() });
 
+/** Where a part sits in a store (bin / shelf) and the level at which it is low: set by the Store Manager. */
+export const StockSettingsBody = z
+  .object({
+    partId: Id,
+    branchId: Id,
+    binLocation: optionalText(30),
+    reorderLevel: z.union([z.string(), z.number()]).transform(String).refine((v) => decimal(v) && Number(v) >= 0, 'Reorder level must be 0 or more'),
+  })
+  .openapi('StockSettingsRequest');
+export const StockSettingsResultSchema = z.object({ partId: Id, branchId: Id, binLocation: z.string().nullable(), reorderLevel: z.string() }).openapi('StockSettingsResult');
+
 /** Every part with its stock now and what came in / went out this month. */
 export const InventoryQuery = z.object({
   dealershipId: z.coerce.number().int().positive().optional(),
@@ -307,6 +318,7 @@ export const InventoryRowSchema = z
     onHand: z.string(),
     stockValue: z.string(),
     reorderLevel: z.string(),
+    binLocation: z.string().nullable(),
     inThisMonth: z.string(),
     outThisMonth: z.string(),
   })

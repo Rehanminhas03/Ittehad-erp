@@ -56,6 +56,8 @@ import {
   PartsRequestSchema,
   ReceiveBody,
   StockMovementQuery,
+  StockSettingsBody,
+  StockSettingsResultSchema,
   StockMovementSchema,
   StockSheetQuery,
   StockSheetRowSchema,
@@ -206,6 +208,16 @@ const storeDesk = new ApiRouter('/parts/store', 'Store')
       const { page, pageSize, sort, q, ...filters } = ctx.query;
       return store.inventory(ctx, { page, pageSize, sort, q }, filters);
     },
+  })
+  .route({
+    method: 'put',
+    path: '/stock-settings',
+    operationId: 'setStockSettings',
+    summary: 'Store manager: set the bin location and the reorder level of a part in a store',
+    permission: P.stockManage,
+    body: StockSettingsBody,
+    response: StockSettingsResultSchema,
+    handler: (ctx) => store.setStockSettings(ctx, ctx.body),
   })
   .route({
     method: 'get',

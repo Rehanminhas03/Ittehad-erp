@@ -155,6 +155,17 @@ const injectedRtkApi = api
         }),
         providesTags: ["Store"],
       }),
+      setStockSettings: build.mutation<
+        SetStockSettingsApiResponse,
+        SetStockSettingsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/stock-settings`,
+          method: "PUT",
+          body: queryArg.stockSettingsRequest,
+        }),
+        invalidatesTags: ["Store"],
+      }),
       listPartCategories: build.query<
         ListPartCategoriesApiResponse,
         ListPartCategoriesApiArg
@@ -989,6 +1000,11 @@ export type GetInventoryApiArg = {
   inStock?: "true" | "false";
   lowStock?: "true" | "false";
 };
+export type SetStockSettingsApiResponse =
+  /** status 200 Success */ StockSettingsResult;
+export type SetStockSettingsApiArg = {
+  stockSettingsRequest: StockSettingsRequest;
+};
 export type ListPartCategoriesApiResponse = /** status 200 Success */ string[];
 export type ListPartCategoriesApiArg = {
   brand?: string;
@@ -1568,6 +1584,7 @@ export type InventoryRow = {
   onHand: string;
   stockValue: string;
   reorderLevel: string;
+  binLocation: string | null;
   inThisMonth: string;
   outThisMonth: string;
 };
@@ -1578,6 +1595,18 @@ export type InventoryPage = {
   pageSize: number;
   stockValue: string;
   partsInStock: number;
+};
+export type StockSettingsResult = {
+  partId: number;
+  branchId: number;
+  binLocation: string | null;
+  reorderLevel: string;
+};
+export type StockSettingsRequest = {
+  partId: number;
+  branchId: number;
+  binLocation?: string | null;
+  reorderLevel: string | number;
 };
 export type PartsMonthlyReport = {
   months: {
@@ -2081,6 +2110,7 @@ export const {
   useLazyListOpenJobCardsQuery,
   useGetInventoryQuery,
   useLazyGetInventoryQuery,
+  useSetStockSettingsMutation,
   useListPartCategoriesQuery,
   useLazyListPartCategoriesQuery,
   useGetPartsMonthlyReportQuery,

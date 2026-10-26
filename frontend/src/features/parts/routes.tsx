@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { RequirePermission } from '@/features/auth';
 import { entityRoutes } from '@/shared/routing';
-import { adjustmentView, goodsReceiptView, partView, partsRequestView, purchaseOrderView, stockItemView, supplierView, transferView } from './config';
+import { adjustmentView, goodsReceiptView, partView, partsRequestView, purchaseOrderView, supplierView, transferView } from './config';
 import InventoryPage from './pages/InventoryPage';
 import IssuePartsPage from './pages/IssuePartsPage';
 import ManagePartsPage from './pages/ManagePartsPage';
@@ -20,7 +20,8 @@ export default function PartsRoutes() {
       {entityRoutes('suppliers', supplierView)}
       {entityRoutes('purchase-orders', purchaseOrderView)}
       {entityRoutes('goods-receipts', goodsReceiptView)}
-      {entityRoutes('stock', stockItemView)}
+      {/* The old Stock list is replaced by Store stock (bin and reorder level are set there). */}
+      <Route path="stock/*" element={<Navigate to="/parts/inventory" replace />} />
       {entityRoutes('requests', partsRequestView)}
       {entityRoutes('transfers', transferView)}
       {entityRoutes('adjustments', adjustmentView)}

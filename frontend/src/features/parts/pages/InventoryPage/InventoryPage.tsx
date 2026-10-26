@@ -4,6 +4,7 @@ import { Badge, Button, Dialog, Field, Input, PageHeader, Pagination, Select, Sp
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { StockMovementsTable } from '../../components/StockMovementsTable';
+import { StockSettings } from '../../components/StockSettings';
 import { usePartModelOptions } from '../../hooks/usePartModelOptions';
 import { useStoreBrand } from '../../hooks/useStoreBrand';
 import { type InventoryRow, useGetInventoryQuery, useListPartCategoriesQuery } from '../../partsApi';
@@ -26,6 +27,7 @@ export default function InventoryPage() {
   const models = usePartModelOptions(brand);
   const [page, setPage] = useState(1);
   const [history, setHistory] = useState<InventoryRow | null>(null);
+  const [settings, setSettings] = useState<InventoryRow | null>(null);
   useEffect(() => {
     const t = setTimeout(() => {
       setQ(text.trim());
@@ -46,6 +48,7 @@ export default function InventoryPage() {
   });
   const canReceive = perm.can(P.receiptsCreate);
   const canIssue = perm.can(P.issuesCreate);
+  const canSettings = perm.can(P.stockManage);
 
   return (
     <div>
@@ -145,6 +148,7 @@ export default function InventoryPage() {
               <th className="py-2 pr-3 font-medium">Category</th>
               <th className="py-2 pr-3 text-right font-medium">Price</th>
               <th className="py-2 pr-3 text-right font-medium">In stock</th>
+              <th className="py-2 pr-3 font-medium">Bin</th>
               <th className="py-2 pr-3 text-right font-medium">In this month</th>
               <th className="py-2 pr-3 text-right font-medium">Out this month</th>
               <th />
@@ -153,7 +157,7 @@ export default function InventoryPage() {
           <tbody className="divide-y divide-slate-100">
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-500">
+                <td colSpan={9} className="py-8 text-center text-slate-500">
                   {view === 'inStock' ? 'No part is in stock yet. Use "Receive parts" when stock arrives from head office, or show all parts.' : 'No part matches.'}
                 </td>
               </tr>
@@ -169,6 +173,7 @@ export default function InventoryPage() {
                   <td className="py-2 pr-3 text-right font-medium tabular-nums">
                     {Number(r.onHand)} {low && <Badge tone="amber">Low</Badge>}
                   </td>
+                  <td className="py-2 pr-3 text-xs text-slate-500">{r.binLocation ?? '—'}</td>
                   <td className="py-2 pr-3 text-right text-emerald-700 tabular-nums">{Number(r.inThisMonth) ? `+${Number(r.inThisMonth)}` : '–'}</td>
                   <td className="py-2 pr-3 text-right text-red-600 tabular-nums">{Number(r.outThisMonth) ? `−${Number(r.outThisMonth)}` : '–'}</td>
                   <td className="py-2 text-right whitespace-nowrap">
@@ -182,6 +187,11 @@ export default function InventoryPage() {
                         Stock out
                       </Link>
                     )}
+                    {canSettings && (
+                      <button type="button" className="mr-3 text-xs text-brand-700 hover:underline" onClick={() => setSettings(r)}>
+                        Bin / reorder
+                      </button>
+                    )}
                     <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => setHistory(r)}>
                       History
                     </button>
@@ -194,6 +204,7 @@ export default function InventoryPage() {
         {data && data.total > PAGE && <Pagination page={page} pageSize={PAGE} total={data.total} onPage={setPage} />}
       </div>
 
+      {settings && <StockSettings row={settings} onClose={() => setSettings(null)} />}
       <Dialog open={!!history} size="xl" onClose={() => setHistory(null)} title={history ? `${history.partNo} · ${history.description}` : ''} footer={<Button variant="secondary" onClick={() => setHistory(null)}>Close</Button>}>
         {history && (
           <>

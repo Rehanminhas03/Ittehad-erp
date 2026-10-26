@@ -11292,6 +11292,10 @@
           "reorderLevel": {
             "type": "string"
           },
+          "binLocation": {
+            "type": "string",
+            "nullable": true
+          },
           "inThisMonth": {
             "type": "string"
           },
@@ -11309,8 +11313,72 @@
           "onHand",
           "stockValue",
           "reorderLevel",
+          "binLocation",
           "inThisMonth",
           "outThisMonth"
+        ]
+      },
+      "StockSettingsResult": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "branchId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "binLocation": {
+            "type": "string",
+            "nullable": true
+          },
+          "reorderLevel": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "partId",
+          "branchId",
+          "binLocation",
+          "reorderLevel"
+        ]
+      },
+      "StockSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "branchId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "binLocation": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 30
+          },
+          "reorderLevel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "required": [
+          "partId",
+          "branchId",
+          "reorderLevel"
         ]
       },
       "PartsMonthlyReport": {
@@ -40876,6 +40944,72 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InventoryPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/store/stock-settings": {
+      "put": {
+        "operationId": "setStockSettings",
+        "summary": "Store manager: set the bin location and the reorder level of a part in a store",
+        "description": "Requires: parts.stock.manage",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockSettingsResult"
                 }
               }
             }

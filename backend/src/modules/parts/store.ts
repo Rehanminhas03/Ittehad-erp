@@ -15,7 +15,7 @@ import { branch as branchTable, user } from '../core/models';
 import { inventoryTransaction, legacySale, part, stockItem } from './models';
 import { normalizePartNo } from './entities';
 import { PartsPerm as P } from './permissions';
-import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody, SaleReportQuery, EarlierSalesQuery } from './schemas';
+import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody, SaleReportQuery, EarlierSalesQuery, StockSettingsBody } from './schemas';
 import { assertBranch, resolveLines } from './service';
 import { moveStockLines } from './stock';
 
@@ -235,7 +235,7 @@ export async function inventory(ctx: EntityCtx, q: PageQuery, f: z.output<typeof
   if (f.lowStock) conds.push(sql`(coalesce(s.reorder, 0) > 0 and coalesce(s.on_hand, 0) <= s.reorder)`);
   const joins = sql`
     left join (select ${stockItem.partId} as part_id, sum(${stockItem.quantityOnHand}) as on_hand,
-                      sum(${stockItem.quantityOnHand} * ${stockItem.averageCost}) as value, max(${stockItem.reorderLevel}) as reorder
+                      sum(${stockItem.quantityOnHand} * ${stockItem.averageCost}) as value, max(${stockItem.reorderLevel}) as reorder, min(${stockItem.binLocation}) as bin
                  from ${stockItem} where ${and(...stockConds)!} group by ${stockItem.partId}) s on s.part_id = ${part.id}
     left join (select ${inventoryTransaction.partId} as part_id,
                       sum(${inventoryTransaction.quantity}) filter (where ${inventoryTransaction.quantity} > 0) as in_qty,
@@ -244,12 +244,12 @@ export async function inventory(ctx: EntityCtx, q: PageQuery, f: z.output<typeof
   const where = and(...conds)!;
   const items = await query<{
     partId: number; partNo: string; description: string; brand: string | null; category: string | null; sellingPrice: string;
-    onHand: string; stockValue: string; reorderLevel: string; inThisMonth: string; outThisMonth: string;
+    onHand: string; stockValue: string; reorderLevel: string; binLocation: string | null; inThisMonth: string; outThisMonth: string;
   }>(
     ctx.tx,
     sql`select ${part.id} as "partId", ${part.partNo} as "partNo", ${part.description} as "description", ${part.brand} as "brand", ${part.category} as "category",
                ${part.sellingPrice}::text as "sellingPrice", coalesce(s.on_hand, 0)::text as "onHand",
-               coalesce(round(s.value, 2), 0)::text as "stockValue", coalesce(s.reorder, 0)::text as "reorderLevel",
+               coalesce(round(s.value, 2), 0)::text as "stockValue", coalesce(s.reorder, 0)::text as "reorderLevel", s.bin as "binLocation",
                coalesce(m.in_qty, 0)::text as "inThisMonth", coalesce(m.out_qty, 0)::text as "outThisMonth"
           from ${part} ${joins}
          where ${where}
@@ -371,6 +371,24 @@ export async function earlierSales(ctx: EntityCtx, f: z.output<typeof EarlierSal
           from ${legacySale} where ${where}`,
   );
   return { items, page: f.page, pageSize: f.pageSize, total: t?.total ?? 0, invoices: t?.invoices ?? 0, totalAmount: t?.totalAmount ?? '0', totalQuantity: t?.totalQuantity ?? '0' };
+}
+
+/** The Store Manager sets a part's bin and reorder level in a store (also for a part with no stock yet). */
+export async function setStockSettings(ctx: EntityCtx, input: z.output<typeof StockSettingsBody>) {
+  const b = await ctx.tx.branch.findFirst({ where: { id: input.branchId }, select: { dealershipId: true } });
+  if (!b) throw validationError([{ in: 'body', path: 'branchId', message: 'Choose a store' }]);
+  if (!ctx.access.canIn(P.stockManage, { dealershipId: b.dealershipId, branchId: input.branchId })) throw forbidden();
+  const p = await ctx.tx.part.findFirst({ where: { id: input.partId }, select: { id: true } });
+  if (!p) throw validationError([{ in: 'body', path: 'partId', message: 'Part not found' }]);
+  await ctx.tx.stockItem.createMany({ data: [{ dealershipId: b.dealershipId, branchId: input.branchId, partId: input.partId }], skipDuplicates: true });
+  const bin = input.binLocation?.trim() || null;
+  const row = await ctx.tx.stockItem.update({
+    where: { branchId_partId: { branchId: input.branchId, partId: input.partId } },
+    data: { binLocation: bin, reorderLevel: input.reorderLevel },
+    select: { id: true, binLocation: true, reorderLevel: true },
+  });
+  await ctx.audit({ entityType: 'parts.stock_item', entityId: row.id, action: 'update', dealershipId: b.dealershipId, branchId: input.branchId, changes: { binLocation: bin, reorderLevel: input.reorderLevel } });
+  return { partId: input.partId, branchId: input.branchId, binLocation: row.binLocation, reorderLevel: row.reorderLevel.toString() };
 }
 
 /** Distinct categories of a brand's parts, for the filter lists. */
