@@ -71,7 +71,8 @@ for (const [code, label] of [['HYD-ISB', 'Hyundai'], ['JET-ITH', 'Jetour'], ['CS
   const slug = label.toLowerCase();
   USERS.push(
     { email: `advisor.${slug}@dms.local`, fullName: `${label} Service Advisor`, password: slug === 'csm' ? 'CSM1234567' : 'Demo@12345', roles: [{ role: 'Service Advisor', dealership: code }] },
-    { email: `tech.${slug}@dms.local`, fullName: `${label} Technician`, password: slug === 'csm' ? 'CSM1234567' : 'Demo@12345', roles: [{ role: 'Technician', dealership: code }] },
+    // The workshop technicians do not use the system (no login for Jetour or Hyundai); CSM keeps its one for now.
+    ...(slug === 'csm' ? [{ email: `tech.${slug}@dms.local`, fullName: `${label} Technician`, password: 'CSM1234567', roles: [{ role: 'Technician', dealership: code }] }] : []),
   );
 }
 
