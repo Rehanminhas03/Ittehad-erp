@@ -6,7 +6,7 @@ import { usePermission, useToast } from '@/shared/hooks';
 import { P, VISIT_TYPES } from '../../permissions';
 import { useCreateVisitMutation, useFindCheckInCustomerQuery, useOpenJobCardMutation } from '../../serviceApi';
 import { CheckInSummary } from '../CheckInSummary';
-import { RegisterVehicle } from '../RegisterVehicle';
+import { RegisterVehicleDialog } from '../RegisterVehicle';
 
 /**
  * "New service": a customer has arrived. Check the car in (the car, the visit type, the odometer, what the
@@ -33,6 +33,9 @@ export function NewServiceButton() {
     return () => clearTimeout(t);
   }, [text]);
   const { data: found, isFetching: searching } = useFindCheckInCustomerQuery({ dealershipId: dealershipId ?? 0, q }, { skip: !open || !dealershipId || q.length < 2 || !!vehicleId });
+  // The customer or the car is not in the records: enter them here (prefilled with what was typed or the known customer).
+  const [registering, setRegistering] = useState<{ fullName?: string; mobile?: string } | null>(null);
+  const typed = /^[d+-s]{6,}$/.test(text.trim()) ? { mobile: text.trim() } : { fullName: text.trim() };
   const [createVisit, { isLoading: checkingIn }] = useCreateVisitMutation();
   const [openJobCard, { isLoading: opening }] = useOpenJobCardMutation();
 
@@ -128,7 +131,7 @@ export function NewServiceButton() {
               {q.length >= 2 && !searching && found && (
                 <ul className="max-h-56 divide-y divide-slate-100 overflow-auto rounded-md bg-white text-sm ring-1 ring-slate-200">
                   {!found.length ? (
-                    <li className="px-3 py-2 text-amber-700">Not found at this dealership. Enter the customer and the car below.</li>
+                    <li className="px-3 py-2 text-amber-700">Not found at this dealership. Use "New customer and car" below.</li>
                   ) : (
                     found.map((c) => (
                       <li key={c.customerId} className="px-3 py-2">
@@ -152,7 +155,12 @@ export function NewServiceButton() {
                             ))}
                           </div>
                         ) : (
-                          <div className="mt-1 text-xs text-slate-500">No car recorded for this customer: register the car below.</div>
+                          <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+                            No car recorded for this customer.
+                            <button type="button" className="font-medium text-brand-700 hover:underline" onClick={() => setRegistering({ fullName: c.fullName, mobile: c.mobile ?? '' })}>
+                              Add their car
+                            </button>
+                          </div>
                         )}
                       </li>
                     ))
@@ -165,7 +173,25 @@ export function NewServiceButton() {
             <Field label="Car" htmlFor="ns-vehicle" required hint="Or search the car by registration number, chassis number or engine number">
               <VehicleField id="ns-vehicle" value={vehicleId ?? ''} onChange={(v) => setVehicleId(v === '' ? null : v)} />
             </Field>
-            {!vehicleId && <RegisterVehicle dealershipId={dealershipId} onRegistered={(r) => { setVehicleId(r.vehicleId); setCustomerId(r.customerId); }} />}
+            {!vehicleId && (
+              <div className="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+                <p className="mb-2 text-sm text-slate-700">Customer or car not in the records?</p>
+                <Button variant="secondary" onClick={() => setRegistering(q.length >= 2 ? typed : {})}>
+                  + New customer and car
+                </Button>
+              </div>
+            )}
+            {registering && (
+              <RegisterVehicleDialog
+                dealershipId={dealershipId}
+                defaults={registering}
+                onClose={() => setRegistering(null)}
+                onRegistered={(r) => {
+                  setVehicleId(r.vehicleId);
+                  setCustomerId(r.customerId);
+                }}
+              />
+            )}
             <CheckInSummary vehicleId={vehicleId} dealershipId={dealershipId} />
           </div>
           <Field label="Visit type" htmlFor="ns-type" required>

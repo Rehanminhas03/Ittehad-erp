@@ -18,15 +18,38 @@ const digits = (s: string) => s.replace(/[^\d+]/g, '');
  * with the same mobile number is reused.
  */
 export function RegisterVehicle({ dealershipId, onRegistered }: { dealershipId: number | null; onRegistered: (r: RegisteredVehicle) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setOpen(true)}>
+        Car not in the system (bought elsewhere)? Register it here
+      </button>
+      {open && <RegisterVehicleDialog dealershipId={dealershipId} onClose={() => setOpen(false)} onRegistered={onRegistered} />}
+    </>
+  );
+}
+
+/** The form itself: a new customer (name and phone; CNIC optional) and their car (every detail required). */
+export function RegisterVehicleDialog({
+  dealershipId,
+  onClose,
+  onRegistered,
+  defaults,
+}: {
+  dealershipId: number | null;
+  onClose: () => void;
+  onRegistered: (r: RegisteredVehicle) => void;
+  /** What the advisor already typed (a name or a phone number), or the known customer who has no car yet. */
+  defaults?: { fullName?: string; mobile?: string };
+}) {
   const perm = usePermission();
   const toast = useToast();
   const brand = perm.dealershipsFor('service.visits.create').find((d) => d.id === dealershipId)?.brand;
   const models = useVehicleModelOptions(brand ? [brand] : undefined);
-  const [open, setOpen] = useState(false);
   const [save, { isLoading }] = useRegisterVehicleAtCheckInMutation();
   const [v, setV] = useState({
-    fullName: '',
-    mobile: '',
+    fullName: defaults?.fullName ?? '',
+    mobile: defaults?.mobile ?? '',
     cnic: '',
     address: '',
     vin: '',
@@ -47,8 +70,13 @@ export function RegisterVehicle({ dealershipId, onRegistered }: { dealershipId: 
     if (!dealershipId) return setError('Choose the dealership first');
     if (v.fullName.trim().length < 2) return setError('Enter the customer name');
     if (digits(v.mobile).replace(/\D/g, '').length < 10) return setError('Enter a valid mobile number, e.g. 03001234567');
-    if (v.vin.trim().length < 5) return setError('Enter the chassis (VIN) number');
     if (!v.modelId) return setError('Choose the model');
+    if (!v.variant.trim()) return setError('Enter the variant');
+    if (v.vin.trim().length < 5) return setError('Enter the chassis (VIN) number');
+    if (v.engineNo.trim().length < 3) return setError('Enter the engine number');
+    if (!v.registrationNo.trim()) return setError('Enter the registration number');
+    if (!v.color.trim()) return setError('Enter the colour');
+    if (!/^(19|20)d{2}$/.test(v.modelYear.trim())) return setError('Enter the model year, e.g. 2024');
     setError(null);
     try {
       const r = await save({
@@ -70,7 +98,7 @@ export function RegisterVehicle({ dealershipId, onRegistered }: { dealershipId: 
         },
       }).unwrap();
       toast.success(r.alreadyInSystem ? `${r.vehicleLabel} was already in the system: added to this dealership` : `${r.vehicleLabel} registered for ${r.customerName}`);
-      setOpen(false);
+      onClose();
       onRegistered({ vehicleId: r.vehicleId, customerId: r.customerId });
     } catch (e) {
       const issues = apiFieldErrors(e);
@@ -80,19 +108,14 @@ export function RegisterVehicle({ dealershipId, onRegistered }: { dealershipId: 
   };
 
   return (
-    <>
-      <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setOpen(true)}>
-        Car not in the system (bought elsewhere)? Register it here
-      </button>
-      {open && (
         <Dialog
           open
           size="lg"
-          onClose={() => setOpen(false)}
-          title="Register a car bought elsewhere"
+          onClose={onClose}
+          title="New customer and car"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setOpen(false)}>
+              <Button variant="secondary" onClick={onClose}>
                 Cancel
               </Button>
               <Button loading={isLoading} onClick={submit}>
@@ -102,26 +125,26 @@ export function RegisterVehicle({ dealershipId, onRegistered }: { dealershipId: 
           }
         >
           <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-            <p className="text-sm text-slate-600 sm:col-span-2">The owner and the car are saved, so the visit and its job card can start. The next time this car comes, it is found by its registration or chassis number.</p>
+            <p className="text-sm text-slate-600 sm:col-span-2">Enter the new customer and the car. The customer's CNIC and address are optional; every car detail is required. They are saved, so the visit and its job card can start, and next time the customer and the car are found by name, phone or registration number.</p>
             <Field label="Customer name" htmlFor="rv-name" required>
               <Input id="rv-name" value={v.fullName} onChange={set('fullName')} />
             </Field>
             <Field label="Mobile" htmlFor="rv-mobile" required hint="An existing customer with this number is reused">
               <Input id="rv-mobile" inputMode="tel" value={v.mobile} onChange={set('mobile')} placeholder="03001234567" />
             </Field>
-            <Field label="CNIC" htmlFor="rv-cnic">
+            <Field label="CNIC (optional)" htmlFor="rv-cnic">
               <Input id="rv-cnic" value={v.cnic} onChange={set('cnic')} placeholder="35202-1234567-1" />
             </Field>
-            <Field label="Address" htmlFor="rv-addr">
+            <Field label="Address (optional)" htmlFor="rv-addr">
               <Input id="rv-addr" value={v.address} onChange={set('address')} />
             </Field>
             <Field label="Chassis number (VIN)" htmlFor="rv-vin" required>
               <Input id="rv-vin" value={v.vin} onChange={set('vin')} />
             </Field>
-            <Field label="Registration number" htmlFor="rv-reg">
+            <Field label="Registration number" htmlFor="rv-reg" required>
               <Input id="rv-reg" value={v.registrationNo} onChange={set('registrationNo')} placeholder="e.g. ABC-123" />
             </Field>
-            <Field label="Engine number" htmlFor="rv-eng">
+            <Field label="Engine number" htmlFor="rv-eng" required>
               <Input id="rv-eng" value={v.engineNo} onChange={set('engineNo')} />
             </Field>
             <Field label="Model" htmlFor="rv-model" required>
@@ -134,13 +157,13 @@ export function RegisterVehicle({ dealershipId, onRegistered }: { dealershipId: 
                 ))}
               </Select>
             </Field>
-            <Field label="Variant" htmlFor="rv-var">
+            <Field label="Variant" htmlFor="rv-var" required>
               <Input id="rv-var" value={v.variant} onChange={set('variant')} />
             </Field>
-            <Field label="Colour" htmlFor="rv-col">
+            <Field label="Colour" htmlFor="rv-col" required>
               <Input id="rv-col" value={v.color} onChange={set('color')} />
             </Field>
-            <Field label="Model year" htmlFor="rv-year">
+            <Field label="Model year" htmlFor="rv-year" required>
               <Input id="rv-year" inputMode="numeric" value={v.modelYear} onChange={set('modelYear')} />
             </Field>
             <Field label="Odometer now (km)" htmlFor="rv-km">
@@ -159,7 +182,5 @@ export function RegisterVehicle({ dealershipId, onRegistered }: { dealershipId: 
             )}
           </div>
         </Dialog>
-      )}
-    </>
   );
 }
