@@ -999,6 +999,11 @@ export type VisitPreview = {
     odometerKm: number | null;
     soldBy: string | null;
     warrantyEndsOn: string | null;
+    orderNo?: string | null;
+    pboNo?: string | null;
+    salesperson?: string | null;
+    boughtBy?: string | null;
+    engineNo?: string | null;
   } | null;
   boughtElsewhere: boolean;
   warrantyEndsOn: string | null;

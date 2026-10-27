@@ -186,7 +186,20 @@ export const VisitPreviewSchema = z
     openVisitId: Id.nullable(),
     /** The car: its identity, and where it came from (delivered by us, or bought elsewhere). */
     vehicle: z.object({ registrationNo: z.string().nullable(), vin: z.string().nullable(), modelName: z.string().nullable(), variant: z.string().nullable(), color: z.string().nullable(), modelYear: z.number().int().nullable() }),
-    delivered: z.object({ on: z.string(), odometerKm: z.number().int().nullable(), soldBy: z.string().nullable(), warrantyEndsOn: z.string().nullable() }).nullable(),
+    delivered: z
+      .object({
+        on: z.string(),
+        odometerKm: z.number().int().nullable(),
+        soldBy: z.string().nullable(),
+        warrantyEndsOn: z.string().nullable(),
+        /** The sales record: order, PBO, salesperson, the buyer, the engine number. */
+        orderNo: z.string().nullable().optional(),
+        pboNo: z.string().nullable().optional(),
+        salesperson: z.string().nullable().optional(),
+        boughtBy: z.string().nullable().optional(),
+        engineNo: z.string().nullable().optional(),
+      })
+      .nullable(),
     boughtElsewhere: z.boolean(),
     warrantyEndsOn: z.string().nullable(),
     /** Earlier visits of this car at the dealerships the caller sees, newest first. */

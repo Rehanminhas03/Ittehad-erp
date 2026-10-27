@@ -50,6 +50,17 @@ async function currentOwnerIn(ctx: EntityCtx, vehicleId: number, dealershipId: n
   return o ?? null;
 }
 
+/** The sales record of a car we delivered: the sales order, who sold it and what was recorded at delivery. */
+async function soldRecord(ctx: EntityCtx, vehicleId: number) {
+  const order = await ctx.tx.salesOrder.findFirst({ where: { vehicleId, status: { not: 'cancelled' } }, select: { orderNo: true, pboNo: true, salespersonId: true, customerId: true } });
+  const [seller, buyer, v] = await Promise.all([
+    order ? ctx.tx.user.findFirst({ where: { id: order.salespersonId }, select: { fullName: true } }) : null,
+    order ? ctx.tx.customer.findFirst({ where: { id: order.customerId }, select: { fullName: true, mobile: true } }) : null,
+    ctx.tx.vehicle.findFirst({ where: { id: vehicleId }, select: { engineNo: true } }),
+  ]);
+  return { orderNo: order?.orderNo ?? null, pboNo: order?.pboNo ?? null, salesperson: seller?.fullName ?? null, boughtBy: buyer ? [buyer.fullName, buyer.mobile].filter(Boolean).join(' · ') : null, engineNo: v?.engineNo ?? null };
+}
+
 /** What check-in would decide right now (read-only; shown on the check-in screen). */
 export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: number) {
   const next = await nextScheduledService(ctx, v.id);
@@ -77,6 +88,7 @@ export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: n
     },
     delivered: v.activatedOn
       ? {
+          ...(await soldRecord(ctx, v.id)),
           on: v.activatedOn,
           odometerKm: v.activationOdometerKm,
           soldBy: v.soldByDealershipId ? ((await ctx.tx.dealership.findFirst({ where: { id: v.soldByDealershipId }, select: { name: true } }))?.name ?? null) : null,

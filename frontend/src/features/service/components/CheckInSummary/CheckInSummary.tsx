@@ -42,6 +42,18 @@ export function CheckInSummary({ vehicleId, dealershipId }: { vehicleId: number 
               {data.delivered.soldBy ? ` by ${data.delivered.soldBy}` : ''}
               {data.delivered.odometerKm != null ? ` at ${formatNumber(data.delivered.odometerKm)} km` : ''}
             </span>
+            <span className="mt-1 block text-xs text-slate-600">
+              {[
+                data.delivered.orderNo && `Sales order ${data.delivered.orderNo}`,
+                data.delivered.pboNo && `PBO ${data.delivered.pboNo}`,
+                data.delivered.salesperson && `Sold by ${data.delivered.salesperson}`,
+                data.delivered.boughtBy && `Customer ${data.delivered.boughtBy}`,
+                data.delivered.engineNo && `Engine ${data.delivered.engineNo}`,
+                data.delivered.warrantyEndsOn && `Warranty until ${formatDate(data.delivered.warrantyEndsOn)}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
           </>
         ) : (
           <>

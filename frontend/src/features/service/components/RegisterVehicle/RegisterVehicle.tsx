@@ -74,7 +74,6 @@ export function RegisterVehicleDialog({
     if (!v.variant.trim()) return setError('Enter the variant');
     if (v.vin.trim().length < 5) return setError('Enter the chassis (VIN) number');
     if (v.engineNo.trim().length < 3) return setError('Enter the engine number');
-    if (!v.registrationNo.trim()) return setError('Enter the registration number');
     if (!v.color.trim()) return setError('Enter the colour');
     if (!/^(19|20)d{2}$/.test(v.modelYear.trim())) return setError('Enter the model year, e.g. 2024');
     setError(null);
@@ -141,7 +140,7 @@ export function RegisterVehicleDialog({
             <Field label="Chassis number (VIN)" htmlFor="rv-vin" required>
               <Input id="rv-vin" value={v.vin} onChange={set('vin')} />
             </Field>
-            <Field label="Registration number" htmlFor="rv-reg" required>
+            <Field label="Registration number (optional)" htmlFor="rv-reg" hint="Leave empty if not registered yet">
               <Input id="rv-reg" value={v.registrationNo} onChange={set('registrationNo')} placeholder="e.g. ABC-123" />
             </Field>
             <Field label="Engine number" htmlFor="rv-eng" required>

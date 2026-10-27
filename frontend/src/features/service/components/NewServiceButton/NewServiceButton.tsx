@@ -150,7 +150,7 @@ export function NewServiceButton() {
                                   setCustomerId(c.customerId);
                                 }}
                               >
-                                {v.registrationNo ?? 'Unregistered'} · {v.modelName}
+                                {v.registrationNo ?? 'Unregistered'} · {v.modelName}{v.vin ? ` · ${v.vin.slice(-6)}` : ''}
                               </button>
                             ))}
                           </div>
