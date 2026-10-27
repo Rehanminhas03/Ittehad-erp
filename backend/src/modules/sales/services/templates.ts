@@ -137,8 +137,8 @@ const JETOUR_QUOTATION: Fields = {
 const CSM_QUOTATION: Fields = {
   companyName: 'Capital Smart Motors',
   refPrefix: null,
-  tagline: null,
-  address: 'Plot # 415, 9th Avenue, Sector 1-9/3, Islamabad, Pakistan',
+  tagline: 'Ittehad Islamabad',
+  address: 'Plot # 423, Sector I-9/3, Islamabad, 42000. Pakistan',
   phone: '0330-9138842',
   email: 'sales1@ittehadmotors.com',
   deliveryNotes: [
@@ -160,7 +160,7 @@ const CSM_QUOTATION: Fields = {
     'Pay order in favor of Capital Smart Motors (Pvt.) Ltd. {advancePercent}% Advance payment and {balancePercent}% 30 days before vehicle delivery.',
   ],
   closingLines: [],
-  signOff: [],
+  signOff: ['Owned & Operated by:', 'Ittehad Motors', '(an Ittehad Steel Company)'],
   title: null,
   fieldLabels: {},
   hiddenFields: [],

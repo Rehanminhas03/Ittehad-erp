@@ -316,7 +316,7 @@ export function quotationRef(q: Pick<QuotationDocument, 'template' | 'variantCod
 export const LETTERHEAD_TOP = 52;
 export const LETTERHEAD_BOTTOM = 255;
 /** Whether the dealership prints its quotations on letterhead paper. */
-export const usesLetterhead = (code: string) => code.startsWith('HYD') || code.startsWith('JET');
+export const usesLetterhead = (code: string) => code.startsWith('HYD') || code.startsWith('JET') || code.startsWith('CSM');
 
 export async function buildQuotationPdf(q: QuotationDocument, opts: { letterhead?: boolean } = {}): Promise<BuiltPdf> {
   let built: BuiltPdf | null = null;
@@ -761,33 +761,32 @@ export function csmVehicleLine(model: string, variant: string | null | undefined
  * To / Date, the thank-you sentence, a table (vehicle with its unit price, specifications and CVT, total in
  * figures and words), the advance / validity / delivery / balance rows and the terms as dashes.
  */
-async function drawCsmQuotation(q: QuotationDocument, k: number): Promise<BuiltPdf> {
-  const p = await newPage(284);
+async function drawCsmQuotation(q: QuotationDocument, k: number, letterheadPaper = false): Promise<BuiltPdf> {
+  const p = await newPage(letterheadPaper ? LETTERHEAD_BOTTOM : 270);
   const { doc } = p;
   const t = q.template;
-  const [logo, group] = await Promise.all([loadImage('/logo/CSM-Logo.png'), loadImage(GROUP_LOGO)]);
+  const [logo, group] = letterheadPaper ? [null, null] : await Promise.all([loadImage('/logo/CSM-Logo.png'), loadImage(GROUP_LOGO)]);
 
-  // ---- Header: logos, contact lines --------------------------------------------------------------------
-  if (logo) {
-    const s = Math.min(52 / logo.w, 15 / logo.h);
-    doc.addImage(logo.data, 'JPEG', M, 9, logo.w * s, logo.h * s);
+  // ---- Header: CSM logo, "ITTEHAD ISLAMABAD" and the contact lines (printed on the letterhead paper) ----
+  if (!letterheadPaper) {
+    if (logo) {
+      const s = Math.min(52 / logo.w, 15 / logo.h);
+      doc.addImage(logo.data, 'JPEG', M, 9, logo.w * s, logo.h * s);
+    }
+    if (t.tagline) {
+      p.font(14, 'italic');
+      doc.text(t.tagline.toUpperCase(), W - M, 17, { align: 'right' });
+    }
+    p.font(8.5);
+    let hy = 29;
+    for (const l of [t.phone && `PHONE : ${t.phone}`, t.email && `Email:${t.email}`, ...(doc.splitTextToSize(t.address ? `Address: ${t.address}` : '', 64) as string[])].filter(Boolean) as string[]) {
+      doc.text(l, W - M, hy, { align: 'right' });
+      hy += 4;
+    }
   }
-  if (group) {
-    const s = Math.min(40 / group.w, 13 / group.h);
-    doc.addImage(group.data, 'JPEG', W - M - group.w * s, 9, group.w * s, group.h * s);
-  }
-  p.font(8.5);
-  let hy = 27;
-  for (const l of [t.phone && `PHONE : ${t.phone}`, t.email && `Email: ${t.email}`].filter(Boolean) as string[]) {
-    doc.text(l, W - M, hy, { align: 'right' });
-    hy += 4;
-  }
-  doc.setDrawColor(...rule);
-  doc.line(M, 34, W - M, 34);
-  doc.setDrawColor(0, 0, 0);
 
   // ---- Title, To, Date, thank-you ----------------------------------------------------------------------
-  p.y = 44;
+  p.y = letterheadPaper ? LETTERHEAD_TOP : 52;
   p.font(15, 'bold');
   doc.text('Quotation', W / 2, p.y, { align: 'center' });
   p.y += 11;
@@ -918,15 +917,37 @@ async function drawCsmQuotation(q: QuotationDocument, k: number): Promise<BuiltP
   }
   if (q.notes) dash(`**Note:** ${q.notes}`);
 
-  // ---- Stamp & signature (once uploaded under Document formats) ----------------------------------------
-  if (t.signatureImage || t.stampImage) {
-    p.y += 6;
-    p.ensure(32);
-    const used = await stampAndSignature(p, t, W - M - 4, p.y, 'right');
-    p.y += used + 2;
+  // ---- Owned & Operated by, with the stamp and signature beside it (full page only) -------------------
+  if (!letterheadPaper) {
+    p.y += 5;
+    p.ensure(30);
+    const top = p.y;
+    let ly2 = top;
+    if (group) {
+      const s = Math.min(24 / group.w, 8 / group.h);
+      doc.addImage(group.data, 'JPEG', W / 2 - (group.w * s) / 2, top, group.w * s, group.h * s);
+      ly2 = top + group.h * s + 3;
+    }
+    t.signOff.forEach((l, i) => {
+      p.font(i === 0 ? 7.5 : i === 1 ? 10.5 : 8, i === 0 ? 'italic' : 'normal');
+      doc.text(l, W / 2, ly2, { align: 'center' });
+      ly2 += i === 0 ? 3.8 : 4.4;
+    });
+    // Once uploaded under Document formats, the stamp and the Manager's signature sit left of it.
+    if (t.signatureImage || t.stampImage) await stampAndSignature(p, t, M + 4, top, 'left');
+
+    // The contact strip printed at the foot of CSM's letterhead.
+    doc.setFillColor(70, 70, 70);
+    doc.rect(M - 4, 276, CW + 8, 6, 'F');
+    p.font(8, 'bold');
+    doc.setTextColor(...ink);
+    doc.text('+92 (51) 111 500 100', M, 288);
+    doc.text('Plot # 423, off 9th Avenue I-9/3 Islamabad', W / 2, 288, { align: 'center' });
+    doc.text('info@ittehadmotors.com', W - M, 286, { align: 'right' });
+    doc.text('www.ittehadmotors.com', W - M, 290, { align: 'right' });
   }
 
-  footer(p, q.quotationNo);
+  if (!letterheadPaper) footer(p, q.quotationNo);
   doc.setProperties({ title: `Quotation ${q.quotationNo}`, subject: `${vehicleLine} for ${q.billTo || q.customer.name}`, author: t.companyName });
   return { doc, fileName: fileNameOf('Quotation', q.quotationNo, q.customer.name) };
 }
