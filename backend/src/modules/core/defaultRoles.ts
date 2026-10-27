@@ -161,7 +161,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     patterns: [
       'core.dealerships.view', 'core.branches.view',
       'parts.catalog.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.receipts.*', 'parts.stock.view',
-      'parts.transfers.*', 'parts.requests.view', 'parts.issues.*', 'parts.adjustments.view', 'parts.adjustments.create',
+      'parts.transfers.*', 'parts.requests.view', 'parts.requests.cancel', 'parts.issues.*', 'parts.adjustments.view', 'parts.adjustments.create',
     ],
   },
   {
