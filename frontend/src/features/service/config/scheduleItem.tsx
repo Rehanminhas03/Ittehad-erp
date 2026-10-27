@@ -1,3 +1,4 @@
+import { ServicePackageEditor } from '../components/ServicePackageEditor';
 import { z } from 'zod';
 import { useVehicleModelOptions } from '@/features/crm';
 import { ActiveBadge, Badge } from '@/shared/components/ui';
@@ -46,6 +47,7 @@ export const scheduleItemView: EntityViewConfig<ScheduleItem> = {
       { label: 'Labour hours', value: (s) => s.labourHours },
       { label: 'Status', value: (s) => <ActiveBadge active={s.isActive} /> },
     ],
+    sections: (s) => <ServicePackageEditor scheduleItemId={s.id} />,
   },
   form: {
     fields: [

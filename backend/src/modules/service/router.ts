@@ -14,7 +14,11 @@ import {
 } from './entities';
 import { ServicePerm as P } from './permissions';
 import {
+  AddServiceBody,
+  AddServiceResultSchema,
   CheckInCustomerSchema,
+  PackageLineSchema,
+  PackageLinesBody,
   EstimateCreate,
   EstimateSchema,
   InspectionBase,
@@ -31,6 +35,7 @@ import {
   RegisterVehicleResultSchema,
   VisitPreviewSchema,
 } from './schemas';
+import * as packages from './packages';
 import * as remindersSvc from './reminders';
 import * as svc from './service';
 import './subscriptions';
@@ -127,7 +132,41 @@ const scheduleRouter = new ApiRouter('/service/vehicles', 'VehicleSchedule')
   handler: (ctx) => svc.vehicleServiceSchedule(ctx, ctx.params.id),
 });
 
+const packageRouter = new ApiRouter('/service/schedule-items', 'ServicePackage')
+  .route({
+    method: 'get',
+    path: '/:id/includes',
+    operationId: 'listServicePackage',
+    summary: 'What a periodic service includes: its labour and the parts to replace',
+    permission: [P.setupView, P.jobCardsUpdate],
+    params: IdParam,
+    response: z.array(PackageLineSchema),
+    handler: (ctx) => packages.packageLines(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'put',
+    path: '/:id/includes',
+    operationId: 'setServicePackage',
+    summary: 'Replace what a periodic service includes (global service-setup right)',
+    permission: P.setupManage,
+    params: IdParam,
+    body: PackageLinesBody,
+    response: z.array(PackageLineSchema),
+    handler: (ctx) => packages.setPackageLines(ctx, ctx.params.id, ctx.body.lines),
+  });
+
 const jobCardActions = new ApiRouter('/service/job-cards', 'JobCard')
+  .route({
+    method: 'post',
+    path: '/:id/add-service',
+    operationId: 'addServiceToJobCard',
+    summary: 'Add a periodic service (5,000 km ...) to the job card: its labour, and a parts request for the parts to replace',
+    permission: P.jobCardsUpdate,
+    params: IdParam,
+    body: AddServiceBody,
+    response: AddServiceResultSchema,
+    handler: (ctx) => packages.addService(ctx, ctx.params.id, ctx.body.scheduleItemId),
+  })
   .route({
     method: 'get',
     path: '/:id/technicians',
@@ -209,6 +248,7 @@ export const serviceRouters = [
   scheduleRouter,
   reminderRouter,
   jobCardActions,
+  packageRouter,
   buildEntityRouter(scheduleItemEntity).router,
   buildEntityRouter(inspectionTemplateEntity).router,
   buildEntityRouter(visitEntity, visits).router,

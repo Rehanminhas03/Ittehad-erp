@@ -1986,12 +1986,33 @@ model ScheduleItem {
   vehicleModel     VehicleModel      @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "schedule_item_model_id_vehicle_model_id_fk")
   updatedBy        User?             @relation("schedule_item_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "schedule_item_updated_by_id_user_id_fk")
   vehicleSchedules VehicleSchedule[]
+  lines            ScheduleItemLine[]
 
   @@unique([modelId, sequence], map: "schedule_item_modelId_sequence_unique")
   @@index([createdById], map: "schedule_item_created_by_id_index")
   @@index([modelId], map: "schedule_item_model_id_index")
   @@index([updatedById], map: "schedule_item_updated_by_id_index")
   @@map("schedule_item")
+  @@schema("service")
+}
+
+/// What a periodic service includes: the labour and the parts to replace (oil, filters ...). Opening the service on a job card
+/// adds its labour and asks the store for its parts.
+model ScheduleItemLine {
+  id             BigInt       @id @default(autoincrement())
+  scheduleItemId BigInt       @map("schedule_item_id")
+  /// 'labour' (quantity = hours) or 'part' (a catalogue part number to replace).
+  kind           String
+  description    String
+  partNo         String?      @map("part_no")
+  quantity       Decimal      @default(1) @db.Decimal(14, 2)
+  sortOrder      Int          @default(0) @map("sort_order")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  scheduleItem   ScheduleItem @relation(fields: [scheduleItemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "schedule_item_line_schedule_item_id_schedule_item_id_fk")
+
+  @@index([scheduleItemId], map: "schedule_item_line_schedule_item_id_index")
+  @@map("schedule_item_line")
   @@schema("service")
 }
 

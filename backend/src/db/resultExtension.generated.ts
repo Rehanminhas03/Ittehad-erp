@@ -515,6 +515,11 @@ export const resultExtension = {
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },
     updatedById: { needs: { updatedById: true }, compute: (r: { updatedById: bigint | null }) => fromBigInt(r.updatedById) },
   },
+  scheduleItemLine: {
+    id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
+    scheduleItemId: { needs: { scheduleItemId: true }, compute: (r: { scheduleItemId: bigint }) => fromBigInt(r.scheduleItemId) },
+    quantity: { needs: { quantity: true }, compute: (r: { quantity: { toFixed(dp: number): string } }) => fromDecimal(r.quantity, 2) },
+  },
   vehicleSchedule: {
     id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
     vehicleId: { needs: { vehicleId: true }, compute: (r: { vehicleId: bigint }) => fromBigInt(r.vehicleId) },

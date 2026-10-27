@@ -14529,6 +14529,114 @@
           "completedOn"
         ]
       },
+      "ServicePackageLine": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "labour",
+              "part"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "partNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "description",
+          "partNo",
+          "quantity"
+        ]
+      },
+      "ServicePackageLines": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "labour",
+                    "part"
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 160
+                },
+                "partNo": {
+                  "type": "string",
+                  "nullable": true,
+                  "maxLength": 60
+                },
+                "quantity": {
+                  "type": "string",
+                  "example": "1.5"
+                }
+              },
+              "required": [
+                "kind",
+                "description"
+              ]
+            },
+            "maxItems": 60
+          }
+        },
+        "required": [
+          "lines"
+        ]
+      },
+      "AddServiceResult": {
+        "type": "object",
+        "properties": {
+          "linesAdded": {
+            "type": "integer"
+          },
+          "partsRequested": {
+            "type": "integer"
+          },
+          "partsRequestNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "warning": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "linesAdded",
+          "partsRequested",
+          "partsRequestNo",
+          "warning"
+        ]
+      },
+      "AddServiceToJobCard": {
+        "type": "object",
+        "properties": {
+          "scheduleItemId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        },
+        "required": [
+          "scheduleItemId"
+        ]
+      },
       "InspectionItem": {
         "type": "object",
         "properties": {
@@ -47653,6 +47761,235 @@
                   "items": {
                     "$ref": "#/components/schemas/VehicleScheduleEntry"
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/schedule-items/{id}/includes": {
+      "get": {
+        "operationId": "listServicePackage",
+        "summary": "What a periodic service includes: its labour and the parts to replace",
+        "description": "Requires: service.setup.view | service.job_cards.update",
+        "tags": [
+          "ServicePackage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServicePackageLine"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setServicePackage",
+        "summary": "Replace what a periodic service includes (global service-setup right)",
+        "description": "Requires: service.setup.manage",
+        "tags": [
+          "ServicePackage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicePackageLines"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServicePackageLine"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/job-cards/{id}/add-service": {
+      "post": {
+        "operationId": "addServiceToJobCard",
+        "summary": "Add a periodic service (5,000 km ...) to the job card: its labour, and a parts request for the parts to replace",
+        "description": "Requires: service.job_cards.update",
+        "tags": [
+          "JobCard"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddServiceToJobCard"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddServiceResult"
                 }
               }
             }

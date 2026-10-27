@@ -3,6 +3,7 @@ export const addTagTypes = [
   "Visit",
   "ServiceReminder",
   "VehicleSchedule",
+  "ServicePackage",
   "JobCard",
   "ScheduleItem",
   "InspectionTemplateItem",
@@ -102,6 +103,37 @@ const injectedRtkApi = api
           url: `/api/service/vehicles/${queryArg.id}/schedule`,
         }),
         providesTags: ["VehicleSchedule"],
+      }),
+      listServicePackage: build.query<
+        ListServicePackageApiResponse,
+        ListServicePackageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/schedule-items/${queryArg.id}/includes`,
+        }),
+        providesTags: ["ServicePackage"],
+      }),
+      setServicePackage: build.mutation<
+        SetServicePackageApiResponse,
+        SetServicePackageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/schedule-items/${queryArg.id}/includes`,
+          method: "PUT",
+          body: queryArg.servicePackageLines,
+        }),
+        invalidatesTags: ["ServicePackage"],
+      }),
+      addServiceToJobCard: build.mutation<
+        AddServiceToJobCardApiResponse,
+        AddServiceToJobCardApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/job-cards/${queryArg.id}/add-service`,
+          method: "POST",
+          body: queryArg.addServiceToJobCard,
+        }),
+        invalidatesTags: ["JobCard"],
       }),
       listJobCardTechnicians: build.query<
         ListJobCardTechniciansApiResponse,
@@ -638,6 +670,23 @@ export type GetVehicleServiceScheduleApiResponse =
 export type GetVehicleServiceScheduleApiArg = {
   id: number;
 };
+export type ListServicePackageApiResponse =
+  /** status 200 Success */ ServicePackageLine[];
+export type ListServicePackageApiArg = {
+  id: number;
+};
+export type SetServicePackageApiResponse =
+  /** status 200 Success */ ServicePackageLine[];
+export type SetServicePackageApiArg = {
+  id: number;
+  servicePackageLines: ServicePackageLines;
+};
+export type AddServiceToJobCardApiResponse =
+  /** status 200 Success */ AddServiceResult;
+export type AddServiceToJobCardApiArg = {
+  id: number;
+  addServiceToJobCard: AddServiceToJobCard;
+};
 export type ListJobCardTechniciansApiResponse = /** status 200 Success */ {
   id: number;
   fullName: string;
@@ -1117,6 +1166,29 @@ export type VehicleScheduleEntry = {
   visitId: number | null;
   completedOn: string | null;
 };
+export type ServicePackageLine = {
+  kind: "labour" | "part";
+  description: string;
+  partNo: string | null;
+  quantity: string;
+};
+export type ServicePackageLines = {
+  lines: {
+    kind: "labour" | "part";
+    description: string;
+    partNo?: string | null;
+    quantity?: string;
+  }[];
+};
+export type AddServiceResult = {
+  linesAdded: number;
+  partsRequested: number;
+  partsRequestNo: string | null;
+  warning: string | null;
+};
+export type AddServiceToJobCard = {
+  scheduleItemId: number;
+};
 export type InspectionItem = {
   id: number;
   area: string;
@@ -1458,6 +1530,10 @@ export const {
   useRegisterVehicleAtCheckInMutation,
   useGetVehicleServiceScheduleQuery,
   useLazyGetVehicleServiceScheduleQuery,
+  useListServicePackageQuery,
+  useLazyListServicePackageQuery,
+  useSetServicePackageMutation,
+  useAddServiceToJobCardMutation,
   useListJobCardTechniciansQuery,
   useLazyListJobCardTechniciansQuery,
   useSetJobCardLineDoneMutation,

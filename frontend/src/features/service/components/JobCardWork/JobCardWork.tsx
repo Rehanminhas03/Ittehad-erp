@@ -1,4 +1,6 @@
+import { useDispatch } from 'react-redux';
 import { useGetVehicleQuery } from '@/features/crm/crmApi';
+import { partsApi } from '@/features/parts/partsApi';
 import { PartPicker } from '@/features/parts/components/PartPicker';
 import { LineItemsTable, type LineDraft } from '@/shared/components';
 import { Badge, Checkbox, Section, Select, Spinner } from '@/shared/components/ui';
@@ -9,6 +11,7 @@ import {
   type JobCard,
   type JobCardLine,
   useAddJobCardLineMutation,
+  useAddServiceToJobCardMutation,
   useListJobCardLinesQuery,
   useListScheduleItemsQuery,
   useRemoveJobCardLineMutation,
@@ -34,6 +37,8 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
   const [update] = useUpdateJobCardLineMutation();
   const [remove] = useRemoveJobCardLineMutation();
   const [setDone] = useSetJobCardLineDoneMutation();
+  const [addService, { isLoading: addingService }] = useAddServiceToJobCardMutation();
+  const dispatch = useDispatch();
   // The services of the car's model (1st service, 5,000 km ... ) offered when adding labour.
   const { data: vehicle } = useGetVehicleQuery({ id: jobCard.vehicleId });
   const { data: services } = useListScheduleItemsQuery({ modelId: vehicle?.modelId ?? 0, isActive: 'true', pageSize: 50, sort: 'sequence' }, { skip: !vehicle?.modelId });
@@ -61,8 +66,24 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
             kind === 'part' ? (
               <PartPicker placeholder="Search the part by number or name, then choose it…" onPick={(p) => fill({ partNo: p.partNo, description: p.description, unitPrice: p.sellingPrice })} />
             ) : services?.items.length ? (
-              <Select value="" aria-label="Add a service" onChange={(e) => { const s = services.items.find((x) => String(x.id) === e.target.value); if (s) fill({ description: `${s.name} (${formatNumber(s.dueKm)} km service)`, partNo: '' }); }}>
-                <option value="">Choose a service (1st, 2nd ... with its km), or type the work below</option>
+              <Select
+                value=""
+                disabled={addingService}
+                aria-label="Add a periodic service"
+                onChange={async (e) => {
+                  const id = Number(e.target.value);
+                  if (!id) return;
+                  try {
+                    const r = await addService({ id: jobCard.id, addServiceToJobCard: { scheduleItemId: id } }).unwrap();
+                    dispatch(partsApi.util.invalidateTags(['PartsRequest']));
+                    toast.success(`Service added: ${r.linesAdded} work line${r.linesAdded === 1 ? '' : 's'}${r.partsRequestNo ? `, parts requested from the store (${r.partsRequestNo})` : ''}`);
+                    if (r.warning) toast.error(r.warning);
+                  } catch (err) {
+                    toast.error(err);
+                  }
+                }}
+              >
+                <option value="">Add a periodic service (5,000 km, 10,000 km ...): its work and parts are added, or type the work below</option>
                 {services.items.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} · {formatNumber(s.dueKm)} km{s.isFree ? ' · free labour' : ''}

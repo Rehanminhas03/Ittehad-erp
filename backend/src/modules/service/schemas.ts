@@ -176,6 +176,29 @@ export const CheckInCustomerSchema = z
   })
   .openapi('CheckInCustomer');
 
+/** What a periodic service includes: labour (quantity = hours) and parts to replace. */
+export const PackageLineSchema = z
+  .object({ kind: z.enum(['labour', 'part']), description: z.string(), partNo: z.string().nullable(), quantity: z.string() })
+  .openapi('ServicePackageLine');
+export const PackageLinesBody = z
+  .object({
+    lines: z
+      .array(
+        z.object({
+          kind: z.enum(['labour', 'part']),
+          description: z.string().trim().min(2).max(160),
+          partNo: z.string().trim().max(60).nullish(),
+          quantity: Quantity.default('1'),
+        }),
+      )
+      .max(60),
+  })
+  .openapi('ServicePackageLines');
+export const AddServiceBody = z.object({ scheduleItemId: Id }).openapi('AddServiceToJobCard');
+export const AddServiceResultSchema = z
+  .object({ linesAdded: z.number().int(), partsRequested: z.number().int(), partsRequestNo: z.string().nullable(), warning: z.string().nullable() })
+  .openapi('AddServiceResult');
+
 /** What check-in would compute, shown before the visit is created. */
 export const VisitPreviewSchema = z
   .object({
