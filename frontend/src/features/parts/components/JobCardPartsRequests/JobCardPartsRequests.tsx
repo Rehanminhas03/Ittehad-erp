@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Button, Input, Section, Select, StatusBadge } from '@/shared/components/ui';
+import { Button, ConfirmDialog, Input, Section, Select, StatusBadge } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatDateTime } from '@/shared/lib';
-import { useCreatePartsRequestMutation, useListPartsRequestsQuery } from '../../partsApi';
+import { useCreatePartsRequestMutation, useListPartsRequestsQuery, useTransitionPartsRequestMutation } from '../../partsApi';
 import { P } from '../../permissions';
 import { PartPicker } from '../PartPicker';
 
@@ -35,6 +35,9 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
   const canCreate = ['open', 'in_progress'].includes(jobCard.status) && perm.canIn(P.requestsCreate, jobCard.dealershipId, jobCard.branchId) && stores.length > 0;
   const [branchId, setBranchId] = useState(String(jobCard.branchId ?? stores[0]?.id ?? ''));
   const [rows, setRows] = useState<Row[]>([]);
+  // Delete = cancel a request the store has not started on (it stays in the history).
+  const [removing, setRemoving] = useState<{ id: number; requestNo: string } | null>(null);
+  const [transition, { isLoading: removingNow }] = useTransitionPartsRequestMutation();
   const valid = rows.filter((r) => Number(r.quantity) > 0);
 
   if (!canView) return null;
@@ -50,6 +53,11 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
               <span className="flex items-center gap-3 text-slate-500">
                 {r.branchName} · {formatDateTime(r.createdAt)}
                 <StatusBadge status={r.status} />
+                {r.status === 'open' && perm.canIn(P.requestsCancel, jobCard.dealershipId, jobCard.branchId) && (
+                  <button type="button" className="text-xs font-medium text-red-600 hover:underline" onClick={() => setRemoving({ id: r.id, requestNo: r.requestNo })}>
+                    Delete
+                  </button>
+                )}
               </span>
             </li>
           ))}
@@ -120,6 +128,25 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={!!removing}
+        danger
+        title="Delete parts request"
+        message={`Delete ${removing?.requestNo ?? ''}? The store will no longer see it. This cannot be done once the store has started on it.`}
+        confirmLabel="Delete"
+        loading={removingNow}
+        onClose={() => setRemoving(null)}
+        onConfirm={async () => {
+          if (!removing) return;
+          try {
+            await transition({ id: removing.id, body: { action: 'cancel', comment: 'Deleted from the job card' } }).unwrap();
+            toast.success(`${removing.requestNo} deleted`);
+            setRemoving(null);
+          } catch (e) {
+            toast.error(e);
+          }
+        }}
+      />
     </Section>
   );
 }

@@ -20,6 +20,7 @@ export const P = {
   transfersCreate: 'parts.transfers.create',
   requestsView: 'parts.requests.view',
   requestsCreate: 'parts.requests.create',
+  requestsCancel: 'parts.requests.cancel',
   issuesCreate: 'parts.issues.create',
 } as const;
 
