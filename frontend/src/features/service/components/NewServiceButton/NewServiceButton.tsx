@@ -47,6 +47,8 @@ export function NewServiceButton() {
     if (!preview) return;
     setVisitType((t) => (t === 'scheduled' && !hasScheduled ? 'periodic_maintenance' : t));
   }, [preview, hasScheduled]);
+  // The customer record to open: the one chosen, or the car's owner on record.
+  const ownerId = customerId ?? preview?.currentOwner?.customerId ?? null;
   const [createVisit, { isLoading: checkingIn }] = useCreateVisitMutation();
   const [openJobCard, { isLoading: opening }] = useOpenJobCardMutation();
 
@@ -205,6 +207,18 @@ export function NewServiceButton() {
                   setCustomerId(r.customerId);
                 }}
               />
+            )}
+            {vehicleId && (
+              <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                {ownerId && (
+                  <a href={`/crm/customers/${ownerId}`} target="_blank" rel="noreferrer" className="font-medium text-brand-700 hover:underline">
+                    Open the customer record (all details)
+                  </a>
+                )}
+                <a href={`/crm/vehicles/${vehicleId}`} target="_blank" rel="noreferrer" className="font-medium text-brand-700 hover:underline">
+                  Open the car record
+                </a>
+              </p>
             )}
             <CheckInSummary vehicleId={vehicleId} dealershipId={dealershipId} customerId={customerId} />
           </div>
