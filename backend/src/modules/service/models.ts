@@ -2,7 +2,7 @@
 // hand-written SQL (see src/db/tables.generated.ts). Prisma Client: tx.<table>.findMany(...).
 export { reminderCall, scheduleItem, inspectionTemplateItem, vehicleSchedule, visit, jobCard, jobCardLine, inspection, inspectionItem, estimate, estimateLine } from '../../db/tables.generated';
 
-export const VISIT_TYPES = ['scheduled', 'paid_service', 'repair', 'warranty', 'accident', 'inspection'] as const;
+export const VISIT_TYPES = ['scheduled', 'periodic_maintenance', 'general_repair', 'paid_service', 'repair', 'warranty', 'accident', 'inspection'] as const;
 export const VISIT_STATES = ['open', 'in_progress', 'ready', 'delivered', 'cancelled'] as const;
 export const JOB_CARD_STATES = ['open', 'in_progress', 'completed', 'cancelled'] as const;
 export const ESTIMATE_STATES = ['draft', 'submitted', 'approved', 'rejected'] as const;

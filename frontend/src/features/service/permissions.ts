@@ -28,6 +28,8 @@ export const ESTIMATE_STATES = ['draft', 'submitted', 'approved', 'rejected'] as
 
 export const VISIT_TYPES = [
   { value: 'scheduled', label: 'Scheduled service' },
+  { value: 'periodic_maintenance', label: 'Periodic maintenance' },
+  { value: 'general_repair', label: 'General repair' },
   { value: 'paid_service', label: 'Paid service' },
   { value: 'repair', label: 'Repair' },
   { value: 'warranty', label: 'Warranty' },

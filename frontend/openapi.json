@@ -15039,6 +15039,8 @@
             "type": "string",
             "enum": [
               "scheduled",
+              "periodic_maintenance",
+              "general_repair",
               "paid_service",
               "repair",
               "warranty",
@@ -15175,6 +15177,8 @@
             "type": "string",
             "enum": [
               "scheduled",
+              "periodic_maintenance",
+              "general_repair",
               "paid_service",
               "repair",
               "warranty",

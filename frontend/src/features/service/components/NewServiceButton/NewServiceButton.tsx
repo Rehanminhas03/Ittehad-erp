@@ -4,7 +4,8 @@ import { CustomerField, VehicleField } from '@/features/crm';
 import { Button, Dialog, Field, Input, Select, Spinner, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { P, VISIT_TYPES } from '../../permissions';
-import { useCreateVisitMutation, useFindCheckInCustomerQuery, useOpenJobCardMutation } from '../../serviceApi';
+import { useCreateVisitMutation, useFindCheckInCustomerQuery, useOpenJobCardMutation, usePreviewCheckInQuery } from '../../serviceApi';
+import { apiErrorMessage } from '@/shared/lib';
 import { CheckInSummary } from '../CheckInSummary';
 import { RegisterVehicleDialog } from '../RegisterVehicle';
 
@@ -36,6 +37,13 @@ export function NewServiceButton() {
   // The customer or the car is not in the records: enter them here (prefilled with what was typed or the known customer).
   const [registering, setRegistering] = useState<{ fullName?: string; mobile?: string } | null>(null);
   const typed = /^[0-9+ -]{6,}$/.test(text.trim()) ? { mobile: text.trim() } : { fullName: text.trim() };
+  // A scheduled service needs one pending on the car (a car bought elsewhere has none): the type follows.
+  const { data: preview } = usePreviewCheckInQuery({ vehicleId: vehicleId ?? 0, dealershipId: dealershipId ?? 0 }, { skip: !open || !vehicleId || !dealershipId });
+  const hasScheduled = !!preview?.nextScheduled;
+  useEffect(() => {
+    if (!preview) return;
+    setVisitType((t) => (t === 'scheduled' && !hasScheduled ? 'periodic_maintenance' : t));
+  }, [preview, hasScheduled]);
   const [createVisit, { isLoading: checkingIn }] = useCreateVisitMutation();
   const [openJobCard, { isLoading: opening }] = useOpenJobCardMutation();
 
@@ -77,6 +85,8 @@ export function NewServiceButton() {
       }
       close();
     } catch (e) {
+      // Shown in the dialog itself, where the advisor is looking.
+      setError(apiErrorMessage(e));
       toast.error(e);
     }
   };
@@ -196,7 +206,7 @@ export function NewServiceButton() {
           </div>
           <Field label="Visit type" htmlFor="ns-type" required>
             <Select id="ns-type" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
-              {VISIT_TYPES.map((t) => (
+              {VISIT_TYPES.filter((t) => t.value !== 'scheduled' || !vehicleId || hasScheduled).map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>

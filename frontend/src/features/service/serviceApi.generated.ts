@@ -1246,6 +1246,8 @@ export type Visit = {
   advisorName?: string | null;
   visitType:
     | "scheduled"
+    | "periodic_maintenance"
+    | "general_repair"
     | "paid_service"
     | "repair"
     | "warranty"
@@ -1281,6 +1283,8 @@ export type VisitCreate = {
   customerId?: number | null;
   visitType:
     | "scheduled"
+    | "periodic_maintenance"
+    | "general_repair"
     | "paid_service"
     | "repair"
     | "warranty"
