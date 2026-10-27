@@ -24,6 +24,9 @@ export function NewServiceButton() {
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [visitType, setVisitType] = useState('scheduled');
   const [odometer, setOdometer] = useState('');
+  // The receiving date and time of the car: now, unless it was received earlier and is entered late.
+  const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  const [receivedAt, setReceivedAt] = useState(nowLocal);
   const [complaints, setComplaints] = useState('');
   const [error, setError] = useState<string | null>(null);
   // Step 1: is the customer already known to the dealership? (name, phone or CNIC)
@@ -38,7 +41,7 @@ export function NewServiceButton() {
   const [registering, setRegistering] = useState<{ fullName?: string; mobile?: string } | null>(null);
   const typed = /^[0-9+ -]{6,}$/.test(text.trim()) ? { mobile: text.trim() } : { fullName: text.trim() };
   // A scheduled service needs one pending on the car (a car bought elsewhere has none): the type follows.
-  const { data: preview } = usePreviewCheckInQuery({ vehicleId: vehicleId ?? 0, dealershipId: dealershipId ?? 0 }, { skip: !open || !vehicleId || !dealershipId });
+  const { data: preview } = usePreviewCheckInQuery({ vehicleId: vehicleId ?? 0, dealershipId: dealershipId ?? 0, customerId: customerId ?? undefined }, { skip: !open || !vehicleId || !dealershipId });
   const hasScheduled = !!preview?.nextScheduled;
   useEffect(() => {
     if (!preview) return;
@@ -55,6 +58,7 @@ export function NewServiceButton() {
     setCustomerId(null);
     setVisitType('scheduled');
     setOdometer('');
+    setReceivedAt(nowLocal());
     setComplaints('');
     setText('');
     setQ('');
@@ -73,7 +77,7 @@ export function NewServiceButton() {
     setError(null);
     try {
       const visit = await createVisit({
-        visitCreate: { dealershipId, vehicleId, customerId: customerId ?? undefined, visitType: visitType as 'scheduled', odometerKm: km, complaints: complaints.trim() || undefined },
+        visitCreate: { dealershipId, vehicleId, customerId: customerId ?? undefined, visitType: visitType as 'scheduled', odometerKm: km, arrivedAt: receivedAt ? new Date(receivedAt).toISOString() : undefined, complaints: complaints.trim() || undefined },
       }).unwrap();
       if (canJobCard) {
         const jc = await openJobCard({ id: visit.id }).unwrap();
@@ -202,7 +206,7 @@ export function NewServiceButton() {
                 }}
               />
             )}
-            <CheckInSummary vehicleId={vehicleId} dealershipId={dealershipId} />
+            <CheckInSummary vehicleId={vehicleId} dealershipId={dealershipId} customerId={customerId} />
           </div>
           <Field label="Visit type" htmlFor="ns-type" required>
             <Select id="ns-type" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
@@ -216,6 +220,10 @@ export function NewServiceButton() {
           <Field label="Odometer now (km)" htmlFor="ns-odo" required>
             <Input id="ns-odo" inputMode="numeric" value={odometer} onChange={(e) => setOdometer(e.target.value.replace(/\D/g, ''))} />
           </Field>
+          <Field label="Received on" htmlFor="ns-received" required hint="The date and time the car came in. Change it only if it came earlier and is being entered now">
+            <Input id="ns-received" type="datetime-local" value={receivedAt} max={nowLocal()} onChange={(e) => setReceivedAt(e.target.value)} />
+          </Field>
+          <div className="hidden sm:block" />
           <Field label="Customer" htmlFor="ns-customer" className="sm:col-span-2" hint="Leave empty to use the owner on record at this dealership">
             <CustomerField id="ns-customer" value={customerId ?? ''} onChange={(v) => setCustomerId(v === '' ? null : v)} permission="master.customers.view" dealershipId={dealershipId} />
           </Field>

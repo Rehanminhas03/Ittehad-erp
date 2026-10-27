@@ -36,6 +36,7 @@ const injectedRtkApi = api
           params: {
             vehicleId: queryArg.vehicleId,
             dealershipId: queryArg.dealershipId,
+            customerId: queryArg.customerId,
           },
         }),
         providesTags: ["Visit"],
@@ -583,6 +584,7 @@ export type PreviewCheckInApiResponse = /** status 200 Success */ VisitPreview;
 export type PreviewCheckInApiArg = {
   vehicleId: number;
   dealershipId: number;
+  customerId?: number;
 };
 export type OpenJobCardApiResponse = /** status 201 Success */ {
   id: number;
@@ -986,6 +988,7 @@ export type VisitPreview = {
     fullName: string;
   } | null;
   openVisitId: number | null;
+  customerVisits?: number | null;
   vehicle: {
     registrationNo: string | null;
     vin: string | null;
@@ -1086,6 +1089,7 @@ export type RegisterVehicleRequest = {
     fullName: string;
     mobile: string;
     cnic?: string | null;
+    ntn?: string | null;
     address?: string | null;
     city?: string | null;
   };
@@ -1291,6 +1295,7 @@ export type VisitCreate = {
     | "accident"
     | "inspection";
   odometerKm: number;
+  arrivedAt?: string | null;
   promisedAt?: string | null;
   complaints?: string | null;
 };

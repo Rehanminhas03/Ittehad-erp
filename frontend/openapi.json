@@ -13940,6 +13940,10 @@
             "minimum": 0,
             "exclusiveMinimum": true
           },
+          "customerVisits": {
+            "type": "integer",
+            "nullable": true
+          },
           "vehicle": {
             "type": "object",
             "properties": {
@@ -14382,6 +14386,11 @@
                 "type": "string",
                 "nullable": true,
                 "maxLength": 20
+              },
+              "ntn": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 30
               },
               "address": {
                 "type": "string",
@@ -15190,6 +15199,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 2000000
+          },
+          "arrivedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
           },
           "promisedAt": {
             "type": "string",
@@ -47047,6 +47061,16 @@
             },
             "required": true,
             "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "customerId",
             "in": "query"
           }
         ],

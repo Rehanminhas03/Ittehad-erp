@@ -138,6 +138,12 @@ export const visitEntity: EntityConfig = {
       // The vehicle must be one the user can see; it becomes linked to the servicing dealership.
       await vehicles.findVisible(ctx, data.vehicleId as number);
       await link(ctx, data.vehicleId as number, data.dealershipId as number, 'service');
+      // The receiving date: now unless a car entered late is back-dated (never the future, at most 30 days).
+      if (data.arrivedAt) {
+        const at = new Date(data.arrivedAt as string).getTime();
+        if (at > Date.now() + 5 * 60_000) throw validationError([{ in: 'body', path: 'arrivedAt', message: 'The receiving date cannot be in the future' }]);
+        if (at < Date.now() - 30 * 86_400_000) throw validationError([{ in: 'body', path: 'arrivedAt', message: 'The receiving date cannot be more than 30 days ago' }]);
+      } else delete data.arrivedAt;
       const computed = await computeCheckIn(ctx, {
         vehicleId: data.vehicleId as number,
         dealershipId: data.dealershipId as number,

@@ -108,6 +108,8 @@ export const VisitCreate = z
     customerId: Id.nullish(),
     visitType: z.enum(VISIT_TYPES),
     odometerKm: z.number().int().min(0).max(2_000_000),
+    /** When the car was received (defaults to now; up to 30 days back for a car entered late). */
+    arrivedAt: z.iso.datetime().nullish(),
     promisedAt: z.iso.datetime().nullish(),
     complaints: optionalText(4000),
   })
@@ -184,6 +186,8 @@ export const VisitPreviewSchema = z
     lastOdometerKm: z.number().int().nullable(),
     currentOwner: z.object({ customerId: Id, fullName: z.string() }).nullable(),
     openVisitId: Id.nullable(),
+    /** How many visits the customer has made to this dealership before (0: the customer's first time). */
+    customerVisits: z.number().int().nullable().optional(),
     /** The car: its identity, and where it came from (delivered by us, or bought elsewhere). */
     vehicle: z.object({ registrationNo: z.string().nullable(), vin: z.string().nullable(), modelName: z.string().nullable(), variant: z.string().nullable(), color: z.string().nullable(), modelYear: z.number().int().nullable() }),
     delivered: z
@@ -220,6 +224,8 @@ export const RegisterVehicleBody = z
       fullName: z.string().trim().min(2).max(120),
       mobile: z.string().trim().min(10).max(20),
       cnic: z.string().trim().max(20).nullish(),
+      /** National Tax Number (optional, mostly for a company). */
+      ntn: z.string().trim().max(30).nullish(),
       address: optionalText(300),
       city: optionalText(80),
     }),

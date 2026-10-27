@@ -53,6 +53,7 @@ export function RegisterVehicleDialog({
     fullName: defaults?.fullName ?? '',
     mobile: defaults?.mobile ?? '',
     cnic: '',
+    ntn: '',
     address: '',
     vin: '',
     engineNo: '',
@@ -84,7 +85,7 @@ export function RegisterVehicleDialog({
       const r = await save({
         registerVehicleRequest: {
           dealershipId,
-          customer: { kind: v.kind as 'individual' | 'company', fullName: v.fullName.trim(), mobile: digits(v.mobile), cnic: v.cnic.trim() || null, address: v.address.trim() || null },
+          customer: { kind: v.kind as 'individual' | 'company', fullName: v.fullName.trim(), mobile: digits(v.mobile), cnic: v.cnic.trim() || null, ntn: v.ntn.trim() || null, address: v.address.trim() || null },
           vehicle: {
             vin: v.vin.trim(),
             engineNo: v.engineNo.trim() || null,
@@ -142,6 +143,9 @@ export function RegisterVehicleDialog({
             </Field>
             <Field label="CNIC (optional)" htmlFor="rv-cnic">
               <Input id="rv-cnic" value={v.cnic} onChange={set('cnic')} placeholder="35202-1234567-1" />
+            </Field>
+            <Field label="NTN (optional)" htmlFor="rv-ntn" hint="National Tax Number, mostly for a company">
+              <Input id="rv-ntn" value={v.ntn} onChange={set('ntn')} />
             </Field>
             <Field label="Address (optional)" htmlFor="rv-addr">
               <Input id="rv-addr" value={v.address} onChange={set('address')} />

@@ -9,8 +9,8 @@ import { usePreviewCheckInQuery } from '../../serviceApi';
  * (delivered by us with its date, or bought elsewhere), its warranty, the next free service, and every earlier
  * service of the car with the kilometres.
  */
-export function CheckInSummary({ vehicleId, dealershipId }: { vehicleId: number | null; dealershipId: number | null }) {
-  const { data, isFetching } = usePreviewCheckInQuery({ vehicleId: vehicleId!, dealershipId: dealershipId! }, { skip: !vehicleId || !dealershipId });
+export function CheckInSummary({ vehicleId, dealershipId, customerId }: { vehicleId: number | null; dealershipId: number | null; customerId?: number | null }) {
+  const { data, isFetching } = usePreviewCheckInQuery({ vehicleId: vehicleId!, dealershipId: dealershipId!, customerId: customerId ?? undefined }, { skip: !vehicleId || !dealershipId });
   if (!vehicleId || !dealershipId) return null;
   if (isFetching || !data) return <Spinner className="size-4 text-slate-400" />;
   if (data.openVisitId) {
@@ -64,8 +64,16 @@ export function CheckInSummary({ vehicleId, dealershipId }: { vehicleId: number 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-xs text-slate-500">Visit</dt>
-          <dd>{ordinal(data.visitSequence)} visit</dd>
+          <dd>
+            {ordinal(data.visitSequence)} visit {data.visitSequence === 1 && <Badge tone="blue">First time for this car</Badge>}
+          </dd>
         </div>
+        {data.customerVisits != null && (
+          <div>
+            <dt className="text-xs text-slate-500">Customer</dt>
+            <dd>{data.customerVisits === 0 ? <Badge tone="blue">First visit of this customer</Badge> : `${data.customerVisits} earlier visit${data.customerVisits === 1 ? '' : 's'}`}</dd>
+          </div>
+        )}
         <div>
           <dt className="text-xs text-slate-500">Next scheduled service</dt>
           <dd>

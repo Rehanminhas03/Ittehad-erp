@@ -55,9 +55,9 @@ const visitActions = new ApiRouter('/service/visits', 'Visit')
     operationId: 'previewCheckIn',
     summary: 'What check-in would compute for a vehicle (service number, entitlements, owner)',
     permission: P.visitsCreate,
-    query: z.object({ vehicleId: IdQuery, dealershipId: IdQuery }),
+    query: z.object({ vehicleId: IdQuery, dealershipId: IdQuery, customerId: IdQuery.optional() }),
     response: VisitPreviewSchema,
-    handler: (ctx) => svc.checkInPreview(ctx, ctx.query.vehicleId, ctx.query.dealershipId),
+    handler: (ctx) => svc.checkInPreview(ctx, ctx.query.vehicleId, ctx.query.dealershipId, ctx.query.customerId),
   })
   .route({
     method: 'post',

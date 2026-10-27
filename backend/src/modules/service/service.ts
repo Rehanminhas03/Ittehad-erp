@@ -34,11 +34,11 @@ import {
 // =============================================================================
 // Check-in preview and the vehicle's schedule
 // =============================================================================
-export async function checkInPreview(ctx: EntityCtx, vehicleId: number, dealershipId: number) {
+export async function checkInPreview(ctx: EntityCtx, vehicleId: number, dealershipId: number, customerId?: number | null) {
   if (!ctx.access.canIn(P.visitsCreate, { dealershipId })) throw forbidden();
   await vehicles.findVisible(ctx, vehicleId);
   const v = await ctx.tx.vehicle.findFirst({ where: { id: vehicleId } });
-  return previewCheckIn(ctx, v!, dealershipId);
+  return previewCheckIn(ctx, v!, dealershipId, customerId);
 }
 
 /**
@@ -117,6 +117,7 @@ export async function registerVehicleAtCheckIn(ctx: EntityCtx, input: z.output<t
         mobile: (input.customer.mobile.trim().startsWith('+') ? '+' : '') + input.customer.mobile.replace(/\D/g, ''),
         mobileNormalized: mobile,
         cnic,
+        ntn: input.customer.ntn?.trim() || null,
         address: input.customer.address ?? null,
         city: input.customer.city ?? null,
         createdById: ctx.access.userId,

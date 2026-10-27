@@ -61,8 +61,14 @@ async function soldRecord(ctx: EntityCtx, vehicleId: number) {
   return { orderNo: order?.orderNo ?? null, pboNo: order?.pboNo ?? null, salesperson: seller?.fullName ?? null, boughtBy: buyer ? [buyer.fullName, buyer.mobile].filter(Boolean).join(' · ') : null, engineNo: v?.engineNo ?? null };
 }
 
+/** Visits the customer made to this dealership before (cancelled ones do not count); null without a customer. */
+async function customerVisitCount(ctx: EntityCtx, customerId: number | null, dealershipId: number) {
+  if (!customerId) return null;
+  return ctx.tx.visit.count({ where: { customerId, dealershipId, status: { not: 'cancelled' } } });
+}
+
 /** What check-in would decide right now (read-only; shown on the check-in screen). */
-export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: number) {
+export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: number, customerId?: number | null) {
   const next = await nextScheduledService(ctx, v.id);
   const scheduleNames = new Map((await ctx.tx.vehicleSchedule.findMany({ where: { vehicleId: v.id }, select: { id: true, name: true } })).map((s) => [s.id, s.name]));
   // A live visit at a dealership the caller can see (RLS); the unique index covers the whole group.
@@ -77,6 +83,7 @@ export async function previewCheckIn(ctx: EntityCtx, v: Vehicle, dealershipId: n
     freeServiceIfScheduled: next ? isFreeScheduledService(next, lastKnownOdometer(v) ?? 0) : false,
     lastOdometerKm: lastKnownOdometer(v),
     currentOwner: await currentOwnerIn(ctx, v.id, dealershipId),
+    customerVisits: await customerVisitCount(ctx, customerId ?? (await currentOwnerIn(ctx, v.id, dealershipId))?.customerId ?? null, dealershipId),
     openVisitId: live?.id ?? null,
     vehicle: {
       registrationNo: v.registrationNo,
