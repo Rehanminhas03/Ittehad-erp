@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CustomerField, VehicleField } from '@/features/crm';
-import { Button, Dialog, Field, Input, Select, Textarea } from '@/shared/components/ui';
+import { Button, Dialog, Field, Input, Select, Spinner, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { P, VISIT_TYPES } from '../../permissions';
-import { useCreateVisitMutation, useOpenJobCardMutation } from '../../serviceApi';
+import { useCreateVisitMutation, useFindCheckInCustomerQuery, useOpenJobCardMutation } from '../../serviceApi';
 import { CheckInSummary } from '../CheckInSummary';
 import { RegisterVehicle } from '../RegisterVehicle';
 
@@ -25,6 +25,14 @@ export function NewServiceButton() {
   const [odometer, setOdometer] = useState('');
   const [complaints, setComplaints] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Step 1: is the customer already known to the dealership? (name, phone or CNIC)
+  const [text, setText] = useState('');
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setQ(text.trim()), 300);
+    return () => clearTimeout(t);
+  }, [text]);
+  const { data: found, isFetching: searching } = useFindCheckInCustomerQuery({ dealershipId: dealershipId ?? 0, q }, { skip: !open || !dealershipId || q.length < 2 || !!vehicleId });
   const [createVisit, { isLoading: checkingIn }] = useCreateVisitMutation();
   const [openJobCard, { isLoading: opening }] = useOpenJobCardMutation();
 
@@ -37,6 +45,8 @@ export function NewServiceButton() {
     setVisitType('scheduled');
     setOdometer('');
     setComplaints('');
+    setText('');
+    setQ('');
     setError(null);
   };
   const close = () => {
@@ -107,8 +117,52 @@ export function NewServiceButton() {
               </Select>
             </Field>
           )}
+          {!vehicleId && (
+            <div className="space-y-2 sm:col-span-2">
+              <Field label="Is the customer already in our records?" htmlFor="ns-find" hint="Type the customer's name, phone number or CNIC. Pick the car that came in.">
+                <div className="relative">
+                  <Input id="ns-find" value={text} onChange={(e) => setText(e.target.value)} placeholder="Name, phone or CNIC…" autoComplete="off" />
+                  {searching && <Spinner className="absolute top-2.5 right-3 size-4 text-slate-400" />}
+                </div>
+              </Field>
+              {q.length >= 2 && !searching && found && (
+                <ul className="max-h-56 divide-y divide-slate-100 overflow-auto rounded-md bg-white text-sm ring-1 ring-slate-200">
+                  {!found.length ? (
+                    <li className="px-3 py-2 text-amber-700">Not found at this dealership. Enter the customer and the car below.</li>
+                  ) : (
+                    found.map((c) => (
+                      <li key={c.customerId} className="px-3 py-2">
+                        <div className="font-medium text-slate-900">
+                          {c.fullName} <span className="font-normal text-slate-500">{c.mobile}</span>
+                        </div>
+                        {c.vehicles.length ? (
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {c.vehicles.map((v) => (
+                              <button
+                                key={v.vehicleId}
+                                type="button"
+                                className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-800 hover:bg-brand-50 hover:text-brand-800"
+                                onClick={() => {
+                                  setVehicleId(v.vehicleId);
+                                  setCustomerId(c.customerId);
+                                }}
+                              >
+                                {v.registrationNo ?? 'Unregistered'} · {v.modelName}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-1 text-xs text-slate-500">No car recorded for this customer: register the car below.</div>
+                        )}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
           <div className="space-y-3 sm:col-span-2">
-            <Field label="Car" htmlFor="ns-vehicle" required hint="Search by registration number, chassis number or engine number">
+            <Field label="Car" htmlFor="ns-vehicle" required hint="Or search the car by registration number, chassis number or engine number">
               <VehicleField id="ns-vehicle" value={vehicleId ?? ''} onChange={(v) => setVehicleId(v === '' ? null : v)} />
             </Field>
             {!vehicleId && <RegisterVehicle dealershipId={dealershipId} onRegistered={(r) => { setVehicleId(r.vehicleId); setCustomerId(r.customerId); }} />}

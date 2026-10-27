@@ -13787,6 +13787,65 @@
           "rows"
         ]
       },
+      "CheckInCustomer": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string",
+            "nullable": true
+          },
+          "cnic": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vehicleId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "registrationNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "vin": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "modelName": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "vehicleId",
+                "registrationNo",
+                "vin",
+                "modelName"
+              ]
+            }
+          }
+        },
+        "required": [
+          "customerId",
+          "fullName",
+          "mobile",
+          "cnic",
+          "vehicles"
+        ]
+      },
       "VisitPreview": {
         "type": "object",
         "properties": {
@@ -46806,6 +46865,87 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/visits/find-customer": {
+      "get": {
+        "operationId": "findCheckInCustomer",
+        "summary": "Is the customer already known to the dealership? Customers matching a name, phone or CNIC, with their cars",
+        "description": "Requires: service.visits.create",
+        "tags": [
+          "Visit"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CheckInCustomer"
+                  }
                 }
               }
             }

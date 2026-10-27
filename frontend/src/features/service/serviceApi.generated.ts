@@ -14,6 +14,19 @@ const injectedRtkApi = api
   })
   .injectEndpoints({
     endpoints: (build) => ({
+      findCheckInCustomer: build.query<
+        FindCheckInCustomerApiResponse,
+        FindCheckInCustomerApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/visits/find-customer`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            q: queryArg.q,
+          },
+        }),
+        providesTags: ["Visit"],
+      }),
       previewCheckIn: build.query<
         PreviewCheckInApiResponse,
         PreviewCheckInApiArg
@@ -560,6 +573,12 @@ const injectedRtkApi = api
     overrideExisting: false,
   });
 export { injectedRtkApi as enhancedApi };
+export type FindCheckInCustomerApiResponse =
+  /** status 200 Success */ CheckInCustomer[];
+export type FindCheckInCustomerApiArg = {
+  dealershipId: number;
+  q: string;
+};
 export type PreviewCheckInApiResponse = /** status 200 Success */ VisitPreview;
 export type PreviewCheckInApiArg = {
   vehicleId: number;
@@ -927,6 +946,25 @@ export type TransitionEstimateApiArg = {
     comment?: string;
   };
 };
+export type CheckInCustomer = {
+  customerId: number;
+  fullName: string;
+  mobile: string | null;
+  cnic: string | null;
+  vehicles: {
+    vehicleId: number;
+    registrationNo: string | null;
+    vin: string | null;
+    modelName: string | null;
+  }[];
+};
+export type ApiError = {
+  error: {
+    code: string;
+    message: string;
+    details?: any | null;
+  };
+};
 export type VisitPreview = {
   visitSequence: number;
   nextScheduled: {
@@ -976,13 +1014,6 @@ export type VisitPreview = {
     status: string;
     complaints: string | null;
   }[];
-};
-export type ApiError = {
-  error: {
-    code: string;
-    message: string;
-    details?: any | null;
-  };
 };
 export type ServiceDueRow = {
   scheduleId: number;
@@ -1399,6 +1430,8 @@ export type EstimateUpdate = {
   notes?: string | null;
 };
 export const {
+  useFindCheckInCustomerQuery,
+  useLazyFindCheckInCustomerQuery,
   usePreviewCheckInQuery,
   useLazyPreviewCheckInQuery,
   useOpenJobCardMutation,

@@ -163,6 +163,17 @@ export const ReminderCallSchema = z
   .object({ id: Id, outcome: z.string(), remarks: z.string().nullable(), nextCallOn: z.string().nullable(), at: Timestamp, by: z.string().nullable() })
   .openapi('ReminderCall');
 
+/** A customer of the dealership found at check-in, with the cars they own. */
+export const CheckInCustomerSchema = z
+  .object({
+    customerId: Id,
+    fullName: z.string(),
+    mobile: z.string().nullable(),
+    cnic: z.string().nullable(),
+    vehicles: z.array(z.object({ vehicleId: Id, registrationNo: z.string().nullable(), vin: z.string().nullable(), modelName: z.string().nullable() })),
+  })
+  .openapi('CheckInCustomer');
+
 /** What check-in would compute, shown before the visit is created. */
 export const VisitPreviewSchema = z
   .object({

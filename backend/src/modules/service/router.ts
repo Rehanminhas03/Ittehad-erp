@@ -14,6 +14,7 @@ import {
 } from './entities';
 import { ServicePerm as P } from './permissions';
 import {
+  CheckInCustomerSchema,
   EstimateCreate,
   EstimateSchema,
   InspectionBase,
@@ -38,6 +39,16 @@ const JobCardRead = JobCardSchema.extend({ availableActions: z.array(z.string())
 const EstimateRead = EstimateSchema.extend({ availableActions: z.array(z.string()) });
 
 const visitActions = new ApiRouter('/service/visits', 'Visit')
+  .route({
+    method: 'get',
+    path: '/find-customer',
+    operationId: 'findCheckInCustomer',
+    summary: 'Is the customer already known to the dealership? Customers matching a name, phone or CNIC, with their cars',
+    permission: P.visitsCreate,
+    query: z.object({ dealershipId: IdQuery, q: z.string().trim().max(60) }),
+    response: z.array(CheckInCustomerSchema),
+    handler: (ctx) => svc.findCustomers(ctx, ctx.query.dealershipId, ctx.query.q),
+  })
   .route({
     method: 'get',
     path: '/check-in-preview',
