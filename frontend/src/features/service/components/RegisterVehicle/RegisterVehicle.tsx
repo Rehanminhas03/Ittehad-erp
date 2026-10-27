@@ -49,6 +49,7 @@ export function RegisterVehicleDialog({
   const models = useVehicleModelOptions(brand ? [brand] : undefined);
   const [save, { isLoading }] = useRegisterVehicleAtCheckInMutation();
   const [v, setV] = useState({
+    kind: 'individual',
     fullName: defaults?.fullName ?? '',
     mobile: defaults?.mobile ?? '',
     cnic: '',
@@ -69,20 +70,21 @@ export function RegisterVehicleDialog({
 
   const submit = async () => {
     if (!dealershipId) return setError('Choose the dealership first');
-    if (v.fullName.trim().length < 2) return setError('Enter the customer name');
+    if (v.fullName.trim().length < 2) return setError(v.kind === 'company' ? 'Enter the company name' : 'Enter the customer name');
     if (digits(v.mobile).replace(/\D/g, '').length < 10) return setError('Enter a valid mobile number, e.g. 03001234567');
     if (!v.modelId) return setError('Choose the model');
     if (!v.variant.trim()) return setError('Enter the variant');
     if (v.vin.trim().length < 5) return setError('Enter the chassis (VIN) number');
     if (v.engineNo.trim().length < 3) return setError('Enter the engine number');
     if (!v.color.trim()) return setError('Enter the colour');
-    if (!/^(19|20)d{2}$/.test(v.modelYear.trim())) return setError('Enter the model year, e.g. 2024');
+    if (!/^(19|20)[0-9]{2}$/.test(v.modelYear.trim())) return setError('Enter the model year, e.g. 2024');
+    if (v.odometerKm.trim() === '' || Number(v.odometerKm) < 0) return setError('Enter the odometer reading in km');
     setError(null);
     try {
       const r = await save({
         registerVehicleRequest: {
           dealershipId,
-          customer: { fullName: v.fullName.trim(), mobile: digits(v.mobile), cnic: v.cnic.trim() || null, address: v.address.trim() || null },
+          customer: { kind: v.kind as 'individual' | 'company', fullName: v.fullName.trim(), mobile: digits(v.mobile), cnic: v.cnic.trim() || null, address: v.address.trim() || null },
           vehicle: {
             vin: v.vin.trim(),
             engineNo: v.engineNo.trim() || null,
@@ -126,7 +128,13 @@ export function RegisterVehicleDialog({
         >
           <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
             <p className="text-sm text-slate-600 sm:col-span-2">Enter the new customer and the car. The customer's CNIC and address are optional; every car detail is required. They are saved, so the visit and its job card can start, and next time the customer and the car are found by name, phone or registration number.</p>
-            <Field label="Customer name" htmlFor="rv-name" required>
+            <Field label="Customer type" htmlFor="rv-kind" required>
+              <Select id="rv-kind" value={v.kind} onChange={set('kind')}>
+                <option value="individual">Individual</option>
+                <option value="company">Company</option>
+              </Select>
+            </Field>
+            <Field label={v.kind === 'company' ? 'Company name' : 'Customer name'} htmlFor="rv-name" required>
               <Input id="rv-name" value={v.fullName} onChange={set('fullName')} />
             </Field>
             <Field label="Mobile" htmlFor="rv-mobile" required hint="An existing customer with this number is reused">
@@ -166,7 +174,7 @@ export function RegisterVehicleDialog({
             <Field label="Model year" htmlFor="rv-year" required>
               <Input id="rv-year" inputMode="numeric" value={v.modelYear} onChange={set('modelYear')} />
             </Field>
-            <Field label="Odometer now (km)" htmlFor="rv-km">
+            <Field label="Odometer now (km)" htmlFor="rv-km" required>
               <Input id="rv-km" inputMode="numeric" value={v.odometerKm} onChange={set('odometerKm')} />
             </Field>
             <Field label="Bought from" htmlFor="rv-from" hint="The dealership or showroom, if known">

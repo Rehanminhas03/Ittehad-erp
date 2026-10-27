@@ -14360,6 +14360,14 @@
           "customer": {
             "type": "object",
             "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "individual",
+                  "company"
+                ],
+                "default": "individual"
+              },
               "fullName": {
                 "type": "string",
                 "minLength": 2,

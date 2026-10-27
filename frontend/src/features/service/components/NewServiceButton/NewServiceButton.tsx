@@ -35,7 +35,7 @@ export function NewServiceButton() {
   const { data: found, isFetching: searching } = useFindCheckInCustomerQuery({ dealershipId: dealershipId ?? 0, q }, { skip: !open || !dealershipId || q.length < 2 || !!vehicleId });
   // The customer or the car is not in the records: enter them here (prefilled with what was typed or the known customer).
   const [registering, setRegistering] = useState<{ fullName?: string; mobile?: string } | null>(null);
-  const typed = /^[d+-s]{6,}$/.test(text.trim()) ? { mobile: text.trim() } : { fullName: text.trim() };
+  const typed = /^[0-9+ -]{6,}$/.test(text.trim()) ? { mobile: text.trim() } : { fullName: text.trim() };
   const [createVisit, { isLoading: checkingIn }] = useCreateVisitMutation();
   const [openJobCard, { isLoading: opening }] = useOpenJobCardMutation();
 

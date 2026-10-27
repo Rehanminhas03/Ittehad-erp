@@ -215,6 +215,8 @@ export const RegisterVehicleBody = z
   .object({
     dealershipId: Id,
     customer: z.object({
+      /** A person, or a company (its name goes in fullName). */
+      kind: z.enum(['individual', 'company']).default('individual'),
       fullName: z.string().trim().min(2).max(120),
       mobile: z.string().trim().min(10).max(20),
       cnic: z.string().trim().max(20).nullish(),

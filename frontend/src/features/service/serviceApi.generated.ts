@@ -1082,6 +1082,7 @@ export type RegisterVehicleResult = {
 export type RegisterVehicleRequest = {
   dealershipId: number;
   customer: {
+    kind?: "individual" | "company";
     fullName: string;
     mobile: string;
     cnic?: string | null;
