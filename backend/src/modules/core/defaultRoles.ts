@@ -130,7 +130,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   {
     name: 'Service Manager',
     description: 'Oversees workshop, approves estimates.',
-    patterns: ['core.dealerships.view', 'core.branches.view', 'master.*', 'service.*', 'parts.requests.*', 'parts.catalog.view', 'parts.stock.view', 'accounts.invoices.view', 'accounts.invoices.create', 'reports.service.*'],
+    patterns: ['core.dealerships.view', 'core.branches.view', 'master.*', 'service.*', 'sales.variants.view', 'parts.requests.*', 'parts.catalog.view', 'parts.stock.view', 'accounts.invoices.view', 'accounts.invoices.create', 'reports.service.*'],
   },
   {
     name: 'Service Advisor',
@@ -138,7 +138,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.*.view', 'master.*.create', 'master.*.update',
       'master.ownership.manage', 'service.*.view', 'service.*.create', 'service.*.update', 'service.estimates.submit', 'parts.requests.create', 'parts.requests.view',
-      'accounts.invoices.view', 'accounts.invoices.create',
+      'accounts.invoices.view', 'accounts.invoices.create', 'sales.variants.view',
       'parts.catalog.view', 'parts.stock.view', 'reports.service.view_own',
     ],
   },

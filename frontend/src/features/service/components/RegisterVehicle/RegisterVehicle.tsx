@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useVehicleModelOptions } from '@/features/crm';
+import { VariantPicker } from '@/features/sales/leads/components/VariantPicker';
 import { Button, Dialog, Field, Input, Select } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { apiFieldErrors } from '@/shared/lib';
@@ -156,8 +157,8 @@ export function RegisterVehicleDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Variant" htmlFor="rv-var" required>
-              <Input id="rv-var" value={v.variant} onChange={set('variant')} />
+            <Field label="Variant" htmlFor="rv-var" required hint="The variants of the chosen model. Choose Other to type one that is not listed">
+              <VariantPicker id="rv-var" value={v.variant} onChange={(variant) => setV((s) => ({ ...s, variant }))} modelId={Number(v.modelId) || null} dealershipId={dealershipId} />
             </Field>
             <Field label="Colour" htmlFor="rv-col" required>
               <Input id="rv-col" value={v.color} onChange={set('color')} />
