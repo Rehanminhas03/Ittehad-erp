@@ -4,12 +4,12 @@ const money = (n: number) => `Rs ${n.toLocaleString('en-PK', { maximumFractionDi
 const date = (v: string | null | undefined) => (v ? new Date(v).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
 
 /** The printable job card: the customer and the car, the complaints, every line (charged or free) and the totals, with signature lines. */
-export async function downloadJobCardPdf(
+export async function buildJobCardPdf(
   jc: JobCard,
   visit: Visit,
   lines: JobCardLine[],
   t: { parts: number; labour: number; free: number; payable: number; discount: number },
-) {
+): Promise<{ doc: import('jspdf').jsPDF; fileName: string }> {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const M = 14;
@@ -124,5 +124,5 @@ export async function downloadJobCardPdf(
   text('Service advisor', M, y + 4, { size: 8, color: [100, 116, 139] });
   text('Customer signature', 210 - M - 55, y + 4, { size: 8, color: [100, 116, 139] });
 
-  doc.save(`Job card ${jc.jobCardNo}.pdf`);
+  return { doc, fileName: `Job card ${jc.jobCardNo}.pdf` };
 }

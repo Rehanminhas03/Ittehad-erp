@@ -52,6 +52,8 @@ export interface LineItemsTableProps<L extends DocumentLine> {
   /** A note under the description (source, free/warranty...). */
   rowNote?: (line: L) => ReactNode;
   showTotal?: boolean;
+  /** A helper above the add row for the chosen kind (e.g. search the parts catalogue, pick a scheduled service); it fills the draft. */
+  addHelper?: (kind: string, fill: (patch: Partial<LineDraft>) => void) => ReactNode;
   /** A "Disc. %" column: type 1, 2, 3 ... and the amount is worked out less that discount. */
   discountable?: boolean;
 }
@@ -270,6 +272,13 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
             <tr>
               <td colSpan={cols} className="py-4 text-center text-sm text-slate-500">
                 No lines yet.
+              </td>
+            </tr>
+          )}
+          {editable && onAdd && props.addHelper && (
+            <tr className="bg-slate-50/60">
+              <td colSpan={cols} className="pt-2 pb-0">
+                {props.addHelper(draft.kind, (patch) => setDraft((d) => ({ ...d, ...patch })))}
               </td>
             </tr>
           )}

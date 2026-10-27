@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
 import { Badge, Button, Section, Spinner } from '@/shared/components/ui';
-import { useToast } from '@/shared/hooks';
 import { formatDate, formatDateTime, formatMoney, formatNumber } from '@/shared/lib';
 import { visitTypeLabel } from '../../permissions';
 import { type JobCard, type JobCardLine, useGetVisitQuery, useListJobCardLinesQuery } from '../../serviceApi';
-import { downloadJobCardPdf } from './jobCardPdf';
+import { buildJobCardPdf } from './jobCardPdf';
 
 const num = (s: string | undefined | null) => Number(s ?? 0) || 0;
 
@@ -14,10 +14,20 @@ const num = (s: string | undefined | null) => Number(s ?? 0) || 0;
  * copy (PDF) goes to the workshop and the customer.
  */
 export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
-  const toast = useToast();
   const { data: visit } = useGetVisitQuery({ id: jobCard.visitId });
   const { data: lines } = useListJobCardLinesQuery({ id: jobCard.id });
-  const [busy, setBusy] = useState(false);
+  // The job card is drawn only when it is opened to view and print.
+  const [viewing, setViewing] = useState(false);
+  const totals = useMemo(() => {
+    const n = (s: string | undefined | null) => Number(s ?? 0) || 0;
+    const rows = lines ?? [];
+    const sum = (f: (l: JobCardLine) => boolean) => rows.filter(f).reduce((a, l) => a + n(l.amount), 0);
+    const parts = sum((l) => l.billable && l.kind === 'part');
+    const labour = sum((l) => l.billable && l.kind === 'labour');
+    return { parts, labour, free: sum((l) => !l.billable), payable: parts + labour, discount: rows.reduce((a, l) => a + (n(l.unitPrice) * n(l.quantity) - n(l.amount)), 0) };
+  }, [lines]);
+  const build = useMemo(() => (viewing && visit && lines ? () => buildJobCardPdf(jobCard, visit, lines, totals) : null), [viewing, visit, lines, jobCard, totals]);
+  const pdf = usePdf(build);
   if (!visit || !lines) return <Spinner className="size-4 text-slate-400" />;
 
   const sum = (f: (l: JobCardLine) => boolean) => lines.filter(f).reduce((n, l) => n + num(l.amount), 0);
@@ -29,23 +39,12 @@ export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
   const payable = parts + labour;
   const done = lines.filter((l) => l.status === 'done').length;
 
-  const print = async () => {
-    setBusy(true);
-    try {
-      await downloadJobCardPdf(jobCard, visit, lines, { parts, labour, free, payable, discount });
-    } catch (e) {
-      toast.error(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <Section
       title="Job card summary"
       actions={
-        <Button size="sm" variant="secondary" loading={busy} onClick={print}>
-          Print job card (PDF)
+        <Button size="sm" variant="secondary" onClick={() => setViewing(true)}>
+          View and print job card
         </Button>
       }
     >
@@ -123,6 +122,7 @@ export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
       <p className="mt-2 text-xs text-slate-500">
         Dated {formatDate(jobCard.createdAt)}. Prices include sales tax as entered; the cashier issues the invoice once the job card is completed.
       </p>
+      <PdfDialog open={viewing} onClose={() => setViewing(false)} title={`Job card ${jobCard.jobCardNo}`} pdf={pdf} loading={viewing && !pdf} />
     </Section>
   );
 }
