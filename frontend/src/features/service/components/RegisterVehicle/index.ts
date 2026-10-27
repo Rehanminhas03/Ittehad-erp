@@ -1,1 +1,1 @@
-export { RegisterVehicle, type RegisteredVehicle } from './RegisterVehicle';
+export { RegisterVehicle, RegisterVehicleDialog, type RegisteredVehicle } from './RegisterVehicle';
