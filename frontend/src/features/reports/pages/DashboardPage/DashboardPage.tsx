@@ -1,3 +1,4 @@
+import { NewServiceButton, ServicePermissions as SvcP } from '@/features/service';
 import { SalesDashboard, SalesPermissions as SP } from '@/features/sales';
 import { PageHeader } from '@/shared/components/ui';
 import { isModuleEnabled } from '@/shared/config';
@@ -37,7 +38,11 @@ function GeneralDashboard() {
 
   return (
     <div>
-      <PageHeader title={`Welcome back, ${user?.fullName.split(' ')[0] ?? ''}`} subtitle="Figures reflect only the dealerships, branches and work you can access." />
+      <PageHeader
+        title={`Welcome back, ${user?.fullName.split(' ')[0] ?? ''}`}
+        subtitle="Figures reflect only the dealerships, branches and work you can access."
+        actions={isModuleEnabled('service') && perm.can(SvcP.visitsCreate) ? <NewServiceButton /> : undefined}
+      />
       {widgets.length === 0 && !hasReports && <p className="py-10 text-sm text-slate-500">No dashboard is available for your roles yet.</p>}
       {widgets.length > 0 && (
         <section className="mb-8">
