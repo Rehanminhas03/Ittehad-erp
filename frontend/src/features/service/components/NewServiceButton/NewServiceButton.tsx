@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CustomerField, VehicleField } from '@/features/crm';
 import { useGetVehicleQuery } from '@/features/crm/crmApi';
-import { partsApi } from '@/features/parts/partsApi';
-import { useDispatch } from 'react-redux';
+
 import { Button, Dialog, Field, Input, Select, Spinner, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { P, VISIT_TYPES } from '../../permissions';
-import { useAddServiceToJobCardMutation, useCreateVisitMutation, useFindCheckInCustomerQuery, useListScheduleItemsQuery, useOpenJobCardMutation, usePreviewCheckInQuery } from '../../serviceApi';
+import { useCreateVisitMutation, useFindCheckInCustomerQuery, useListScheduleItemsQuery, useOpenJobCardMutation, usePreviewCheckInQuery } from '../../serviceApi';
 import { apiErrorMessage, formatNumber } from '@/shared/lib';
 import { CheckInSummary } from '../CheckInSummary';
 import { RegisterVehicleDialog } from '../RegisterVehicle';
@@ -54,7 +53,6 @@ export function NewServiceButton() {
   const ownerId = customerId ?? preview?.currentOwner?.customerId ?? null;
   // Periodic maintenance: which service (5,000 km, 10,000 km ...) of the car's model. The nearest to the odometer is
   // chosen by itself; choosing another one is up to the advisor. Its work and parts are added with the job card.
-  const dispatch = useDispatch();
   const [serviceId, setServiceId] = useState('');
   const [serviceChosenByHand, setServiceChosenByHand] = useState(false);
   const { data: vehicle } = useGetVehicleQuery({ id: vehicleId ?? 0 }, { skip: !vehicleId });
@@ -67,7 +65,6 @@ export function NewServiceButton() {
     const nearest = services.items.reduce((best, x) => (Math.abs(x.dueKm - km) < Math.abs(best.dueKm - km) ? x : best));
     setServiceId(String(nearest.id));
   }, [periodic, serviceChosenByHand, services, odometer]);
-  const [addService] = useAddServiceToJobCardMutation();
   const [createVisit, { isLoading: checkingIn }] = useCreateVisitMutation();
   const [openJobCard, { isLoading: opening }] = useOpenJobCardMutation();
 
@@ -104,15 +101,9 @@ export function NewServiceButton() {
       }).unwrap();
       if (canJobCard) {
         const jc = await openJobCard({ id: visit.id }).unwrap();
-        let extra = '';
-        if (periodic && serviceId) {
-          const r = await addService({ id: jc.id, addServiceToJobCard: { scheduleItemId: Number(serviceId) } }).unwrap();
-          dispatch(partsApi.util.invalidateTags(['PartsRequest']));
-          extra = r.partsRequestNo ? `, parts requested from the store (${r.partsRequestNo})` : '';
-          if (r.warning) toast.error(r.warning);
-        }
-        toast.success(`${visit.visitNo} checked in, job card ${jc.jobCardNo} opened${extra}`);
-        navigate(`/service/job-cards/${jc.id}`);
+        toast.success(`${visit.visitNo} checked in, job card ${jc.jobCardNo} opened`);
+        // Periodic maintenance: the job card opens with the service's form (charges, parts, checks) ready to check.
+        navigate(`/service/job-cards/${jc.id}${periodic && serviceId ? `?service=${serviceId}` : ''}`);
       } else {
         toast.success(`${visit.visitNo} checked in`);
         navigate(`/service/visits/${visit.id}`);

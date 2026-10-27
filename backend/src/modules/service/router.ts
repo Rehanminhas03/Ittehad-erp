@@ -165,7 +165,7 @@ const jobCardActions = new ApiRouter('/service/job-cards', 'JobCard')
     params: IdParam,
     body: AddServiceBody,
     response: AddServiceResultSchema,
-    handler: (ctx) => packages.addService(ctx, ctx.params.id, ctx.body.scheduleItemId),
+    handler: (ctx) => packages.addService(ctx, ctx.params.id, ctx.body),
   })
   .route({
     method: 'get',

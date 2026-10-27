@@ -6,7 +6,7 @@ import { P } from '../../permissions';
 import { useListServicePackageQuery, useSetServicePackageMutation } from '../../serviceApi';
 
 interface Row {
-  kind: 'labour' | 'part';
+  kind: 'labour' | 'part' | 'check';
   description: string;
   partNo: string;
   quantity: string;
@@ -37,12 +37,13 @@ export function ServicePackageEditor({ scheduleItemId }: { scheduleItemId: numbe
   };
   const labour = rows.filter((r) => r.kind === 'labour');
   const parts = rows.filter((r) => r.kind === 'part');
+  const checks = rows.filter((r) => r.kind === 'check');
 
   const submit = async () => {
     try {
       await save({
         id: scheduleItemId,
-        servicePackageLines: { lines: rows.map((r) => ({ kind: r.kind, description: r.description.trim(), partNo: r.kind === 'part' ? r.partNo : null, quantity: r.quantity.trim() || '1' })) },
+        servicePackageLines: { lines: rows.map((r) => ({ kind: r.kind, description: r.description.trim(), partNo: r.kind === 'part' ? r.partNo : null, quantity: r.kind === 'check' ? '1' : r.quantity.trim() || '1' })) },
       }).unwrap();
       toast.success('Saved: new job cards use it');
     } catch (e) {
@@ -96,8 +97,8 @@ export function ServicePackageEditor({ scheduleItemId }: { scheduleItemId: numbe
             )}
           </div>
           <div>
-            <h3 className="mb-2 text-sm font-medium text-slate-800">Labour included (in hours)</h3>
-            {labour.length === 0 && <p className="mb-2 text-sm text-slate-500">No extra labour lines. The service's own labour hours are added anyway.</p>}
+            <h3 className="mb-2 text-sm font-medium text-slate-800">Work included (jobs covered by the service charges)</h3>
+            {labour.length === 0 && <p className="mb-2 text-sm text-slate-500">No work listed.</p>}
             <ul className="space-y-2">
               {rows.map((r, i) =>
                 r.kind !== 'labour' ? null : (
@@ -116,6 +117,29 @@ export function ServicePackageEditor({ scheduleItemId }: { scheduleItemId: numbe
             {canEdit && (
               <Button size="sm" variant="ghost" className="mt-2" onClick={() => change([...rows, { kind: 'labour', description: '', partNo: '', quantity: '1' }])}>
                 + Add labour
+              </Button>
+            )}
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-slate-800">Checks included (inspection points: AC, brakes, lights ...)</h3>
+            {checks.length === 0 && <p className="mb-2 text-sm text-slate-500">No checks listed.</p>}
+            <ul className="space-y-2">
+              {rows.map((r, i) =>
+                r.kind !== 'check' ? null : (
+                  <li key={i} className="flex items-center gap-3">
+                    <Input value={r.description} disabled={!canEdit} onChange={(e) => change(rows.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} className="flex-1 py-1 text-xs" aria-label="Check" />
+                    {canEdit && (
+                      <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => change(rows.filter((_, j) => j !== i))}>
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                ),
+              )}
+            </ul>
+            {canEdit && (
+              <Button size="sm" variant="ghost" className="mt-2" onClick={() => change([...rows, { kind: 'check', description: '', partNo: '', quantity: '1' }])}>
+                + Add check
               </Button>
             )}
           </div>

@@ -1,7 +1,6 @@
-import { POLICIES } from '../../config/policies';
 import type { EntityCtx } from '../../entity/types';
 import { conflict, forbidden, notFound, validationError } from '../../lib/errors';
-import { lineAmount } from '../../lib/money';
+import { lineAmount, taxOf } from '../../lib/money';
 import { createPartsRequest } from '../parts/service';
 import { jobCards } from './entities';
 import { ServicePerm as P } from './permissions';
@@ -14,10 +13,11 @@ export async function packageLines(ctx: EntityCtx, scheduleItemId: number) {
   const item = await ctx.tx.scheduleItem.findFirst({ where: { id: scheduleItemId }, select: { id: true } });
   if (!item) throw notFound('Service');
   const rows = await ctx.tx.scheduleItemLine.findMany({ where: { scheduleItemId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
-  return rows.map((r) => ({ kind: r.kind as 'labour' | 'part', description: r.description, partNo: r.partNo, quantity: r.quantity.toString() }));
+  const prices = new Map((await ctx.tx.part.findMany({ where: { partNo: { in: rows.map((r) => r.partNo).filter((x): x is string => !!x) } }, select: { partNo: true, sellingPrice: true } })).map((p) => [p.partNo, p.sellingPrice.toString()]));
+  return rows.map((r) => ({ kind: r.kind as 'labour' | 'part' | 'check', description: r.description, partNo: r.partNo, quantity: r.quantity.toString(), sellingPrice: r.partNo ? (prices.get(r.partNo) ?? null) : null }));
 }
 
-export async function setPackageLines(ctx: EntityCtx, scheduleItemId: number, lines: { kind: 'labour' | 'part'; description: string; partNo?: string | null; quantity: string }[]) {
+export async function setPackageLines(ctx: EntityCtx, scheduleItemId: number, lines: { kind: 'labour' | 'part' | 'check'; description: string; partNo?: string | null; quantity: string }[]) {
   if (!ctx.access.hasGlobal(P.setupManage)) throw forbidden();
   const item = await ctx.tx.scheduleItem.findFirst({ where: { id: scheduleItemId }, select: { id: true, name: true } });
   if (!item) throw notFound('Service');
@@ -44,6 +44,9 @@ export async function setPackageLines(ctx: EntityCtx, scheduleItemId: number, li
   return packageLines(ctx, scheduleItemId);
 }
 
+/** Sales tax on the service charges (parts prices on the price list already include their sales tax). */
+export const SERVICE_TAX_PERCENT = '18';
+
 /** The store a job card's parts come from: its own branch, else the dealership's main branch. */
 async function storeBranchId(ctx: EntityCtx, dealershipId: number, branchId: number | null) {
   if (branchId) return branchId;
@@ -51,69 +54,72 @@ async function storeBranchId(ctx: EntityCtx, dealershipId: number, branchId: num
   return (main ?? (await ctx.tx.branch.findFirst({ where: { dealershipId }, orderBy: { id: 'asc' }, select: { id: true } })))?.id ?? null;
 }
 
-/**
- * Puts a periodic service on a job card: its labour as job card lines (the service itself, then what it includes)
- * and one parts request to the store for the parts to replace. The parts the store issues then appear on the job
- * card by themselves. `baseLine`: also the service's own labour line (hours x the labour rate).
- */
-export async function addServiceToJobCard(
-  ctx: EntityCtx,
-  card: { id: number; dealershipId: number; branchId: number | null },
-  scheduleItemId: number,
-  opts: { baseLine: boolean; freeVisit: boolean },
-) {
-  const item = await ctx.tx.scheduleItem.findFirst({ where: { id: scheduleItemId } });
-  if (!item) throw notFound('Service');
-  const includes = await ctx.tx.scheduleItemLine.findMany({ where: { scheduleItemId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
-  const rate = POLICIES.service.defaultLabourRatePerHour;
-  const baseDescription = `${item.name} (${item.dueKm.toLocaleString('en-PK')} km service)`;
-  if (await ctx.tx.jobCardLine.findFirst({ where: { jobCardId: card.id, description: baseDescription }, select: { id: true } })) {
-    throw conflict(`${item.name} is already on this job card`);
-  }
-
-  let added = 0;
-  const addLabour = async (description: string, hours: string) => {
-    await ctx.tx.jobCardLine.create({
-      data: { dealershipId: card.dealershipId, jobCardId: card.id, kind: 'labour', description, quantity: hours, unitPrice: rate, amount: lineAmount(rate, hours), billable: !opts.freeVisit, source: 'schedule' },
-      select: { id: true },
-    });
-    added += 1;
-  };
-  if (opts.baseLine) await addLabour(baseDescription, item.labourHours.toString());
-  for (const l of includes.filter((x) => x.kind === 'labour')) await addLabour(l.description, l.quantity.toString());
-
-  // The parts to replace: one request to the store (a part listed twice is asked for once, with the total).
-  const wanted = new Map<string, number>();
-  for (const l of includes.filter((x) => x.kind === 'part' && x.partNo)) wanted.set(l.partNo!, (wanted.get(l.partNo!) ?? 0) + Number(l.quantity));
-  let requestNo: string | null = null;
-  let warning: string | null = null;
-  if (wanted.size) {
-    const branchId = await storeBranchId(ctx, card.dealershipId, card.branchId);
-    if (!branchId) warning = 'No store branch to ask for the parts.';
-    else {
-      try {
-        const req = await createPartsRequest(ctx, {
-          jobCardId: card.id,
-          branchId,
-          notes: `${item.name} (${item.dueKm.toLocaleString('en-PK')} km): parts to replace`,
-          lines: [...wanted].map(([partNo, qty]) => ({ partNo, quantity: String(qty) })),
-        });
-        requestNo = (req as { requestNo?: string }).requestNo ?? null;
-      } catch (e) {
-        // The service is still added; the advisor asks for the parts by hand.
-        warning = `The parts could not be requested: ${(e as Error).message}`;
-      }
-    }
-  }
-  await ctx.audit({ entityType: 'service.job_card', entityId: card.id, action: 'update', dealershipId: card.dealershipId, branchId: card.branchId, changes: { serviceAdded: item.name, partsRequest: requestNo } });
-  return { linesAdded: added, partsRequested: wanted.size, partsRequestNo: requestNo, warning };
+interface ServiceInput {
+  scheduleItemId: number;
+  /** The advisor's service charges for this service, before sales tax (nothing is preset). */
+  serviceCharge?: string | null;
+  /** The parts to replace, as checked by the advisor: quantity, and a discount in percent where one is agreed. */
+  parts: { partNo: string; quantity: string; discountPercent?: string | null }[];
+  /** Send the parts request to the store now (the advisor has checked everything). */
+  sendToStore: boolean;
 }
 
-/** The advisor adds a periodic service (5,000 km ...) to an open job card. */
-export async function addService(ctx: EntityCtx, jobCardId: number, scheduleItemId: number) {
+/**
+ * The advisor puts a periodic service on the job card after checking what it includes: the service charges they
+ * entered (with the 18% sales tax added as its own line), and, when they click send, one parts request to the
+ * store for the parts (with their discounts). The parts the store issues then appear on the job card by themselves.
+ */
+export async function addService(ctx: EntityCtx, jobCardId: number, input: ServiceInput) {
   const jc = await jobCards.findVisible(ctx, jobCardId);
-  if (!ctx.access.canIn(P.jobCardsUpdate, { dealershipId: jc.dealershipId as number, branchId: (jc.branchId as number | null) ?? null })) throw forbidden();
+  const card = { id: jc.id as number, dealershipId: jc.dealershipId as number, branchId: (jc.branchId as number | null) ?? null };
+  if (!ctx.access.canIn(P.jobCardsUpdate, { dealershipId: card.dealershipId, branchId: card.branchId })) throw forbidden();
   if (!['open', 'in_progress'].includes(jc.status as string)) throw conflict(`This job card is ${jc.status}`);
   const visit = await ctx.tx.visit.findFirst({ where: { id: jc.visitId as number }, select: { freeService: true } });
-  return addServiceToJobCard(ctx, { id: jc.id as number, dealershipId: jc.dealershipId as number, branchId: (jc.branchId as number | null) ?? null }, scheduleItemId, { baseLine: true, freeVisit: !!visit?.freeService });
+  const freeVisit = !!visit?.freeService;
+  const item = await ctx.tx.scheduleItem.findFirst({ where: { id: input.scheduleItemId } });
+  if (!item) throw notFound('Service');
+
+  // "4th service (30,000 km)" already names the km; "Oil service" does not.
+  const km = item.dueKm.toLocaleString('en-PK');
+  const baseDescription = item.name.includes(km) ? item.name : `${item.name} (${km} km service)`;
+  const existing = await ctx.tx.jobCardLine.findFirst({ where: { jobCardId: card.id, description: baseDescription }, select: { id: true } });
+  let linesAdded = 0;
+  if (existing) {
+    // A scheduled-service visit already has the service's labour line from the schedule: it only learns which service it is.
+    await ctx.tx.jobCardLine.update({ where: { id: existing.id }, data: { scheduleItemId: item.id } });
+  } else {
+    const charge = input.serviceCharge?.trim();
+    if (!charge || !(Number(charge) >= 0)) throw validationError([{ in: 'body', path: 'serviceCharge', message: 'Enter the service charges (before tax)' }]);
+    const tax = taxOf(charge, SERVICE_TAX_PERCENT);
+    const add = async (description: string, price: string) => {
+      await ctx.tx.jobCardLine.create({
+        data: { dealershipId: card.dealershipId, jobCardId: card.id, scheduleItemId: description === baseDescription ? item.id : null, kind: 'labour', description, quantity: '1', unitPrice: price, amount: lineAmount(price, '1'), billable: !freeVisit, source: 'schedule' },
+        select: { id: true },
+      });
+      linesAdded += 1;
+    };
+    await add(baseDescription, charge);
+    if (Number(tax) > 0) await add(`Sales tax ${SERVICE_TAX_PERCENT}% on the service charges`, tax);
+  }
+
+  let requestNo: string | null = null;
+  let warning: string | null = null;
+  if (input.sendToStore && input.parts.length) {
+    const branchId = await storeBranchId(ctx, card.dealershipId, card.branchId);
+    if (!branchId) throw validationError([{ in: 'body', path: 'parts', message: 'No store branch to ask for the parts' }]);
+    const merged = new Map<string, { quantity: number; discountPercent: string }>();
+    for (const p of input.parts) {
+      const key = p.partNo.trim().toUpperCase();
+      merged.set(key, { quantity: (merged.get(key)?.quantity ?? 0) + Number(p.quantity), discountPercent: p.discountPercent ?? merged.get(key)?.discountPercent ?? '0' });
+    }
+    const req = await createPartsRequest(ctx, {
+      jobCardId: card.id,
+      branchId,
+      notes: `${baseDescription}: parts to replace`,
+      lines: [...merged].map(([partNo, v]) => ({ partNo, quantity: String(v.quantity), discountPercent: v.discountPercent })),
+    });
+    requestNo = (req as { requestNo?: string }).requestNo ?? null;
+  } else if (input.sendToStore) warning = 'There are no parts to send.';
+  await ctx.audit({ entityType: 'service.job_card', entityId: card.id, action: 'update', dealershipId: card.dealershipId, branchId: card.branchId, changes: { serviceAdded: item.name, serviceCharge: input.serviceCharge ?? null, partsRequest: requestNo } });
+  return { linesAdded, partsRequested: requestNo ? input.parts.length : 0, partsRequestNo: requestNo, warning };
 }

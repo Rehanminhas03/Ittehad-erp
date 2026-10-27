@@ -117,9 +117,10 @@ export const partsRequestView: EntityViewConfig<PartsRequest> = {
   list: {
     defaultSort: '-createdAt',
     searchPlaceholder: 'Search request number',
-    filters: [statusFilter(REQUEST_STATES), dealershipFilter],
+    filters: [statusFilter(REQUEST_STATES), { param: 'kind', label: 'Type', type: 'select', options: [{ value: 'request', label: 'Parts requests' }, { value: 'return', label: 'Returns from the workshop' }] }, dealershipFilter],
     columns: [
       { key: 'requestNo', header: 'Request', sortKey: 'requestNo', render: (r) => mono(r.requestNo) },
+      { key: 'kind', header: 'Type', render: (r) => (r.kind === 'return' ? 'Return' : 'Request') },
       { key: 'jobCardNo', header: 'Job card', render: (r) => mono(r.jobCardNo) },
       { key: 'branchName', header: 'Store', render: (r) => r.branchName },
       { key: 'requestedByName', header: 'Requested by', render: (r) => muted(r.requestedByName) },

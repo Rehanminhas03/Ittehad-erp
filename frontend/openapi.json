@@ -11944,6 +11944,54 @@
           "actorName"
         ]
       },
+      "PartsReturnCreate": {
+        "type": "object",
+        "properties": {
+          "jobCardId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partNo": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 60
+                },
+                "quantity": {
+                  "type": "string",
+                  "example": "2"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 120
+                }
+              },
+              "required": [
+                "partNo",
+                "quantity",
+                "reason"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "jobCardId",
+          "lines"
+        ]
+      },
       "PartsRequestCreate": {
         "type": "object",
         "properties": {
@@ -11975,6 +12023,10 @@
                 "quantity": {
                   "type": "string",
                   "example": "2"
+                },
+                "discountPercent": {
+                  "type": "string",
+                  "example": "2.5"
                 }
               },
               "required": [
@@ -12018,6 +12070,13 @@
             "type": "string"
           },
           "returnedQty": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountPercent": {
             "type": "string"
           },
           "onHand": {
@@ -13036,12 +13095,20 @@
             "type": "string",
             "nullable": true
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "request",
+              "return"
+            ]
+          },
           "status": {
             "type": "string",
             "enum": [
               "open",
               "partially_issued",
               "issued",
+              "returned",
               "cancelled"
             ]
           },
@@ -14536,7 +14603,8 @@
             "type": "string",
             "enum": [
               "labour",
-              "part"
+              "part",
+              "check"
             ]
           },
           "description": {
@@ -14548,6 +14616,10 @@
           },
           "quantity": {
             "type": "string"
+          },
+          "sellingPrice": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -14569,7 +14641,8 @@
                   "type": "string",
                   "enum": [
                     "labour",
-                    "part"
+                    "part",
+                    "check"
                   ]
                 },
                 "description": {
@@ -14631,6 +14704,41 @@
             "type": "integer",
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "serviceCharge": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partNo": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 60
+                },
+                "quantity": {
+                  "type": "string",
+                  "example": "1.5"
+                },
+                "discountPercent": {
+                  "type": "string",
+                  "example": "2.5"
+                }
+              },
+              "required": [
+                "partNo",
+                "quantity"
+              ]
+            },
+            "maxItems": 60,
+            "default": []
+          },
+          "sendToStore": {
+            "type": "boolean",
+            "default": false
           }
         },
         "required": [
@@ -15356,6 +15464,12 @@
           },
           "jobCardId": {
             "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "scheduleItemId": {
+            "type": "integer",
+            "nullable": true,
             "minimum": 0,
             "exclusiveMinimum": true
           },
@@ -42065,6 +42179,234 @@
         }
       }
     },
+    "/api/parts/requests/returns": {
+      "post": {
+        "operationId": "createPartsReturn",
+        "summary": "Send parts issued to a job card back to the store (the parts desk accepts them into stock)",
+        "description": "Requires: parts.requests.create",
+        "tags": [
+          "PartsRequest"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartsReturnCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "requestNo": {
+                      "type": "string"
+                    },
+                    "dealershipId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "branchId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "branchName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "jobCardId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "jobCardNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "requestedById": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "requestedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "request",
+                        "return"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "partially_issued",
+                        "issued",
+                        "returned",
+                        "cancelled"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "availableActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "requestNo",
+                    "dealershipId",
+                    "branchId",
+                    "jobCardId",
+                    "requestedById",
+                    "notes",
+                    "status",
+                    "createdAt",
+                    "updatedAt",
+                    "availableActions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/requests/returns/pending": {
+      "get": {
+        "operationId": "listPendingPartReturns",
+        "summary": "Parts on a job card that are waiting to be returned (part number to quantity)",
+        "description": "Requires: parts.requests.view",
+        "tags": [
+          "PartsRequest"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "jobCardId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/parts/requests": {
       "post": {
         "operationId": "createPartsRequest",
@@ -42139,12 +42481,20 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "request",
+                        "return"
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
                         "open",
                         "partially_issued",
                         "issued",
+                        "returned",
                         "cancelled"
                       ]
                     },
@@ -42271,11 +42621,24 @@
                 "open",
                 "partially_issued",
                 "issued",
+                "returned",
                 "cancelled"
               ]
             },
             "required": false,
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "request",
+                "return"
+              ]
+            },
+            "required": false,
+            "name": "kind",
             "in": "query"
           },
           {
@@ -45084,7 +45447,7 @@
       "post": {
         "operationId": "transitionPartsRequest",
         "summary": "Run a workflow action on PartsRequest",
-        "description": "Requires: parts.requests.cancel",
+        "description": "Requires: parts.requests.cancel | parts.issues.create",
         "tags": [
           "PartsRequest"
         ],
@@ -48178,6 +48541,12 @@
                     },
                     "jobCardId": {
                       "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "scheduleItemId": {
+                      "type": "integer",
+                      "nullable": true,
                       "minimum": 0,
                       "exclusiveMinimum": true
                     },

@@ -14,7 +14,8 @@ export function PartsRequestDesk({ request }: { request: PartsRequest }) {
   const [issue, { isLoading: issuing }] = useIssuePartsMutation();
   const [ret, { isLoading: returning }] = useReturnPartsMutation();
   const [qty, setQty] = useState<Record<number, string>>({});
-  const canIssue = perm.canIn(P.issuesCreate, request.dealershipId, request.branchId) && request.status !== 'cancelled';
+  const isReturn = request.kind === 'return';
+  const canIssue = !isReturn && perm.canIn(P.issuesCreate, request.dealershipId, request.branchId) && request.status !== 'cancelled';
   const chosen = (lines ?? []).filter((l) => Number(qty[l.id]) > 0).map((l) => ({ lineId: l.id, quantity: qty[l.id]!.trim() }));
 
   async function submit(kind: 'issue' | 'return') {
@@ -26,6 +27,44 @@ export function PartsRequestDesk({ request }: { request: PartsRequest }) {
     } catch (e) {
       toast.error(e);
     }
+  }
+
+  if (isReturn) {
+    return (
+      <Section title="Parts sent back by the workshop">
+        <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {request.status === 'open'
+            ? 'Check the parts you received, then use "Accept the return" above: the parts go back into stock and come off the job card by themselves. Nobody has to enter them by hand. Use "Cancel request" if you do not accept them.'
+            : request.status === 'returned'
+              ? 'Accepted: the parts are back in stock.'
+              : 'This return was not accepted.'}
+        </p>
+        {isLoading ? (
+          <Spinner className="size-4 text-slate-400" />
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
+                <th className="py-2 pr-2 font-medium">Part</th>
+                <th className="py-2 pr-2 text-right font-medium">Quantity</th>
+                <th className="py-2 pr-2 font-medium">Why</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {lines?.map((l) => (
+                <tr key={l.id}>
+                  <td className="py-2 pr-2">
+                    <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
+                  </td>
+                  <td className="py-2 pr-2 text-right tabular-nums">{n(l.quantity)}</td>
+                  <td className="py-2 pr-2 text-slate-700">{l.reason ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Section>
+    );
   }
 
   return (

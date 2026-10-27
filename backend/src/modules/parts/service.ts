@@ -5,7 +5,7 @@ import { LineService } from '../../entity/lines';
 import type { EntityCtx, Row } from '../../entity/types';
 import { publish } from '../../events/bus';
 import { conflict, forbidden, validationError } from '../../lib/errors';
-import { lineAmount } from '../../lib/money';
+import { lessPercent, lineAmount } from '../../lib/money';
 import { type PageQuery, offsetOf } from '../../lib/pagination';
 import type { z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
@@ -295,7 +295,7 @@ export async function createPartsRequest(ctx: EntityCtx, input: z.output<typeof 
     },
   });
   await ctx.tx.partsRequestLine.createMany({
-    data: resolved.map((r) => ({ dealershipId: target.dealershipId, partsRequestId: req!.id, partId: r.part.id, partNo: r.part.partNo, description: r.part.description, quantity: r.quantity })),
+    data: resolved.map((r) => ({ dealershipId: target.dealershipId, partsRequestId: req!.id, partId: r.part.id, partNo: r.part.partNo, description: r.part.description, quantity: r.quantity, discountPercent: r.discountPercent ?? '0' })),
   });
   await ctx.audit({ entityType: 'parts.parts_request', entityId: req!.id, action: 'create', ...target, changes: input });
   return partsRequests.get(ctx, req!.id);
@@ -306,12 +306,13 @@ export async function partsRequestLines(ctx: EntityCtx, requestId: number) {
   const req = await partsRequests.findVisible(ctx, requestId);
   return query<{
     id: number; partId: number; partNo: string; description: string;
-    quantity: string; issuedQty: string; returnedQty: string; onHand: string | null;
+    quantity: string; issuedQty: string; returnedQty: string; discountPercent: string; reason: string | null; onHand: string | null;
   }>(
     ctx.tx,
     sql`select ${partsRequestLine.id} as "id", ${partsRequestLine.partId} as "partId", ${partsRequestLine.partNo} as "partNo",
                ${partsRequestLine.description} as "description", ${partsRequestLine.quantity}::text as "quantity",
                ${partsRequestLine.issuedQty}::text as "issuedQty", ${partsRequestLine.returnedQty}::text as "returnedQty",
+               ${partsRequestLine.discountPercent}::text as "discountPercent", ${partsRequestLine.reason} as "reason",
                ${stockItem.quantityOnHand}::text as "onHand"
           from ${partsRequestLine}
           left join ${stockItem} on ${stockItem.partId} = ${partsRequestLine.partId} and ${stockItem.branchId} = ${req.branchId as number}
@@ -324,6 +325,7 @@ export async function partsRequestLines(ctx: EntityCtx, requestId: number) {
 async function requestForIssue(ctx: EntityCtx, requestId: number) {
   const req = await partsRequests.findVisible(ctx, requestId, { lock: true });
   if (!partsRequests.canOnRow(ctx.access, req, P.issuesCreate)) throw forbidden();
+  if (req.kind === 'return') throw conflict('This is a return from the workshop: accept it or cancel it');
   // The job card is authorised through the request (the parts desk need not see the workshop).
   const jc = await jobCards.findById(ctx, req.jobCardId as number, { lock: true });
   if (!['open', 'in_progress'].includes(jc.status as string)) throw conflict(`The job card is ${jc.status}`);
@@ -378,7 +380,7 @@ export async function issueParts(ctx: EntityCtx, requestId: number, input: z.out
     if (jobCardLineId) {
       await ctx.tx.jobCardLine.updateMany({
         where: { id: jobCardLineId },
-        data: { quantity: issued, amount: lineAmount(p!.sellingPrice, issued) },
+        data: { quantity: issued, amount: lessPercent(lineAmount(p!.sellingPrice, issued), rl.discountPercent.toString()) },
       });
     } else {
       const created = await ctx.tx.jobCardLine.create({
@@ -390,7 +392,8 @@ export async function issueParts(ctx: EntityCtx, requestId: number, input: z.out
           partNo: rl.partNo,
           quantity: issued,
           unitPrice: p!.sellingPrice,
-          amount: lineAmount(p!.sellingPrice, issued),
+          discountPercent: rl.discountPercent.toString(),
+          amount: lessPercent(lineAmount(p!.sellingPrice, issued), rl.discountPercent.toString()),
           source: 'parts',
           status: 'done',
           doneById: ctx.access.userId,

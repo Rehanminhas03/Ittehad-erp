@@ -252,6 +252,7 @@ export const resultExtension = {
     issuedQty: { needs: { issuedQty: true }, compute: (r: { issuedQty: { toFixed(dp: number): string } }) => fromDecimal(r.issuedQty, 2) },
     returnedQty: { needs: { returnedQty: true }, compute: (r: { returnedQty: { toFixed(dp: number): string } }) => fromDecimal(r.returnedQty, 2) },
     jobCardLineId: { needs: { jobCardLineId: true }, compute: (r: { jobCardLineId: bigint | null }) => fromBigInt(r.jobCardLineId) },
+    discountPercent: { needs: { discountPercent: true }, compute: (r: { discountPercent: { toFixed(dp: number): string } }) => fromDecimal(r.discountPercent, 2) },
   },
   purchaseOrder: {
     id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
@@ -501,6 +502,7 @@ export const resultExtension = {
     id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
     dealershipId: { needs: { dealershipId: true }, compute: (r: { dealershipId: bigint }) => fromBigInt(r.dealershipId) },
     jobCardId: { needs: { jobCardId: true }, compute: (r: { jobCardId: bigint }) => fromBigInt(r.jobCardId) },
+    scheduleItemId: { needs: { scheduleItemId: true }, compute: (r: { scheduleItemId: bigint | null }) => fromBigInt(r.scheduleItemId) },
     quantity: { needs: { quantity: true }, compute: (r: { quantity: { toFixed(dp: number): string } }) => fromDecimal(r.quantity, 2) },
     unitPrice: { needs: { unitPrice: true }, compute: (r: { unitPrice: { toFixed(dp: number): string } }) => fromDecimal(r.unitPrice, 2) },
     amount: { needs: { amount: true }, compute: (r: { amount: { toFixed(dp: number): string } }) => fromDecimal(r.amount, 2) },

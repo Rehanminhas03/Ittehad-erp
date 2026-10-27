@@ -83,7 +83,8 @@ const ALL_SECTIONS: NavSection[] = [
     items: [
       { label: 'Store stock', to: '/parts/inventory', any: ['parts.stock.view'] },
       { label: 'Receive parts', to: '/parts/receive', any: ['parts.receipts.create'] },
-      { label: 'Parts requests', to: '/parts/requests', any: ['parts.requests.view'] },
+      { label: 'Parts requests', to: '/parts/requests?kind=request', any: ['parts.requests.view'] },
+      { label: 'Part returns (from the workshop)', to: '/parts/requests?kind=return', any: ['parts.requests.view'] },
       { label: 'Issue parts (RO / job card)', to: '/parts/issue', any: ['parts.issues.create'] },
       { label: 'Store report', to: '/parts/report', any: ['parts.stock.view'] },
       { label: 'Price list', to: '/parts/prices', any: ['parts.catalog.view'] },

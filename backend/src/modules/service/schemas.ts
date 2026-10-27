@@ -178,14 +178,14 @@ export const CheckInCustomerSchema = z
 
 /** What a periodic service includes: labour (quantity = hours) and parts to replace. */
 export const PackageLineSchema = z
-  .object({ kind: z.enum(['labour', 'part']), description: z.string(), partNo: z.string().nullable(), quantity: z.string() })
+  .object({ kind: z.enum(['labour', 'part', 'check']), description: z.string(), partNo: z.string().nullable(), quantity: z.string(), sellingPrice: z.string().nullable().optional() })
   .openapi('ServicePackageLine');
 export const PackageLinesBody = z
   .object({
     lines: z
       .array(
         z.object({
-          kind: z.enum(['labour', 'part']),
+          kind: z.enum(['labour', 'part', 'check']),
           description: z.string().trim().min(2).max(160),
           partNo: z.string().trim().max(60).nullish(),
           quantity: Quantity.default('1'),
@@ -194,7 +194,16 @@ export const PackageLinesBody = z
       .max(60),
   })
   .openapi('ServicePackageLines');
-export const AddServiceBody = z.object({ scheduleItemId: Id }).openapi('AddServiceToJobCard');
+export const AddServiceBody = z
+  .object({
+    scheduleItemId: Id,
+    /** The advisor's service charges before sales tax (18% is added as its own line). */
+    serviceCharge: Money.nullish(),
+    parts: z.array(z.object({ partNo: z.string().trim().min(2).max(60), quantity: Quantity, discountPercent: DiscountPercent.optional() })).max(60).default([]),
+    /** Send the parts request to the store now. */
+    sendToStore: z.boolean().default(false),
+  })
+  .openapi('AddServiceToJobCard');
 export const AddServiceResultSchema = z
   .object({ linesAdded: z.number().int(), partsRequested: z.number().int(), partsRequestNo: z.string().nullable(), warning: z.string().nullable() })
   .openapi('AddServiceResult');
@@ -307,6 +316,8 @@ const lineFields = {
 export const JobCardLineSchema = z.object({
   id: Id,
   jobCardId: Id,
+  /** The periodic service this line is (what it includes is listed under it). */
+  scheduleItemId: Id.nullable().optional(),
   kind: z.enum(LINE_KINDS),
   description: z.string(),
   partNo: z.string().nullable(),

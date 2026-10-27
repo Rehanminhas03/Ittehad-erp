@@ -258,6 +258,29 @@ const injectedRtkApi = api
         }),
         providesTags: ["StockMovement"],
       }),
+      createPartsReturn: build.mutation<
+        CreatePartsReturnApiResponse,
+        CreatePartsReturnApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/requests/returns`,
+          method: "POST",
+          body: queryArg.partsReturnCreate,
+        }),
+        invalidatesTags: ["PartsRequest"],
+      }),
+      listPendingPartReturns: build.query<
+        ListPendingPartReturnsApiResponse,
+        ListPendingPartReturnsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/requests/returns/pending`,
+          params: {
+            jobCardId: queryArg.jobCardId,
+          },
+        }),
+        providesTags: ["PartsRequest"],
+      }),
       createPartsRequest: build.mutation<
         CreatePartsRequestApiResponse,
         CreatePartsRequestApiArg
@@ -281,6 +304,7 @@ const injectedRtkApi = api
             sort: queryArg.sort,
             q: queryArg.q,
             status: queryArg.status,
+            kind: queryArg.kind,
             jobCardId: queryArg.jobCardId,
             branchId: queryArg.branchId,
             dealershipId: queryArg.dealershipId,
@@ -1062,6 +1086,32 @@ export type ListStockMovementsApiArg = {
   from?: string;
   to?: string;
 };
+export type CreatePartsReturnApiResponse = /** status 201 Success */ {
+  id: number;
+  requestNo: string;
+  dealershipId: number;
+  branchId: number;
+  branchName?: string | null;
+  jobCardId: number;
+  jobCardNo?: string | null;
+  requestedById: number;
+  requestedByName?: string | null;
+  notes: string | null;
+  kind?: "request" | "return";
+  status: "open" | "partially_issued" | "issued" | "returned" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type CreatePartsReturnApiArg = {
+  partsReturnCreate: PartsReturnCreate;
+};
+export type ListPendingPartReturnsApiResponse = /** status 200 Success */ {
+  [key: string]: string;
+};
+export type ListPendingPartReturnsApiArg = {
+  jobCardId: number;
+};
 export type CreatePartsRequestApiResponse = /** status 201 Success */ {
   id: number;
   requestNo: string;
@@ -1073,7 +1123,8 @@ export type CreatePartsRequestApiResponse = /** status 201 Success */ {
   requestedById: number;
   requestedByName?: string | null;
   notes: string | null;
-  status: "open" | "partially_issued" | "issued" | "cancelled";
+  kind?: "request" | "return";
+  status: "open" | "partially_issued" | "issued" | "returned" | "cancelled";
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1088,7 +1139,8 @@ export type ListPartsRequestsApiArg = {
   pageSize?: number;
   sort?: string;
   q?: string;
-  status?: "open" | "partially_issued" | "issued" | "cancelled";
+  status?: "open" | "partially_issued" | "issued" | "returned" | "cancelled";
+  kind?: "request" | "return";
   jobCardId?: number;
   branchId?: number;
   dealershipId?: number;
@@ -1726,6 +1778,15 @@ export type StockMovementPage = {
   page: number;
   pageSize: number;
 };
+export type PartsReturnCreate = {
+  jobCardId: number;
+  notes?: string | null;
+  lines: {
+    partNo: string;
+    quantity: string;
+    reason: string;
+  }[];
+};
 export type PartsRequestCreate = {
   jobCardId: number;
   branchId: number;
@@ -1733,6 +1794,7 @@ export type PartsRequestCreate = {
   lines: {
     partNo: string;
     quantity: string;
+    discountPercent?: string;
   }[];
 };
 export type PartsRequest = {
@@ -1746,7 +1808,8 @@ export type PartsRequest = {
   requestedById: number;
   requestedByName?: string | null;
   notes: string | null;
-  status: "open" | "partially_issued" | "issued" | "cancelled";
+  kind?: "request" | "return";
+  status: "open" | "partially_issued" | "issued" | "returned" | "cancelled";
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1765,6 +1828,8 @@ export type PartsRequestLine = {
   quantity: string;
   issuedQty: string;
   returnedQty: string;
+  reason?: string | null;
+  discountPercent?: string;
   onHand?: string | null;
 };
 export type IssuePartsRequest = {
@@ -2132,6 +2197,9 @@ export const {
   useLazyGetStockSheetQuery,
   useListStockMovementsQuery,
   useLazyListStockMovementsQuery,
+  useCreatePartsReturnMutation,
+  useListPendingPartReturnsQuery,
+  useLazyListPendingPartReturnsQuery,
   useCreatePartsRequestMutation,
   useListPartsRequestsQuery,
   useLazyListPartsRequestsQuery,

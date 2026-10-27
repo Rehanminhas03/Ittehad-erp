@@ -1,19 +1,19 @@
-import { useDispatch } from 'react-redux';
-import { useGetVehicleQuery } from '@/features/crm/crmApi';
-import { partsApi } from '@/features/parts/partsApi';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { PartPicker } from '@/features/parts/components/PartPicker';
+import { ReturnPartButton } from '@/features/parts/components/ReturnPartButton';
+import { useListPendingPartReturnsQuery } from '@/features/parts/partsApi';
+import { PeriodicServiceDialog } from '../PeriodicServiceDialog';
+import { ServiceIncludes } from '../ServiceIncludes';
 import { LineItemsTable, type LineDraft } from '@/shared/components';
-import { Badge, Checkbox, Section, Select, Spinner } from '@/shared/components/ui';
-import { formatNumber } from '@/shared/lib';
+import { Badge, Button, Checkbox, Section, Spinner } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { LINE_KINDS, P } from '../../permissions';
 import {
   type JobCard,
   type JobCardLine,
   useAddJobCardLineMutation,
-  useAddServiceToJobCardMutation,
   useListJobCardLinesQuery,
-  useListScheduleItemsQuery,
   useRemoveJobCardLineMutation,
   useSetJobCardLineDoneMutation,
   useUpdateJobCardLineMutation,
@@ -37,11 +37,11 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
   const [update] = useUpdateJobCardLineMutation();
   const [remove] = useRemoveJobCardLineMutation();
   const [setDone] = useSetJobCardLineDoneMutation();
-  const [addService, { isLoading: addingService }] = useAddServiceToJobCardMutation();
-  const dispatch = useDispatch();
-  // The services of the car's model (1st service, 5,000 km ... ) offered when adding labour.
-  const { data: vehicle } = useGetVehicleQuery({ id: jobCard.vehicleId });
-  const { data: services } = useListScheduleItemsQuery({ modelId: vehicle?.modelId ?? 0, isActive: 'true', pageSize: 50, sort: 'sequence' }, { skip: !vehicle?.modelId });
+  // The periodic service form: opened by the button, or straight after check-in (?service=<id>).
+  const [params, setParams] = useSearchParams();
+  const [periodic, setPeriodic] = useState(params.has('service'));
+  // Parts sent back to the store and not yet accepted (part number to quantity).
+  const { data: pendingReturns } = useListPendingPartReturnsQuery({ jobCardId: jobCard.id }, { skip: !perm.can('parts.requests.view') });
   const closed = ['completed', 'cancelled'].includes(jobCard.status);
   const canEdit = !closed && perm.canIn(P.jobCardsUpdate, jobCard.dealershipId, jobCard.branchId);
   const canWork = jobCard.status === 'in_progress' && perm.canIn(P.jobCardsWork, jobCard.dealershipId, jobCard.branchId);
@@ -65,32 +65,11 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
           addHelper={(kind, fill) =>
             kind === 'part' ? (
               <PartPicker placeholder="Search the part by number or name, then choose it…" onPick={(p) => fill({ partNo: p.partNo, description: p.description, unitPrice: p.sellingPrice })} />
-            ) : services?.items.length ? (
-              <Select
-                value=""
-                disabled={addingService}
-                aria-label="Add a periodic service"
-                onChange={async (e) => {
-                  const id = Number(e.target.value);
-                  if (!id) return;
-                  try {
-                    const r = await addService({ id: jobCard.id, addServiceToJobCard: { scheduleItemId: id } }).unwrap();
-                    dispatch(partsApi.util.invalidateTags(['PartsRequest']));
-                    toast.success(`Service added: ${r.linesAdded} work line${r.linesAdded === 1 ? '' : 's'}${r.partsRequestNo ? `, parts requested from the store (${r.partsRequestNo})` : ''}`);
-                    if (r.warning) toast.error(r.warning);
-                  } catch (err) {
-                    toast.error(err);
-                  }
-                }}
-              >
-                <option value="">Add a periodic service (5,000 km, 10,000 km ...): its work and parts are added, or type the work below</option>
-                {services.items.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} · {formatNumber(s.dueKm)} km{s.isFree ? ' · free labour' : ''}
-                  </option>
-                ))}
-              </Select>
-            ) : null
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => setPeriodic(true)}>
+                + Add a periodic service (5,000 km, 30,000 km ...)
+              </Button>
+            )
           }
           kinds={LINE_KINDS}
           editable={canEdit}
@@ -104,6 +83,12 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
               {l.source === 'schedule' && 'Scheduled service'}
               {!l.billable && <> · <Badge tone="green">Free of charge</Badge></>}
               {l.billable && l.kind === 'part' && <> · <Badge tone="amber">Charged to the customer</Badge></>}
+              {l.scheduleItemId && <ServiceIncludes scheduleItemId={l.scheduleItemId} />}
+              {l.source === 'parts' && l.partNo && !closed && perm.canIn('parts.requests.create', jobCard.dealershipId, jobCard.branchId) && (
+                <div className="mt-1">
+                  <ReturnPartButton jobCardId={jobCard.id} partNo={l.partNo} description={l.description} issuedQty={Number(l.quantity)} pendingQty={Number(pendingReturns?.[l.partNo] ?? 0)} />
+                </div>
+              )}
             </>
           )}
           extraHeader="Done"
@@ -121,6 +106,19 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
               <Badge>Pending</Badge>
             )
           }
+        />
+      )}
+      {periodic && (
+        <PeriodicServiceDialog
+          jobCard={jobCard}
+          initialServiceId={Number(params.get('service')) || null}
+          onClose={() => {
+            setPeriodic(false);
+            if (params.has('service')) {
+              params.delete('service');
+              setParams(params, { replace: true });
+            }
+          }}
         />
       )}
     </Section>

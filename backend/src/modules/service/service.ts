@@ -16,7 +16,6 @@ import { findDuplicateCustomer, findVehicleByIdentifiers, isLinked, modelNames }
 import { mobileSearchTerm, normalizeCnic, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { pakistanToday } from '../../lib/dates';
 import { previewCheckIn } from './checkin';
-import { addServiceToJobCard } from './packages';
 import { estimates, jobCards, visits } from './entities';
 import { estimate, estimateLine, inspection, jobCardLine } from './models';
 import { ServicePerm as P } from './permissions';
@@ -225,16 +224,16 @@ export async function openJobCard(ctx: EntityCtx, visitId: number) {
 
   if (v.scheduleEntryId) {
     const entry = await ctx.tx.vehicleSchedule.findFirst({ where: { id: v.scheduleEntryId as number } });
-    // A periodic service from the model's schedule: its labour and a parts request for what it includes.
-    if (entry?.scheduleItemId) await addServiceToJobCard(ctx, { id: card.id, dealershipId: target.dealershipId, branchId: target.branchId }, entry.scheduleItemId, { baseLine: true, freeVisit: !!v.freeService });
-    else if (entry) {
+    if (entry) {
       const rate = POLICIES.service.defaultLabourRatePerHour;
       await ctx.tx.jobCardLine.create({
         data: {
           dealershipId: target.dealershipId,
           jobCardId: card.id,
           kind: 'labour',
-          description: `${entry.name} (${entry.dueKm.toLocaleString('en-PK')} km service)`,
+          scheduleItemId: entry.scheduleItemId,
+          // "4th service (30,000 km)" already names the km; "Oil service" does not.
+          description: entry.name.includes(entry.dueKm.toLocaleString('en-PK')) ? entry.name : `${entry.name} (${entry.dueKm.toLocaleString('en-PK')} km service)`,
           quantity: entry.labourHours,
           unitPrice: rate,
           amount: lineAmount(rate, entry.labourHours),

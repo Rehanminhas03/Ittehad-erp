@@ -467,6 +467,8 @@ export const PartsRequestSchema = z.object({
   requestedById: Id,
   requestedByName: z.string().nullable().optional(),
   notes: z.string().nullable(),
+  /** 'request' (the workshop asks for parts) or 'return' (it sends parts back to the store). */
+  kind: z.enum(['request', 'return']).optional(),
   status: z.enum(REQUEST_STATES),
   createdAt: Timestamp,
   updatedAt: Timestamp,
@@ -480,16 +482,26 @@ export const PartsRequestLineSchema = z
     quantity: z.string(),
     issuedQty: z.string(),
     returnedQty: z.string(),
+    reason: z.string().nullable().optional(),
+    discountPercent: z.string().optional(),
     onHand: z.string().nullable().optional(),
   })
   .openapi('PartsRequestLine');
+/** The workshop sends parts issued to a job card back to the store (not used, replaced, wrong part ...). */
+export const PartsReturnCreate = z
+  .object({
+    jobCardId: Id,
+    notes: optionalText(2000),
+    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, reason: z.string().trim().min(2).max(120) })).min(1).max(50),
+  })
+  .openapi('PartsReturnCreate');
 export const PartsRequestCreate = z
   .object({
     jobCardId: Id,
     /** Store branch to issue from. */
     branchId: Id,
     notes: optionalText(2000),
-    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity })).min(1).max(50),
+    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, discountPercent: DiscountPercent.optional() })).min(1).max(50),
   })
   .openapi('PartsRequestCreate');
 export const IssueBody = z

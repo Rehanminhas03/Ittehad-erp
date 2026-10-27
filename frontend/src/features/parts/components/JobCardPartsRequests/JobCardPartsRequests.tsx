@@ -49,6 +49,7 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
             <li key={r.id} className="flex items-center justify-between py-2 text-sm">
               <Link to={`/parts/requests/${r.id}`} className="font-mono text-xs text-slate-800 hover:text-brand-700">
                 {r.requestNo}
+                {r.kind === 'return' && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-amber-800">Return</span>}
               </Link>
               <span className="flex items-center gap-3 text-slate-500">
                 {r.branchName} · {formatDateTime(r.createdAt)}

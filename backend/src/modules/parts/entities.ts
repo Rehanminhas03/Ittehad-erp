@@ -269,7 +269,8 @@ export const partsRequestEntity: EntityConfig = {
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   search: ['requestNo'],
   filters: {
-    status: statusFilter(['open', 'partially_issued', 'issued', 'cancelled']),
+    status: statusFilter(['open', 'partially_issued', 'issued', 'returned', 'cancelled']),
+    kind: { key: 'kind', schema: z.enum(['request', 'return']) },
     jobCardId: { key: 'jobCardId', schema: IdQuery },
     branchId: { key: 'branchId', schema: IdQuery },
   },
@@ -281,10 +282,21 @@ export const partsRequestEntity: EntityConfig = {
       { key: 'open', label: 'Open' },
       { key: 'partially_issued', label: 'Partially issued' },
       { key: 'issued', label: 'Issued', terminal: true },
+      { key: 'returned', label: 'Returned to store', terminal: true },
       { key: 'cancelled', label: 'Cancelled', terminal: true },
     ],
     transitions: [
       { action: 'cancel', label: 'Cancel request', from: ['open'], to: 'cancelled', permission: P.requestsCancel, requiresComment: true },
+      // A return the workshop sent: the parts desk checks the parts and accepts them back into stock.
+      {
+        action: 'accept_return',
+        label: 'Accept the return (parts back into stock)',
+        from: ['open'],
+        to: 'returned',
+        permission: P.issuesCreate,
+        guard: (_ctx, row) => (row.kind === 'return' ? null : 'This is not a return'),
+        effect: async (ctx, row) => (await import('./returns')).acceptPartsReturn(ctx, row),
+      },
       { action: 'issue_partial', label: 'Partly issued', from: ['open', 'partially_issued'], to: 'partially_issued', permission: P.issuesCreate, system: true },
       { action: 'issue_full', label: 'Issued', from: ['open', 'partially_issued'], to: 'issued', permission: P.issuesCreate, system: true },
     ],

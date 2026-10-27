@@ -1010,6 +1010,8 @@ model PartsRequest {
   jobCardId         BigInt             @map("job_card_id")
   requestedById     BigInt             @map("requested_by_id")
   notes             String?
+  /// 'request' (the workshop asks for parts) or 'return' (the workshop sends unused / replaced parts back; the store accepts).
+  kind              String             @default("request")
   status            String             @default("open")
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1046,6 +1048,10 @@ model PartsRequestLine {
   issuedQty      Decimal      @default(0) @map("issued_qty") @db.Decimal(12, 2)
   returnedQty    Decimal      @default(0) @map("returned_qty") @db.Decimal(12, 2)
   jobCardLineId  BigInt?      @map("job_card_line_id")
+  /// A return: why the part goes back (not used, replaced, wrong part ...).
+  reason         String?
+  /// A discount agreed for the part (percent); the job card line is charged net of it when the store issues it.
+  discountPercent Decimal     @default(0) @map("discount_percent") @db.Decimal(5, 2)
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   dealership     Dealership   @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_line_dealership_id_dealership_id_fk")
   part           Part         @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_line_part_id_part_id_fk")
@@ -1940,6 +1946,8 @@ model JobCardLine {
   id             BigInt     @id @default(autoincrement())
   dealershipId   BigInt     @map("dealership_id")
   jobCardId      BigInt     @map("job_card_id")
+  /// A periodic service line: the service of the model's schedule (what it includes is shown under it).
+  scheduleItemId BigInt?    @map("schedule_item_id")
   kind           String
   description    String
   partNo         String?    @map("part_no")
@@ -2001,7 +2009,7 @@ model ScheduleItem {
 model ScheduleItemLine {
   id             BigInt       @id @default(autoincrement())
   scheduleItemId BigInt       @map("schedule_item_id")
-  /// 'labour' (quantity = hours) or 'part' (a catalogue part number to replace).
+  /// 'labour' (quantity = hours), 'part' (a catalogue part number to replace) or 'check' (an inspection point the service covers).
   kind           String
   description    String
   partNo         String?      @map("part_no")

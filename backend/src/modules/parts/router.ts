@@ -2,7 +2,7 @@ import { buildEntityRouter } from '../../entity/buildEntityRouter';
 import { buildLineRouter } from '../../entity/lines';
 import { ApiRouter } from '../../http/apiRouter';
 import { PageQuery, pageSchema } from '../../lib/pagination';
-import { IdParam, z } from '../../lib/zod';
+import { IdParam, IdQuery, z } from '../../lib/zod';
 import {
   adjustments,
   goodsReceiptEntity,
@@ -22,6 +22,7 @@ import {
   transfers,
 } from './entities';
 import { PartsPerm as P } from './permissions';
+import * as returns from './returns';
 import {
   DirectIssueBody,
   DirectIssueResultSchema,
@@ -52,6 +53,7 @@ import {
   PartImportBody,
   PartImportResultSchema,
   PartsRequestCreate,
+  PartsReturnCreate,
   PartsRequestLineSchema,
   PartsRequestSchema,
   ReceiveBody,
@@ -285,6 +287,27 @@ const movements = new ApiRouter('/parts/movements', 'StockMovement').route({
 });
 
 const requestActions = new ApiRouter('/parts/requests', 'PartsRequest')
+  .route({
+    method: 'post',
+    path: '/returns',
+    operationId: 'createPartsReturn',
+    summary: 'Send parts issued to a job card back to the store (the parts desk accepts them into stock)',
+    permission: P.requestsCreate,
+    body: PartsReturnCreate,
+    response: RequestRead,
+    status: 201,
+    handler: (ctx) => returns.createPartsReturn(ctx, ctx.body),
+  })
+  .route({
+    method: 'get',
+    path: '/returns/pending',
+    operationId: 'listPendingPartReturns',
+    summary: 'Parts on a job card that are waiting to be returned (part number to quantity)',
+    permission: P.requestsView,
+    query: z.object({ jobCardId: IdQuery }),
+    response: z.record(z.string(), z.string()),
+    handler: (ctx) => returns.pendingReturnQuantities(ctx, ctx.query.jobCardId),
+  })
   .route({
     method: 'post',
     path: '/',

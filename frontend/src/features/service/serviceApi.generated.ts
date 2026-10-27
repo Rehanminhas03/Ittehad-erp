@@ -697,6 +697,7 @@ export type ListJobCardTechniciansApiArg = {
 export type SetJobCardLineDoneApiResponse = /** status 200 Success */ {
   id: number;
   jobCardId: number;
+  scheduleItemId?: number | null;
   kind: "labour" | "part";
   description: string;
   partNo: string | null;
@@ -1167,14 +1168,15 @@ export type VehicleScheduleEntry = {
   completedOn: string | null;
 };
 export type ServicePackageLine = {
-  kind: "labour" | "part";
+  kind: "labour" | "part" | "check";
   description: string;
   partNo: string | null;
   quantity: string;
+  sellingPrice?: string | null;
 };
 export type ServicePackageLines = {
   lines: {
-    kind: "labour" | "part";
+    kind: "labour" | "part" | "check";
     description: string;
     partNo?: string | null;
     quantity?: string;
@@ -1188,6 +1190,13 @@ export type AddServiceResult = {
 };
 export type AddServiceToJobCard = {
   scheduleItemId: number;
+  serviceCharge?: string;
+  parts?: {
+    partNo: string;
+    quantity: string;
+    discountPercent?: string;
+  }[];
+  sendToStore?: boolean;
 };
 export type InspectionItem = {
   id: number;
@@ -1395,6 +1404,7 @@ export type VisitUpdate = {
 export type JobCardLine = {
   id: number;
   jobCardId: number;
+  scheduleItemId?: number | null;
   kind: "labour" | "part";
   description: string;
   partNo: string | null;

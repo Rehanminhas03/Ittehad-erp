@@ -4,7 +4,7 @@ export { part, supplier, purchaseOrder, purchaseOrderLine, goodsReceipt, goodsRe
 
 export const UOMS = ['each', 'set', 'litre', 'kg', 'metre'] as const;
 export const PO_STATES = ['draft', 'submitted', 'approved', 'partially_received', 'received', 'cancelled'] as const;
-export const REQUEST_STATES = ['open', 'partially_issued', 'issued', 'cancelled'] as const;
+export const REQUEST_STATES = ['open', 'partially_issued', 'issued', 'returned', 'cancelled'] as const;
 export const TRANSFER_STATES = ['draft', 'dispatched', 'received', 'cancelled'] as const;
 export const ADJUSTMENT_STATES = ['draft', 'submitted', 'posted', 'rejected'] as const;
 export const MOVEMENT_TYPES = ['receipt', 'issue', 'return', 'transfer_out', 'transfer_in', 'adjustment'] as const;
