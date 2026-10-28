@@ -3,7 +3,7 @@ import { sql } from '../../db/sql';
 import { EntityService } from '../../entity/entityService';
 import { withNames } from '../../entity/names';
 import type { EntityConfig, EntityCtx, Row } from '../../entity/types';
-import { conflict, validationError } from '../../lib/errors';
+import { conflict, HttpError, validationError } from '../../lib/errors';
 import { cmpMoney } from '../../lib/money';
 import { BoolQuery, IdQuery, z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
@@ -243,6 +243,36 @@ export const jobCardEntity: EntityConfig = {
         effect: async (ctx, row) => {
           await ctx.tx.jobCard.update({ where: { id: row.id }, data: { completedAt: new Date() } });
           await visits.transition(ctx, row.visitId as number, 'ready', undefined, { system: true });
+        },
+      },
+      {
+        // The advisor's close: "everything is done". No technician or manager step is needed; the work still
+        // pending is marked done, the visit is ready and the draft invoice is made for the cashier.
+        action: 'close',
+        label: 'Everything is done: close the job card',
+        from: ['open', 'in_progress'],
+        to: 'completed',
+        permission: P.jobCardsClose,
+        guard: async (ctx, row) => {
+          if (!(await ctx.tx.jobCardLine.count({ where: { jobCardId: row.id } }))) return 'Add the work done before closing the job card';
+          if (await ctx.tx.estimate.count({ where: { jobCardId: row.id, status: 'submitted' } })) return 'An estimate is still waiting for approval';
+          return null;
+        },
+        effect: async (ctx, row) => {
+          const now = new Date();
+          await ctx.tx.jobCardLine.updateMany({ where: { jobCardId: row.id, status: 'pending' }, data: { status: 'done', doneById: ctx.access.userId, doneAt: now } });
+          await ctx.tx.jobCard.update({ where: { id: row.id }, data: { startedAt: (row.startedAt as Date | null) ?? now, completedAt: now } });
+          const visit = await ctx.tx.visit.findFirst({ where: { id: row.visitId as number }, select: { status: true } });
+          if (visit?.status === 'open') await visits.transition(ctx, row.visitId as number, 'start', undefined, { system: true });
+          await visits.transition(ctx, row.visitId as number, 'ready', undefined, { system: true });
+          // Straight on to the invoice: a draft for the cashier. Nothing billable (a free service) or no right to
+          // invoice here: the job card is still closed.
+          try {
+            const { createInvoiceFromSource } = await import('../accounts/service');
+            await createInvoiceFromSource(ctx, { sourceType: 'job_card', sourceId: row.id as number });
+          } catch (e) {
+            if (!(e instanceof HttpError) || ![403, 409].includes(e.status)) throw e;
+          }
         },
       },
     ],

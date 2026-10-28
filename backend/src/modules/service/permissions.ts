@@ -13,6 +13,7 @@ export const ServicePerm = definePermissions('service', {
   jobCardsCreate: ['service.job_cards.create', 'Open job cards'],
   jobCardsUpdate: ['service.job_cards.update', 'Edit job cards, assign technicians, add work'],
   jobCardsWork: ['service.job_cards.work', 'Start work, mark lines done, complete job cards'],
+  jobCardsClose: ['service.job_cards.close', 'Close a job card when everything is done (no manager approval needed); the invoice is drafted'],
 
   inspectionsView: ['service.inspections.view', 'View inspections'],
   inspectionsCreate: ['service.inspections.create', 'Start inspections'],

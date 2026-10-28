@@ -10,6 +10,7 @@ export const P = {
   jobCardsCreate: 'service.job_cards.create',
   jobCardsUpdate: 'service.job_cards.update',
   jobCardsWork: 'service.job_cards.work',
+  jobCardsClose: 'service.job_cards.close',
   inspectionsView: 'service.inspections.view',
   inspectionsCreate: 'service.inspections.create',
   inspectionsUpdate: 'service.inspections.update',
