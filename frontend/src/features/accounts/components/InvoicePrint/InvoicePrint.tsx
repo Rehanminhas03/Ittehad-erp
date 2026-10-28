@@ -1,34 +1,36 @@
 import { useMemo, useState } from 'react';
 import { useGetDealershipQuery } from '@/features/admin/adminApi';
+import { useGetCustomerQuery, useGetVehicleQuery } from '@/features/crm/crmApi';
 import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
+import { workshopBrand } from '@/features/sales/documents/workshopPdf';
 import { useGetJobCardQuery, useGetVisitQuery } from '@/features/service/serviceApi';
 import { Button } from '@/shared/components/ui';
 import { type Invoice, useListInvoiceLinesQuery, useListInvoicePaymentsQuery } from '../../accountsApi';
 import { buildInvoicePdf } from './invoicePdf';
+import { buildSalesInvoicePdf } from './salesInvoicePdf';
 
 /** The invoice drawn as it prints: fetched and built only once it is opened. */
 function InvoiceViewer({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
   const { data: lines } = useListInvoiceLinesQuery({ id: invoice.id });
   const { data: payments } = useListInvoicePaymentsQuery({ id: invoice.id }, { skip: invoice.status === 'draft' });
-  const { data: dealership } = useGetDealershipQuery({ id: invoice.dealershipId });
+  const { data: dealership, isLoading: dealershipLoading } = useGetDealershipQuery({ id: invoice.dealershipId });
   const service = invoice.sourceType === 'job_card';
   const { data: jobCard } = useGetJobCardQuery({ id: invoice.sourceId }, { skip: !service });
   const { data: visit } = useGetVisitQuery({ id: jobCard?.visitId ?? 0 }, { skip: !jobCard });
-  const ready = !!lines && (invoice.status === 'draft' || !!payments) && (!jobCard || !!visit);
+  // The dealership's own layout (Jetour Ittehad): needs the customer and the car too.
+  const brand = workshopBrand(dealership?.code);
+  const { data: car, isLoading: carLoading } = useGetVehicleQuery({ id: jobCard?.vehicleId ?? 0 }, { skip: !jobCard });
+  const { data: customer, isLoading: customerLoading } = useGetCustomerQuery({ id: invoice.customerId });
+  const ready = !!lines && (invoice.status === 'draft' || !!payments) && (!jobCard || !!visit) && !dealershipLoading && !carLoading && !customerLoading;
   const build = useMemo(
     () =>
       ready
-        ? () =>
-            buildInvoicePdf({
-              invoice,
-              lines: lines ?? [],
-              payments: payments ?? [],
-              dealership: dealership ?? null,
-              vehicle: jobCard?.vehicleLabel ?? null,
-              odometerKm: visit?.odometerKm ?? null,
-            })
+        ? () => {
+            const doc = { invoice, lines: lines ?? [], payments: payments ?? [], dealership: dealership ?? null, vehicle: jobCard?.vehicleLabel ?? null, odometerKm: visit?.odometerKm ?? null };
+            return brand ? buildSalesInvoicePdf({ ...doc, customer, car, brand }) : buildInvoicePdf(doc);
+          }
         : null,
-    [ready, invoice, lines, payments, dealership, jobCard, visit],
+    [ready, invoice, lines, payments, dealership, jobCard, visit, brand, car, customer],
   );
   const pdf = usePdf(build);
   return <PdfDialog open onClose={onClose} title={`Invoice ${invoice.invoiceNo}`} pdf={pdf} loading={!pdf} />;

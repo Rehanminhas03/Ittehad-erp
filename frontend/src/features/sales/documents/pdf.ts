@@ -90,12 +90,12 @@ export function fillTemplateLine(line: string, c: TemplateContext): string | nul
     .replaceAll('{deliveryPeriod}', c.deliveryPeriod ?? '');
 }
 
-type Img = { data: string; w: number; h: number };
+export type Img = { data: string; w: number; h: number };
 /**
  * A logo ready for the PDF: scaled down to print size and flattened onto white as a JPEG, so
  * documents stay small (tens of KB) for WhatsApp / email. Null if the file is missing.
  */
-async function loadImage(src: string, crop?: { x: number; y: number; w: number; h: number }): Promise<Img | null> {
+export async function loadImage(src: string, crop?: { x: number; y: number; w: number; h: number }): Promise<Img | null> {
   try {
     const blob = await (await fetch(src)).blob();
     if (!blob.type.startsWith('image/')) return null;

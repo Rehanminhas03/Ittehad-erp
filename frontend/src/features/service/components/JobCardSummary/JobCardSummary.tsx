@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
+import { useGetCustomerQuery, useGetVehicleQuery } from '@/features/crm/crmApi';
+import { useGetDealershipQuery } from '@/features/admin/adminApi';
 import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
+import { workshopBrand } from '@/features/sales/documents/workshopPdf';
 import { Badge, Button, Section, Spinner } from '@/shared/components/ui';
 import { formatDate, formatDateTime, formatMoney, formatNumber } from '@/shared/lib';
 import { visitTypeLabel } from '../../permissions';
 import { type JobCard, type JobCardLine, useGetVisitQuery, useListJobCardLinesQuery } from '../../serviceApi';
-import { buildJobCardPdf } from './jobCardPdf';
+import { buildJobCardPdf, buildRepairOrderPdf } from './jobCardPdf';
 
 const num = (s: string | undefined | null) => Number(s ?? 0) || 0;
 
@@ -26,7 +29,19 @@ export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
     const labour = sum((l) => l.billable && (l.kind === 'labour' || l.kind === 'sublet'));
     return { parts, labour, free: sum((l) => !l.billable), payable: parts + labour, discount: rows.reduce((a, l) => a + (n(l.unitPrice) * n(l.quantity) - n(l.amount)), 0) };
   }, [lines]);
-  const build = useMemo(() => (viewing && visit && lines ? () => buildJobCardPdf(jobCard, visit, lines, totals) : null), [viewing, visit, lines, jobCard, totals]);
+  // Jetour Ittehad prints the repair order in its own layout (needs the car, the customer and the dealership).
+  const { data: dealership, isLoading: dealershipLoading } = useGetDealershipQuery({ id: jobCard.dealershipId }, { skip: !viewing });
+  const brand = workshopBrand(dealership?.code);
+  const { data: vehicle, isLoading: vehicleLoading } = useGetVehicleQuery({ id: jobCard.vehicleId }, { skip: !viewing });
+  const { data: customer, isLoading: customerLoading } = useGetCustomerQuery({ id: visit?.customerId ?? 0 }, { skip: !viewing || !visit });
+  const loadingMore = dealershipLoading || vehicleLoading || customerLoading;
+  const build = useMemo(
+    () =>
+      viewing && visit && lines && !loadingMore
+        ? () => (brand ? buildRepairOrderPdf({ jobCard, visit, lines, vehicle, customer, brand }) : buildJobCardPdf(jobCard, visit, lines, totals))
+        : null,
+    [viewing, visit, lines, jobCard, totals, loadingMore, brand, vehicle, customer],
+  );
   const pdf = usePdf(build);
   if (!visit || !lines) return <Spinner className="size-4 text-slate-400" />;
 

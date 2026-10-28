@@ -1,3 +1,5 @@
+import type { Customer, Vehicle } from '@/features/crm/crmApi';
+import { drawTable, drawWorkshopLetterhead, M, money as fmt, PERIODIC_NOTE, repairOrderTerms, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
 import type { JobCard, JobCardLine, Visit } from '../../serviceApi';
 
 const money = (n: number) => `Rs ${n.toLocaleString('en-PK', { maximumFractionDigits: 2 })}`;
@@ -126,3 +128,102 @@ export async function buildJobCardPdf(
 
   return { doc, fileName: `Job card ${jc.jobCardNo}.pdf` };
 }
+
+// ---- The repair order (job card) in the dealership's own layout ---------------------------------------------------
+
+const WORK_TYPE: Record<string, string> = { scheduled: 'PM', periodic_maintenance: 'PM', general_repair: 'GR' };
+
+/**
+ * "REPAIR ESTIMATE / CONTRACT": the RO number, the customer and the car, the parts and lubricants, the services, the
+ * totals, the customer's voice and, on the second page, the terms and the signature lines.
+ */
+export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; lines: JobCardLine[]; vehicle?: Vehicle; customer?: Customer; brand: WorkshopBrand }): Promise<{ doc: import('jspdf').jsPDF; fileName: string }> {
+  const { jobCard: jc, visit, lines, vehicle, customer, brand } = d;
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  const text = writer(doc);
+  let y = await drawWorkshopLetterhead(doc, brand);
+
+  text('REPAIR ESTIMATE / CONTRACT', 105, y + 4, { bold: true, size: 18, align: 'center' });
+  text(`RO NO -${jc.jobCardNo}`, 105, y + 12, { bold: true, size: 13, color: [120, 120, 120], align: 'center' });
+  y += 20;
+
+  const cell = (label: string, value: string, x: number, yy: number, valueMax: number) => {
+    text(label, x, yy, { bold: true, size: 8.5 });
+    text(value || '—', x + 27, yy, { size: 8.5, max: valueMax });
+  };
+  const model = [vehicle?.modelName, vehicle?.variant].filter(Boolean).join(' ') || (jc.vehicleLabel ?? visit.vehicleLabel ?? '');
+  const work = WORK_TYPE[visit.visitType] ?? visitTypeText(visit.visitType);
+  cell('RO Type :', 'MECHANICAL', M, y, 34);
+  cell('Payment :', '—', M + 62, y, 30);
+  cell('Date :', shortDate(jc.createdAt), M + 124, y, 34);
+  y += 6;
+  cell('Customer Name :', visit.customerName ?? '', M, y, 34);
+  cell('Mobile :', customer?.mobile ?? vehicle?.currentOwner?.mobile ?? '', M + 62, y, 30);
+  cell('Work Type :', work, M + 124, y, 34);
+  y += 8.5;
+  cell('Make Model :', model, M, y, 34);
+  cell('VIN :', vehicle?.vin ?? '', M + 62, y, 34);
+  cell('ODOM-IN :', String(visit.odometerKm), M + 124, y, 34);
+  y += 6;
+  cell('Engine No :', vehicle?.engineNo ?? '', M, y, 34);
+  cell('Reg. No :', vehicle?.registrationNo ?? '', M + 62, y, 30);
+  cell('ODOM-OUT :', '—', M + 124, y, 34);
+  y += 6;
+  cell('Color :', vehicle?.color ?? '', M, y, 34);
+  y += 9;
+
+  const amountOf = (l: JobCardLine) => (l.billable ? Number(l.amount) : 0);
+  const cols = [
+    { h: 'Description', w: 110, a: 'left' as const },
+    { h: 'Qty', w: 16, a: 'center' as const },
+    { h: 'Unit Rate', w: 30, a: 'right' as const },
+    { h: 'Subtotal', w: 30, a: 'right' as const },
+  ];
+  const rowOf = (l: JobCardLine) => [l.description, String(Number(l.quantity)), fmt(Number(l.unitPrice)), l.billable ? fmt(Number(l.amount)) : 'Free'];
+  const group = (title: string, kinds: string[], label: string) => {
+    text(title, M, y, { bold: true, size: 13 });
+    const rows = lines.filter((l) => kinds.includes(l.kind));
+    y = drawTable(doc, y + 3, cols, rows.map(rowOf)) + 7;
+    const sub = rows.reduce((n, l) => n + amountOf(l), 0);
+    text(label, M + 1, y, { bold: true, size: 11 });
+    text(rs(sub), M + W, y, { bold: true, size: 11, align: 'right' });
+    y += 10;
+    return sub;
+  };
+  const parts = group('Parts & Lubricants', ['part', 'lubricant'], 'Sub-total parts:');
+  const services = group('Services', ['labour', 'sublet'], 'Sub-total services:');
+  text('Grand-Total:', M + 1, y, { bold: true, size: 12 });
+  text(rs(parts + services), M + W, y, { bold: true, size: 12, align: 'right' });
+  y += 9;
+  const voice = doc.splitTextToSize(`Voice of Customer : ${visit.complaints ?? ''}`.toUpperCase().replace('VOICE OF CUSTOMER', 'Voice of Customer'), W) as string[];
+  voice.forEach((l, i) => text(l, M, y + i * 4.2, { bold: true, size: 9 }));
+  y += voice.length * 4.2 + 3;
+  text(`Note : ${PERIODIC_NOTE}`, M, y, { size: 8.5 });
+
+  // Page 2: the terms and the signature lines.
+  doc.addPage();
+  y = 16;
+  text('Remarks / Notes / Terms & Conditions:', M, y, { bold: true, size: 8.5 });
+  y += 5;
+  for (const t of repairOrderTerms(brand.name)) {
+    const wrapped = doc.splitTextToSize(t.text, W - (t.sub ? 8 : 0)) as string[];
+    wrapped.forEach((l, i) => text(l, M + (t.sub ? 6 : 0), y + i * 3.9, { size: 8.3 }));
+    y += wrapped.length * 3.9 + 1.4;
+  }
+  y += 14;
+  const sign = (label: string, x: number, w: number) => {
+    doc.setDrawColor(40, 40, 40);
+    doc.line(x, y, x + w, y);
+    text(label, x, y + 4.5, { size: 9 });
+  };
+  sign('Serv. Adv Signature', M, 34);
+  sign('Customer Signature', M + 44, 34);
+  sign('Mechanic Name', M + 88, 34);
+  sign('Jobs', M + 130, 14);
+  sign('Workshop Controller', M + 152, 34);
+
+  return { doc, fileName: `Job card ${jc.jobCardNo}.pdf` };
+}
+
+const visitTypeText = (v: string) => v.replace(/_/g, ' ').toUpperCase();
