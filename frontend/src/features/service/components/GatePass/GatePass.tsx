@@ -3,7 +3,7 @@ import { useGetDealershipQuery } from '@/features/admin/adminApi';
 import { useListInvoicesQuery } from '@/features/accounts/accountsApi';
 import { useGetVehicleQuery } from '@/features/crm/crmApi';
 import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
-import { workshopBrand } from '@/features/sales/documents/workshopPdf';
+import { carName, workshopBrand } from '@/features/sales/documents/workshopPdf';
 import { Button } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
 import { useGetJobCardQuery, useGetVisitQuery } from '../../serviceApi';
@@ -46,7 +46,7 @@ function GatePassViewer({ jobCardId, invoiceNo, paid, onClose }: { jobCardId: nu
             buildGatePassPdf({
               gatePassNo: invoiceNo ?? jobCard!.jobCardNo,
               customerName: visit!.customerName ?? '',
-              vehicle: [car?.modelName, car?.variant].filter(Boolean).join(' ') || (jobCard!.vehicleLabel ?? ''),
+              vehicle: carName(car?.modelName, car?.variant) || (jobCard!.vehicleLabel ?? ''),
               regNo: car?.registrationNo ?? '',
               roNo: jobCard!.jobCardNo,
               status: paid ? 'PAID' : 'SERVICE COMPLETED',

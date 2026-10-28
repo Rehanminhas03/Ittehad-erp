@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { buildSalesInvoicePdf } from '@/features/accounts/components/InvoicePrint/salesInvoicePdf';
 import { buildRepairOrderPdf } from '@/features/service/components/JobCardSummary/jobCardPdf';
-import { repairOrderTerms, workshopBrand } from './workshopPdf';
+import { carName, repairOrderTerms, workshopBrand } from './workshopPdf';
 
 const brand = workshopBrand('JET-ITH')!;
 
 describe('workshop documents', () => {
+  it('names the car without repeating the model', () => {
+    expect(carName('Jetour Dashing', 'Dashing 1.5 TCI')).toBe('Jetour Dashing 1.5 TCI');
+    expect(carName('Jetour X70 Plus', 'Premium')).toBe('Jetour X70 Plus Premium');
+    expect(carName('Jetour T2', null)).toBe('Jetour T2');
+  });
+
   it('Jetour Ittehad has the format, others do not yet', () => {
     expect(brand.name).toBe('Jetour Ittehad');
     expect(workshopBrand('CSM-ITH')).toBeNull();

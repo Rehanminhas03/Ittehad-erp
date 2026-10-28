@@ -1,5 +1,5 @@
 import type { Customer, Vehicle } from '@/features/crm/crmApi';
-import { drawTable, drawWorkshopLetterhead, M, money as fmt, PERIODIC_NOTE, repairOrderTerms, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
+import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money as fmt, PERIODIC_NOTE, repairOrderTerms, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
 import type { JobCard, JobCardLine, Visit } from '../../serviceApi';
 
 const money = (n: number) => `Rs ${n.toLocaleString('en-PK', { maximumFractionDigits: 2 })}`;
@@ -148,30 +148,16 @@ export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; l
   text(`RO NO -${jc.jobCardNo}`, 105, y + 12, { bold: true, size: 13, color: [120, 120, 120], align: 'center' });
   y += 20;
 
-  const cell = (label: string, value: string, x: number, yy: number, valueMax: number) => {
-    text(label, x, yy, { bold: true, size: 8.5 });
-    text(value || '—', x + 27, yy, { size: 8.5, max: valueMax });
-  };
-  const model = [vehicle?.modelName, vehicle?.variant].filter(Boolean).join(' ') || (jc.vehicleLabel ?? visit.vehicleLabel ?? '');
+  const model = carName(vehicle?.modelName, vehicle?.variant) || (jc.vehicleLabel ?? visit.vehicleLabel ?? '');
   const work = WORK_TYPE[visit.visitType] ?? visitTypeText(visit.visitType);
-  cell('RO Type :', 'MECHANICAL', M, y, 34);
-  cell('Payment :', '—', M + 62, y, 30);
-  cell('Date :', shortDate(jc.createdAt), M + 124, y, 34);
-  y += 6;
-  cell('Customer Name :', visit.customerName ?? '', M, y, 34);
-  cell('Mobile :', customer?.mobile ?? vehicle?.currentOwner?.mobile ?? '', M + 62, y, 30);
-  cell('Work Type :', work, M + 124, y, 34);
-  y += 8.5;
-  cell('Make Model :', model, M, y, 34);
-  cell('VIN :', vehicle?.vin ?? '', M + 62, y, 34);
-  cell('ODOM-IN :', String(visit.odometerKm), M + 124, y, 34);
-  y += 6;
-  cell('Engine No :', vehicle?.engineNo ?? '', M, y, 34);
-  cell('Reg. No :', vehicle?.registrationNo ?? '', M + 62, y, 30);
-  cell('ODOM-OUT :', '—', M + 124, y, 34);
-  y += 6;
-  cell('Color :', vehicle?.color ?? '', M, y, 34);
-  y += 9;
+  y = fieldGrid(doc, y, [
+    [['RO Type :', 'MECHANICAL'], ['Payment :', '—'], ['Date :', shortDate(jc.createdAt)]],
+    [['Customer Name :', visit.customerName ?? ''], ['Mobile :', customer?.mobile ?? vehicle?.currentOwner?.mobile ?? ''], ['Work Type :', work]],
+    [['Make Model :', model], ['VIN :', vehicle?.vin ?? ''], ['ODOM-IN :', String(visit.odometerKm)]],
+    [['Engine No :', vehicle?.engineNo ?? ''], ['Reg. No :', vehicle?.registrationNo ?? ''], ['ODOM-OUT :', '—']],
+    [['Color :', vehicle?.color ?? ''], null, null],
+  ]);
+  y += 5;
 
   const amountOf = (l: JobCardLine) => (l.billable ? Number(l.amount) : 0);
   const cols = [

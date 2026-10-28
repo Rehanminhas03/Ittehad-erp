@@ -141,3 +141,52 @@ export function drawTable(doc: jsPDF, y: number, cols: Col[], rows: string[][], 
   }
   return y;
 }
+
+/** "Jetour Dashing 1.5 TCI": the model and variant without repeating the model name ("Jetour Dashing" + "Dashing 1.5 TCI"). */
+export function carName(modelName: string | null | undefined, variant: string | null | undefined) {
+  const name = (modelName ?? '').trim();
+  const v = (variant ?? '').trim();
+  if (!v) return name;
+  const base = name.split(/\s+/).slice(-1)[0] ?? '';
+  const prefix = name.slice(0, name.length - base.length).trim();
+  // The variant names the model already: keep the brand in front of it.
+  if (base && v.toLowerCase().startsWith(base.toLowerCase())) return [prefix, v].filter(Boolean).join(' ');
+  return `${name} ${v}`.trim();
+}
+
+/**
+ * Label / value pairs in columns, the value right after its label and wrapped inside its column: a long value (a car name,
+ * a VIN) goes to a second line instead of running into the next column or row. Returns the y under the grid.
+ */
+export function fieldGrid(doc: jsPDF, y: number, rows: ([string, string] | null)[][], opts: { cols?: number; size?: number } = {}): number {
+  const cols = opts.cols ?? 3;
+  const colW = W / cols;
+  const size = opts.size ?? 8.5;
+  const text = writer(doc);
+  for (const row of rows) {
+    const laid = row.map((cell, i) => {
+      if (!cell) return null;
+      const [label, value] = cell;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(size);
+      const labelW = doc.getTextWidth(label) + 2;
+      const avail = colW - labelW - 4;
+      doc.setFont('helvetica', 'normal');
+      // A single long word (a VIN) is set a little smaller rather than cut.
+      let s = size;
+      const shown = value || '—';
+      while (s > 6.5 && shown.split(/\s+/).some((w) => (doc.setFontSize(s), doc.getTextWidth(w)) > avail)) s -= 0.5;
+      doc.setFontSize(s);
+      const lines = doc.splitTextToSize(shown, avail) as string[];
+      return { x: M + i * colW, label, labelW, lines, s };
+    });
+    const most = Math.max(1, ...laid.map((c) => c?.lines.length ?? 0));
+    for (const c of laid) {
+      if (!c) continue;
+      text(c.label, c.x, y, { bold: true, size });
+      c.lines.forEach((l, n) => text(l, c.x + c.labelW, y + n * 4, { size: c.s }));
+    }
+    y += most * 4 + 2.2;
+  }
+  return y;
+}

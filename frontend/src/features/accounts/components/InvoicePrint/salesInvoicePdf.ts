@@ -1,5 +1,5 @@
 import type { Customer, Vehicle } from '@/features/crm/crmApi';
-import { drawTable, drawWorkshopLetterhead, M, money, PERIODIC_NOTE, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
+import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money, PERIODIC_NOTE, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
 import type { InvoiceLine } from '../../accountsApi';
 import type { InvoiceDocument } from './invoicePdf';
 
@@ -19,25 +19,12 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
   text(inv.invoiceNo, M + W, y + 2, { bold: true, size: 11, align: 'right', color: [60, 60, 60] });
   y += 10;
 
-  const cell = (label: string, value: string, x: number, yy: number, max: number) => {
-    text(label, x, yy, { bold: true, size: 8 });
-    text(value || '—', x + 22, yy, { size: 8, max });
-  };
-  const model = [car?.modelName, car?.variant].filter(Boolean).join(' ') || (d.vehicle ?? '');
-  cell('Customer Name :', inv.customerName ?? '', M, y, 44);
-  cell('Vehicle :', model, M + 80, y, 34);
-  cell('Date :', shortDate(inv.invoiceDate), M + 140, y, 30);
-  y += 5.5;
-  cell('Mobile :', customer?.mobile ?? '', M, y, 44);
-  cell('Reg No :', car?.registrationNo ?? '', M + 80, y, 34);
-  cell('RO No :', inv.sourceNo ?? '', M + 140, y, 30);
-  y += 5.5;
-  const addrLines = (doc.splitTextToSize([customer?.address, customer?.city].filter(Boolean).join(', ') || '—', 44) as string[]).slice(0, 3);
-  text('Address :', M, y, { bold: true, size: 8 });
-  addrLines.forEach((l, i) => text(l, M + 22, y + i * 4, { size: 8 }));
-  cell('NTN :', customer?.ntn ?? '', M + 80, y, 34);
-  cell('KM :', d.odometerKm != null ? String(d.odometerKm) : '', M + 140, y, 30);
-  y += addrLines.length * 4 + 5;
+  y = fieldGrid(doc, y, [
+    [['Customer Name :', inv.customerName ?? ''], ['Vehicle :', carName(car?.modelName, car?.variant) || (d.vehicle ?? '')], ['Date :', shortDate(inv.invoiceDate)]],
+    [['Mobile :', customer?.mobile ?? ''], ['Reg No :', car?.registrationNo ?? ''], ['RO No :', inv.sourceNo ?? '']],
+    [['Address :', [customer?.address, customer?.city].filter(Boolean).join(', ')], ['NTN :', customer?.ntn ?? ''], ['KM :', d.odometerKm != null ? String(d.odometerKm) : '']],
+  ]);
+  y += 4;
 
   const cols = [
     { h: 'Description', w: 78, a: 'left' as const },
