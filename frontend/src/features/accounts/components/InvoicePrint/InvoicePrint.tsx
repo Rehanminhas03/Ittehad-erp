@@ -26,7 +26,7 @@ function InvoiceViewer({ invoice, onClose }: { invoice: Invoice; onClose: () => 
     () =>
       ready
         ? () => {
-            const doc = { invoice, lines: lines ?? [], payments: payments ?? [], dealership: dealership ?? null, vehicle: jobCard?.vehicleLabel ?? null, odometerKm: visit?.odometerKm ?? null };
+            const doc = { invoice, lines: lines ?? [], payments: payments ?? [], dealership: dealership ?? null, vehicle: jobCard?.vehicleLabel ?? null, odometerKm: visit?.odometerKm ?? null, complaints: visit?.complaints ?? null };
             return brand ? buildSalesInvoicePdf({ ...doc, customer, car, brand }) : buildInvoicePdf(doc);
           }
         : null,

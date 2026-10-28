@@ -65,6 +65,9 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
   total('Discount:', rs(0));
   total('Net Amount:', rs(Number(inv.totalAmount)), true);
   y += 2;
+  const voice = doc.splitTextToSize(`Voice of Customer : ${d.complaints ?? ''}`, W) as string[];
+  voice.forEach((l, i) => text(l, M, y + i * 4.2, { bold: true, size: 9 }));
+  y += voice.length * 4.2 + 4;
   text('Dealership Observations:', M, y, { size: 8.5 });
   // Ruled lines to write by hand.
   doc.setDrawColor(90, 90, 90);

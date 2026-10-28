@@ -11,6 +11,8 @@ export interface InvoiceDocument {
   /** A service invoice: the car and the km it came in with. */
   vehicle?: string | null;
   odometerKm?: number | null;
+  /** The customer's complaints on the visit (Voice of Customer). */
+  complaints?: string | null;
 }
 
 /**
