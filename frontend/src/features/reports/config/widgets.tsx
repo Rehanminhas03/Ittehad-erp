@@ -233,8 +233,8 @@ function PosAwaitingKpi() {
 }
 
 function OpenPartsRequestsKpi() {
-  const open = useListPartsRequestsQuery({ pageSize: 1, status: 'open' });
-  const partial = useListPartsRequestsQuery({ pageSize: 1, status: 'partially_issued' });
+  const open = useListPartsRequestsQuery({ pageSize: 1, status: 'open', kind: 'request' });
+  const partial = useListPartsRequestsQuery({ pageSize: 1, status: 'partially_issued', kind: 'request' });
   const loading = open.isLoading || partial.isLoading;
   return (
     <DashboardWidget
@@ -242,7 +242,22 @@ function OpenPartsRequestsKpi() {
       title="Parts requests to issue"
       value={loading ? undefined : (open.data?.total ?? 0) + (partial.data?.total ?? 0)}
       loading={loading}
-      to="/parts/requests?status=open"
+      to="/parts/requests?status=open&kind=request"
+    />
+  );
+}
+
+/** Parts the workshop (the advisor) sent back to the store, waiting for the store to accept them into stock. */
+function PartReturnsKpi() {
+  const { data, isLoading, error } = useListPartsRequestsQuery({ pageSize: 1, status: 'open', kind: 'return' });
+  return (
+    <DashboardWidget
+      kind="kpi"
+      title="Parts returned by the workshop"
+      value={data?.total}
+      loading={isLoading}
+      error={error && apiErrorMessage(error)}
+      to="/parts/requests?status=open&kind=return"
     />
   );
 }
@@ -302,6 +317,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'invoices-draft', module: 'accounts', any: ['accounts.invoices.issue'], render: () => <DraftInvoicesKpi /> },
   { id: 'invoices-unpaid', module: 'accounts', any: ['accounts.invoices.view'], render: () => <UnpaidInvoicesKpi /> },
   { id: 'parts-requests', module: 'parts', any: ['parts.issues.create'], render: () => <OpenPartsRequestsKpi /> },
+  { id: 'parts-returns', module: 'parts', any: ['parts.issues.create'], render: () => <PartReturnsKpi /> },
   { id: 'pos-awaiting', module: 'parts', any: ['parts.purchase_orders.approve'], render: () => <PosAwaitingKpi /> },
   { id: 'workshop', module: 'service', any: ['service.visits.view', 'service.visits.view_own'], span: 2, render: () => <WorkshopKpis /> },
   { id: 'estimates-awaiting', module: 'service', any: ['service.estimates.approve'], render: () => <EstimatesAwaitingKpi /> },

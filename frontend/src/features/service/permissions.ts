@@ -41,7 +41,9 @@ export const visitTypeLabel = (v: string) => VISIT_TYPES.find((t) => t.value ===
 
 export const LINE_KINDS = [
   { value: 'labour', label: 'Labour' },
-  { value: 'part', label: 'Part' },
+  { value: 'part', label: 'Parts' },
+  { value: 'lubricant', label: 'Lubricants (engine oil, oil filter ...)' },
+  { value: 'sublet', label: 'Sublet (work done outside)' },
 ];
 
 /** 1 -> "1st", 2 -> "2nd", 11 -> "11th" */

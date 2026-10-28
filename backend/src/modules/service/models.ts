@@ -7,6 +7,6 @@ export const VISIT_STATES = ['open', 'in_progress', 'ready', 'delivered', 'cance
 export const JOB_CARD_STATES = ['open', 'in_progress', 'completed', 'cancelled'] as const;
 export const ESTIMATE_STATES = ['draft', 'submitted', 'approved', 'rejected'] as const;
 export const INSPECTION_STATES = ['in_progress', 'completed'] as const;
-export const LINE_KINDS = ['labour', 'part'] as const;
+export const LINE_KINDS = ['labour', 'part', 'lubricant', 'sublet'] as const;
 export const CONDITIONS = ['not_checked', 'ok', 'attention', 'urgent'] as const;
 

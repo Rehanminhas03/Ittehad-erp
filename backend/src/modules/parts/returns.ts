@@ -91,7 +91,8 @@ export async function acceptPartsReturn(ctx: EntityCtx, row: Row) {
     notes: `Return ${row.requestNo as string} accepted by the store`,
     lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.toString() })),
   });
-  for (const l of lines) await ctx.tx.partsRequestLine.update({ where: { id: l.id }, data: { returnedQty: l.quantity } });
+  // A line's returned quantity may not exceed its issued quantity (a database rule): the parts the store took in are both.
+  for (const l of lines) await ctx.tx.partsRequestLine.update({ where: { id: l.id }, data: { issuedQty: l.quantity, returnedQty: l.quantity } });
 }
 
 /** Whether a return is waiting for the store (used by the job card to show "return requested" on a part). */

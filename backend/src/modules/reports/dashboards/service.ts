@@ -56,8 +56,8 @@ export async function serviceDashboard(ctx: EntityCtx, q: z.output<typeof Dashbo
     await query<{ d: number; labour: string; parts: string }>(
       ctx.tx,
       sql`select ${jobCard.dealershipId} as "d",
-                 coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} = 'labour' and ${jobCardLine.billable}), 0)::numeric(14, 2)::text as "labour",
-                 coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} = 'part' and ${jobCardLine.billable}), 0)::numeric(14, 2)::text as "parts"
+                 coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} in ('labour', 'sublet') and ${jobCardLine.billable}), 0)::numeric(14, 2)::text as "labour",
+                 coalesce(sum(${jobCardLine.amount}) filter (where ${jobCardLine.kind} in ('part', 'lubricant') and ${jobCardLine.billable}), 0)::numeric(14, 2)::text as "parts"
           from ${jobCardLine}
           inner join ${jobCard} on ${jobCard.id} = ${jobCardLine.jobCardId}
           where ${and(jobScope, eq(jobCard.status, 'completed'), scope.inPeriod(jobCard.completedAt))}

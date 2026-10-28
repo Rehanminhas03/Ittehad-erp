@@ -698,7 +698,7 @@ export type SetJobCardLineDoneApiResponse = /** status 200 Success */ {
   id: number;
   jobCardId: number;
   scheduleItemId?: number | null;
-  kind: "labour" | "part";
+  kind: "labour" | "part" | "lubricant" | "sublet";
   description: string;
   partNo: string | null;
   quantity: string;
@@ -1405,7 +1405,7 @@ export type JobCardLine = {
   id: number;
   jobCardId: number;
   scheduleItemId?: number | null;
-  kind: "labour" | "part";
+  kind: "labour" | "part" | "lubricant" | "sublet";
   description: string;
   partNo: string | null;
   quantity: string;
@@ -1418,7 +1418,7 @@ export type JobCardLine = {
   doneAt: string | null;
 };
 export type JobCardLineCreate = {
-  kind: "labour" | "part";
+  kind: "labour" | "part" | "lubricant" | "sublet";
   description: string;
   partNo?: string | null;
   quantity: string;
@@ -1427,7 +1427,7 @@ export type JobCardLineCreate = {
   billable?: boolean;
 };
 export type JobCardLineUpdate = {
-  kind?: "labour" | "part";
+  kind?: "labour" | "part" | "lubricant" | "sublet";
   description?: string;
   partNo?: string | null;
   quantity?: string;
@@ -1469,7 +1469,7 @@ export type JobCardUpdate = {
 export type EstimateLine = {
   id: number;
   estimateId: number;
-  kind: "labour" | "part";
+  kind: "labour" | "part" | "lubricant" | "sublet";
   description: string;
   partNo: string | null;
   quantity: string;
@@ -1480,7 +1480,7 @@ export type EstimateLine = {
   sortOrder: number;
 };
 export type EstimateLineCreate = {
-  kind: "labour" | "part";
+  kind: "labour" | "part" | "lubricant" | "sublet";
   description: string;
   partNo?: string | null;
   quantity: string;
@@ -1490,7 +1490,7 @@ export type EstimateLineCreate = {
   sortOrder?: number;
 };
 export type EstimateLineUpdate = {
-  kind?: "labour" | "part";
+  kind?: "labour" | "part" | "lubricant" | "sublet";
   description?: string;
   partNo?: string | null;
   quantity?: string;

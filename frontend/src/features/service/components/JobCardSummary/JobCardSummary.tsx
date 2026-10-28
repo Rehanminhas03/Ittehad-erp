@@ -22,8 +22,8 @@ export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
     const n = (s: string | undefined | null) => Number(s ?? 0) || 0;
     const rows = lines ?? [];
     const sum = (f: (l: JobCardLine) => boolean) => rows.filter(f).reduce((a, l) => a + n(l.amount), 0);
-    const parts = sum((l) => l.billable && l.kind === 'part');
-    const labour = sum((l) => l.billable && l.kind === 'labour');
+    const parts = sum((l) => l.billable && (l.kind === 'part' || l.kind === 'lubricant'));
+    const labour = sum((l) => l.billable && (l.kind === 'labour' || l.kind === 'sublet'));
     return { parts, labour, free: sum((l) => !l.billable), payable: parts + labour, discount: rows.reduce((a, l) => a + (n(l.unitPrice) * n(l.quantity) - n(l.amount)), 0) };
   }, [lines]);
   const build = useMemo(() => (viewing && visit && lines ? () => buildJobCardPdf(jobCard, visit, lines, totals) : null), [viewing, visit, lines, jobCard, totals]);
@@ -31,8 +31,8 @@ export function JobCardSummary({ jobCard }: { jobCard: JobCard }) {
   if (!visit || !lines) return <Spinner className="size-4 text-slate-400" />;
 
   const sum = (f: (l: JobCardLine) => boolean) => lines.filter(f).reduce((n, l) => n + num(l.amount), 0);
-  const parts = sum((l) => l.billable && l.kind === 'part');
-  const labour = sum((l) => l.billable && l.kind === 'labour');
+  const parts = sum((l) => l.billable && (l.kind === 'part' || l.kind === 'lubricant'));
+  const labour = sum((l) => l.billable && (l.kind === 'labour' || l.kind === 'sublet'));
   const free = sum((l) => !l.billable);
   // The discount given on the lines (price x quantity less what is charged).
   const discount = lines.reduce((n, l) => n + (num(l.unitPrice) * num(l.quantity) - num(l.amount)), 0);

@@ -3,9 +3,10 @@ import { Link } from 'react-router';
 import { Button, ConfirmDialog, Input, Section, Select, StatusBadge } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatDateTime } from '@/shared/lib';
-import { useCreatePartsRequestMutation, useListPartsRequestsQuery, useTransitionPartsRequestMutation } from '../../partsApi';
+import { useCreatePartsRequestMutation, useListPartsRequestsQuery, useListPendingPartReturnsQuery, useTransitionPartsRequestMutation } from '../../partsApi';
 import { P } from '../../permissions';
 import { PartPicker } from '../PartPicker';
+import { ReturnRequestParts } from '../ReturnRequestParts';
 
 interface JobCardRef {
   id: number;
@@ -30,6 +31,7 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
   const toast = useToast();
   const canView = perm.can(P.requestsView);
   const { data } = useListPartsRequestsQuery({ jobCardId: jobCard.id, pageSize: 50 }, { skip: !canView });
+  const { data: pendingReturns } = useListPendingPartReturnsQuery({ jobCardId: jobCard.id }, { skip: !canView });
   const [create, { isLoading }] = useCreatePartsRequestMutation();
   const stores = perm.branchesFor(P.requestsCreate, jobCard.dealershipId);
   const canCreate = ['open', 'in_progress'].includes(jobCard.status) && perm.canIn(P.requestsCreate, jobCard.dealershipId, jobCard.branchId) && stores.length > 0;
@@ -53,6 +55,9 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
               </Link>
               <span className="flex items-center gap-3 text-slate-500">
                 {r.branchName} · {formatDateTime(r.createdAt)}
+                {r.kind !== 'return' && ['issued', 'partially_issued'].includes(r.status) && ['open', 'in_progress'].includes(jobCard.status) && perm.canIn(P.requestsCreate, jobCard.dealershipId, jobCard.branchId) && (
+                  <ReturnRequestParts jobCardId={jobCard.id} requestId={r.id} pending={pendingReturns} />
+                )}
                 <StatusBadge status={r.status} />
                 {r.status === 'open' && perm.canIn(P.requestsCancel, jobCard.dealershipId, jobCard.branchId) && (
                   <button type="button" className="text-xs font-medium text-red-600 hover:underline" onClick={() => setRemoving({ id: r.id, requestNo: r.requestNo })}>

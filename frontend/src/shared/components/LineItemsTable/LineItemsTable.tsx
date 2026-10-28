@@ -54,6 +54,10 @@ export interface LineItemsTableProps<L extends DocumentLine> {
   showTotal?: boolean;
   /** A helper above the add row for the chosen kind (e.g. search the parts catalogue, pick a scheduled service); it fills the draft. */
   addHelper?: (kind: string, fill: (patch: Partial<LineDraft>) => void) => ReactNode;
+  /** How the part number is filled for a kind: 'auto' (from the store, when the part is picked), 'none' (no part: labour, outside work) or 'manual' (default). */
+  partNoField?: (kind: string) => 'auto' | 'none' | 'manual';
+  /** The description's hint for a kind. */
+  descriptionHint?: (kind: string) => string;
   /** A "Disc. %" column: type 1, 2, 3 ... and the amount is worked out less that discount. */
   discountable?: boolean;
 }
@@ -102,7 +106,7 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
   const qtyOk = (q: string) => /^-?\d+(\.\d{1,2})?$/.test(q.trim()) && (allowNegative ? Number(q) !== 0 : Number(q) > 0);
   const priceOk = (p: string) => (priceOptional && clean(p) === '') || /^\d+(\.\d{1,2})?$/.test(clean(p));
   const valid = (d: LineDraft) =>
-    (descriptionFromPart ? d.partNo.trim().length >= 2 : d.description.trim().length >= 2) && qtyOk(d.quantity) && (!priced || priceOk(d.unitPrice)) && (!discountable || pctOk(d.discountPercent));
+    (descriptionFromPart ? d.partNo.trim().length >= 2 : d.description.trim().length >= 2) && (props.partNoField?.(d.kind) !== 'auto' || d.partNo.trim().length >= 2) && qtyOk(d.quantity) && (!priced || priceOk(d.unitPrice)) && (!discountable || pctOk(d.discountPercent));
   const preview = (d: LineDraft) => {
     const v = Number(d.quantity) * Number(clean(d.unitPrice)) * (1 - (Number(d.discountPercent.replace('%', '')) || 0) / 100);
     return Number.isFinite(v) && clean(d.unitPrice) !== '' ? v.toFixed(2) : '';
@@ -121,7 +125,7 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
   }
 
   // Switching kind in the add row offers that kind's default price (e.g. the labour rate) if none typed.
-  const setKind = (kind: string) => setDraft({ ...draft, kind, unitPrice: draft.unitPrice || props.defaultPrice?.(kind) || '' });
+  const setKind = (kind: string) => setDraft({ ...draft, kind, description: '', partNo: '', unitPrice: props.defaultPrice?.(kind) || '' });
 
   const editorCells = (d: LineDraft, set: (d: LineDraft) => void, onKind?: (kind: string) => void, isNew = false) => (
     <>
@@ -140,17 +144,23 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
         {descriptionFromPart ? (
           <span className="text-xs text-slate-400">{isNew ? 'From the catalogue' : d.description}</span>
         ) : (
-          <Input value={d.description} onChange={(e) => set({ ...d, description: e.target.value })} className="py-1 text-xs" placeholder="Description" aria-label="Description" />
+          <Input value={d.description} onChange={(e) => set({ ...d, description: e.target.value })} className="py-1 text-xs" placeholder={props.descriptionHint?.(d.kind) ?? 'Description'} aria-label="Description" />
         )}
       </td>
       <td className="py-1.5 pr-2">
-        <Input
-          value={d.partNo}
-          onChange={(e) => set({ ...d, partNo: e.target.value })}
-          className="py-1 text-xs"
-          placeholder={descriptionFromPart ? 'Part no. *' : 'Part no.'}
-          aria-label="Part number"
-        />
+        {props.partNoField?.(d.kind) === 'none' ? (
+          <span className="text-xs text-slate-300">—</span>
+        ) : props.partNoField?.(d.kind) === 'auto' ? (
+          <span className="block font-mono text-xs text-slate-600">{d.partNo || <span className="font-sans text-slate-400">From the store</span>}</span>
+        ) : (
+          <Input
+            value={d.partNo}
+            onChange={(e) => set({ ...d, partNo: e.target.value })}
+            className="py-1 text-xs"
+            placeholder={descriptionFromPart ? 'Part no. *' : 'Part no.'}
+            aria-label="Part number"
+          />
+        )}
       </td>
       <td className="py-1.5 pr-2">
         <Input value={d.quantity} onChange={(e) => set({ ...d, quantity: e.target.value })} className="w-20 py-1 text-right text-xs" inputMode="decimal" aria-label="Quantity" />

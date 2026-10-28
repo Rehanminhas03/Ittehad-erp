@@ -113,7 +113,8 @@ async function fromJobCard(ctx: EntityCtx, id: number): Promise<Draft> {
     customerId: vis!.customerId,
     kind: 'service',
     sourceNo: j.jobCardNo,
-    lines: lines.map((l) => ({ kind: l.kind as LineKind, description: l.description, partNo: l.partNo, quantity: l.quantity, unitPrice: l.unitPrice })),
+    // Lubricants are invoiced as parts; work done outside (sublet) as service work.
+    lines: lines.map((l) => ({ kind: (l.kind === 'lubricant' ? 'part' : l.kind === 'sublet' ? 'labour' : l.kind) as LineKind, description: l.description, partNo: l.partNo, quantity: l.quantity, unitPrice: l.unitPrice })),
   };
 }
 
