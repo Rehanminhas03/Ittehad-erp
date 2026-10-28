@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Badge, Section, StatusBadge } from '@/shared/components/ui';
 import { dealershipFilter, type EntityViewConfig, idField, mono, muted, optionalText, statusFilter, strong } from '@/shared/entity';
 import { formatDateTime, formatMoney } from '@/shared/lib';
+import { AcceptReturnButton } from '../components/AcceptReturnButton';
 import { PartsRequestDesk } from '../components/PartsRequestDesk';
 import { AdjustmentLines, TransferLines } from '../components/StockDocumentLines';
 import { StockMovementsTable } from '../components/StockMovementsTable';
@@ -126,6 +127,7 @@ export const partsRequestView: EntityViewConfig<PartsRequest> = {
       { key: 'requestedByName', header: 'Requested by', render: (r) => muted(r.requestedByName) },
       { key: 'createdAt', header: 'Requested', sortKey: 'createdAt', render: (r) => formatDateTime(r.createdAt) },
       { key: 'status', header: 'Status', sortKey: 'status', render: (r) => <StatusBadge status={r.status} /> },
+      { key: 'accept', header: '', className: 'text-right', render: (r) => <AcceptReturnButton request={r} /> },
     ],
   },
   detail: {
