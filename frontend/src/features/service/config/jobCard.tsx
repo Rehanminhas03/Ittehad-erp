@@ -5,7 +5,6 @@ import { StatusBadge } from '@/shared/components/ui';
 import { dealershipFilter, type EntityViewConfig, mono, muted, optionalId, optionalText, statusFilter, strong } from '@/shared/entity';
 import { formatDateTime } from '@/shared/lib';
 import { CloseJobCard } from '../components/CloseJobCard';
-import { InspectionPanel } from '../components/InspectionPanel';
 import { JobCardEstimates } from '../components/JobCardEstimates';
 import { JobCardSummary } from '../components/JobCardSummary';
 import { JobCardWork } from '../components/JobCardWork';
@@ -60,7 +59,6 @@ export const jobCardView: EntityViewConfig<JobCard> = {
         <CloseJobCard jobCard={j} />
         <JobCardWork jobCard={j} />
         <JobCardPartsRequests jobCard={j} />
-        <InspectionPanel jobCard={j} />
         <JobCardEstimates jobCard={j} />
         <SourceInvoice sourceType="job_card" sourceId={j.id} dealershipId={j.dealershipId} ready={j.status === 'completed'} />
       </>

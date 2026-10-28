@@ -138,7 +138,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     patterns: [
       'core.dealerships.view', 'core.branches.view', 'master.*.view', 'master.*.create', 'master.*.update',
       'master.ownership.manage', 'service.*.view', 'service.*.create', 'service.*.update', 'service.job_cards.close', 'service.estimates.submit', 'parts.requests.create', 'parts.requests.view', 'parts.requests.cancel',
-      'accounts.invoices.view', 'accounts.invoices.create', 'sales.variants.view',
+      'accounts.invoices.view', 'accounts.invoices.create', 'accounts.invoices.issue', 'accounts.payments.view', 'accounts.payments.create', 'sales.variants.view',
       'parts.catalog.view', 'parts.stock.view', 'reports.service.view_own',
     ],
   },

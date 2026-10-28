@@ -12,6 +12,7 @@ import {
   useTransitionInvoiceMutation,
   useUpdateInvoiceMutation,
 } from '../accountsApi';
+import { CustomerPaid } from '../components/CustomerPaid';
 import { InvoiceLines } from '../components/InvoiceLines';
 import { InvoicePrintButton } from '../components/InvoicePrint';
 import { InvoicePayments } from '../components/InvoicePayments';
@@ -61,7 +62,12 @@ export const invoiceView: EntityViewConfig<Invoice> = {
   detail: {
     title: (i) => i.invoiceNo,
     subtitle: (i) => `${i.customerName ?? ''} · ${i.kind === 'service' ? 'Service' : 'Vehicle sale'}`,
-    actions: (i) => <InvoicePrintButton invoice={i} label={i.status === 'paid' ? 'Print paid invoice' : 'View and print invoice'} />,
+    actions: (i) => (
+      <>
+        <CustomerPaid invoice={i} />
+        <InvoicePrintButton invoice={i} label={i.status === 'paid' ? 'Print paid invoice' : 'View and print invoice'} />
+      </>
+    ),
     fields: [
       { label: 'Customer', value: (i) => <Link to={`/crm/customers/${i.customerId}`} className="text-brand-700 hover:underline">{i.customerName}</Link> },
       {
