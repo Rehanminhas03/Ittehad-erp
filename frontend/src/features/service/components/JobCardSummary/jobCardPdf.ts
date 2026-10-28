@@ -185,6 +185,13 @@ export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; l
   const voice = doc.splitTextToSize(`Voice of Customer : ${visit.complaints ?? ''}`.toUpperCase().replace('VOICE OF CUSTOMER', 'Voice of Customer'), W) as string[];
   voice.forEach((l, i) => text(l, M, y + i * 4.2, { bold: true, size: 9 }));
   y += voice.length * 4.2 + 3;
+  // Ruled lines to write more by hand.
+  doc.setDrawColor(90, 90, 90);
+  for (let i = 0; i < 2; i++) {
+    y += 7;
+    doc.line(M, y, M + W, y);
+  }
+  y += 8;
   text(`Note : ${PERIODIC_NOTE}`, M, y, { size: 8.5 });
 
   // Page 2: the terms and the signature lines.

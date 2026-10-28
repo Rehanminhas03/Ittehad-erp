@@ -66,6 +66,12 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
   total('Net Amount:', rs(Number(inv.totalAmount)), true);
   y += 2;
   text('Dealership Observations:', M, y, { size: 8.5 });
+  // Ruled lines to write by hand.
+  doc.setDrawColor(90, 90, 90);
+  for (let i = 0; i < 2; i++) {
+    y += 7;
+    doc.line(M, y, M + W, y);
+  }
   y += 8;
   text(`Note : ${PERIODIC_NOTE}`, M, y, { size: 8 });
   y += 6;
