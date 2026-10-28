@@ -56,7 +56,7 @@ async function leadOrder(ctx: EntityCtx, l: Record<string, unknown>) {
 }
 
 type Target = { dealershipId: number; branchId: number | null };
-type Customer = { customerName: string; customerMobile: string; customerEmail: string | null };
+type Customer = { customerName: string; customerMobile: string | null; customerEmail: string | null };
 
 export async function createQuotation(ctx: EntityCtx, leadId: number, input: z.output<typeof QuotationCreate>) {
   const { l, target } = await issuingLead(ctx, leadId, P.quotationsUpdate);
@@ -68,7 +68,7 @@ export async function createStandaloneQuotation(ctx: EntityCtx, input: z.output<
   const target = { dealershipId: input.dealershipId, branchId: null };
   if (!ctx.access.canIn(P.quotationsCreate, target)) throw forbidden('You cannot issue quotations at this dealership');
   const { dealershipId: _d, customerName, customerMobile, customerEmail, ...rest } = input;
-  return issueQuotation(ctx, target, ctx.access.userId, null, { customerName, customerMobile, customerEmail: customerEmail ?? null }, rest);
+  return issueQuotation(ctx, target, ctx.access.userId, null, { customerName, customerMobile: customerMobile ?? null, customerEmail: customerEmail ?? null }, rest);
 }
 
 async function issueQuotation(ctx: EntityCtx, target: Target, ownerId: number, l: Row | null, customer: Customer | null, input: z.output<typeof QuotationCreate>) {

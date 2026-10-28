@@ -135,7 +135,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
 
   const submit = () => {
     if (!lead && !customer.name.trim()) return setErrors({ customerName: 'Enter the customer name' });
-    if (!lead && digitsOnly(customer.mobile).replace(/\D/g, '').length < 10) return setErrors({ customerMobile: 'Enter a valid phone number, e.g. 03001234567' });
+    // The phone is optional on a quotation; when typed it must be a full number.
+    if (!lead && customer.mobile.trim() && digitsOnly(customer.mobile).replace(/\D/g, '').length < 10) return setErrors({ customerMobile: 'Enter a valid phone number, e.g. 03001234567, or leave it empty' });
     if (!v.modelId) return setErrors({ modelId: 'Choose the model' });
     if (needsVariant && !v.variantCode && !v.variant.trim()) return setErrors({ variantCode: 'Choose the variant code (it goes in the Ref), or type it under "Other"' });
     if (!hasOrder && !v.unitPrice.trim()) return setErrors({ unitPrice: 'Enter the price to quote' });
@@ -210,7 +211,7 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
               <Field label="Customer name" htmlFor="qt-cname" required error={errors.customerName}>
                 <Input id="qt-cname" value={customer.name} onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))} invalid={!!errors.customerName} />
               </Field>
-              <Field label="Phone" htmlFor="qt-cphone" required error={errors.customerMobile} hint="Digits only">
+              <Field label="Phone" htmlFor="qt-cphone" error={errors.customerMobile} hint="Digits only">
                 <Input id="qt-cphone" type="tel" inputMode="tel" maxLength={16} placeholder="03001234567" value={customer.mobile} onChange={(e) => setCustomer((c) => ({ ...c, mobile: digitsOnly(e.target.value) }))} invalid={!!errors.customerMobile} />
               </Field>
               <Field label="Email" htmlFor="qt-cemail" error={errors.customerEmail}>

@@ -4908,8 +4908,21 @@
                 "maxLength": 120
               },
               "customerMobile": {
-                "type": "string",
-                "maxLength": 30
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      ""
+                    ]
+                  },
+                  {
+                    "nullable": true
+                  }
+                ]
               },
               "customerEmail": {
                 "type": "string",
@@ -4921,8 +4934,7 @@
             "required": [
               "modelId",
               "dealershipId",
-              "customerName",
-              "customerMobile"
+              "customerName"
             ]
           }
         ]
@@ -9993,8 +10005,21 @@
             "maxLength": 120
           },
           "customerMobile": {
-            "type": "string",
-            "maxLength": 30
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 30
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              }
+            ]
           },
           "customerEmail": {
             "type": "string",

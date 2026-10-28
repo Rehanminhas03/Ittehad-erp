@@ -38,6 +38,8 @@ const mobile = z
   .refine((v) => normalizeMobile(v) !== null, 'Enter a valid phone number, e.g. 03001234567')
   // Stored as digits only (no dashes or spaces; a leading + kept), so numbers match when searched.
   .transform((v) => (v.startsWith('+') ? '+' : '') + v.replace(/\D/g, ''));
+/** A phone that may be left out (a quotation is often asked for on the spot): empty means none. */
+const optionalMobile = z.union([mobile, z.literal('').transform(() => null)]).nullish();
 const email = z.email('Enter a valid email address').trim().toLowerCase().max(200);
 
 // ---- Leads --------------------------------------------------------------------
@@ -329,7 +331,7 @@ export const QuotationCreate = z
 export const StandaloneQuotationCreate = QuotationCreate.extend({
   dealershipId: Id,
   customerName: requiredText('Customer name'),
-  customerMobile: mobile,
+  customerMobile: optionalMobile,
   customerEmail: email.nullish(),
   modelId: Id,
 }).openapi('StandaloneQuotationCreate');
@@ -339,7 +341,7 @@ export const QuotationUpdate = z
     modelId: Id,
     /** Only for a quotation without a lead: the customer written on it. */
     customerName: requiredText('Customer name'),
-    customerMobile: mobile,
+    customerMobile: optionalMobile,
     customerEmail: email.nullish(),
     unitPrice: Money,
     discount: Money,

@@ -3389,7 +3389,7 @@ export type RaiseOrderRequest = {
 export type StandaloneQuotationCreate = QuotationCreate & {
   dealershipId: number;
   customerName: string;
-  customerMobile: string;
+  customerMobile?: string | "" | (any | null);
   customerEmail?: string | null;
 };
 export type DocumentTemplate = {
@@ -4543,7 +4543,7 @@ export type QuotationPage = {
 export type QuotationUpdate = {
   modelId?: number;
   customerName?: string;
-  customerMobile?: string;
+  customerMobile?: string | "" | (any | null);
   customerEmail?: string | null;
   unitPrice?: string;
   discount?: string;

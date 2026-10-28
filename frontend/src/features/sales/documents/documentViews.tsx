@@ -182,7 +182,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
   form: {
     fields: [
       { name: 'customerName', label: 'Customer name', type: 'text', required: true, visible: (_p, row) => !!row && !(row as Quotation).leadId },
-      { name: 'customerMobile', label: 'Customer phone', type: 'tel', required: true, hint: 'Digits only', visible: (_p, row) => !!row && !(row as Quotation).leadId },
+      { name: 'customerMobile', label: 'Customer phone', type: 'tel', hint: 'Digits only; optional', visible: (_p, row) => !!row && !(row as Quotation).leadId },
       { name: 'customerEmail', label: 'Customer email', type: 'email', span: 2, visible: (_p, row) => !!row && !(row as Quotation).leadId },
       { name: 'modelId', label: 'Model', type: 'select', required: true, useOptions: useVehicleModelOptions, hint: 'If you change the model, pick a variant code of that model (or type the variant under "Other")' },
       { name: 'billTo', label: 'To', type: 'text', span: 2, hint: "Empty: the customer's name" },
