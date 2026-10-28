@@ -265,11 +265,16 @@ export const jobCardEntity: EntityConfig = {
           const visit = await ctx.tx.visit.findFirst({ where: { id: row.visitId as number }, select: { status: true } });
           if (visit?.status === 'open') await visits.transition(ctx, row.visitId as number, 'start', undefined, { system: true });
           await visits.transition(ctx, row.visitId as number, 'ready', undefined, { system: true });
-          // Straight on to the invoice: a draft for the cashier. Nothing billable (a free service) or no right to
+          // Straight on to the invoice: a draft for the cashier (issued at once when there is nothing to pay). No right to
           // invoice here: the job card is still closed.
           try {
             const { createInvoiceFromSource } = await import('../accounts/service');
-            await createInvoiceFromSource(ctx, { sourceType: 'job_card', sourceId: row.id as number });
+            const inv = await createInvoiceFromSource(ctx, { sourceType: 'job_card', sourceId: row.id as number });
+            // Nothing to pay (a free service): issued at once, so it is ready to print with the gate pass.
+            if (Number(inv.totalAmount) === 0) {
+              const { invoices } = await import('../accounts/entities');
+              await invoices.transition(ctx, inv.id as number, 'issue');
+            }
           } catch (e) {
             if (!(e instanceof HttpError) || ![403, 409].includes(e.status)) throw e;
           }

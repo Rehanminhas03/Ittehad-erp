@@ -4,7 +4,7 @@ import { INVOICE_DUE_DAYS, TAX_RATES } from '../../config/accounting';
 import { LineService } from '../../entity/lines';
 import type { EntityCtx, Row } from '../../entity/types';
 import { conflict, forbidden, validationError } from '../../lib/errors';
-import { addMoney, cmpMoney, lineAmount, subMoney, taxOf, toPaisa } from '../../lib/money';
+import { addMoney, cmpMoney, lessPercent, lineAmount, subMoney, taxOf, toPaisa } from '../../lib/money';
 import type { z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
 import { customer } from '../master/models';
@@ -102,11 +102,9 @@ async function fromJobCard(ctx: EntityCtx, id: number): Promise<Draft> {
   if (!j) throw validationError([{ in: 'body', path: 'sourceId', message: 'Job card not found' }]);
   if (j.status !== 'completed') throw conflict('Only completed job cards can be invoiced');
   const vis = await ctx.tx.visit.findFirst({ where: { id: j.visitId }, select: { customerId: true } });
-  const lines = await ctx.tx.jobCardLine.findMany({
-    where: { jobCardId: id, billable: true },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-  });
-  if (!lines.length || lines.every((l) => toPaisa(l.amount) <= 0n)) throw conflict('Nothing billable on this job card (free or warranty work only)');
+  // Every line goes on the invoice: the work that is free of charge (a first or 5,000 km service) at 0, so the invoice can be 0.
+  const lines = await ctx.tx.jobCardLine.findMany({ where: { jobCardId: id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+  if (!lines.length) throw conflict('Nothing on this job card to invoice');
   return {
     dealershipId: j.dealershipId,
     branchId: j.branchId,
@@ -114,7 +112,7 @@ async function fromJobCard(ctx: EntityCtx, id: number): Promise<Draft> {
     kind: 'service',
     sourceNo: j.jobCardNo,
     // Lubricants are invoiced as parts; work done outside (sublet) as service work.
-    lines: lines.map((l) => ({ kind: (l.kind === 'lubricant' ? 'part' : l.kind === 'sublet' ? 'labour' : l.kind) as LineKind, description: l.description, partNo: l.partNo, quantity: l.quantity, unitPrice: l.unitPrice })),
+    lines: lines.map((l) => ({ kind: (l.kind === 'lubricant' ? 'part' : l.kind === 'sublet' ? 'labour' : l.kind) as LineKind, description: l.billable ? l.description : `${l.description} (free of charge)`, partNo: l.partNo, quantity: l.quantity, unitPrice: l.billable ? lessPercent(l.unitPrice.toString(), l.discountPercent.toString()) : '0' })),
   };
 }
 

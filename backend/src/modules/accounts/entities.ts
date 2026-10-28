@@ -106,12 +106,18 @@ async function sourceProblem(ctx: EntityCtx, row: Row): Promise<string | null> {
 async function canIssue(ctx: EntityCtx, row: Row) {
   const n = await ctx.tx.invoiceLine.count({ where: { invoiceId: row.id } });
   if (!n) return 'Add at least one line';
-  if (toPaisa(row.totalAmount as string) <= 0n) return 'The invoice total must be greater than zero';
+  // A job card of free services (the first and 5,000 km) is invoiced at 0; anything else must have an amount.
+  if (toPaisa(row.totalAmount as string) <= 0n && row.sourceType !== 'job_card') return 'The invoice total must be greater than zero';
   return sourceProblem(ctx, row);
 }
 
 /** Issue: Dr receivables (customer) / Cr revenue by line kind / Cr sales tax. */
 async function postInvoice(ctx: EntityCtx, row: Row) {
+  // Nothing to post or collect at 0: the invoice is paid as soon as it is issued.
+  if (toPaisa(row.totalAmount as string) <= 0n) {
+    await invoices.transition(ctx, row.id as number, 'pay_full', undefined, { system: true });
+    return;
+  }
   const lines = await ctx.tx.invoiceLine.findMany({ where: { invoiceId: row.id } });
   const revenue = new Map<AccountRole, bigint>();
   let tax = 0n;
