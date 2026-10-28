@@ -130,7 +130,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   {
     name: 'Service Manager',
     description: 'Oversees workshop, approves estimates.',
-    patterns: ['core.dealerships.view', 'core.branches.view', 'master.*', 'service.*', 'sales.variants.view', 'parts.requests.*', 'parts.catalog.view', 'parts.stock.view', 'accounts.invoices.view', 'accounts.invoices.create', 'reports.service.*'],
+    patterns: ['core.dealerships.view', 'core.branches.view', 'master.*', 'service.*', 'sales.variants.view', 'parts.requests.*', 'parts.catalog.view', 'parts.stock.view', 'accounts.invoices.view', 'accounts.invoices.create', 'accounts.invoices.issue', 'accounts.payments.view', 'accounts.payments.create', 'reports.service.*'],
   },
   {
     name: 'Service Advisor',

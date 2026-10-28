@@ -12,6 +12,7 @@ import {
   useTransitionInvoiceMutation,
   useUpdateInvoiceMutation,
 } from '../accountsApi';
+import { GatePassButton } from '@/features/service/components/GatePass';
 import { CustomerPaid } from '../components/CustomerPaid';
 import { InvoiceLines } from '../components/InvoiceLines';
 import { InvoicePrintButton } from '../components/InvoicePrint';
@@ -65,6 +66,7 @@ export const invoiceView: EntityViewConfig<Invoice> = {
     actions: (i) => (
       <>
         <CustomerPaid invoice={i} />
+        {i.sourceType === 'job_card' && i.status === 'paid' && <GatePassButton jobCardId={i.sourceId} />}
         <InvoicePrintButton invoice={i} label={i.status === 'paid' ? 'Print paid invoice' : 'View and print invoice'} />
       </>
     ),

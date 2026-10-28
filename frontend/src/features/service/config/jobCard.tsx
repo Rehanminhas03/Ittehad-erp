@@ -5,6 +5,7 @@ import { StatusBadge } from '@/shared/components/ui';
 import { dealershipFilter, type EntityViewConfig, mono, muted, optionalId, optionalText, statusFilter, strong } from '@/shared/entity';
 import { formatDateTime } from '@/shared/lib';
 import { CloseJobCard } from '../components/CloseJobCard';
+import { GatePassButton } from '../components/GatePass';
 import { JobCardEstimates } from '../components/JobCardEstimates';
 import { JobCardSummary } from '../components/JobCardSummary';
 import { JobCardWork } from '../components/JobCardWork';
@@ -44,6 +45,7 @@ export const jobCardView: EntityViewConfig<JobCard> = {
   detail: {
     title: (j) => j.jobCardNo,
     subtitle: (j) => `${j.vehicleLabel ?? ''} · ${j.visitNo ?? ''}`,
+    actions: (j) => <GatePassButton jobCardId={j.id} />,
     fields: [
       { label: 'Vehicle', value: (j) => j.vehicleLabel },
       { label: 'Visit', value: (j) => j.visitNo },

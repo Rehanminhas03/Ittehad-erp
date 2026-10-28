@@ -71,7 +71,7 @@ export function writer(doc: jsPDF) {
 export type Writer = ReturnType<typeof writer>;
 
 /** "Ittehad Automotive (An Ittehad Steel Company)", the address block and the brand logo on the right. Returns the next y. */
-export async function drawWorkshopLetterhead(doc: jsPDF, brand: WorkshopBrand): Promise<number> {
+export async function drawWorkshopLetterhead(doc: jsPDF, brand: WorkshopBrand, width = W): Promise<number> {
   const text = writer(doc);
   const logo = await loadImage(brand.logo);
   text('Ittehad Automotive', M, 20, { bold: true, size: 21 });
@@ -87,7 +87,8 @@ export async function drawWorkshopLetterhead(doc: jsPDF, brand: WorkshopBrand): 
   if (logo) {
     const w = 70;
     const h = Math.min((logo.h / logo.w) * w, 22);
-    doc.addImage(logo.data, 'JPEG', M + W - w, 12, (logo.w / logo.h) * h, h);
+    const iw = (logo.w / logo.h) * h;
+    doc.addImage(logo.data, 'JPEG', M + width - iw, 12, iw, h);
   }
   return y + 12;
 }

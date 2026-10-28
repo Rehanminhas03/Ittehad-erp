@@ -85,10 +85,10 @@ for (const [code, label] of [['HYD-ISB', 'Hyundai'], ['JET-ITH', 'Jetour'], ['CS
   );
 }
 
-// After sales: Jetour has its own Service Manager and Cashier; Hyundai and CSM share one Service Manager and have no cashier yet.
+// After sales: Jetour has its own Service Manager and Accounts (the Cashier role); Hyundai and CSM share one Service Manager and have no cashier yet.
 USERS.push(
   { email: 'servicemanager@jetour.com', fullName: 'Jetour Service Manager', password: 'Demo@12345', roles: [{ role: 'Service Manager', dealership: 'JET-ITH' }] },
-  { email: 'cashier@jetour.com', fullName: 'Jetour Cashier', password: 'Demo@12345', roles: [{ role: 'Cashier', dealership: 'JET-ITH' }] },
+  { email: 'accounts@jetour.com', fullName: 'Jetour Accounts', password: 'jetour1234', roles: [{ role: 'Cashier', dealership: 'JET-ITH' }] },
   { email: 'servicemanager@hyundai.com', fullName: 'Hyundai & CSM Service Manager', password: 'Demo@12345', roles: [{ role: 'Service Manager', dealership: 'HYD-ISB' }, { role: 'Service Manager', dealership: 'CSM-ITH' }] },
 );
 

@@ -1,0 +1,1 @@
+export { GatePassButton } from './GatePass';
