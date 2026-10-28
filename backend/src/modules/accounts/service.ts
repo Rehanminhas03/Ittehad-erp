@@ -106,7 +106,7 @@ async function fromJobCard(ctx: EntityCtx, id: number): Promise<Draft> {
     where: { jobCardId: id, billable: true },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  if (!lines.length) throw conflict('Nothing billable on this job card (free or warranty work only)');
+  if (!lines.length || lines.every((l) => toPaisa(l.amount) <= 0n)) throw conflict('Nothing billable on this job card (free or warranty work only)');
   return {
     dealershipId: j.dealershipId,
     branchId: j.branchId,

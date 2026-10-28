@@ -13,6 +13,7 @@ import {
   useUpdateInvoiceMutation,
 } from '../accountsApi';
 import { InvoiceLines } from '../components/InvoiceLines';
+import { InvoicePrintButton } from '../components/InvoicePrint';
 import { InvoicePayments } from '../components/InvoicePayments';
 import { PostingSection } from '../components/PostingSection';
 import { INVOICE_STATES, P, sourceLink } from '../permissions';
@@ -54,11 +55,13 @@ export const invoiceView: EntityViewConfig<Invoice> = {
       { key: 'totalAmount', header: 'Total', sortKey: 'totalAmount', className: 'text-right tabular-nums', render: (i) => formatMoney(i.totalAmount) },
       { key: 'balance', header: 'Balance', className: 'text-right tabular-nums', render: (i) => (outstanding(i) > 0 && !['void', 'cancelled'].includes(i.status) ? formatMoney(outstanding(i)) : muted('—')) },
       { key: 'status', header: 'Status', sortKey: 'status', render: (i) => <StatusBadge status={i.status} /> },
+      { key: 'print', header: '', className: 'w-10 text-right', render: (i) => <InvoicePrintButton invoice={i} /> },
     ],
   },
   detail: {
     title: (i) => i.invoiceNo,
     subtitle: (i) => `${i.customerName ?? ''} · ${i.kind === 'service' ? 'Service' : 'Vehicle sale'}`,
+    actions: (i) => <InvoicePrintButton invoice={i} label={i.status === 'paid' ? 'Print paid invoice' : 'View and print invoice'} />,
     fields: [
       { label: 'Customer', value: (i) => <Link to={`/crm/customers/${i.customerId}`} className="text-brand-700 hover:underline">{i.customerName}</Link> },
       {
