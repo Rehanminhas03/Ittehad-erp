@@ -92,6 +92,9 @@ USERS.push(
   { email: 'servicemanager@hyundai.com', fullName: 'Hyundai & CSM Service Manager', password: 'Demo@12345', roles: [{ role: 'Service Manager', dealership: 'HYD-ISB' }, { role: 'Service Manager', dealership: 'CSM-ITH' }] },
 );
 
+// Every Jetour login (any @jetour.com address, or .jetour@dms.local) shares one password.
+for (const u of USERS) if (/jetour/i.test(u.email)) u.password = 'Jetour1234';
+
 /** Starter parts catalogue (maintained under Parts → Parts catalogue) with opening stock per main branch. */
 const PARTS: { partNo: string; description: string; brand: string; uom: 'each' | 'litre' | 'set'; sellingPrice: string; cost: string; opening: string }[] = [
   { partNo: '26300-35505', description: 'Oil filter', brand: 'Hyundai', uom: 'each', sellingPrice: '1800.00', cost: '1200.00', opening: '40' },
