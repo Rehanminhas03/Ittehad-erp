@@ -4,6 +4,7 @@ import { downloadCsv, downloadTablePdf, type Column } from '@/features/sales/exp
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { useGetEarlierSalesQuery, useGetPartsMonthlyReportQuery, useLazyGetEarlierSalesQuery, useLazyGetPartsSaleReportQuery, useLazyGetStockSheetQuery } from '../../partsApi';
+import { SALE_COLUMNS } from '../../lib/saleColumns';
 import { P } from '../../permissions';
 
 const monthName = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -33,24 +34,6 @@ const STOCK_COLUMNS: Column[] = [
   { header: 'Reorder level', value: (r) => Number(r.reorderLevel) },
 ];
 
-/** The sale report: the same columns as the store's sale report sheet, then the extra details. */
-const SALE_COLUMNS: Column[] = [
-  { header: 'RO No', value: (r) => String(r.roNo ?? '') },
-  { header: 'Invoice No', value: (r) => String(r.invoiceNo ?? '') },
-  { header: 'Part Code', value: (r) => String(r.partNo) },
-  { header: 'Part Name', value: (r) => String(r.partName), w: 2 },
-  { header: 'Issued Qty', value: (r) => Number(r.quantity) },
-  { header: 'Unit Price', value: (r) => Number(r.unitPrice) },
-  { header: 'Discount %', value: (r) => (Number(r.discountPercent) > 0 ? Number(r.discountPercent) : '') },
-  { header: 'Total Price', value: (r) => Number(r.totalPrice) },
-  { header: 'Remarks', value: (r) => String(r.remarks ?? '') },
-  { header: 'Unit Cost', value: (r) => Number(r.unitCost) },
-  { header: 'Total Cost', value: (r) => Number(r.totalCost) },
-  { header: 'Date', value: (r) => String(r.date) },
-  { header: 'Vehicle', value: (r) => String(r.vehicle ?? '') },
-  { header: 'Store', value: (r) => String(r.store) },
-  { header: 'Issued by', value: (r) => String(r.issuedBy ?? '') },
-];
 
 const Stat = ({ label, value, hint, plain }: { label: string; value: string; hint?: string; plain?: boolean }) => (
   <div className="surface p-4">

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import {
   useListAuditLogQuery,
   useListBranchesQuery,
@@ -12,6 +13,7 @@ import { useListPartsRequestsQuery, useListPurchaseOrdersQuery } from '@/feature
 import { useListInvoicesQuery } from '@/features/accounts/accountsApi';
 import { DashboardWidget } from '@/shared/components';
 import type { ModuleKey } from '@/shared/config';
+import { usePermission } from '@/shared/hooks';
 import { apiErrorMessage, formatDateTime, humanize } from '@/shared/lib';
 
 /**
@@ -262,6 +264,30 @@ function PartReturnsKpi() {
   );
 }
 
+/** One-click shortcuts for the store: stock in, parts out against an RO / job card, and a counter sale. */
+function StoreActions() {
+  const perm = usePermission();
+  const actions = [
+    { to: '/parts/receive', label: 'Add stock', hint: 'Receive parts into the store', show: perm.can('parts.receipts.create'), primary: true },
+    { to: '/parts/issue', label: 'Issue parts to RO / job card', hint: 'Allocate parts against an open job card', show: perm.can('parts.issues.create') },
+    { to: '/parts/issue?for=counter', label: 'Counter sale', hint: 'Sell parts over the counter, no repair order', show: perm.can('parts.issues.create') },
+  ].filter((a) => a.show);
+  return (
+    <div className="flex flex-wrap gap-3">
+      {actions.map((a) => (
+        <Link
+          key={a.to}
+          to={a.to}
+          className={`rounded-xl px-5 py-3 text-sm shadow-sm transition ${a.primary ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-white text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+        >
+          <span className="block font-semibold">{a.label}</span>
+          <span className={`block text-xs ${a.primary ? 'text-white/80' : 'text-slate-500'}`}>{a.hint}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function DraftInvoicesKpi() {
   const { data, isLoading, error } = useListInvoicesQuery({ pageSize: 1, status: 'draft' });
   return (
@@ -316,6 +342,7 @@ function RecentActivity() {
 export const WIDGETS: WidgetDef[] = [
   { id: 'invoices-draft', module: 'accounts', any: ['accounts.invoices.issue'], render: () => <DraftInvoicesKpi /> },
   { id: 'invoices-unpaid', module: 'accounts', any: ['accounts.invoices.view'], render: () => <UnpaidInvoicesKpi /> },
+  { id: 'store-actions', module: 'parts', any: ['parts.issues.create', 'parts.receipts.create'], span: 3, render: () => <StoreActions /> },
   { id: 'parts-requests', module: 'parts', any: ['parts.issues.create'], render: () => <OpenPartsRequestsKpi /> },
   { id: 'parts-returns', module: 'parts', any: ['parts.issues.create'], render: () => <PartReturnsKpi /> },
   { id: 'pos-awaiting', module: 'parts', any: ['parts.purchase_orders.approve'], render: () => <PosAwaitingKpi /> },

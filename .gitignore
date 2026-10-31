@@ -12,4 +12,7 @@ coverage/
 backend/src/generated/
 
 # Credentials document: working passwords, never upload
-documents/Ittehad DMS - Logins and Roles.docx
+documents/Ittehad DMS - Logins and Roles*.docx
+
+# Database exports (contain password hashes)
+/ittehad_motors_crm.sql

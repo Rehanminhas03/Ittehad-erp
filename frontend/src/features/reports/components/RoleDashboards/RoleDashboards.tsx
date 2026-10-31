@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router';
+import { RevenueReport } from '@/features/parts/components/RevenueReport';
 import { Badge, Select, Spinner } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
 import { isModuleEnabled, type ModuleKey } from '@/shared/config';
@@ -82,6 +83,11 @@ export function RoleDashboards() {
               </option>
             ))}
           </Select>
+        )}
+        {current.key === 'parts' && (
+          <div className="ml-auto">
+            <RevenueReport from={period.from} to={period.to} dealershipId={validDealership} dealershipName={dealerships.find((d) => d.id === validDealership)?.name} />
+          </div>
         )}
       </div>
 

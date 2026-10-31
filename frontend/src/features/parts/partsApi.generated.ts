@@ -1523,6 +1523,7 @@ export type DirectReceiveRequest = {
   receivedDate?: string;
   supplierInvoiceNo?: string | null;
   notes?: string | null;
+  modelIds?: number[];
   lines: {
     partNo: string;
     quantity: string;

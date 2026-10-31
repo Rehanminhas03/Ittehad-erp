@@ -6,6 +6,7 @@ import { amountNumber, formatMoney } from '@/shared/lib';
 import { PartPicker } from '../../components/PartPicker';
 import { StoreTargetFields, useStoreTarget } from '../../components/StoreTarget';
 import { useSupplierOptions } from '../../hooks';
+import { usePartModelOptions } from '../../hooks/usePartModelOptions';
 import { usePrefillPart } from '../../hooks/usePrefillPart';
 import { useReceiveStockMutation } from '../../partsApi';
 import { P } from '../../permissions';
@@ -30,6 +31,10 @@ export default function ReceiveStockPage() {
   const [invoiceNo, setInvoiceNo] = useState('');
   const [receivedDate, setReceivedDate] = useState('');
   const [notes, setNotes] = useState('');
+  // The vehicles this delivery is for (Dashing, X70 Plus, ...): marked on every part received.
+  const [modelIds, setModelIds] = useState<number[]>([]);
+  const brand = t.dealerships.find((d) => d.id === t.dealershipId)?.brand;
+  const models = usePartModelOptions(brand);
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [receive, { isLoading }] = useReceiveStockMutation();
@@ -41,9 +46,10 @@ export default function ReceiveStockPage() {
 
   const submit = async () => {
     if (!t.dealershipId || !t.branchId || !supplier) return setError('Choose the store and the supplier (head office)');
+    if (!modelIds.length) return setError('Tick the vehicle these parts are for');
     if (!lines.length) return setError('Add at least one part');
     const bad = lines.findIndex((l) => !(amountNumber(l.quantity) > 0) || !l.unitCost.trim());
-    if (bad >= 0) return setError(`${lines[bad]!.partNo}: enter the quantity and the price per piece`);
+    if (bad >= 0) return setError(`${lines[bad]!.partNo}: enter the quantity and the price received`);
     setError(null);
     try {
       const grn = await receive({
@@ -54,6 +60,7 @@ export default function ReceiveStockPage() {
           receivedDate: receivedDate || undefined,
           supplierInvoiceNo: invoiceNo.trim() || null,
           notes: notes.trim() || null,
+          modelIds,
           lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitCost: l.unitCost.trim() })),
         },
       }).unwrap();
@@ -86,6 +93,20 @@ export default function ReceiveStockPage() {
             <Field label="Received on" htmlFor="rs-date" hint="Empty: today">
               <Input id="rs-date" type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
             </Field>
+            <Field label="Parts are for vehicle" htmlFor="rs-models" required hint="Tick every vehicle these parts fit. It is marked on each part received, and parts already marked for other vehicles keep them" className="sm:col-span-2 lg:col-span-3">
+              <div id="rs-models" className="flex flex-wrap gap-x-5 gap-y-1.5">
+                {models.map((m) => (
+                  <label key={m.value} className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={modelIds.includes(Number(m.value))}
+                      onChange={(e) => setModelIds((ids) => (e.target.checked ? [...ids, Number(m.value)] : ids.filter((i) => i !== Number(m.value))))}
+                    />
+                    {m.label.replace(`${brand} `, '')}
+                  </label>
+                ))}
+              </div>
+            </Field>
             <Field label="Notes" htmlFor="rs-notes" className="sm:col-span-2">
               <Textarea id="rs-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </Field>
@@ -105,7 +126,7 @@ export default function ReceiveStockPage() {
                   <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
                     <th className="py-2 pr-2 font-medium">Part</th>
                     <th className="py-2 pr-2 text-right font-medium">Quantity</th>
-                    <th className="py-2 pr-2 text-right font-medium">Price per piece (PKR)</th>
+                    <th className="py-2 pr-2 text-right font-medium">Price received (PKR per piece)<span className="block text-[10px] font-normal normal-case text-slate-400">what you paid head office, not the customer price</span></th>
                     <th className="py-2 pr-2 text-right font-medium">Amount</th>
                     <th />
                   </tr>

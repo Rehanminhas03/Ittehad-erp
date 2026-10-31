@@ -168,6 +168,8 @@ export const DirectReceiveBody = z
     receivedDate: z.iso.date().optional(),
     supplierInvoiceNo: optionalText(60),
     notes: optionalText(2000),
+    /** The vehicle models these parts are for: added to each part received (parts already marked for other models keep them). */
+    modelIds: z.array(Id).max(10).optional(),
     lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitCost: Money })).min(1).max(200),
   })
   .openapi('DirectReceiveRequest');

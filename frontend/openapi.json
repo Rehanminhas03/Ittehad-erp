@@ -10816,6 +10816,15 @@
             "nullable": true,
             "maxLength": 2000
           },
+          "modelIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "maxItems": 10
+          },
           "lines": {
             "type": "array",
             "items": {
@@ -15502,7 +15511,9 @@
             "type": "string",
             "enum": [
               "labour",
-              "part"
+              "part",
+              "lubricant",
+              "sublet"
             ]
           },
           "description": {
@@ -15572,7 +15583,9 @@
             "type": "string",
             "enum": [
               "labour",
-              "part"
+              "part",
+              "lubricant",
+              "sublet"
             ]
           },
           "description": {
@@ -15615,7 +15628,9 @@
             "type": "string",
             "enum": [
               "labour",
-              "part"
+              "part",
+              "lubricant",
+              "sublet"
             ]
           },
           "description": {
@@ -15819,7 +15834,9 @@
             "type": "string",
             "enum": [
               "labour",
-              "part"
+              "part",
+              "lubricant",
+              "sublet"
             ]
           },
           "description": {
@@ -15872,7 +15889,9 @@
             "type": "string",
             "enum": [
               "labour",
-              "part"
+              "part",
+              "lubricant",
+              "sublet"
             ]
           },
           "description": {
@@ -15924,7 +15943,9 @@
             "type": "string",
             "enum": [
               "labour",
-              "part"
+              "part",
+              "lubricant",
+              "sublet"
             ]
           },
           "description": {
@@ -48579,7 +48600,9 @@
                       "type": "string",
                       "enum": [
                         "labour",
-                        "part"
+                        "part",
+                        "lubricant",
+                        "sublet"
                       ]
                     },
                     "description": {
@@ -51422,7 +51445,7 @@
       "post": {
         "operationId": "transitionJobCard",
         "summary": "Run a workflow action on JobCard",
-        "description": "Requires: service.job_cards.work",
+        "description": "Requires: service.job_cards.work | service.job_cards.close",
         "tags": [
           "JobCard"
         ],

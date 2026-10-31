@@ -516,6 +516,12 @@ export async function receiveDirect(ctx: EntityCtx, input: z.output<typeof Direc
   const sup = await ctx.tx.supplier.findFirst({ where: { id: input.supplierId, dealershipId: input.dealershipId, isActive: true }, select: { id: true } });
   if (!sup) throw validationError([{ in: 'body', path: 'supplierId', message: 'Choose a supplier of this dealership' }]);
   const lines = await resolveLines(ctx, input.lines);
+  const modelIds = [...new Set(input.modelIds ?? [])];
+  if (modelIds.length) {
+    const dealer = await ctx.tx.dealership.findFirst({ where: { id: input.dealershipId }, select: { brand: true } });
+    const ok = await ctx.tx.vehicleModel.findMany({ where: { id: { in: modelIds }, brand: { equals: dealer?.brand ?? '', mode: 'insensitive' } }, select: { id: true } });
+    if (ok.length !== modelIds.length) throw validationError([{ in: 'body', path: 'modelIds', message: `Choose ${dealer?.brand ?? 'this dealership'} models only` }]);
+  }
 
   const grnNo = await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.goodsReceipt);
   const amounts = lines.map((l) => lineAmount(l.unitCost, l.quantity));
@@ -530,9 +536,13 @@ export async function receiveDirect(ctx: EntityCtx, input: z.output<typeof Direc
     ctx,
     lines.map((l) => ({ ...target, partId: l.part.id, type: 'receipt' as const, quantity: l.quantity, unitCost: l.unitCost, referenceType: 'goods_receipt', referenceId: grn!.id, referenceNo: grnNo })),
   );
-  // The price received from the company is the latest price paid.
-  for (const l of lines) await ctx.tx.part.update({ where: { id: l.part.id }, data: { purchasePrice: l.unitCost } });
-  await ctx.audit({ entityType: 'parts.goods_receipt', entityId: grn!.id, action: 'create', ...target, changes: { direct: true, totalCost, lines: input.lines } });
+  // The price received from the company is the latest price paid; the vehicles chosen are added to what each part fits.
+  for (const l of lines) {
+    const fits = [...new Set([...l.part.modelIds, ...modelIds])].sort((a, b) => a - b);
+    const addModels = fits.length !== l.part.modelIds.length;
+    await ctx.tx.part.update({ where: { id: l.part.id }, data: { purchasePrice: l.unitCost, ...(addModels ? { modelIds: fits } : {}) } });
+  }
+  await ctx.audit({ entityType: 'parts.goods_receipt', entityId: grn!.id, action: 'create', ...target, changes: { direct: true, totalCost, modelIds, lines: input.lines } });
   await publish(ctx, {
     type: 'goods.received',
     dealershipId: target.dealershipId,

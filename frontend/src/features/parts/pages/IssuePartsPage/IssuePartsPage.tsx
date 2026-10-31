@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Button, Field, Input, PageHeader, Section, Select, Textarea } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
@@ -29,7 +30,9 @@ export default function IssuePartsPage() {
   const t = useStoreTarget(P.issuesCreate);
   const [kind, setKind] = useState<'issue' | 'return'>('issue');
   // An open job card of the workshop (its vehicle comes with it), or 'other': a typed repair order number.
-  const [jobCardId, setJobCardId] = useState('');
+  // ?for=counter (the dashboard's Counter sale button) starts on a counter sale.
+  const [params] = useSearchParams();
+  const [jobCardId, setJobCardId] = useState(params.get('for') === 'counter' ? 'counter' : '');
   const [referenceNo, setReferenceNo] = useState('');
   const [vehicleRef, setVehicleRef] = useState('');
   const [notes, setNotes] = useState('');
