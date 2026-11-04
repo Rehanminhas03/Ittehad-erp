@@ -8,6 +8,7 @@ import {
 } from '@/features/admin/adminApi';
 import { useListCustomersQuery, useListVehiclesQuery } from '@/features/crm/crmApi';
 import { useListDeliveriesQuery, useListLeadsQuery, useListSalesOrdersQuery, useListStockVehiclesQuery } from '@/features/sales/salesApi';
+import { ServiceCallPanel } from '@/features/service';
 import { useListEstimatesQuery, useListVisitsQuery } from '@/features/service/serviceApi';
 import { useListOpenJobCardsQuery, useListPartsRequestsQuery, useListPurchaseOrdersQuery } from '@/features/parts/partsApi';
 import { useListInvoicesQuery } from '@/features/accounts/accountsApi';
@@ -371,6 +372,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'parts-requests', module: 'parts', any: ['parts.issues.create'], render: () => <OpenPartsRequestsKpi /> },
   { id: 'parts-returns', module: 'parts', any: ['parts.issues.create'], render: () => <PartReturnsKpi /> },
   { id: 'pos-awaiting', module: 'parts', any: ['parts.purchase_orders.approve'], render: () => <PosAwaitingKpi /> },
+  { id: 'service-calls', module: 'service', any: ['service.reminders.view'], span: 3, render: () => <ServiceCallPanel /> },
   { id: 'workshop', module: 'service', any: ['service.visits.view', 'service.visits.view_own'], span: 2, render: () => <WorkshopKpis /> },
   { id: 'estimates-awaiting', module: 'service', any: ['service.estimates.approve'], render: () => <EstimatesAwaitingKpi /> },
   { id: 'open-leads', module: 'sales', any: ['sales.leads.view_all', 'sales.leads.view_own'], render: () => <OpenLeadsKpi /> },

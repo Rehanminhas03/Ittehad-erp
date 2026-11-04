@@ -127,7 +127,7 @@ export const ServicesDueQuery = z.object({
   overdueOnly: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   uncalledOnly: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 });
-const ReminderLastCall = z.object({ outcome: z.string(), remarks: z.string().nullable(), nextCallOn: z.string().nullable(), at: Timestamp, by: z.string().nullable() });
+const ReminderLastCall = z.object({ outcome: z.string(), remarks: z.string().nullable(), nextCallOn: z.string().nullable(), appointmentTime: z.string().nullable(), at: Timestamp, by: z.string().nullable() });
 export const ServiceDueRowSchema = z
   .object({
     scheduleId: Id,
@@ -159,11 +159,40 @@ export const ReminderCallBody = z
     remarks: optionalText(1000),
     /** Booked / will come: the day; call later: the day to call again. */
     nextCallOn: z.iso.date().nullish(),
+    /** An appointment (booked): the time of day, HH:MM. */
+    appointmentTime: z.string().regex(/^([01]d|2[0-3]):[0-5]d$/, 'Use the time as HH:MM').nullish(),
   })
   .openapi('ReminderCallRequest');
 export const ReminderCallSchema = z
-  .object({ id: Id, outcome: z.string(), remarks: z.string().nullable(), nextCallOn: z.string().nullable(), at: Timestamp, by: z.string().nullable() })
+  .object({ id: Id, outcome: z.string(), remarks: z.string().nullable(), nextCallOn: z.string().nullable(), appointmentTime: z.string().nullable(), at: Timestamp, by: z.string().nullable() })
   .openapi('ReminderCall');
+
+/** Appointments the CRO booked, for the service advisors. */
+export const AppointmentsQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+export const AppointmentRowSchema = z
+  .object({
+    scheduleId: Id,
+    date: z.string(),
+    time: z.string().nullable(),
+    service: z.string(),
+    dueKm: z.number().int(),
+    remarks: z.string().nullable(),
+    bookedBy: z.string().nullable(),
+    bookedAt: Timestamp,
+    vehicleId: Id,
+    registrationNo: z.string().nullable(),
+    modelName: z.string().nullable(),
+    customerId: Id,
+    customerName: z.string(),
+    mobile: z.string(),
+    dealershipId: Id,
+    dealershipName: z.string(),
+  })
+  .openapi('AppointmentRow');
 
 /** A customer of the dealership found at check-in, with the cars they own. */
 export const CheckInCustomerSchema = z
@@ -200,6 +229,8 @@ export const AddServiceBody = z
     /** The advisor's service charges before sales tax (5% is added as its own line). */
     serviceCharge: Money.nullish(),
     parts: z.array(z.object({ partNo: z.string().trim().min(2).max(60), quantity: Quantity, discountPercent: DiscountPercent.optional() })).max(60).default([]),
+    /** The work and checks of the service the advisor kept ticked: each goes on the job card as a task for the workshop (no charge). */
+    checks: z.array(z.string().trim().min(1).max(200)).max(60).default([]),
     /** Send the parts request to the store now. */
     sendToStore: z.boolean().default(false),
   })

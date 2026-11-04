@@ -127,7 +127,12 @@ export default function ServicesDuePage() {
                   {r.lastCall ? (
                     <div className="space-y-0.5">
                       <Badge tone={tone(r.lastCall.outcome)}>{label(r.lastCall.outcome)}</Badge>
-                      {r.lastCall.nextCallOn && <span className="ml-1 text-xs text-slate-600">{formatDate(r.lastCall.nextCallOn)}</span>}
+                      {r.lastCall.nextCallOn && (
+                        <span className="ml-1 text-xs text-slate-600">
+                          {formatDate(r.lastCall.nextCallOn)}
+                          {r.lastCall.appointmentTime ? ` · ${r.lastCall.appointmentTime}` : ''}
+                        </span>
+                      )}
                       {r.lastCall.remarks && <div className="max-w-56 text-xs text-slate-600">{r.lastCall.remarks}</div>}
                       <div className="text-xs text-slate-400">
                         {r.lastCall.by} · {formatDateTime(r.lastCall.at)} · {r.callCount} call{r.callCount === 1 ? '' : 's'}
@@ -159,6 +164,8 @@ function CallDialog({ row, onClose }: { row: ServiceDueRow; onClose: () => void 
   const [outcome, setOutcome] = useState<(typeof OUTCOMES)[number]['value'] | ''>('');
   const [remarks, setRemarks] = useState('');
   const [day, setDay] = useState('');
+  // An appointment also has a time of day.
+  const [time, setTime] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [save, { isLoading }] = useRecordReminderCallMutation();
   const { data: history } = useListReminderCallsQuery({ id: row.scheduleId });
@@ -170,7 +177,7 @@ function CallDialog({ row, onClose }: { row: ServiceDueRow; onClose: () => void 
     if (needsDay && !day) return setError(`Choose: ${needsDay.toLowerCase()}`);
     setError(null);
     try {
-      await save({ reminderCallRequest: { scheduleId: row.scheduleId, outcome, remarks: remarks.trim() || null, nextCallOn: day || null } }).unwrap();
+      await save({ reminderCallRequest: { scheduleId: row.scheduleId, outcome, remarks: remarks.trim() || null, nextCallOn: day || null, appointmentTime: outcome === 'booked' && time ? time : null } }).unwrap();
       toast.success('Call recorded');
       onClose();
     } catch (e) {
@@ -214,6 +221,11 @@ function CallDialog({ row, onClose }: { row: ServiceDueRow; onClose: () => void 
         {needsDay && (
           <Field label={needsDay} htmlFor="rc-day" required>
             <Input id="rc-day" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+          </Field>
+        )}
+        {outcome === 'booked' && (
+          <Field label="Appointment time" htmlFor="rc-time">
+            <Input id="rc-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </Field>
         )}
         <Field label="Remarks" htmlFor="rc-remarks">

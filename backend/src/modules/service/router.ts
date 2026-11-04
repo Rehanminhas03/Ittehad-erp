@@ -27,6 +27,8 @@ import {
   JobCardLineSchema,
   JobCardSchema,
   VehicleScheduleEntrySchema,
+  AppointmentRowSchema,
+  AppointmentsQuery,
   ReminderCallBody,
   ReminderCallSchema,
   RegisterVehicleBody,
@@ -86,6 +88,16 @@ const reminderRouter = new ApiRouter('/service/reminders', 'ServiceReminder')
     query: ServicesDueQuery,
     response: ServicesDueSchema,
     handler: (ctx) => remindersSvc.servicesDue(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/appointments',
+    operationId: 'listAppointments',
+    summary: 'Appointments booked by the CRO for cars to come in for their service (for the service advisors)',
+    permission: P.remindersView,
+    query: AppointmentsQuery,
+    response: z.array(AppointmentRowSchema),
+    handler: (ctx) => remindersSvc.appointments(ctx, ctx.query),
   })
   .route({
     method: 'post',

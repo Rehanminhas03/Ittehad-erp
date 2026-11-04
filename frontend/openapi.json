@@ -14592,6 +14592,10 @@
                 "type": "string",
                 "nullable": true
               },
+              "appointmentTime": {
+                "type": "string",
+                "nullable": true
+              },
               "at": {
                 "type": "string",
                 "format": "date-time"
@@ -14605,6 +14609,7 @@
               "outcome",
               "remarks",
               "nextCallOn",
+              "appointmentTime",
               "at",
               "by"
             ]
@@ -14629,6 +14634,91 @@
           "dealershipName",
           "callCount",
           "lastCall"
+        ]
+      },
+      "AppointmentRow": {
+        "type": "object",
+        "properties": {
+          "scheduleId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "date": {
+            "type": "string"
+          },
+          "time": {
+            "type": "string",
+            "nullable": true
+          },
+          "service": {
+            "type": "string"
+          },
+          "dueKm": {
+            "type": "integer"
+          },
+          "remarks": {
+            "type": "string",
+            "nullable": true
+          },
+          "bookedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "bookedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "vehicleId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "registrationNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "dealershipName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheduleId",
+          "date",
+          "time",
+          "service",
+          "dueKm",
+          "remarks",
+          "bookedBy",
+          "bookedAt",
+          "vehicleId",
+          "registrationNo",
+          "modelName",
+          "customerId",
+          "customerName",
+          "mobile",
+          "dealershipId",
+          "dealershipName"
         ]
       },
       "ReminderCallRequest": {
@@ -14660,6 +14750,11 @@
             "type": "string",
             "nullable": true,
             "format": "date"
+          },
+          "appointmentTime": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^([01]d|2[0-3]):[0-5]d$"
           }
         },
         "required": [
@@ -14686,6 +14781,10 @@
             "type": "string",
             "nullable": true
           },
+          "appointmentTime": {
+            "type": "string",
+            "nullable": true
+          },
           "at": {
             "type": "string",
             "format": "date-time"
@@ -14700,6 +14799,7 @@
           "outcome",
           "remarks",
           "nextCallOn",
+          "appointmentTime",
           "at",
           "by"
         ]
@@ -15047,6 +15147,16 @@
                 "partNo",
                 "quantity"
               ]
+            },
+            "maxItems": 60,
+            "default": []
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
             },
             "maxItems": 60,
             "default": []
@@ -48419,6 +48529,96 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ServicesDue"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/service/reminders/appointments": {
+      "get": {
+        "operationId": "listAppointments",
+        "summary": "Appointments booked by the CRO for cars to come in for their service (for the service advisors)",
+        "description": "Requires: service.reminders.view",
+        "tags": [
+          "ServiceReminder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppointmentRow"
+                  }
                 }
               }
             }

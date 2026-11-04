@@ -187,7 +187,8 @@ export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; l
   const lubricants = lines.some((l) => l.kind === 'lubricant') ? group('Lubricants', ['lubricant'], 'Sub-total lubricants:') : 0;
   // Services: the sales tax on the service charges is its own column, not a row (the tax line of the job card is
   // spread over the service rows in proportion to their charge).
-  const serviceRows = lines.filter((l) => ['labour', 'sublet'].includes(l.kind));
+  // The no-charge tasks ticked from a service's checklist (zero price) are the workshop's to-do list, not a charge: they are left off the print.
+  const serviceRows = lines.filter((l) => ['labour', 'sublet'].includes(l.kind) && !(l.source === 'schedule' && !l.billable && Number(l.unitPrice) === 0));
   const isTaxLine = (l: JobCardLine) => /^sales tax/i.test(l.description);
   const charged = serviceRows.filter((l) => !isTaxLine(l));
   const taxTotal = serviceRows.filter(isTaxLine).reduce((n, l) => n + amountOf(l), 0);

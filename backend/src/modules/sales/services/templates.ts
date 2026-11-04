@@ -87,7 +87,7 @@ function groupQuotation(d: Dealer): Fields {
 }
 
 /**
- * Jetour Ittehad's quotation (2026-09-30, from its Dashing / X70 and T2 i-DM quotations; one format
+ * Jetour Ittehad's quotation (2026-11-05 format, from its QUOTATION FORMAT file; one format
  * for every Jetour model). Printed with Jetour's own layout (frontend pdf.ts). The tagline is the
  * website line under the contact details. The battery warranty line prints only for the i-DM PHEV.
  */
@@ -98,28 +98,41 @@ const JETOUR_QUOTATION: Fields = {
   address: 'Plot #. 415, off 9th Avenue, Sector I-9/3, Islamabad',
   phone: '+92 (51) 111 500 100',
   email: 'info@ittehadmotors.com',
-  deliveryNotes: [
-    'Delivery Period at the time of receiving payment/booking will be applicable',
-    'Delivery Times are as per current prevailing conditions',
-    'Delivery Times are communicated as per instructions by JETOUR',
-  ],
+  // The clauses are all in `terms`: "# " starts a heading, "- " a bullet; {deliveryPeriod} is the delivery period as of
+  // today typed on the quotation (the line is left out when it is empty) and {paymentMode} its payment mode.
+  deliveryNotes: [],
   deliveryStation: 'JETOUR ITTEHAD ISLAMABAD',
-  defaultPaymentMode: '100% Advance Payment.',
+  defaultPaymentMode: '100 % Advance Payment',
   defaultValidityDays: 7,
   defaultDeliveryDays: null,
   highlightLine: null,
   standardEquipment: 'As per Brochure',
   terms: [
-    'All Payments **(Pay Orders)** to be made in favor of **UNITED MOTORS PVT LTD NTN # 7154939-2.**',
-    'Any impact on prices, including but not limited to Government levies (including FED, GST, and CVT etc.), duties, tariffs, fiscal policies, import policies, PKR devaluation, shall be on account of customer.',
-    'Force Majeure clause is applicable, including but not limited to Acts of God or enemy, change in Government Policies, Government announced Lockdowns, Labor Strikes, or Civil Unrest, injunctions by Court of Law.',
-    'Vehicle is covered by manufacturer’s warranty of **60 months** or **150,000 km,** whichever occurs first.',
-    '[Hybrid only] Battery Warranty is **96 months** or **160,000 km,** whichever occurs first.',
-    'Any difference in Price will have to be paid before delivery.',
-    'Further Sales Tax @ 4% will be applicable on all Corporate and Business Individual Customers who are registered in sales tax but are non-Active and customers which are not registered in sales tax.',
-    'Orders taken from customers are governed by **PBO** (Provisional Booking Order Form) and are under its terms and conditions. Order will be deemed confirmed only at the time of realization of funds and completion of all formalities.',
-    'At any time, throughout the transaction, terms and conditions of this quotation shall remain supreme, even if any document received by us, unless notified/authorized by our office in written form.',
-    'JETOUR ITTEHAD Islamabad is acting on behalf of the dealer of **JETOUR,** and is not subject to any liability, including legal or financial. Delivery times are constantly changing based on first come basis, & available stocks.',
+    '**VALIDITY:** This Quotation is valid for {validityDays} Working Days',
+    '# DELIVERY',
+    '- Delivery Times are only Tentative and as communicated by JETOUR Pakistan',
+    '- Delivery Period as of Today (Tentative)**:** {deliveryPeriod}',
+    '- Delivery Period at the time of receiving payment / booking will be applicable',
+    '- Delivery Period (Tentative): 30 - 45 days from time of full payment is made',
+    '- Delivery Station: {deliveryStation}',
+    '# PAYMENT',
+    '- Payment Mode: {paymentMode}',
+    '- All Payments **(Pay Orders)** to be made in favor of **UNITED MOTORS PRIVATE LIMITED A/C CUSTOMER NAME**',
+    '# WARRANTY',
+    '- Manufacturers Warranty (Vehicle): 60 months or 150,000 km (whichever occurs first)',
+    '[Hybrid only] - Manufacturers Warranty (PHEV battery): 60 months or 150,000 km (whichever occurs first)',
+    '- Warranty applicable as per and adherence to Manufacturers maintenance protocols',
+    '# PRICE',
+    '- Price at the time of delivery/invoicing will be applicable',
+    '- Any difference in Price will have to be paid before delivery',
+    '- Any impact on prices, including but not limited to Government levies (including FED, GST, and CVT etc.), duties, tariffs, fiscal policies, import policies, PKR devaluation, shall be on account of customer',
+    '# OTHERS',
+    '- Force Majeure clause is applicable, including but not limited to Acts of God or enemy, change in Government Policies, Government announced Lockdowns, Labor Strikes, or Civil Unrest, injunctions by Court of Law.',
+    '- Further Sales Tax @ 4% will be applicable on all Corporate and Business Individual Customers who are registered in sales tax but are non-Active and customers which are not registered in sales tax',
+    '- Orders taken from customers are governed by **PBO** (Provisional Booking Order Form) terms and conditions.',
+    '- Order will be deemed confirmed only at the time of realization of funds and completion of all formalities',
+    '- At any time, throughout the transaction, terms and conditions of this quotation shall remain supreme, unless notified/authorized by our office in written',
+    '- JETOUR ITTEHAD Islamabad is acting as the dealer of and on behalf of **JETOUR Pakistan (United Motors)**, and is not subject to any liability, including legal or financial',
   ],
   closingLines: [],
   signOff: ['Owned & Operated by:', 'Ittehad Motors', '(an Ittehad Steel Company)'],

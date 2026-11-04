@@ -25,6 +25,8 @@ interface PartRow {
   quantity: string;
   price: number;
   discount: string;
+  /** Ticked: the customer wants it (only ticked parts are requested from the store). */
+  on: boolean;
 }
 
 /**
@@ -45,11 +47,14 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
   const [add, { isLoading }] = useAddServiceToJobCardMutation();
   const [charge, setCharge] = useState('');
   const [rows, setRows] = useState<PartRow[]>([]);
+  // The work and checks the customer does not want at this service (by description).
+  const [unticked, setUnticked] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   // The parts of the chosen service, with the price-list prices, to be checked before they are sent.
   useEffect(() => {
-    setRows((pkg ?? []).filter((x) => x.kind === 'part' && x.partNo).map((x) => ({ partNo: x.partNo!, description: x.description, quantity: String(Number(x.quantity)), price: Number(x.sellingPrice ?? 0), discount: '' })));
+    setRows((pkg ?? []).filter((x) => x.kind === 'part' && x.partNo).map((x) => ({ partNo: x.partNo!, description: x.description, quantity: String(Number(x.quantity)), price: Number(x.sellingPrice ?? 0), discount: '', on: true })));
+    setUnticked(new Set());
   }, [pkg]);
 
   const chosen = services?.items.find((s) => String(s.id) === serviceId);
@@ -59,13 +64,15 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
   const tax = Math.round(chargeNum * TAX_PERCENT) / 100;
   const free = !!visit?.freeService;
   const lineTotal = (r: PartRow) => Number(r.quantity || 0) * r.price * (1 - (Number(r.discount.replace('%', '')) || 0) / 100);
-  const partsTotal = rows.reduce((n, r) => n + lineTotal(r), 0);
+  const chosenRows = rows.filter((r) => r.on);
+  const partsTotal = chosenRows.reduce((n, r) => n + lineTotal(r), 0);
   const group = (kind: 'labour' | 'check') => (pkg ?? []).filter((x) => x.kind === kind);
+  const tasks = [...group('labour'), ...group('check')].map((x) => x.description);
 
   const submit = async (sendToStore: boolean) => {
     if (!serviceId) return setError('Choose the service');
     if (!onCard && (clean(charge) === '' || !(chargeNum >= 0))) return setError('Enter the service charges (before tax)');
-    for (const r of rows) {
+    for (const r of chosenRows) {
       if (!(Number(r.quantity) > 0)) return setError(`${r.partNo}: enter the quantity`);
       const d = Number(r.discount.replace('%', '') || 0);
       if (Number.isNaN(d) || d < 0 || d > 100) return setError(`${r.partNo}: the discount must be 0 to 100`);
@@ -77,7 +84,8 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
         addServiceToJobCard: {
           scheduleItemId: Number(serviceId),
           serviceCharge: onCard ? undefined : clean(charge),
-          parts: rows.map((x) => ({ partNo: x.partNo, quantity: x.quantity.trim(), discountPercent: x.discount.replace('%', '').trim() || undefined })),
+          checks: tasks.filter((t) => !unticked.has(t)),
+          parts: chosenRows.map((x) => ({ partNo: x.partNo, quantity: x.quantity.trim(), discountPercent: x.discount.replace('%', '').trim() || undefined })),
           sendToStore,
         },
       }).unwrap();
@@ -103,7 +111,7 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
           <Button variant="secondary" loading={isLoading} disabled={!serviceId} onClick={() => void submit(false)}>
             Add to job card only
           </Button>
-          <Button loading={isLoading} disabled={!serviceId || !rows.length} onClick={() => void submit(true)}>
+          <Button loading={isLoading} disabled={!serviceId || !chosenRows.length} onClick={() => void submit(true)}>
             Add and send request to parts
           </Button>
         </>
@@ -148,13 +156,14 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
 
             {/* 2. Parts to replace: price list prices, discounts */}
             <section className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
-              <h3 className="text-sm font-semibold text-emerald-900">2. Parts to replace (check them, then send to the parts department)</h3>
+              <h3 className="text-sm font-semibold text-emerald-900">2. Parts to replace (untick what the customer does not want, then send to the parts department)</h3>
               {rows.length === 0 ? (
                 <p className="mt-1 text-sm text-emerald-900">No parts are listed for this service. Add the parts below if any are needed.</p>
               ) : (
                 <table className="mt-2 min-w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-slate-500">
+                      <th className="w-6 py-1 pr-2" />
                       <th className="py-1 pr-2 font-medium">Part</th>
                       <th className="py-1 pr-2 text-right font-medium">Qty</th>
                       <th className="py-1 pr-2 text-right font-medium">Price</th>
@@ -165,7 +174,10 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
                   </thead>
                   <tbody>
                     {rows.map((r, i) => (
-                      <tr key={r.partNo} className="align-middle">
+                      <tr key={r.partNo} className={`align-middle ${r.on ? '' : 'opacity-50'}`}>
+                        <td className="py-1 pr-2">
+                          <input type="checkbox" checked={r.on} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} aria-label={`Include ${r.description}`} className="size-4 accent-emerald-600" />
+                        </td>
                         <td className="py-1 pr-2">
                           <span className="block font-mono text-xs text-slate-900">{r.partNo}</span>
                           <span className="block truncate text-xs text-slate-600">{r.description}</span>
@@ -188,7 +200,7 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={4} className="pt-1 pr-2 text-right text-xs text-slate-500">
+                      <td colSpan={5} className="pt-1 pr-2 text-right text-xs text-slate-500">
                         Parts total (price list prices include sales tax)
                       </td>
                       <td className="pt-1 pr-2 text-right font-semibold tabular-nums">{money(partsTotal)}</td>
@@ -200,22 +212,36 @@ export function PeriodicServiceDialog({ jobCard, initialServiceId, onClose }: { 
               <div className="mt-2">
                 <PartPicker
                   placeholder="Add another part: search by number or name…"
-                  onPick={(p) => setRows((cur) => (cur.some((r) => r.partNo === p.partNo) ? cur : [...cur, { partNo: p.partNo, description: p.description, quantity: '1', price: Number(p.sellingPrice), discount: '' }]))}
+                  onPick={(p) => setRows((cur) => (cur.some((r) => r.partNo === p.partNo) ? cur : [...cur, { partNo: p.partNo, description: p.description, quantity: '1', price: Number(p.sellingPrice), discount: '', on: true }]))}
                 />
               </div>
             </section>
 
             {/* 3. Work and checks the service covers */}
             <section className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
-              <h3 className="text-sm font-semibold text-amber-900">3. Work and checks included in this service</h3>
+              <h3 className="text-sm font-semibold text-amber-900">3. Work and checks included in this service (untick what is not needed)</h3>
               {group('labour').length + group('check').length === 0 ? (
                 <p className="mt-1 text-sm text-amber-900">Nothing else is listed for this service yet.</p>
               ) : (
                 <ul className="mt-1 grid grid-cols-1 gap-x-6 gap-y-0.5 text-sm text-slate-800 sm:grid-cols-2">
-                  {[...group('labour'), ...group('check')].map((x, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span aria-hidden>✓</span>
-                      {x.description}
+                  {tasks.map((t) => (
+                    <li key={t}>
+                      <label className="flex cursor-pointer items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!unticked.has(t)}
+                          onChange={(e) =>
+                            setUnticked((cur) => {
+                              const next = new Set(cur);
+                              if (e.target.checked) next.delete(t);
+                              else next.add(t);
+                              return next;
+                            })
+                          }
+                          className="mt-0.5 size-4 accent-amber-600"
+                        />
+                        <span className={unticked.has(t) ? 'text-slate-400 line-through' : ''}>{t}</span>
+                      </label>
                     </li>
                   ))}
                 </ul>

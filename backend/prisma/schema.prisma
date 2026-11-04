@@ -2222,6 +2222,8 @@ model ReminderCall {
   outcome      String
   remarks      String?
   nextCallOn   DateTime? @map("next_call_on") @db.Date
+  /// An appointment: the time of day the customer is booked for (HH:MM).
+  appointmentTime String? @map("appointment_time")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdById  BigInt   @map("created_by_id")
 

@@ -62,6 +62,8 @@ export interface TemplateContext {
   deliveryStation: string;
   dealership: string;
   hybrid: boolean;
+  /** The quotation's payment mode (Jetour's clauses). */
+  paymentMode?: string;
   /** CSM's quotation: the advance (amount), the delivery period and the advance / balance percentages. */
   advance?: string;
   deliveryPeriod?: string;
@@ -87,7 +89,8 @@ export function fillTemplateLine(line: string, c: TemplateContext): string | nul
     .replaceAll('{advancePercent}', c.advancePercent ?? '')
     .replaceAll('{balancePercent}', c.balancePercent ?? '')
     .replaceAll('{advance}', c.advance ?? '')
-    .replaceAll('{deliveryPeriod}', c.deliveryPeriod ?? '');
+    .replaceAll('{deliveryPeriod}', c.deliveryPeriod ?? '')
+    .replaceAll('{paymentMode}', c.paymentMode ?? '');
 }
 
 export type Img = { data: string; w: number; h: number };
@@ -571,13 +574,10 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   p.y = ruleY + 12;
   p.font(16, 'bold');
   doc.text('QUOTATION', W / 2, p.y, { align: 'center' });
-  const tw = doc.getTextWidth('QUOTATION');
-  doc.setLineWidth(0.5);
-  doc.line(W / 2 - tw / 2, p.y + 1.2, W / 2 + tw / 2, p.y + 1.2);
-  doc.setLineWidth(0.25);
+  p.y += 9;
   p.font(9, 'bold');
-  doc.text(`Date: ${longDate(q.issuedAt)}`, W - M - 4, p.y, { align: 'right' });
-  p.y += 8;
+  doc.text(`Date: ${longDate(q.issuedAt)}`, W - M - 2, p.y, { align: 'right' });
+  p.y += 6;
   if (q.notes) {
     p.font(11.5);
     for (const l of doc.splitTextToSize(`Note: ${q.notes}`, CW - 20) as string[]) {
@@ -617,7 +617,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   // A charge left empty has no row; one entered as 0 prints with 0.
   if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
   if (q.pricing.nevLevy != null && q.pricing.nevLevy !== '') items.push(['NEV LEVY', Number(q.pricing.nevLevy)]);
-  if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
+  if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer)' : 'WITH HOLDING TAX (Filer)', Number(q.pricing.withholdingTax)]);
   if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
   items.forEach(([label, unit], i) => {
     p.font(9.5);
@@ -663,7 +663,12 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   centre('TOTAL', 1, p.y + 5.7);
   centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + 5.7);
   centre(num(q.pricing.total), 4, p.y + 5.7);
-  p.y += 8.5 + 7;
+  p.y += 8.5 + 4.5;
+  if (t.standardEquipment) {
+    p.font(8.6 * k, 'bold');
+    doc.text(`*Standard Equipment: ${t.standardEquipment}`, W - M, p.y, { align: 'right' });
+  }
+  p.y += 9 * k;
 
   // ---- Terms & conditions ------------------------------------------------------------------------------
   const issued = new Date(q.issuedAt);
@@ -677,31 +682,29 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     // The battery warranty ("[Hybrid only]") is for the i-DM PHEV.
     hybrid: /PHEV|\bi-DM\b|HYBRID|\bHEV\b/i.test(`${q.vehicle.model} ${q.vehicle.variant ?? ''}`),
   };
-  const boldLine = (text: string, x: number) => p.rich(text, x, W - M - x, 9 * k, 4.6 * k, true);
-  if (t.standardEquipment) boldLine(`Standard Equipment: ${t.standardEquipment}`, M + 1);
-  boldLine('TERMS & CONDITIONS:', M + 1);
-  const deliveryDays = q.deliveryDays ?? t.defaultDeliveryDays;
-  const period = q.deliveryPeriod?.trim() || (deliveryDays != null ? `${deliveryDays} DAYS` : null);
-  if (period) boldLine(`Tentative Delivery Period: ${period}`, M + 1);
-  for (const l of t.deliveryNotes) {
-    const line = fillTemplateLine(l, ctx);
-    if (line) p.rich(line, M + 8, CW - 8, 8.6 * k, 4.2 * k);
-  }
-  const valid = `Validity of Quotation: ${String(validityDays).padStart(2, '0')} Days`;
-  for (const l of [valid, ctx.deliveryStation && `Delivery Station: ${ctx.deliveryStation}`, (q.paymentMode || t.defaultPaymentMode) && `Payment Mode: ${q.paymentMode || t.defaultPaymentMode}`, t.highlightLine].filter(Boolean) as string[]) {
-    boldLine(l, M + 2);
-  }
-  p.y += 1 * k;
-  for (const l of t.terms) {
-    const line = fillTemplateLine(l, ctx);
+  ctx.paymentMode = (q.paymentMode || t.defaultPaymentMode || '').trim();
+  ctx.deliveryPeriod = q.deliveryPeriod?.trim() || undefined;
+  p.font(9 * k, 'bold');
+  doc.text('TERMS & CONDITIONS:', M + 1, p.y);
+  p.y += 5.4 * k;
+  // The clauses: "# Heading" lines, "- bullet" lines and plain lines (all **bold**-aware), from the format.
+  for (const raw of t.terms) {
+    if (raw.includes('{deliveryPeriod}') && !ctx.deliveryPeriod) continue;
+    const line = fillTemplateLine(raw, ctx);
     if (!line) continue;
-    p.rich(line, M + 2, CW - 4, 8.6 * k, 4 * k);
-    p.y += 1.3 * k;
+    if (line.startsWith('# ')) {
+      p.y += 0.6 * k;
+      p.rich(line.slice(2), M + 4, CW - 8, 8.8 * k, 4.3 * k, true);
+    } else if (line.startsWith('- ')) {
+      p.ensure(4 * k);
+      p.font(8.6 * k);
+      doc.text('\u2022', M + 10, p.y);
+      p.rich(line.slice(2), M + 15, CW - 19, 8.6 * k, 3.9 * k);
+    } else {
+      p.rich(line, M + 4, CW - 8, 8.8 * k, 4.5 * k);
+    }
   }
-  for (const l of t.closingLines) {
-    const line = fillTemplateLine(l, ctx);
-    if (line) boldLine(line, M + 2);
-  }
+  p.y += 2 * k;
 
   // ---- Owned & operated by, and the stamp & signature space --------------------------------------------
   // Full page: room above "STAMP & SIGNATURE" for the stamp and the Manager's signature.

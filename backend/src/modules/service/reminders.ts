@@ -13,7 +13,7 @@ import type { z } from '../../lib/zod';
 import { dealership } from '../core/models';
 import { customer, vehicle, vehicleModel, vehicleOwnership } from '../master/models';
 import { ServicePerm as P } from './permissions';
-import type { ReminderCallBody, ServicesDueQuery } from './schemas';
+import type { AppointmentsQuery, ReminderCallBody, ServicesDueQuery } from './schemas';
 import { reminderCall, vehicleSchedule } from './models';
 
 export const CALL_OUTCOMES = ['booked', 'will_come', 'call_later', 'no_answer', 'wrong_number', 'not_interested', 'already_serviced'] as const;
@@ -27,6 +27,8 @@ export async function servicesDue(ctx: EntityCtx, q: z.output<typeof ServicesDue
   ];
   if (q.dealershipId) conds.push(eq(vehicleOwnership.dealershipId, q.dealershipId));
   if (q.overdueOnly) conds.push(sql`${vehicleSchedule.dueDate} < ${pakistanToday()}::date`);
+  // A customer who came on their own for a later service (the odometer picked it) needs no call for the earlier ones.
+  conds.push(sql`not exists (select 1 from ${vehicleSchedule} d where d.vehicle_id = ${vehicle.id} and d.status = 'done' and d.sequence > ${vehicleSchedule.sequence})`);
   // A car already in the workshop for this service does not need a call.
   conds.push(sql`not exists (select 1 from service.visit x where x.vehicle_id = ${vehicle.id} and x.status in ('open', 'in_progress', 'ready'))`);
   const where = and(...conds)!;
@@ -54,10 +56,10 @@ export async function servicesDue(ctx: EntityCtx, q: z.output<typeof ServicesDue
   );
   const ids = rows.map((r) => r.scheduleId);
   const calls = ids.length
-    ? await query<{ scheduleId: number; outcome: string; remarks: string | null; nextCallOn: string | null; at: Date; by: string | null; n: number }>(
+    ? await query<{ scheduleId: number; outcome: string; remarks: string | null; nextCallOn: string | null; appointmentTime: string | null; at: Date; by: string | null; n: number }>(
         ctx.tx,
         sql`select distinct on (${reminderCall.scheduleId}) ${reminderCall.scheduleId} as "scheduleId", ${reminderCall.outcome} as "outcome",
-                   ${reminderCall.remarks} as "remarks", ${reminderCall.nextCallOn}::text as "nextCallOn", ${reminderCall.createdAt} as "at",
+                   ${reminderCall.remarks} as "remarks", ${reminderCall.nextCallOn}::text as "nextCallOn", ${reminderCall.appointmentTime} as "appointmentTime", ${reminderCall.createdAt} as "at",
                    (select u.full_name from core."user" u where u.id = ${reminderCall.createdById}) as "by",
                    (select count(*)::int from ${reminderCall} rc where rc.schedule_id = ${reminderCall.scheduleId}) as "n"
               from ${reminderCall}
@@ -73,7 +75,7 @@ export async function servicesDue(ctx: EntityCtx, q: z.output<typeof ServicesDue
       ...r,
       overdue: r.dueDate < today,
       callCount: c?.n ?? 0,
-      lastCall: c ? { outcome: c.outcome, remarks: c.remarks, nextCallOn: c.nextCallOn, at: c.at, by: c.by } : null,
+      lastCall: c ? { outcome: c.outcome, remarks: c.remarks, nextCallOn: c.nextCallOn, appointmentTime: c.appointmentTime, at: c.at, by: c.by } : null,
     };
   });
   const filtered = q.uncalledOnly ? items.filter((i) => !i.lastCall) : items;
@@ -104,6 +106,7 @@ export async function recordReminderCall(ctx: EntityCtx, input: z.output<typeof 
       outcome: input.outcome,
       remarks: input.remarks?.trim() || null,
       nextCallOn: input.nextCallOn ?? null,
+      appointmentTime: input.outcome === 'booked' ? (input.appointmentTime ?? null) : null,
       createdById: ctx.access.userId,
     },
     select: { id: true },
@@ -114,14 +117,59 @@ export async function recordReminderCall(ctx: EntityCtx, input: z.output<typeof 
 
 /** Every call made about one due service, newest first. */
 export async function reminderCalls(ctx: EntityCtx, scheduleId: number) {
-  return query<{ id: number; outcome: string; remarks: string | null; nextCallOn: string | null; at: Date; by: string | null }>(
+  return query<{ id: number; outcome: string; remarks: string | null; nextCallOn: string | null; appointmentTime: string | null; at: Date; by: string | null }>(
     ctx.tx,
     sql`select ${reminderCall.id} as "id", ${reminderCall.outcome} as "outcome", ${reminderCall.remarks} as "remarks",
-               ${reminderCall.nextCallOn}::text as "nextCallOn", ${reminderCall.createdAt} as "at",
+               ${reminderCall.nextCallOn}::text as "nextCallOn", ${reminderCall.appointmentTime} as "appointmentTime", ${reminderCall.createdAt} as "at",
                (select u.full_name from core."user" u where u.id = ${reminderCall.createdById}) as "by"
           from ${reminderCall}
          where ${and(eq(reminderCall.scheduleId, scheduleId), scopeWhere(ctx.access.scope(P.remindersView), { dealership: reminderCall.dealershipId }))!}
          order by ${reminderCall.createdAt} desc, ${reminderCall.id} desc
          limit 50`,
+  );
+}
+
+/**
+ * The appointments the CRO booked (outcome "booked" on the latest call about a service that is still due), by day: what the
+ * service advisors prepare for. Today to a month ahead unless the dates are given.
+ */
+export async function appointments(ctx: EntityCtx, q: z.output<typeof AppointmentsQuery>) {
+  const today = pakistanToday();
+  const from = q.from ?? today;
+  const to = q.to ?? addDays(today, 30);
+  const conds: SQL[] = [
+    sql`last."outcome" = 'booked'`,
+    sql`last."date" between ${from}::date and ${to}::date`,
+    sql`${vehicleSchedule.status} = 'due'`,
+    sql`${vehicleOwnership.endDate} is null`,
+    scopeWhere(ctx.access.scope(P.remindersView), { dealership: vehicleOwnership.dealershipId }),
+  ];
+  if (q.dealershipId) conds.push(eq(vehicleOwnership.dealershipId, q.dealershipId));
+  return query<{
+    scheduleId: number; date: string; time: string | null; service: string; dueKm: number; remarks: string | null; bookedBy: string | null; bookedAt: Date;
+    vehicleId: number; registrationNo: string | null; modelName: string | null; customerId: number; customerName: string; mobile: string; dealershipId: number; dealershipName: string;
+  }>(
+    ctx.tx,
+    sql`select last."scheduleId" as "scheduleId", last."date"::text as "date", last."time" as "time", ${vehicleSchedule.name} as "service", ${vehicleSchedule.dueKm} as "dueKm",
+               last."remarks" as "remarks", last."bookedBy" as "bookedBy", last."bookedAt" as "bookedAt",
+               ${vehicle.id} as "vehicleId", ${vehicle.registrationNo} as "registrationNo", ${vehicleModel.name} as "modelName",
+               ${customer.id} as "customerId", ${customer.fullName} as "customerName", ${customer.mobile} as "mobile",
+               ${dealership.id} as "dealershipId", ${dealership.name} as "dealershipName"
+          from (
+            select distinct on (${reminderCall.scheduleId}) ${reminderCall.scheduleId} as "scheduleId", ${reminderCall.outcome} as "outcome", ${reminderCall.nextCallOn} as "date",
+                   ${reminderCall.appointmentTime} as "time", ${reminderCall.remarks} as "remarks", ${reminderCall.createdAt} as "bookedAt",
+                   (select u.full_name from core."user" u where u.id = ${reminderCall.createdById}) as "bookedBy"
+              from ${reminderCall}
+             order by ${reminderCall.scheduleId}, ${reminderCall.createdAt} desc, ${reminderCall.id} desc
+          ) last
+          inner join ${vehicleSchedule} on ${vehicleSchedule.id} = last."scheduleId"
+          inner join ${vehicle} on ${vehicle.id} = ${vehicleSchedule.vehicleId}
+          inner join ${vehicleOwnership} on ${vehicleOwnership.vehicleId} = ${vehicle.id}
+          inner join ${customer} on ${customer.id} = ${vehicleOwnership.customerId}
+          inner join ${dealership} on ${dealership.id} = ${vehicleOwnership.dealershipId}
+          left join ${vehicleModel} on ${vehicleModel.id} = ${vehicle.modelId}
+         where ${and(...conds)!}
+         order by last."date" asc, last."time" asc nulls last, ${vehicleSchedule.id} asc
+         limit 500`,
   );
 }

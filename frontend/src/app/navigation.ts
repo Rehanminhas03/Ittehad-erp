@@ -69,6 +69,8 @@ const ALL_SECTIONS: NavSection[] = [
     module: 'service',
     items: [
       { label: 'Services due (call list)', to: '/service/reminders', any: ['service.reminders.view'] },
+      // Booked from the call list by the CRO; the service advisors see who is coming in.
+      { label: 'Appointments', to: '/service/appointments', any: ['service.reminders.view'] },
       { label: 'Service visits', to: '/service/visits', any: ['service.visits.view', 'service.visits.view_own'] },
       { label: 'Job cards', to: '/service/job-cards', any: ['service.job_cards.view'] },
       { label: 'Estimates', to: '/service/estimates', any: ['service.estimates.view', 'service.estimates.view_own'] },

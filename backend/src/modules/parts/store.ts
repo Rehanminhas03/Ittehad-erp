@@ -152,6 +152,9 @@ export async function dailySales(ctx: EntityCtx, q: { dealershipId: number; from
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
   const from = q.from ?? q.to ?? today;
   const to = q.to ?? q.from ?? today;
+  // Counter sales belong to the store: they show to the store and the accounts, not to the service side. Other invoices (vehicles) are not part of this report.
+  const withCounterSales = ctx.access.canIn(P.issuesCreate, { dealershipId: q.dealershipId }) || ctx.access.canIn('accounts.reports.view', { dealershipId: q.dealershipId });
+  const sources = withCounterSales ? sql`i.source_type in ('job_card', 'counter_sale')` : sql`i.source_type = 'job_card'`;
   // The "Sales tax 5%" line of a service is tax, not labour.
   return query<{ date: string; invoiceId: number; invoiceNo: string; roNo: string | null; customerName: string | null; advisorName: string | null; labour: string; parts: string; accessories: string; lubricants: string; other: string; tax: string; total: string; amountPaid: string }>(
     ctx.tx,
@@ -176,6 +179,7 @@ export async function dailySales(ctx: EntityCtx, q: { dealershipId: number; from
          left join service.visit v on v.id = jc.visit_id
          left join core."user" u on u.id = v.advisor_id
         where i.dealership_id = ${q.dealershipId} and i.status in ('issued', 'partially_paid', 'paid')
+          and ${sources}
           and i.invoice_date between ${from}::date and ${to}::date
         group by i.id, c.full_name, u.full_name
         order by i.invoice_date desc, i.id desc

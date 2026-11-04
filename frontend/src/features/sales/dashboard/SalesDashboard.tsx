@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { ServiceCallPanel } from '@/features/service';
 import { TodayPanel } from './TodayPanel';
 import { DateRangePicker, type DateRange, lastDays, rangeLabel } from '@/shared/components';
 import { Button, Select, StatusBadge } from '@/shared/components/ui';
@@ -230,6 +231,9 @@ export function SalesDashboard() {
 
       {/* Today and tomorrow: customer appointments and car deliveries, first thing in the morning. */}
       <TodayPanel />
+
+      {/* The CRO's customer call list (services due) and the appointments booked from it. */}
+      {perm.can('service.reminders.view') && <ServiceCallPanel />}
 
       {/* What is waiting for you (approvals, cars to hand over…), with a pop-up when something is new. */}
       <ActionNeeded />

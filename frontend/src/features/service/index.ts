@@ -2,3 +2,4 @@
 export { VehicleSchedulePanel } from './components/VehicleSchedulePanel';
 export { P as ServicePermissions } from './permissions';
 export { NewServiceButton } from './components/NewServiceButton';
+export { ServiceCallPanel } from './components/ServiceCallPanel';

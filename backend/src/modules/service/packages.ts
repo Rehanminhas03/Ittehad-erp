@@ -60,6 +60,8 @@ interface ServiceInput {
   serviceCharge?: string | null;
   /** The parts to replace, as checked by the advisor: quantity, and a discount in percent where one is agreed. */
   parts: { partNo: string; quantity: string; discountPercent?: string | null }[];
+  /** The work and checks the advisor kept ticked: tasks on the job card for the workshop (no charge). */
+  checks?: string[];
   /** Send the parts request to the store now (the advisor has checked everything). */
   sendToStore: boolean;
 }
@@ -100,6 +102,19 @@ export async function addService(ctx: EntityCtx, jobCardId: number, input: Servi
     };
     await add(baseDescription, charge);
     if (Number(tax) > 0) await add(`Sales tax ${SERVICE_TAX_PERCENT}% on the service charges`, tax);
+  }
+
+  // The ticked work and checks of the service: tasks for the workshop, free of charge, once each.
+  const taskNames = [...new Set((input.checks ?? []).map((c) => c.trim()).filter(Boolean))];
+  if (taskNames.length) {
+    const have = new Set((await ctx.tx.jobCardLine.findMany({ where: { jobCardId: card.id }, select: { description: true } })).map((l) => l.description));
+    for (const description of taskNames.filter((t) => !have.has(t))) {
+      await ctx.tx.jobCardLine.create({
+        data: { dealershipId: card.dealershipId, jobCardId: card.id, kind: 'labour', description, quantity: '1', unitPrice: '0', amount: '0', billable: false, source: 'schedule' },
+        select: { id: true },
+      });
+      linesAdded += 1;
+    }
   }
 
   let requestNo: string | null = null;

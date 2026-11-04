@@ -64,6 +64,20 @@ const injectedRtkApi = api
         }),
         providesTags: ["ServiceReminder"],
       }),
+      listAppointments: build.query<
+        ListAppointmentsApiResponse,
+        ListAppointmentsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/reminders/appointments`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            from: queryArg["from"],
+            to: queryArg.to,
+          },
+        }),
+        providesTags: ["ServiceReminder"],
+      }),
       recordReminderCall: build.mutation<
         RecordReminderCallApiResponse,
         RecordReminderCallApiArg
@@ -650,6 +664,13 @@ export type ListServicesDueApiArg = {
   overdueOnly?: "true" | "false";
   uncalledOnly?: "true" | "false";
 };
+export type ListAppointmentsApiResponse =
+  /** status 200 Success */ AppointmentRow[];
+export type ListAppointmentsApiArg = {
+  dealershipId?: number;
+  from?: string;
+  to?: string;
+};
 export type RecordReminderCallApiResponse = /** status 201 Success */ {
   id: number;
 };
@@ -1096,6 +1117,7 @@ export type ServiceDueRow = {
     outcome: string;
     remarks: string | null;
     nextCallOn: string | null;
+    appointmentTime: string | null;
     at: string;
     by: string | null;
   } | null;
@@ -1104,6 +1126,24 @@ export type ServicesDue = {
   items: ServiceDueRow[];
   total: number;
   overdue: number;
+};
+export type AppointmentRow = {
+  scheduleId: number;
+  date: string;
+  time: string | null;
+  service: string;
+  dueKm: number;
+  remarks: string | null;
+  bookedBy: string | null;
+  bookedAt: string;
+  vehicleId: number;
+  registrationNo: string | null;
+  modelName: string | null;
+  customerId: number;
+  customerName: string;
+  mobile: string;
+  dealershipId: number;
+  dealershipName: string;
 };
 export type ReminderCallRequest = {
   scheduleId: number;
@@ -1117,12 +1157,14 @@ export type ReminderCallRequest = {
     | "already_serviced";
   remarks?: string | null;
   nextCallOn?: string | null;
+  appointmentTime?: string | null;
 };
 export type ReminderCall = {
   id: number;
   outcome: string;
   remarks: string | null;
   nextCallOn: string | null;
+  appointmentTime: string | null;
   at: string;
   by: string | null;
 };
@@ -1197,6 +1239,7 @@ export type AddServiceToJobCard = {
     quantity: string;
     discountPercent?: string;
   }[];
+  checks?: string[];
   sendToStore?: boolean;
 };
 export type InspectionItem = {
@@ -1536,6 +1579,8 @@ export const {
   useOpenJobCardMutation,
   useListServicesDueQuery,
   useLazyListServicesDueQuery,
+  useListAppointmentsQuery,
+  useLazyListAppointmentsQuery,
   useRecordReminderCallMutation,
   useListReminderCallsQuery,
   useLazyListReminderCallsQuery,

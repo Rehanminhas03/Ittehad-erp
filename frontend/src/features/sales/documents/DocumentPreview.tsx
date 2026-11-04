@@ -81,6 +81,7 @@ export function DocumentPreview({ kind, id, open, onClose, editTo }: { kind: Doc
   const { pdf, error, loading, letterheadDefault, quotation } = useDocumentPdf(kind, id, !open, letterhead);
   const toast = useToast();
   const [sharing, setSharing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const title = pdf ? `${DOC_TITLES[kind]} — ${pdf.fileName.replace(/\.pdf$/, '')}` : DOC_TITLES[kind];
   const onPaper = letterhead ?? letterheadDefault;
 
@@ -111,6 +112,26 @@ export function DocumentPreview({ kind, id, open, onClose, editTo }: { kind: Doc
       if (!(e instanceof DOMException && e.name === 'AbortError')) toast.error(e);
     } finally {
       setSharing(false);
+    }
+  };
+
+  // The quotation as an editable Word document.
+  const exportWord = async () => {
+    if (!quotation) return;
+    setExporting(true);
+    try {
+      const { buildQuotationDocx } = await import('./quotationDocx');
+      const { blob, fileName } = await buildQuotationDocx(quotation);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast.success(`${fileName} downloaded`);
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -158,6 +179,9 @@ export function DocumentPreview({ kind, id, open, onClose, editTo }: { kind: Doc
             <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.6-.3Z" />
           </svg>
           Send on WhatsApp
+        </Button>
+        <Button variant="secondary" loading={exporting} disabled={!quotation} onClick={() => void exportWord()} className="w-full justify-center md:w-auto">
+          Export to Word
         </Button>
       </div>
     ) : undefined;

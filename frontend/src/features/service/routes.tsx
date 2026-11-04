@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { RequirePermission } from '@/features/auth';
 import { entityRoutes } from '@/shared/routing';
+import AppointmentsPage from './pages/AppointmentsPage';
 import ServicesDuePage from './pages/ServicesDuePage';
 import { P } from './permissions';
 import { estimateView, inspectionTemplateView, jobCardView, scheduleItemView, visitView } from './config';
@@ -15,6 +16,14 @@ export default function ServiceRoutes() {
         element={
           <RequirePermission any={[P.remindersView]}>
             <ServicesDuePage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="appointments"
+        element={
+          <RequirePermission any={[P.remindersView]}>
+            <AppointmentsPage />
           </RequirePermission>
         }
       />
