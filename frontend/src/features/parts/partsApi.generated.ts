@@ -136,6 +136,28 @@ const injectedRtkApi = api
         }),
         providesTags: ["Store"],
       }),
+      getDailySales: build.query<GetDailySalesApiResponse, GetDailySalesApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/parts/store/daily-sales`,
+            params: {
+              dealershipId: queryArg.dealershipId,
+              from: queryArg["from"],
+              to: queryArg.to,
+            },
+          }),
+          providesTags: ["Store"],
+        },
+      ),
+      getStoreJobCard: build.query<
+        GetStoreJobCardApiResponse,
+        GetStoreJobCardApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/store/open-job-cards/${queryArg.id}`,
+        }),
+        providesTags: ["Store"],
+      }),
       getInventory: build.query<GetInventoryApiResponse, GetInventoryApiArg>({
         query: (queryArg) => ({
           url: `/api/parts/store/inventory`,
@@ -334,6 +356,16 @@ const injectedRtkApi = api
           url: `/api/parts/requests/${queryArg.id}/return`,
           method: "POST",
           body: queryArg.issuePartsRequest,
+        }),
+        invalidatesTags: ["PartsRequest"],
+      }),
+      acceptIssuedParts: build.mutation<
+        AcceptIssuedPartsApiResponse,
+        AcceptIssuedPartsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/requests/${queryArg.id}/accept`,
+          method: "POST",
         }),
         invalidatesTags: ["PartsRequest"],
       }),
@@ -1012,6 +1044,17 @@ export type ListOpenJobCardsApiResponse =
 export type ListOpenJobCardsApiArg = {
   dealershipId: number;
 };
+export type GetDailySalesApiResponse =
+  /** status 200 Success */ DailySalesRow[];
+export type GetDailySalesApiArg = {
+  dealershipId: number;
+  from?: string;
+  to?: string;
+};
+export type GetStoreJobCardApiResponse = /** status 200 Success */ StoreJobCard;
+export type GetStoreJobCardApiArg = {
+  id: number;
+};
 export type GetInventoryApiResponse = /** status 200 Success */ InventoryPage;
 export type GetInventoryApiArg = {
   page?: number;
@@ -1099,6 +1142,7 @@ export type CreatePartsReturnApiResponse = /** status 201 Success */ {
   notes: string | null;
   kind?: "request" | "return";
   status: "open" | "partially_issued" | "issued" | "returned" | "cancelled";
+  awaitingAcceptance?: boolean;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1125,6 +1169,7 @@ export type CreatePartsRequestApiResponse = /** status 201 Success */ {
   notes: string | null;
   kind?: "request" | "return";
   status: "open" | "partially_issued" | "issued" | "returned" | "cancelled";
+  awaitingAcceptance?: boolean;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1161,6 +1206,11 @@ export type ReturnPartsApiResponse =
 export type ReturnPartsApiArg = {
   id: number;
   issuePartsRequest: IssuePartsRequest;
+};
+export type AcceptIssuedPartsApiResponse =
+  /** status 200 Success */ PartsRequestLine[];
+export type AcceptIssuedPartsApiArg = {
+  id: number;
 };
 export type ListPartsApiResponse = /** status 200 Success */ PartPage;
 export type ListPartsApiArg = {
@@ -1528,11 +1578,18 @@ export type DirectReceiveRequest = {
     partNo: string;
     quantity: string;
     unitCost: string;
+    newPart?: {
+      description: string;
+      category?: string | null;
+      sellingPrice: string;
+    };
   }[];
 };
 export type DirectIssueResult = {
   referenceNo: string;
   kind: "issue" | "return";
+  invoiceId?: number | null;
+  invoiceNo?: string | null;
   lines: {
     partNo: string;
     description: string;
@@ -1553,6 +1610,9 @@ export type DirectIssueRequest = {
   vehicleRef?: string | null;
   invoiceNo?: string | null;
   notes?: string | null;
+  counterSale?: boolean;
+  customerMobile?: string | null;
+  customerName?: string | null;
   lines: {
     partNo: string;
     quantity: string;
@@ -1633,6 +1693,53 @@ export type OpenJobCard = {
   customerName: string | null;
   freeService: boolean;
   serviceLabel: string | null;
+};
+export type DailySalesRow = {
+  date: string;
+  invoiceId: number;
+  invoiceNo: string;
+  roNo: string | null;
+  customerName: string | null;
+  advisorName: string | null;
+  labour: string;
+  parts: string;
+  accessories: string;
+  lubricants: string;
+  other: string;
+  tax: string;
+  total: string;
+  amountPaid: string;
+};
+export type StoreJobCard = {
+  id: number;
+  jobCardNo: string;
+  status: string;
+  customerName: string | null;
+  vehicleLabel: string | null;
+  registrationNo: string | null;
+  vin: string | null;
+  odometerKm: number;
+  complaints: string | null;
+  advisorName: string | null;
+  freeService: boolean;
+  createdAt: string;
+  dealershipCode: string | null;
+  visitType: string;
+  customerMobile: string | null;
+  variant: string | null;
+  engineNo: string | null;
+  color: string | null;
+  lines: {
+    id: number;
+    kind: string;
+    description: string;
+    partNo: string | null;
+    quantity: string;
+    unitPrice: string;
+    amount: string;
+    billable: boolean;
+    status: string;
+  }[];
 };
 export type InventoryRow = {
   partId: number;
@@ -1811,6 +1918,7 @@ export type PartsRequest = {
   notes: string | null;
   kind?: "request" | "return";
   status: "open" | "partially_issued" | "issued" | "returned" | "cancelled";
+  awaitingAcceptance?: boolean;
   createdAt: string;
   updatedAt: string;
   availableActions: string[];
@@ -1829,6 +1937,7 @@ export type PartsRequestLine = {
   quantity: string;
   issuedQty: string;
   returnedQty: string;
+  acceptedQty?: string;
   reason?: string | null;
   discountPercent?: string;
   onHand?: string | null;
@@ -1952,12 +2061,14 @@ export type PurchaseOrderLine = {
   unitPrice: string;
   amount: string;
   receivedQty: string;
+  itemType: "part" | "accessory" | "lubricant";
 };
 export type PurchaseOrderLineCreate = {
   partNo: string;
   quantity: string;
   unitPrice: string;
   description?: string;
+  itemType?: "part" | "accessory" | "lubricant";
 };
 export type PurchaseOrderLineUpdate = {
   quantity?: string;
@@ -2183,6 +2294,10 @@ export const {
   useAssignPartModelsMutation,
   useListOpenJobCardsQuery,
   useLazyListOpenJobCardsQuery,
+  useGetDailySalesQuery,
+  useLazyGetDailySalesQuery,
+  useGetStoreJobCardQuery,
+  useLazyGetStoreJobCardQuery,
   useGetInventoryQuery,
   useLazyGetInventoryQuery,
   useSetStockSettingsMutation,
@@ -2208,6 +2323,7 @@ export const {
   useLazyListPartsRequestLinesQuery,
   useIssuePartsMutation,
   useReturnPartsMutation,
+  useAcceptIssuedPartsMutation,
   useListPartsQuery,
   useLazyListPartsQuery,
   useCreatePartMutation,

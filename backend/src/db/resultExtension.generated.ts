@@ -253,6 +253,8 @@ export const resultExtension = {
     returnedQty: { needs: { returnedQty: true }, compute: (r: { returnedQty: { toFixed(dp: number): string } }) => fromDecimal(r.returnedQty, 2) },
     jobCardLineId: { needs: { jobCardLineId: true }, compute: (r: { jobCardLineId: bigint | null }) => fromBigInt(r.jobCardLineId) },
     discountPercent: { needs: { discountPercent: true }, compute: (r: { discountPercent: { toFixed(dp: number): string } }) => fromDecimal(r.discountPercent, 2) },
+    acceptedQty: { needs: { acceptedQty: true }, compute: (r: { acceptedQty: { toFixed(dp: number): string } }) => fromDecimal(r.acceptedQty, 2) },
+    acceptedById: { needs: { acceptedById: true }, compute: (r: { acceptedById: bigint | null }) => fromBigInt(r.acceptedById) },
   },
   purchaseOrder: {
     id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },

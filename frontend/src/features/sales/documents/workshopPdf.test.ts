@@ -28,13 +28,13 @@ describe('workshop documents', () => {
     const ro = await buildRepairOrderPdf({
       jobCard: { jobCardNo: 'JET-ITH-JC-2026-00002', createdAt: '2026-10-28T07:00:00Z' } as never,
       visit: { odometerKm: 41441, customerName: 'A Customer', visitType: 'periodic_maintenance', complaints: 'Noise' } as never,
-      lines: [line('part', 'Oil filter', '2100'), line('labour', 'Service', '9000')] as never,
+      lines: [line('part', 'Oil filter', '2100'), line('lubricant', 'Engine oil 5W-30', '4000'), line('labour', 'Service', '9000')] as never,
       brand,
     });
     expect(ro.doc.getNumberOfPages()).toBe(2);
     const inv = await buildSalesInvoicePdf({
       invoice: { invoiceNo: 'JET-ITH-INV-2026-00003', invoiceDate: '2026-10-28', customerName: 'A Customer', sourceNo: 'JET-ITH-JC-2026-00002', totalAmount: '12000', status: 'issued' } as never,
-      lines: [{ ...line('part', 'Oil filter', '2100'), taxAmount: '378' }, { ...line('labour', 'Service', '9000'), taxAmount: '1440' }] as never,
+      lines: [{ ...line('part', 'Oil filter', '2100'), taxAmount: '378' }, { ...line('lubricant', 'Engine oil 5W-30', '4000'), taxAmount: '720' }, { ...line('labour', 'Service', '9000'), taxAmount: '1440' }] as never,
       payments: [],
       dealership: null,
       brand,

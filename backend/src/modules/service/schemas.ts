@@ -197,7 +197,7 @@ export const PackageLinesBody = z
 export const AddServiceBody = z
   .object({
     scheduleItemId: Id,
-    /** The advisor's service charges before sales tax (18% is added as its own line). */
+    /** The advisor's service charges before sales tax (5% is added as its own line). */
     serviceCharge: Money.nullish(),
     parts: z.array(z.object({ partNo: z.string().trim().min(2).max(60), quantity: Quantity, discountPercent: DiscountPercent.optional() })).max(60).default([]),
     /** Send the parts request to the store now. */
@@ -291,6 +291,7 @@ export const JobCardSchema = z.object({
   visitNo: z.string().nullable().optional(),
   vehicleId: Id,
   vehicleLabel: z.string().nullable().optional(),
+  customerName: z.string().nullable().optional(),
   advisorId: Id,
   advisorName: z.string().nullable().optional(),
   technicianId: Id.nullable(),

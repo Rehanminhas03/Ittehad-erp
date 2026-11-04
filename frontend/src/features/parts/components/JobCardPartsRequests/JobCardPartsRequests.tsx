@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { Button, ConfirmDialog, Input, Section, Select, StatusBadge } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatDateTime } from '@/shared/lib';
-import { useCreatePartsRequestMutation, useListPartsRequestsQuery, useListPendingPartReturnsQuery, useTransitionPartsRequestMutation } from '../../partsApi';
+import { useAcceptIssuedPartsMutation, useCreatePartsRequestMutation, useListPartsRequestsQuery, useListPendingPartReturnsQuery, useTransitionPartsRequestMutation } from '../../partsApi';
 import { P } from '../../permissions';
 import { PartPicker } from '../PartPicker';
 import { ReturnRequestParts } from '../ReturnRequestParts';
@@ -40,6 +40,7 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
   // Delete = cancel a request the store has not started on (it stays in the history).
   const [removing, setRemoving] = useState<{ id: number; requestNo: string } | null>(null);
   const [transition, { isLoading: removingNow }] = useTransitionPartsRequestMutation();
+  const [acceptParts, { isLoading: accepting }] = useAcceptIssuedPartsMutation();
   const valid = rows.filter((r) => Number(r.quantity) > 0);
 
   if (!canView) return null;
@@ -58,6 +59,23 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
                 {r.kind !== 'return' && ['issued', 'partially_issued'].includes(r.status) && ['open', 'in_progress'].includes(jobCard.status) && perm.canIn(P.requestsCreate, jobCard.dealershipId, jobCard.branchId) && (
                   <ReturnRequestParts jobCardId={jobCard.id} requestId={r.id} pending={pendingReturns} />
                 )}
+                {r.awaitingAcceptance && perm.canIn(P.requestsCreate, jobCard.dealershipId, jobCard.branchId) && (
+                  <Button
+                    size="sm"
+                    loading={accepting}
+                    onClick={async () => {
+                      try {
+                        await acceptParts({ id: r.id }).unwrap();
+                        toast.success(`Parts of ${r.requestNo} accepted`);
+                      } catch (e) {
+                        toast.error(e);
+                      }
+                    }}
+                  >
+                    Accept the parts
+                  </Button>
+                )}
+                {!r.awaitingAcceptance && ['issued', 'partially_issued'].includes(r.status) && <span className="text-xs font-medium text-emerald-700">Accepted</span>}
                 <StatusBadge status={r.status} />
                 {r.status === 'open' && perm.canIn(P.requestsCancel, jobCard.dealershipId, jobCard.branchId) && (
                   <button type="button" className="text-xs font-medium text-red-600 hover:underline" onClick={() => setRemoving({ id: r.id, requestNo: r.requestNo })}>

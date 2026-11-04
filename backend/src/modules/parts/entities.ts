@@ -166,8 +166,8 @@ export const purchaseOrderEntity: EntityConfig = {
       { action: 'return', label: 'Return to draft', from: ['submitted'], to: 'draft', permission: P.purchaseOrdersApprove, requiresComment: true },
       { action: 'cancel', label: 'Cancel order', from: ['draft', 'submitted', 'approved'], to: 'cancelled', permission: P.purchaseOrdersCancel, requiresComment: true },
       // Set by goods receipts.
-      { action: 'receive', label: 'Partly received', from: ['approved', 'partially_received'], to: 'partially_received', permission: P.receiptsCreate, system: true },
-      { action: 'complete_receipt', label: 'Fully received', from: ['approved', 'partially_received'], to: 'received', permission: P.receiptsCreate, system: true },
+      { action: 'receive', label: 'Partly received', from: ['draft', 'approved', 'partially_received'], to: 'partially_received', permission: P.receiptsCreate, system: true },
+      { action: 'complete_receipt', label: 'Fully received', from: ['draft', 'approved', 'partially_received'], to: 'received', permission: P.receiptsCreate, system: true },
     ],
   },
   hooks: {
@@ -302,12 +302,19 @@ export const partsRequestEntity: EntityConfig = {
     ],
   },
   hooks: {
-    decorate: (ctx, rows) =>
-      withNames(ctx.tx, rows, {
+    decorate: async (ctx, rows) => {
+      const named = await withNames(ctx.tx, rows, {
         jobCardNo: { key: 'jobCardId', source: JOB_CARD_NO },
         branchName: { key: 'branchId', source: BRANCH_NAME },
         requestedByName: { key: 'requestedById', source: USER_NAME },
-      }),
+      });
+      // The store has given parts the workshop has not accepted yet.
+      const lines = rows.length
+        ? await ctx.tx.partsRequestLine.findMany({ where: { partsRequestId: { in: rows.map((r) => r.id as number) } }, select: { partsRequestId: true, issuedQty: true, returnedQty: true, acceptedQty: true } })
+        : [];
+      const waiting = new Set(lines.filter((l) => Number(l.issuedQty) - Number(l.returnedQty) > Number(l.acceptedQty)).map((l) => Number(l.partsRequestId)));
+      return named.map((r) => ({ ...r, awaitingAcceptance: waiting.has(Number(r.id)) }));
+    },
   },
 };
 

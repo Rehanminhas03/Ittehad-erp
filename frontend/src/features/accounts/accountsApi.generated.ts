@@ -401,7 +401,7 @@ export type CreateInvoiceFromSourceApiResponse = /** status 201 Success */ {
   dealershipId: number;
   branchId: number | null;
   invoiceNo: string;
-  kind: "vehicle_sale" | "service";
+  kind: "vehicle_sale" | "service" | "parts_sale";
   customerId: number;
   customerName?: string | null;
   sourceType: string;
@@ -705,7 +705,7 @@ export type Invoice = {
   dealershipId: number;
   branchId: number | null;
   invoiceNo: string;
-  kind: "vehicle_sale" | "service";
+  kind: "vehicle_sale" | "service" | "parts_sale";
   customerId: number;
   customerName?: string | null;
   sourceType: string;
@@ -959,7 +959,7 @@ export type EntityHistory = {
 export type InvoiceLine = {
   id: number;
   invoiceId: number;
-  kind: "vehicle" | "labour" | "part" | "other";
+  kind: "vehicle" | "labour" | "part" | "lubricant" | "accessory" | "other";
   description: string;
   partNo: string | null;
   quantity: string;
@@ -969,7 +969,7 @@ export type InvoiceLine = {
   taxAmount: string;
 };
 export type InvoiceLineCreate = {
-  kind?: "vehicle" | "labour" | "part" | "other";
+  kind?: "vehicle" | "labour" | "part" | "lubricant" | "accessory" | "other";
   description: string;
   partNo?: string | null;
   quantity: string;

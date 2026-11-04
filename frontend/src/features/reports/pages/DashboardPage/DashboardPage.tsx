@@ -4,6 +4,7 @@ import { PageHeader } from '@/shared/components/ui';
 import { isModuleEnabled } from '@/shared/config';
 import { useAuth, usePermission } from '@/shared/hooks';
 import { cn } from '@/shared/lib';
+import { SalesReportButton } from '../../components/SalesReport';
 import { RoleDashboards } from '../../components/RoleDashboards';
 import { WIDGETS } from '../../config/widgets';
 import { ANY_REPORT } from '../../permissions';
@@ -41,7 +42,12 @@ function GeneralDashboard() {
       <PageHeader
         title={`Welcome back, ${user?.fullName.split(' ')[0] ?? ''}`}
         subtitle="Figures reflect only the dealerships, branches and work you can access."
-        actions={isModuleEnabled('service') && perm.can(SvcP.visitsCreate) ? <NewServiceButton /> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <SalesReportButton />
+            {isModuleEnabled('service') && perm.can(SvcP.visitsCreate) ? <NewServiceButton /> : null}
+          </div>
+        }
       />
       {widgets.length === 0 && !hasReports && <p className="py-10 text-sm text-slate-500">No dashboard is available for your roles yet.</p>}
       {widgets.length > 0 && (

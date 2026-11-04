@@ -43,6 +43,7 @@ export const LINE_KINDS = [
   { value: 'labour', label: 'Labour' },
   { value: 'part', label: 'Parts' },
   { value: 'lubricant', label: 'Lubricants (engine oil, oil filter ...)' },
+  { value: 'accessory', label: 'Accessories' },
   { value: 'sublet', label: 'Sublet (work done outside)' },
 ];
 

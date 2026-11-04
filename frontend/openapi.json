@@ -1037,6 +1037,8 @@
               "vehicle",
               "labour",
               "part",
+              "lubricant",
+              "accessory",
               "other"
             ]
           },
@@ -1085,6 +1087,8 @@
               "vehicle",
               "labour",
               "part",
+              "lubricant",
+              "accessory",
               "other"
             ],
             "default": "other"
@@ -1184,7 +1188,8 @@
             "type": "string",
             "enum": [
               "vehicle_sale",
-              "service"
+              "service",
+              "parts_sale"
             ]
           },
           "customerId": {
@@ -10842,6 +10847,29 @@
                 "unitCost": {
                   "type": "string",
                   "example": "1250000.00"
+                },
+                "newPart": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 200
+                    },
+                    "category": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 60
+                    },
+                    "sellingPrice": {
+                      "type": "string",
+                      "example": "1250000.00"
+                    }
+                  },
+                  "required": [
+                    "description",
+                    "sellingPrice"
+                  ]
                 }
               },
               "required": [
@@ -10873,6 +10901,14 @@
               "issue",
               "return"
             ]
+          },
+          "invoiceId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "invoiceNo": {
+            "type": "string",
+            "nullable": true
           },
           "lines": {
             "type": "array",
@@ -10967,6 +11003,19 @@
             "type": "string",
             "nullable": true,
             "maxLength": 500
+          },
+          "counterSale": {
+            "type": "boolean"
+          },
+          "customerMobile": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 30
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
           },
           "lines": {
             "type": "array",
@@ -11364,6 +11413,215 @@
           "customerName",
           "freeService",
           "serviceLabel"
+        ]
+      },
+      "DailySalesRow": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "integer"
+          },
+          "invoiceNo": {
+            "type": "string"
+          },
+          "roNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "advisorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "labour": {
+            "type": "string"
+          },
+          "parts": {
+            "type": "string"
+          },
+          "accessories": {
+            "type": "string"
+          },
+          "lubricants": {
+            "type": "string"
+          },
+          "other": {
+            "type": "string"
+          },
+          "tax": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string"
+          },
+          "amountPaid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "invoiceId",
+          "invoiceNo",
+          "roNo",
+          "customerName",
+          "advisorName",
+          "labour",
+          "parts",
+          "accessories",
+          "lubricants",
+          "other",
+          "tax",
+          "total",
+          "amountPaid"
+        ]
+      },
+      "StoreJobCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "jobCardNo": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicleLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "registrationNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "odometerKm": {
+            "type": "integer"
+          },
+          "complaints": {
+            "type": "string",
+            "nullable": true
+          },
+          "advisorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "freeService": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dealershipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitType": {
+            "type": "string"
+          },
+          "customerMobile": {
+            "type": "string",
+            "nullable": true
+          },
+          "variant": {
+            "type": "string",
+            "nullable": true
+          },
+          "engineNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "color": {
+            "type": "string",
+            "nullable": true
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "partNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "quantity": {
+                  "type": "string"
+                },
+                "unitPrice": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "string"
+                },
+                "billable": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "description",
+                "partNo",
+                "quantity",
+                "unitPrice",
+                "amount",
+                "billable",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "jobCardNo",
+          "status",
+          "customerName",
+          "vehicleLabel",
+          "registrationNo",
+          "vin",
+          "odometerKm",
+          "complaints",
+          "advisorName",
+          "freeService",
+          "createdAt",
+          "dealershipCode",
+          "visitType",
+          "customerMobile",
+          "variant",
+          "engineNo",
+          "color",
+          "lines"
         ]
       },
       "InventoryPage": {
@@ -12106,6 +12364,9 @@
           "returnedQty": {
             "type": "string"
           },
+          "acceptedQty": {
+            "type": "string"
+          },
           "reason": {
             "type": "string",
             "nullable": true
@@ -12586,6 +12847,14 @@
           },
           "receivedQty": {
             "type": "string"
+          },
+          "itemType": {
+            "type": "string",
+            "enum": [
+              "part",
+              "accessory",
+              "lubricant"
+            ]
           }
         },
         "required": [
@@ -12597,7 +12866,8 @@
           "quantity",
           "unitPrice",
           "amount",
-          "receivedQty"
+          "receivedQty",
+          "itemType"
         ]
       },
       "PurchaseOrderLineCreate": {
@@ -12618,6 +12888,14 @@
           },
           "description": {
             "type": "string"
+          },
+          "itemType": {
+            "type": "string",
+            "enum": [
+              "part",
+              "accessory",
+              "lubricant"
+            ]
           }
         },
         "required": [
@@ -13145,6 +13423,9 @@
               "returned",
               "cancelled"
             ]
+          },
+          "awaitingAcceptance": {
+            "type": "boolean"
           },
           "createdAt": {
             "type": "string",
@@ -15513,6 +15794,7 @@
               "labour",
               "part",
               "lubricant",
+              "accessory",
               "sublet"
             ]
           },
@@ -15585,6 +15867,7 @@
               "labour",
               "part",
               "lubricant",
+              "accessory",
               "sublet"
             ]
           },
@@ -15630,6 +15913,7 @@
               "labour",
               "part",
               "lubricant",
+              "accessory",
               "sublet"
             ]
           },
@@ -15723,6 +16007,10 @@
             "exclusiveMinimum": true
           },
           "vehicleLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
             "type": "string",
             "nullable": true
           },
@@ -15836,6 +16124,7 @@
               "labour",
               "part",
               "lubricant",
+              "accessory",
               "sublet"
             ]
           },
@@ -15891,6 +16180,7 @@
               "labour",
               "part",
               "lubricant",
+              "accessory",
               "sublet"
             ]
           },
@@ -15945,6 +16235,7 @@
               "labour",
               "part",
               "lubricant",
+              "accessory",
               "sublet"
             ]
           },
@@ -16172,7 +16463,8 @@
                       "type": "string",
                       "enum": [
                         "vehicle_sale",
-                        "service"
+                        "service",
+                        "parts_sale"
                       ]
                     },
                     "customerId": {
@@ -41356,6 +41648,165 @@
         }
       }
     },
+    "/api/parts/store/daily-sales": {
+      "get": {
+        "operationId": "getDailySales",
+        "summary": "Daily sales report: invoiced per day and service advisor as labour, parts, accessories and lubricants",
+        "description": "Requires: parts.stock.view | service.job_cards.view | accounts.invoices.view | accounts.reports.view",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DailySalesRow"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/store/open-job-cards/{id}": {
+      "get": {
+        "operationId": "getStoreJobCard",
+        "summary": "An open job card as the store sees it: customer, car, the customer's voice, and the lines the workshop added",
+        "description": "Requires: parts.issues.create",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreJobCard"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/parts/store/inventory": {
       "get": {
         "operationId": "getInventory",
@@ -42316,6 +42767,9 @@
                         "cancelled"
                       ]
                     },
+                    "awaitingAcceptance": {
+                      "type": "boolean"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -42543,6 +42997,9 @@
                         "returned",
                         "cancelled"
                       ]
+                    },
+                    "awaitingAcceptance": {
+                      "type": "boolean"
                     },
                     "createdAt": {
                       "type": "string",
@@ -42949,6 +43406,78 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PartsRequestLine"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/requests/{id}/accept": {
+      "post": {
+        "operationId": "acceptIssuedParts",
+        "summary": "The workshop accepts the parts the store has given for this request",
+        "description": "Requires: parts.requests.create",
+        "tags": [
+          "PartsRequest"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -47705,6 +48234,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerName": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "advisorId": {
                       "type": "integer",
                       "minimum": 0,
@@ -48602,6 +49135,7 @@
                         "labour",
                         "part",
                         "lubricant",
+                        "accessory",
                         "sublet"
                       ]
                     },

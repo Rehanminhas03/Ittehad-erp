@@ -37,6 +37,9 @@ import {
   ManagePartUpdate,
   OpenJobCardQuery,
   OpenJobCardSchema,
+  DailySalesQuery,
+  DailySalesRowSchema,
+  StoreJobCardSchema,
   PartPrefixQuery,
   PartVehicleModelSchema,
   PartPrefixSchema,
@@ -200,6 +203,26 @@ const storeDesk = new ApiRouter('/parts/store', 'Store')
   })
   .route({
     method: 'get',
+    path: '/daily-sales',
+    operationId: 'getDailySales',
+    summary: 'Daily sales report: invoiced per day and service advisor as labour, parts, accessories and lubricants',
+    permission: [P.stockView, 'service.job_cards.view', 'accounts.invoices.view', 'accounts.reports.view'],
+    query: DailySalesQuery,
+    response: z.array(DailySalesRowSchema),
+    handler: (ctx) => store.dailySales(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/open-job-cards/:id',
+    operationId: 'getStoreJobCard',
+    summary: "An open job card as the store sees it: customer, car, the customer's voice, and the lines the workshop added",
+    permission: P.issuesCreate,
+    params: IdParam,
+    response: StoreJobCardSchema,
+    handler: (ctx) => store.storeJobCard(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'get',
     path: '/inventory',
     operationId: 'getInventory',
     summary: 'Every part with its stock now and what came in / went out this month',
@@ -350,6 +373,16 @@ const requestActions = new ApiRouter('/parts/requests', 'PartsRequest')
     body: IssueBody,
     response: z.array(PartsRequestLineSchema),
     handler: (ctx) => svc.returnParts(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/accept',
+    operationId: 'acceptIssuedParts',
+    summary: 'The workshop accepts the parts the store has given for this request',
+    permission: P.requestsCreate,
+    params: IdParam,
+    response: z.array(PartsRequestLineSchema),
+    handler: (ctx) => svc.acceptIssued(ctx, ctx.params.id),
   });
 
 export const partsRouters = [

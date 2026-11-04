@@ -6,14 +6,17 @@ import { scopeWhere } from '../../auth/access';
 import { query } from '../../db/client';
 import { type SQL, and, eq, raw, sql } from '../../db/sql';
 import type { EntityCtx } from '../../entity/types';
-import { conflict, forbidden, validationError } from '../../lib/errors';
+import { conflict, forbidden, notFound, validationError } from '../../lib/errors';
 import { lessPercent, lineAmount } from '../../lib/money';
 import type { PageQuery } from '../../lib/pagination';
 import { offsetOf } from '../../lib/pagination';
 import type { z } from '../../lib/zod';
+import { createCounterSaleInvoice } from '../accounts/service';
 import { branch as branchTable, user } from '../core/models';
+import { normalizeMobile } from '../master/normalize';
 import { inventoryTransaction, legacySale, part, stockItem } from './models';
 import { normalizePartNo } from './entities';
+import { partLineKind } from './lubricant';
 import { PartsPerm as P } from './permissions';
 import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody, SaleReportQuery, EarlierSalesQuery, StockSettingsBody } from './schemas';
 import { assertBranch, resolveLines } from './service';
@@ -142,11 +145,109 @@ export async function openJobCards(ctx: EntityCtx, dealershipId: number) {
   }));
 }
 
+/** What was invoiced each day, per service advisor, by kind (labour, parts, accessories, lubricants); counter sales sit under their own row. */
+export async function dailySales(ctx: EntityCtx, q: { dealershipId: number; from?: string; to?: string }) {
+  const readers = [P.stockView, 'service.job_cards.view', 'accounts.invoices.view', 'accounts.reports.view'];
+  if (!readers.some((perm) => ctx.access.canIn(perm, { dealershipId: q.dealershipId }))) throw forbidden();
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+  const from = q.from ?? q.to ?? today;
+  const to = q.to ?? q.from ?? today;
+  // The "Sales tax 5%" line of a service is tax, not labour.
+  return query<{ date: string; invoiceId: number; invoiceNo: string; roNo: string | null; customerName: string | null; advisorName: string | null; labour: string; parts: string; accessories: string; lubricants: string; other: string; tax: string; total: string; amountPaid: string }>(
+    ctx.tx,
+    sql`select i.invoice_date::text as "date",
+              i.id::int as "invoiceId",
+              i.invoice_no as "invoiceNo",
+              case when i.source_type = 'job_card' then i.source_no end as "roNo",
+              c.full_name as "customerName",
+              u.full_name as "advisorName",
+              coalesce(sum(l.amount) filter (where l.kind in ('labour', 'sublet') and l.description !~* '^sales tax'), 0)::text as "labour",
+              coalesce(sum(l.amount) filter (where l.kind = 'part'), 0)::text as "parts",
+              coalesce(sum(l.amount) filter (where l.kind = 'accessory'), 0)::text as "accessories",
+              coalesce(sum(l.amount) filter (where l.kind = 'lubricant'), 0)::text as "lubricants",
+              coalesce(sum(l.amount) filter (where l.kind not in ('labour', 'sublet', 'part', 'accessory', 'lubricant')), 0)::text as "other",
+              (coalesce(sum(l.tax_amount), 0) + coalesce(sum(l.amount) filter (where l.kind in ('labour', 'sublet') and l.description ~* '^sales tax'), 0))::text as "tax",
+              coalesce(sum(l.amount + l.tax_amount), 0)::text as "total",
+              i.amount_paid::text as "amountPaid"
+         from accounts.invoice i
+         join accounts.invoice_line l on l.invoice_id = i.id
+         left join core.customer c on c.id = i.customer_id
+         left join service.job_card jc on i.source_type = 'job_card' and jc.id = i.source_id
+         left join service.visit v on v.id = jc.visit_id
+         left join core."user" u on u.id = v.advisor_id
+        where i.dealership_id = ${q.dealershipId} and i.status in ('issued', 'partially_paid', 'paid')
+          and i.invoice_date between ${from}::date and ${to}::date
+        group by i.id, c.full_name, u.full_name
+        order by i.invoice_date desc, i.id desc
+        limit 2000`,
+  );
+}
+
+/** One job card as the store sees it (no prices): who and what car, what the customer said, and the lines the workshop has added. */
+export async function storeJobCard(ctx: EntityCtx, jobCardId: number) {
+  const jc = await ctx.tx.jobCard.findFirst({ where: { id: jobCardId }, include: { vehicle: true, visit: true } });
+  if (!jc) throw notFound('JobCard');
+  if (!ctx.access.canIn(P.issuesCreate, { dealershipId: Number(jc.dealershipId) })) throw forbidden();
+  const [customer, model, advisor, lines, dealership] = await Promise.all([
+    ctx.tx.customer.findFirst({ where: { id: jc.visit.customerId }, select: { fullName: true, mobile: true } }),
+    ctx.tx.vehicleModel.findFirst({ where: { id: jc.vehicle.modelId }, select: { name: true } }),
+    jc.visit.advisorId ? ctx.tx.user.findFirst({ where: { id: jc.visit.advisorId }, select: { fullName: true } }) : null,
+    ctx.tx.jobCardLine.findMany({ where: { jobCardId }, orderBy: { id: 'asc' }, take: 200 }),
+    ctx.tx.dealership.findFirst({ where: { id: jc.dealershipId }, select: { code: true } }),
+  ]);
+  return {
+    id: jc.id,
+    jobCardNo: jc.jobCardNo,
+    status: jc.status,
+    customerName: customer?.fullName ?? null,
+    vehicleLabel: model?.name ?? null,
+    registrationNo: jc.vehicle.registrationNo,
+    vin: jc.vehicle.vin,
+    odometerKm: jc.visit.odometerKm,
+    complaints: jc.visit.complaints ?? null,
+    advisorName: advisor?.fullName ?? null,
+    freeService: jc.visit.freeService,
+    createdAt: jc.createdAt,
+    dealershipCode: dealership?.code ?? null,
+    visitType: jc.visit.visitType,
+    customerMobile: customer?.mobile ?? null,
+    variant: jc.vehicle.variant ?? null,
+    engineNo: jc.vehicle.engineNo ?? null,
+    color: jc.vehicle.color ?? null,
+    lines: lines.map((l) => ({
+      id: l.id,
+      kind: l.kind,
+      description: l.description,
+      partNo: l.partNo ?? null,
+      quantity: String(l.quantity),
+      unitPrice: String(l.unitPrice),
+      amount: String(l.amount),
+      billable: l.billable,
+      status: l.status,
+    })),
+  };
+}
+
 /**
  * Parts out of the store against an open job card (the workshop's) or a typed repair order (RO) number, or
  * unused parts back. With a job card, its number and the vehicle come from the after-sales record and the
  * parts are added to the job card's lines (priced for the customer's bill).
  */
+/** The customer of a counter sale: found (or added) by mobile, or the dealership's shared walk-in customer. */
+async function counterCustomer(ctx: EntityCtx, dealershipId: number, name?: string | null, mobile?: string | null) {
+  const given = mobile?.trim();
+  const normalized = given ? normalizeMobile(given) : null;
+  if (given && !normalized) throw validationError([{ in: 'body', path: 'customerMobile', message: 'Enter a valid mobile number' }]);
+  const mobileNormalized = normalized ?? '+920000000000';
+  const found = await ctx.tx.customer.findFirst({ where: { dealershipId, mobileNormalized }, select: { id: true } });
+  if (found) return Number(found.id);
+  if (normalized && !name?.trim()) throw validationError([{ in: 'body', path: 'customerName', message: 'Enter the customer name' }]);
+  const c = await ctx.tx.customer.create({
+    data: { dealershipId, kind: 'individual', fullName: normalized ? name!.trim() : 'Walk-in customer', mobile: normalized ? given! : '0000000000', mobileNormalized, createdById: ctx.access.userId, updatedById: ctx.access.userId },
+  });
+  return Number(c.id);
+}
+
 export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectIssueBody>) {
   const target = { dealershipId: input.dealershipId, branchId: input.branchId };
   if (!ctx.access.canIn(P.issuesCreate, target)) throw forbidden();
@@ -156,7 +257,7 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
     : null;
   if (input.jobCardId && !jc) throw validationError([{ in: 'body', path: 'jobCardId', message: 'Choose a job card of this dealership' }]);
   if (jc && !['open', 'in_progress'].includes(jc.status)) throw conflict(`Job card ${jc.jobCardNo} is ${jc.status}: parts can only be issued to an open job card`);
-  const referenceNo = jc ? jc.jobCardNo : (input.referenceNo ?? '').trim();
+  const referenceNo = jc ? jc.jobCardNo : (input.referenceNo ?? '').trim() || (input.counterSale ? 'Counter Sale' : '');
   if (referenceNo.length < 2) throw validationError([{ in: 'body', path: 'referenceNo', message: 'Choose the open job card, or enter the repair order number' }]);
   const vehicleRef = jc ? [jc.vehicle.registrationNo, jc.vehicle.vin].filter(Boolean).join(' / ') || null : (input.vehicleRef ?? null);
 
@@ -208,15 +309,36 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
       } else if (out) {
         const price = priceOf(l);
         await ctx.tx.jobCardLine.create({
-          data: { dealershipId: jc.dealershipId, jobCardId: jc.id, kind: 'part', description: l.part.description, partNo: l.part.partNo, quantity: l.quantity, unitPrice: price, discountPercent: pct, amount: lessPercent(lineAmount(price, l.quantity), pct), source: 'parts', status: 'done', doneById: ctx.access.userId, doneAt: new Date() },
+          data: { dealershipId: jc.dealershipId, jobCardId: jc.id, kind: partLineKind(l.part), description: l.part.description, partNo: l.part.partNo, quantity: l.quantity, unitPrice: price, discountPercent: pct, amount: lessPercent(lineAmount(price, l.quantity), pct), source: 'parts', status: 'done', doneById: ctx.access.userId, doneAt: new Date() },
         });
       }
     }
   }
-  await ctx.audit({ entityType: 'parts.part', entityId: 0, action: out ? 'issue' : 'return', ...target, changes: { referenceNo, jobCardId: jc?.id ?? null, lines: input.lines } });
+  // A counter sale has no job card to bill on: its own invoice is made for the customer and goes to Accounts.
+  const invoice =
+    input.counterSale && out && !jc
+      ? await createCounterSaleInvoice(ctx, {
+          ...target,
+          customerId: await counterCustomer(ctx, input.dealershipId, input.customerName, input.customerMobile),
+          notes: [input.customerMobile?.trim() ? null : input.customerName?.trim() ? `Customer: ${input.customerName.trim()}` : null, input.notes?.trim()].filter(Boolean).join(' · ') || null,
+          lines: lines.map((l) => {
+            const pct = l.discountPercent ?? '0';
+            return {
+              kind: partLineKind(l.part),
+              description: Number(pct) > 0 ? `${l.part.description} (${pct}% discount)` : l.part.description,
+              partNo: l.part.partNo,
+              quantity: l.quantity,
+              unitPrice: lessPercent(priceOf(l), pct),
+            };
+          }),
+        })
+      : null;
+  await ctx.audit({ entityType: 'parts.part', entityId: 0, action: out ? 'issue' : 'return', ...target, changes: { referenceNo, jobCardId: jc?.id ?? null, counterInvoiceId: invoice?.id ?? null, lines: input.lines } });
   return {
     referenceNo,
     kind: input.kind,
+    invoiceId: invoice?.id ?? null,
+    invoiceNo: invoice?.invoiceNo ?? null,
     lines: lines.map((l, i) => ({ partNo: l.part.partNo, description: l.part.description, quantity: l.quantity, unitCost: results[i]!.unitCost, unitPrice: priceOf(l), discountPercent: l.discountPercent ?? '0', netAmount: lessPercent(lineAmount(priceOf(l), l.quantity), l.discountPercent ?? '0'), balanceAfter: results[i]!.balanceAfter })),
   };
 }

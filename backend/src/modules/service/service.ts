@@ -272,6 +272,8 @@ export const jobCardLines = new LineService({
   locked: (p) => (['completed', 'cancelled'].includes(p.status as string) ? `This job card is ${p.status}` : null),
   // Customer-approved work and the scheduled service are fixed; change them through a new estimate.
   lineLocked: (l) => (l.source !== 'manual' ? 'This line comes from an approved estimate or the service schedule' : null),
+  // A part, lubricant or accessory put on the job card is asked for from the store by itself.
+  afterLine: async (ctx, parent, line, change) => (await import('../parts/autoRequest')).keepRequestInStep(ctx, parent, line, change),
   prepare: async (ctx: EntityCtx, parent: Row, data: Record<string, unknown>, before?: Row) => {
     const out: Record<string, unknown> = priceLine(ctx, parent, data);
     // Jetour's free services: labour and services are free, parts and oil are always charged to the customer.

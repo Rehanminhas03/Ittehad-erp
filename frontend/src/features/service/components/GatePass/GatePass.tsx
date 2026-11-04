@@ -3,7 +3,7 @@ import { useGetDealershipQuery } from '@/features/admin/adminApi';
 import { useListInvoicesQuery } from '@/features/accounts/accountsApi';
 import { useGetVehicleQuery } from '@/features/crm/crmApi';
 import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
-import { carName, workshopBrand } from '@/features/sales/documents/workshopPdf';
+import { carName, roNumber, workshopBrand } from '@/features/sales/documents/workshopPdf';
 import { Button } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
 import { useGetJobCardQuery, useGetVisitQuery } from '../../serviceApi';
@@ -48,7 +48,7 @@ function GatePassViewer({ jobCardId, invoiceNo, paid, onClose }: { jobCardId: nu
               customerName: visit!.customerName ?? '',
               vehicle: carName(car?.modelName, car?.variant) || (jobCard!.vehicleLabel ?? ''),
               regNo: car?.registrationNo ?? '',
-              roNo: jobCard!.jobCardNo,
+              roNo: roNumber(jobCard!.jobCardNo),
               status: paid ? 'PAID' : 'SERVICE COMPLETED',
               brand: workshopBrand(dealership?.code) ?? { name: dealership?.name ?? 'Dealership', logo: '', addressLines: [dealership?.address ?? '', dealership?.phone ? `Tel: ${dealership.phone}` : ''].filter(Boolean), appointmentLine: dealership?.phone ?? '' },
             })

@@ -288,13 +288,21 @@ export const jobCardEntity: EntityConfig = {
       if (patch.technicianId) await assertTechnician(ctx, patch.technicianId as number, row.dealershipId as number);
       return patch;
     },
-    decorate: (ctx, rows) =>
-      withNames(ctx.tx, rows, {
+    // The customer is the visit's: looked up through it for the list.
+    decorate: async (ctx, rows) => {
+      const named = await withNames(ctx.tx, rows, {
         visitNo: { key: 'visitId', source: VISIT_NO },
         vehicleLabel: { key: 'vehicleId', source: VEHICLE_LABEL },
         advisorName: { key: 'advisorId', source: USER_NAME },
         technicianName: { key: 'technicianId', source: USER_NAME },
-      }),
+      });
+      const visits = await ctx.tx.visit.findMany({ where: { id: { in: [...new Set(rows.map((r) => Number(r.visitId)))] } }, select: { id: true, customerId: true } });
+      const customerOf = new Map(visits.map((v) => [Number(v.id), Number(v.customerId)]));
+      const withCustomer = await withNames(ctx.tx, named.map((r) => ({ ...r, customerId: customerOf.get(Number(r.visitId)) ?? null })), {
+        customerName: { key: 'customerId', source: CUSTOMER_NAME },
+      });
+      return withCustomer.map(({ customerId: _customerId, ...r }) => r);
+    },
   },
 };
 

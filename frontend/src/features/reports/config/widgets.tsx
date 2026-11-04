@@ -9,7 +9,7 @@ import {
 import { useListCustomersQuery, useListVehiclesQuery } from '@/features/crm/crmApi';
 import { useListDeliveriesQuery, useListLeadsQuery, useListSalesOrdersQuery, useListStockVehiclesQuery } from '@/features/sales/salesApi';
 import { useListEstimatesQuery, useListVisitsQuery } from '@/features/service/serviceApi';
-import { useListPartsRequestsQuery, useListPurchaseOrdersQuery } from '@/features/parts/partsApi';
+import { useListOpenJobCardsQuery, useListPartsRequestsQuery, useListPurchaseOrdersQuery } from '@/features/parts/partsApi';
 import { useListInvoicesQuery } from '@/features/accounts/accountsApi';
 import { DashboardWidget } from '@/shared/components';
 import type { ModuleKey } from '@/shared/config';
@@ -288,6 +288,30 @@ function StoreActions() {
   );
 }
 
+/** Every open job card of the workshop: the store clicks one to allocate the parts it needs. */
+function OpenJobCardsToIssue() {
+  const perm = usePermission();
+  const dealershipId = perm.dealershipsFor('parts.issues.create')[0]?.id ?? 0;
+  const { data, isLoading, error } = useListOpenJobCardsQuery({ dealershipId }, { skip: !dealershipId });
+  return (
+    <DashboardWidget
+      kind="table"
+      title={`Open job cards${data ? ` (${data.length})` : ''}: click one to assign parts`}
+      loading={isLoading}
+      error={error && apiErrorMessage(error)}
+      columns={[
+        { key: 'jobCardNo', header: 'Job card', render: (r) => <Link to={`/parts/issue?jobCard=${r.id}`} className="font-mono text-xs font-semibold text-brand-700 hover:underline">{String(r.jobCardNo)}</Link> },
+        { key: 'customerName', header: 'Customer', render: (r) => String(r.customerName ?? '') },
+        { key: 'vehicle', header: 'Car', render: (r) => [r.modelName, r.registrationNo].filter(Boolean).join(' · ') },
+        { key: 'status', header: 'Status', render: (r) => humanize(String(r.status)) },
+        { key: 'assign', header: '', align: 'right', render: (r) => <Link to={`/parts/issue?jobCard=${r.id}`} className="rounded-lg bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-700">Assign parts</Link> },
+      ]}
+      rows={(data ?? []) as unknown as Record<string, unknown>[]}
+      empty="No open job cards right now."
+    />
+  );
+}
+
 function DraftInvoicesKpi() {
   const { data, isLoading, error } = useListInvoicesQuery({ pageSize: 1, status: 'draft' });
   return (
@@ -343,6 +367,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'invoices-draft', module: 'accounts', any: ['accounts.invoices.issue'], render: () => <DraftInvoicesKpi /> },
   { id: 'invoices-unpaid', module: 'accounts', any: ['accounts.invoices.view'], render: () => <UnpaidInvoicesKpi /> },
   { id: 'store-actions', module: 'parts', any: ['parts.issues.create', 'parts.receipts.create'], span: 3, render: () => <StoreActions /> },
+  { id: 'store-open-job-cards', module: 'parts', any: ['parts.issues.create'], span: 3, render: () => <OpenJobCardsToIssue /> },
   { id: 'parts-requests', module: 'parts', any: ['parts.issues.create'], render: () => <OpenPartsRequestsKpi /> },
   { id: 'parts-returns', module: 'parts', any: ['parts.issues.create'], render: () => <PartReturnsKpi /> },
   { id: 'pos-awaiting', module: 'parts', any: ['parts.purchase_orders.approve'], render: () => <PosAwaitingKpi /> },

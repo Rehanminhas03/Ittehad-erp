@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router';
 import { Button, Field, Input, PageHeader, Section, Select, Textarea } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
+import { CounterInvoice } from '../../components/CounterInvoice';
+import { StoreJobCard } from '../../components/StoreJobCard';
 import { PartPicker } from '../../components/PartPicker';
 import { StoreTargetFields, useStoreTarget } from '../../components/StoreTarget';
 import { usePrefillPart } from '../../hooks/usePrefillPart';
@@ -30,13 +32,17 @@ export default function IssuePartsPage() {
   const t = useStoreTarget(P.issuesCreate);
   const [kind, setKind] = useState<'issue' | 'return'>('issue');
   // An open job card of the workshop (its vehicle comes with it), or 'other': a typed repair order number.
-  // ?for=counter (the dashboard's Counter sale button) starts on a counter sale.
+  // ?for=counter (the dashboard's Counter sale button) starts on a counter sale; ?jobCard=<id> (the dashboard's list of open
+  // job cards) starts on that job card.
   const [params] = useSearchParams();
-  const [jobCardId, setJobCardId] = useState(params.get('for') === 'counter' ? 'counter' : '');
+  const [jobCardId, setJobCardId] = useState(params.get('for') === 'counter' ? 'counter' : /^\d+$/.test(params.get('jobCard') ?? '') ? params.get('jobCard')! : '');
   const [referenceNo, setReferenceNo] = useState('');
   const [vehicleRef, setVehicleRef] = useState('');
   const [notes, setNotes] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
+  // Counter sale only: who is buying (a mobile finds or adds the customer; empty is a walk-in customer).
+  const [customerMobile, setCustomerMobile] = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<DirectIssueResult | null>(null);
@@ -55,6 +61,7 @@ export default function IssuePartsPage() {
     if (!t.dealershipId || !t.branchId) return setError('Choose the store');
     const counter = jobCardId === 'counter';
     if (!card && !counter && referenceNo.trim().length < 2) return setError(jobCardId === 'other' ? 'Enter the repair order number' : 'Choose the open job card, or counter sale');
+    if (counter && out && customerMobile.trim() && !customerName.trim()) return setError('Enter the customer name');
     if (!lines.length) return setError('Add at least one part');
     const bad = lines.findIndex((l) => !(amountNumber(l.quantity) > 0));
     if (bad >= 0) return setError(`${lines[bad]!.partNo}: enter the quantity`);
@@ -70,6 +77,7 @@ export default function IssuePartsPage() {
           invoiceNo: invoiceNo.trim() || undefined,
           vehicleRef: card ? undefined : vehicleRef.trim() || null,
           notes: notes.trim() || null,
+          ...(counter && out ? { counterSale: true, customerMobile: customerMobile.trim() || null, customerName: customerName.trim() || null } : {}),
           lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitPrice: l.unitPrice.trim() || undefined, discountPercent: l.discountPercent.replace('%', '').trim() || undefined })),
         },
       }).unwrap();
@@ -80,7 +88,9 @@ export default function IssuePartsPage() {
       setVehicleRef('');
       setNotes('');
       setInvoiceNo('');
-      toast.success(out ? `Parts issued to ${r.referenceNo}` : `Parts from ${r.referenceNo} are back in stock`);
+      setCustomerMobile('');
+      setCustomerName('');
+      toast.success(out ? (r.invoiceNo ? `Parts sold: invoice ${r.invoiceNo} sent to Accounts` : `Parts issued to ${r.referenceNo}`) : `Parts from ${r.referenceNo} are back in stock`);
     } catch (e) {
       toast.error(e);
     }
@@ -122,14 +132,7 @@ export default function IssuePartsPage() {
                 This is a <span className="font-semibold">free service</span>{card.serviceLabel ? ` (${card.serviceLabel})` : ''}: the labour is free, but the parts and oil you issue here are charged to the customer.
               </p>
             )}
-            {card && (
-              <div className="rounded-xl bg-slate-50 p-3 text-sm sm:col-span-2 lg:col-span-3">
-                <p className="font-medium text-slate-900">{card.jobCardNo}</p>
-                <p className="text-slate-600">
-                  Registration {card.registrationNo ?? '—'} · Chassis {card.vin ?? '—'} · {card.modelName ?? 'Model not set'} · {card.customerName ?? 'Customer not set'}
-                </p>
-              </div>
-            )}
+            {card && <StoreJobCard jobCardId={card.id} />}
             {jobCardId === 'other' && (
               <>
                 <Field label="Repair order (RO) no." htmlFor="ip-ref" required>
@@ -140,9 +143,24 @@ export default function IssuePartsPage() {
                 </Field>
               </>
             )}
-            <Field label="Invoice no." htmlFor="ip-inv" hint="The customer invoice the parts are billed on">
-              <Input id="ip-inv" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
-            </Field>
+            {jobCardId === 'counter' && out && (
+              <>
+                <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900 sm:col-span-2 lg:col-span-3">
+                  A counter sale makes an <span className="font-semibold">invoice</span> for the customer, sent to Accounts where they pay. Parts issued against a repair order / job card do not: those are billed on the job card.
+                </p>
+                <Field label="Customer mobile" htmlFor="ip-cmobile" hint="Optional. Leave empty for a walk-in customer">
+                  <Input id="ip-cmobile" inputMode="tel" value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="0300 1234567" />
+                </Field>
+                <Field label="Customer name" htmlFor="ip-cname" required={!!customerMobile.trim()} hint="Needed with a mobile; kept for next time">
+                  <Input id="ip-cname" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                </Field>
+              </>
+            )}
+            {jobCardId !== 'counter' && (
+              <Field label="Invoice no." htmlFor="ip-inv" hint="The customer invoice the parts are billed on">
+                <Input id="ip-inv" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
+              </Field>
+            )}
             <Field label="Remarks" htmlFor="ip-notes" className="sm:col-span-2" hint="e.g. Campaign, 3% discount on this RO">
               <Textarea id="ip-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </Field>
@@ -234,6 +252,7 @@ export default function IssuePartsPage() {
                 </li>
               ))}
             </ul>
+            {done.invoiceId && <CounterInvoice invoiceId={done.invoiceId} invoiceNo={done.invoiceNo} />}
           </Section>
         )}
       </div>

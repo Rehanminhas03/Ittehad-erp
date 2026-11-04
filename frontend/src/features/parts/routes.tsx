@@ -4,6 +4,7 @@ import { entityRoutes } from '@/shared/routing';
 import { adjustmentView, goodsReceiptView, partView, partsRequestView, purchaseOrderView, supplierView, transferView } from './config';
 import InventoryPage from './pages/InventoryPage';
 import IssuePartsPage from './pages/IssuePartsPage';
+import NewPurchaseOrderPage from './pages/NewPurchaseOrderPage';
 import ManagePartsPage from './pages/ManagePartsPage';
 import PriceListPage from './pages/PriceListPage';
 import PartsReportPage from './pages/PartsReportPage';
@@ -18,7 +19,7 @@ export default function PartsRoutes() {
       <Route index element={<Navigate to="inventory" replace />} />
       {entityRoutes('catalog', partView)}
       {entityRoutes('suppliers', supplierView)}
-      {entityRoutes('purchase-orders', purchaseOrderView)}
+      {entityRoutes('purchase-orders', purchaseOrderView, { create: <NewPurchaseOrderPage /> })}
       {entityRoutes('goods-receipts', goodsReceiptView)}
       {/* The old Stock list is replaced by Store stock (bin and reorder level are set there). */}
       <Route path="stock/*" element={<Navigate to="/parts/inventory" replace />} />

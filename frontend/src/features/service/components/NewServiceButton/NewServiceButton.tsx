@@ -272,7 +272,7 @@ export function NewServiceButton() {
           <Field label="Customer" htmlFor="ns-customer" className="sm:col-span-2" hint="Leave empty to use the owner on record at this dealership">
             <CustomerField id="ns-customer" value={customerId ?? ''} onChange={(v) => setCustomerId(v === '' ? null : v)} permission="master.customers.view" dealershipId={dealershipId} />
           </Field>
-          <Field label="What the customer said" htmlFor="ns-complaints" className="sm:col-span-2">
+          <Field label="Voice of Customer" htmlFor="ns-complaints" className="sm:col-span-2">
             <Textarea id="ns-complaints" rows={3} value={complaints} onChange={(e) => setComplaints(e.target.value)} />
           </Field>
           {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}

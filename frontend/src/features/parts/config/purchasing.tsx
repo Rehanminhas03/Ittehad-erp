@@ -4,6 +4,7 @@ import { dealershipFilter, type EntityViewConfig, idField, mono, muted, optional
 import { formatDate, formatDateTime, formatMoney } from '@/shared/lib';
 import { GoodsReceiptLines } from '../components/GoodsReceiptLines';
 import { PurchaseOrderLines } from '../components/PurchaseOrderLines';
+import { PurchaseOrderPrintButton } from '../components/PurchaseOrderPrint';
 import { PurchaseOrderReceipts } from '../components/PurchaseOrderReceipts';
 import { ReceiveGoods } from '../components/ReceiveGoods';
 import {
@@ -14,10 +15,8 @@ import {
   useGetGoodsReceiptQuery,
   useGetPurchaseOrderHistoryQuery,
   useGetPurchaseOrderQuery,
-  useGetPurchaseOrderWorkflowQuery,
   useListGoodsReceiptsQuery,
   useListPurchaseOrdersQuery,
-  useTransitionPurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
 } from '../partsApi';
 import { useSupplierOptions } from '../hooks';
@@ -46,6 +45,7 @@ export const purchaseOrderView: EntityViewConfig<PurchaseOrder> = {
   detail: {
     title: (p) => p.poNo,
     subtitle: (p) => `${p.supplierName ?? ''} · ${p.branchName ?? ''}`,
+    actions: (p) => <PurchaseOrderPrintButton po={p} />,
     fields: [
       { label: 'Supplier', value: (p) => p.supplierName },
       { label: 'Receive at', value: (p) => p.branchName },
@@ -86,10 +86,7 @@ export const purchaseOrderView: EntityViewConfig<PurchaseOrder> = {
     create: { useMutation: useCreatePurchaseOrderMutation, toArg: (v) => ({ purchaseOrderCreate: v }) },
     update: { useMutation: useUpdatePurchaseOrderMutation, toArg: (id, v) => ({ id, purchaseOrderUpdate: v }) },
   },
-  workflow: {
-    useDefinition: useGetPurchaseOrderWorkflowQuery,
-    transition: { useMutation: useTransitionPurchaseOrderMutation, toArg: (id, action, comment) => ({ id, body: { action, comment } }) },
-  },
+  // No approval workflow: the order is printed and approved on paper, then goods are received against it.
 };
 
 /** Goods receipts are posted from a purchase order and never change afterwards. */
@@ -123,7 +120,7 @@ export const goodsReceiptView: EntityViewConfig<GoodsReceipt> = {
       { label: 'Received', value: (g) => formatDate(g.receivedDate) },
       { label: 'Value', value: (g) => formatMoney(g.totalCost) },
       { label: 'Received by', value: (g) => g.receivedByName },
-      { label: 'Posted', value: (g) => formatDateTime(g.createdAt) },
+      { label: 'Received at (date and time)', value: (g) => formatDateTime(g.createdAt) },
     ],
     sections: (g) => <GoodsReceiptLines grn={g} />,
   },

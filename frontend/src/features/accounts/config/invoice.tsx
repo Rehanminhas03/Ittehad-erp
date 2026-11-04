@@ -23,7 +23,9 @@ import { INVOICE_STATES, P, sourceLink } from '../permissions';
 const KINDS = [
   { value: 'vehicle_sale', label: 'Vehicle sale' },
   { value: 'service', label: 'Service' },
+  { value: 'parts_sale', label: 'Parts counter sale' },
 ];
+const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k;
 const outstanding = (i: Invoice) => Number(i.totalAmount) - Number(i.amountPaid);
 const overdue = (i: Invoice) => ['issued', 'partially_paid'].includes(i.status) && i.dueDate < new Date().toISOString().slice(0, 10);
 
@@ -62,7 +64,7 @@ export const invoiceView: EntityViewConfig<Invoice> = {
   },
   detail: {
     title: (i) => i.invoiceNo,
-    subtitle: (i) => `${i.customerName ?? ''} · ${i.kind === 'service' ? 'Service' : 'Vehicle sale'}`,
+    subtitle: (i) => `${i.customerName ?? ''} · ${kindLabel(i.kind)}`,
     actions: (i) => (
       <>
         <CustomerPaid invoice={i} />

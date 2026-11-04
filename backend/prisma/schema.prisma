@@ -1052,6 +1052,10 @@ model PartsRequestLine {
   reason         String?
   /// A discount agreed for the part (percent); the job card line is charged net of it when the store issues it.
   discountPercent Decimal     @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  /// What the workshop has accepted of the parts the store gave (the person collecting them confirms receipt).
+  acceptedQty    Decimal      @default(0) @map("accepted_qty") @db.Decimal(12, 2)
+  acceptedById   BigInt?      @map("accepted_by_id")
+  acceptedAt     DateTime?    @map("accepted_at") @db.Timestamptz(6)
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   dealership     Dealership   @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_line_dealership_id_dealership_id_fk")
   part           Part         @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "parts_request_line_part_id_part_id_fk")

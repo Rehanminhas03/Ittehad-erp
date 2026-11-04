@@ -9,11 +9,12 @@ import {
   useRemovePurchaseOrderLineMutation,
   useUpdatePurchaseOrderLineMutation,
 } from '../../partsApi';
+import { ITEM_TYPES } from '../../lib/itemType';
 import { P } from '../../permissions';
 
-const body = (d: LineDraft) => ({ partNo: d.partNo.trim(), quantity: d.quantity.trim(), unitPrice: d.unitPrice.replace(/,/g, '') });
+const body = (d: LineDraft) => ({ partNo: d.partNo.trim(), description: d.description.trim(), quantity: d.quantity.trim(), unitPrice: d.unitPrice.replace(/,/g, '') });
 
-/** PO lines by part number; the server fills the description and computes amounts and the total. */
+/** PO lines: the part number and name are typed in (a part not in the catalogue yet is added to it); the server computes amounts and the total. */
 export function PurchaseOrderLines({ po }: { po: PurchaseOrder }) {
   const perm = usePermission();
   const toast = useToast();
@@ -37,12 +38,13 @@ export function PurchaseOrderLines({ po }: { po: PurchaseOrder }) {
       {isLoading ? (
         <Spinner className="size-4 text-slate-400" />
       ) : (
-        <LineItemsTable<PurchaseOrderLine>
-          lines={lines ?? []}
+        <LineItemsTable<PurchaseOrderLine & { kind: string }>
+          lines={(lines ?? []).map((l) => ({ ...l, kind: l.itemType }))}
+          kinds={ITEM_TYPES}
           editable={editable}
-          descriptionFromPart
-          priceLabel="Unit cost"
-          onAdd={(d) => withToast(add({ id: po.id, purchaseOrderLineCreate: body(d) }).unwrap())}
+          descriptionHint={() => 'Part name'}
+          priceLabel="Cost from supplier"
+          onAdd={(d) => withToast(add({ id: po.id, purchaseOrderLineCreate: { ...body(d), itemType: d.kind as 'part' | 'accessory' | 'lubricant' } }).unwrap())}
           onUpdate={(lineId, d) => withToast(update({ id: po.id, lineId, purchaseOrderLineUpdate: body(d) }).unwrap())}
           onRemove={(lineId) => withToast(remove({ id: po.id, lineId }).unwrap())}
           extraHeader={received ? 'Received' : undefined}

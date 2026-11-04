@@ -15,7 +15,7 @@ import {
   useListServicePackageQuery,
 } from '../../serviceApi';
 
-const TAX_PERCENT = 18;
+const TAX_PERCENT = 5;
 const money = (n: number) => formatMoney(String(Math.round(n * 100) / 100));
 const clean = (s: string) => s.replace(/,/g, '').trim();
 
@@ -29,7 +29,7 @@ interface PartRow {
 
 /**
  * A periodic maintenance service (5,000 km, 30,000 km ...) on the job card, in three parts: the service charges
- * the advisor enters (sales tax of 18% is added), the parts to replace (prices from the price list, a discount
+ * the advisor enters (sales tax of 5% is added), the parts to replace (prices from the price list, a discount
  * where one is agreed) and the checks and work the service covers. The advisor checks everything is right, then
  * sends the request to the parts department.
  */

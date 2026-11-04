@@ -36,6 +36,10 @@ export interface LineConfig {
   prepare?: (ctx: EntityCtx, parent: Row, data: Record<string, unknown>, before?: Row) => Promise<Record<string, unknown>> | Record<string, unknown>;
   /** Runs after any change (e.g. recompute the parent's totals). */
   afterChange?: (ctx: EntityCtx, parent: Row) => Promise<void>;
+  /** Runs after a line is added / changed / removed, with that line (e.g. keep a store request in step). */
+  afterLine?: (ctx: EntityCtx, parent: Row, line: Row, change: 'add' | 'update' | 'remove') => Promise<void>;
+  /** Adds derived fields to the lines that are returned (e.g. a part's type). */
+  decorate?: (ctx: EntityCtx, rows: Row[]) => Promise<Row[]>;
 }
 
 export class LineService {
@@ -51,11 +55,12 @@ export class LineService {
 
   async list(ctx: EntityCtx, parentId: number): Promise<Row[]> {
     const { parentKey, sortKey, maxLines } = this.config;
-    return this.lines(ctx).findMany({
+    const rows = await this.lines(ctx).findMany({
       where: { [parentKey]: parentId },
       orderBy: [{ [sortKey]: 'asc' }, { id: 'asc' }],
       take: maxLines,
     });
+    return this.config.decorate ? this.config.decorate(ctx, rows) : rows;
   }
 
   /** Visible parent, write-authorised and not locked. */
@@ -88,7 +93,8 @@ export class LineService {
     });
     await this.audit(ctx, p, 'line.add', { lineId: row.id, ...input });
     await this.config.afterChange?.(ctx, p);
-    return row;
+    await this.config.afterLine?.(ctx, p, row, 'add');
+    return this.config.decorate ? (await this.config.decorate(ctx, [row]))[0]! : row;
   }
 
   private async findLine(ctx: EntityCtx, parentId: number, lineId: number): Promise<Row> {
@@ -112,7 +118,8 @@ export class LineService {
     const row = await this.lines(ctx).update({ where: { id: lineId }, data: pickColumns(this.config.table, data) });
     await this.audit(ctx, p, 'line.update', { lineId, ...changes });
     await this.config.afterChange?.(ctx, p);
-    return row;
+    await this.config.afterLine?.(ctx, p, row, 'update');
+    return this.config.decorate ? (await this.config.decorate(ctx, [row]))[0]! : row;
   }
 
   async remove(ctx: EntityCtx, parentId: number, lineId: number): Promise<void> {
@@ -121,6 +128,7 @@ export class LineService {
     await this.lines(ctx).delete({ where: { id: lineId } });
     await this.audit(ctx, p, 'line.remove', before);
     await this.config.afterChange?.(ctx, p);
+    await this.config.afterLine?.(ctx, p, before, 'remove');
   }
 }
 

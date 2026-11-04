@@ -149,8 +149,8 @@ describe('invoices', () => {
     const jc = await completedJobCard(s, cust);
     const draft = await api.post('/api/accounts/invoices').set(as(s.accountant)).send({ sourceType: 'job_card', sourceId: jc });
     expect(draft.status).toBe(201);
-    // Labour 4,500 @16% = 720; parts 14,500 @18% = 2,610.
-    expect(draft.body).toMatchObject({ kind: 'service', status: 'draft', subtotal: '19000.00', taxAmount: '3330.00', totalAmount: '22330.00', customerName: 'Ayesha Khan' });
+    // Labour 4,500 @5% = 225; parts 14,500 @18% = 2,610 (tax 2,835).
+    expect(draft.body).toMatchObject({ kind: 'service', status: 'draft', subtotal: '19000.00', taxAmount: '2835.00', totalAmount: '21835.00', customerName: 'Ayesha Khan' });
     expect(draft.body.invoiceNo).toMatch(/^HYD-INV-/);
     const lines = await api.get(`/api/accounts/invoices/${draft.body.id}/lines`).set(as(s.accountant)).expect(200);
     expect(lines.body).toHaveLength(2);
@@ -158,7 +158,7 @@ describe('invoices', () => {
 
     // Extra charge while draft.
     await api.post(`/api/accounts/invoices/${draft.body.id}/lines`).set(as(s.accountant)).send({ kind: 'other', description: 'Towing', quantity: '1', unitPrice: '2000' }).expect(201);
-    expect((await api.get(`/api/accounts/invoices/${draft.body.id}`).set(as(s.accountant))).body.totalAmount).toBe('24330.00');
+    expect((await api.get(`/api/accounts/invoices/${draft.body.id}`).set(as(s.accountant))).body.totalAmount).toBe('23835.00');
 
     const issued = await api.post(`/api/accounts/invoices/${draft.body.id}/transitions`).set(as(s.accountant)).send({ action: 'issue' });
     expect(issued.body.status).toBe('issued');
@@ -166,15 +166,15 @@ describe('invoices', () => {
 
     const je = await api.get(`/api/accounts/journals/${issued.body.journalEntryId}/lines`).set(as(s.accountant));
     expect(je.body.map((l: { accountCode: string; debit: string; credit: string }) => [l.accountCode, l.debit, l.credit])).toEqual([
-      ['1100', '24330.00', '0.00'],
+      ['1100', '23835.00', '0.00'],
       ['4100', '0.00', '4500.00'],
       ['4200', '0.00', '14500.00'],
       ['4900', '0.00', '2000.00'],
-      ['2100', '0.00', '3330.00'],
+      ['2100', '0.00', '2835.00'],
     ]);
     const tb = await trialBalance(s);
     expect(tb.balanced).toBe(true);
-    expect(tb.byCode['1100']).toBe('24330.00');
+    expect(tb.byCode['1100']).toBe('23835.00');
   });
 
   it('vehicle sales: approved orders only, cancel a draft to re-invoice, void reverses the posting', async () => {

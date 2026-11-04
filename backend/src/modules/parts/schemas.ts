@@ -120,9 +120,11 @@ export const PurchaseOrderLineSchema = z.object({
   unitPrice: z.string(),
   amount: z.string(),
   receivedQty: z.string(),
+  /** Part, accessory or lubricant (taken from the part): the order and the invoice keep them apart. */
+  itemType: z.enum(['part', 'accessory', 'lubricant']),
 });
 export const PurchaseOrderLineCreate = z
-  .object({ partNo: PartNo, quantity: Quantity, unitPrice: Money, description: z.string().optional() })
+  .object({ partNo: PartNo, quantity: Quantity, unitPrice: Money, description: z.string().optional(), itemType: z.enum(['part', 'accessory', 'lubricant']).optional() })
   .openapi('PurchaseOrderLineCreate');
 export const PurchaseOrderLineUpdate = z
   .object({ quantity: Quantity, unitPrice: Money, partNo: PartNo.optional(), description: z.string().optional() })
@@ -170,7 +172,18 @@ export const DirectReceiveBody = z
     notes: optionalText(2000),
     /** The vehicle models these parts are for: added to each part received (parts already marked for other models keep them). */
     modelIds: z.array(Id).max(10).optional(),
-    lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitCost: Money })).min(1).max(200),
+    lines: z
+      .array(
+        z.object({
+          partNo: PartNo,
+          quantity: Quantity,
+          unitCost: Money,
+          /** A part that is not in the catalogue yet: it is added (for the dealership's brand, fitting the vehicles chosen) as it is received. */
+          newPart: z.object({ description: z.string().trim().min(2).max(200), category: optionalText(60), sellingPrice: Money }).optional(),
+        }),
+      )
+      .min(1)
+      .max(200),
   })
   .openapi('DirectReceiveRequest');
 
@@ -188,6 +201,11 @@ export const DirectIssueBody = z
     invoiceNo: optionalText(40),
     /** Remarks, e.g. "3% discount on this RO", "Campaign". */
     notes: optionalText(500),
+    /** Parts sold over the counter (no job card / repair order): an invoice is made for the customer and goes to Accounts. */
+    counterSale: z.boolean().optional(),
+    /** Counter sale customer: a mobile finds or adds the customer (then the name is needed); empty is a walk-in customer. */
+    customerMobile: optionalText(30),
+    customerName: optionalText(120),
     lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitPrice: Money.optional(), discountPercent: DiscountPercent.optional() })).min(1).max(100),
   })
   .openapi('DirectIssueRequest');
@@ -195,6 +213,9 @@ export const DirectIssueResultSchema = z
   .object({
     referenceNo: z.string(),
     kind: z.enum(['issue', 'return']),
+    /** The invoice made for a counter sale. */
+    invoiceId: z.number().int().nullable().optional(),
+    invoiceNo: z.string().nullable().optional(),
     lines: z.array(z.object({ partNo: z.string(), description: z.string(), quantity: z.string(), unitCost: z.string(), unitPrice: z.string(), discountPercent: z.string(), netAmount: z.string(), balanceAfter: z.string() })),
   })
   .openapi('DirectIssueResult');
@@ -290,6 +311,68 @@ export const OpenJobCardSchema = z
     serviceLabel: z.string().nullable(),
   })
   .openapi('OpenJobCard');
+/** An open job card as the store sees it: the customer, the car, the customer's voice and the work and parts asked for. */
+export const StoreJobCardSchema = z
+  .object({
+    id: Id,
+    jobCardNo: z.string(),
+    status: z.string(),
+    customerName: z.string().nullable(),
+    vehicleLabel: z.string().nullable(),
+    registrationNo: z.string().nullable(),
+    vin: z.string().nullable(),
+    odometerKm: z.number().int(),
+    complaints: z.string().nullable(),
+    advisorName: z.string().nullable(),
+    freeService: z.boolean(),
+    // What the printed repair order (RO) needs.
+    createdAt: Timestamp,
+    dealershipCode: z.string().nullable(),
+    visitType: z.string(),
+    customerMobile: z.string().nullable(),
+    variant: z.string().nullable(),
+    engineNo: z.string().nullable(),
+    color: z.string().nullable(),
+    lines: z.array(
+      z.object({
+        id: Id,
+        kind: z.string(),
+        description: z.string(),
+        partNo: z.string().nullable(),
+        quantity: z.string(),
+        unitPrice: z.string(),
+        amount: z.string(),
+        billable: z.boolean(),
+        status: z.string(),
+      }),
+    ),
+  })
+  .openapi('StoreJobCard');
+/** Daily sales of the after-sales and the store: what was invoiced each day, per service advisor, split into labour, parts, accessories and lubricants. */
+export const DailySalesQuery = z.object({
+  dealershipId: z.coerce.number().int().positive(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+export const DailySalesRowSchema = z
+  .object({
+    date: z.string(),
+    invoiceId: z.number().int(),
+    invoiceNo: z.string(),
+    /** The repair order (job card) the invoice is for; empty on a counter sale. */
+    roNo: z.string().nullable(),
+    customerName: z.string().nullable(),
+    advisorName: z.string().nullable(),
+    labour: z.string(),
+    parts: z.string(),
+    accessories: z.string(),
+    lubricants: z.string(),
+    other: z.string(),
+    tax: z.string(),
+    total: z.string(),
+    amountPaid: z.string(),
+  })
+  .openapi('DailySalesRow');
 export const OpenJobCardQuery = z.object({ dealershipId: z.coerce.number().int().positive() });
 
 /** Where a part sits in a store (bin / shelf) and the level at which it is low: set by the Store Manager. */
@@ -472,6 +555,8 @@ export const PartsRequestSchema = z.object({
   /** 'request' (the workshop asks for parts) or 'return' (it sends parts back to the store). */
   kind: z.enum(['request', 'return']).optional(),
   status: z.enum(REQUEST_STATES),
+  /** The store has given parts that the workshop has not yet accepted. */
+  awaitingAcceptance: z.boolean().optional(),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 });
@@ -484,6 +569,8 @@ export const PartsRequestLineSchema = z
     quantity: z.string(),
     issuedQty: z.string(),
     returnedQty: z.string(),
+    /** How much of what the store issued the workshop has accepted. */
+    acceptedQty: z.string().optional(),
     reason: z.string().nullable().optional(),
     discountPercent: z.string().optional(),
     onHand: z.string().nullable().optional(),

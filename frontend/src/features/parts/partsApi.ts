@@ -20,6 +20,7 @@ export const partsApi = enhancedApi
       transitionPurchaseOrder: { invalidatesTags: ['PurchaseOrder'] },
       createPartsRequest: { invalidatesTags: ['PartsRequest'] },
       issueParts: { invalidatesTags: ['PartsRequest', 'JobCard', ...STOCK] },
+      acceptIssuedParts: { invalidatesTags: ['PartsRequest', 'JobCard'] },
       returnParts: { invalidatesTags: ['PartsRequest', 'JobCard', ...STOCK] },
       transitionStockTransfer: { invalidatesTags: ['StockTransfer', ...STOCK] },
       transitionStockAdjustment: { invalidatesTags: ['StockAdjustment', ...STOCK] },

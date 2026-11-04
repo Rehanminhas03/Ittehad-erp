@@ -20,7 +20,7 @@ import {
 } from '../../serviceApi';
 
 const toBody = (d: LineDraft) => ({
-  kind: d.kind as 'labour' | 'part' | 'lubricant' | 'sublet',
+  kind: d.kind as 'labour' | 'part' | 'lubricant' | 'accessory' | 'sublet',
   description: d.description,
   partNo: d.partNo || null,
   quantity: d.quantity,
@@ -62,10 +62,10 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
         <LineItemsTable<JobCardLine>
           lines={lines ?? []}
           discountable
-          partNoField={(kind) => (kind === 'part' || kind === 'lubricant' ? 'auto' : 'none')}
+          partNoField={(kind) => (kind === 'part' || kind === 'lubricant' || kind === 'accessory' ? 'auto' : 'none')}
           descriptionHint={(kind) => (kind === 'sublet' ? 'Work done outside the workshop (describe it)' : kind === 'labour' ? 'Labour: what was done' : 'Chosen from the store above')}
           addHelper={(kind, fill) =>
-            kind === 'part' || kind === 'lubricant' ? (
+            kind === 'part' || kind === 'lubricant' || kind === 'accessory' ? (
               <PartPicker placeholder={kind === 'lubricant' ? 'Search the lubricant (engine oil, oil filter ...) by number or name, then choose it…' : 'Search the part by number or name, then choose it…'} onPick={(p) => fill({ partNo: p.partNo, description: p.description, unitPrice: p.sellingPrice })} />
             ) : kind === 'labour' ? (
               <Button size="sm" variant="secondary" onClick={() => setPeriodic(true)}>
@@ -86,7 +86,7 @@ export function JobCardWork({ jobCard }: { jobCard: JobCard }) {
               {l.source === 'estimate' && 'From approved estimate'}
               {l.source === 'schedule' && 'Scheduled service'}
               {!l.billable && <> · <Badge tone="green">Free of charge</Badge></>}
-              {l.billable && (l.kind === 'part' || l.kind === 'lubricant') && <> · <Badge tone="amber">Charged to the customer</Badge></>}
+              {l.billable && (l.kind === 'part' || l.kind === 'lubricant' || l.kind === 'accessory') && <> · <Badge tone="amber">Charged to the customer</Badge></>}
               {l.scheduleItemId && <ServiceIncludes scheduleItemId={l.scheduleItemId} />}
               {l.source === 'parts' && l.partNo && !closed && perm.canIn('parts.requests.create', jobCard.dealershipId, jobCard.branchId) && (
                 <div className="mt-1">

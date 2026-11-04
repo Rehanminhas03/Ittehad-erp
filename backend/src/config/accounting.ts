@@ -39,21 +39,25 @@ export const CHART_TEMPLATE: { code: string; name: string; type: 'asset' | 'liab
 ];
 
 /** Revenue account role per invoice line kind. */
-export const REVENUE_ROLE: Record<'vehicle' | 'labour' | 'part' | 'other', AccountRole> = {
+export const REVENUE_ROLE: Record<'vehicle' | 'labour' | 'part' | 'lubricant' | 'accessory' | 'other', AccountRole> = {
   vehicle: 'vehicle_sales',
   labour: 'labour_sales',
   part: 'parts_sales',
+  lubricant: 'parts_sales',
+  accessory: 'parts_sales',
   other: 'other_sales',
 };
 
 /**
  * Sales tax % added on top of each invoice line kind. Defaults to confirm with the finance team:
- * goods (parts) 18% GST, services (labour) 16%, vehicles 0% (priced tax-inclusive).
+ * goods (parts) 18% GST, services and labour 5%, vehicles 0% (priced tax-inclusive).
  */
-export const TAX_RATES: Record<'vehicle' | 'labour' | 'part' | 'other', string> = {
+export const TAX_RATES: Record<'vehicle' | 'labour' | 'part' | 'lubricant' | 'accessory' | 'other', string> = {
   vehicle: '0',
-  labour: '16',
+  labour: '5',
   part: '18',
+  lubricant: '18',
+  accessory: '18',
   other: '0',
 };
 

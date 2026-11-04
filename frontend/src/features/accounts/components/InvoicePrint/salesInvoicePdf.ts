@@ -1,5 +1,5 @@
 import type { Customer, Vehicle } from '@/features/crm/crmApi';
-import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money, PERIODIC_NOTE, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
+import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money, PERIODIC_NOTE, roNumber, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
 import type { InvoiceLine } from '../../accountsApi';
 import type { InvoiceDocument } from './invoicePdf';
 
@@ -21,7 +21,7 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
 
   y = fieldGrid(doc, y, [
     [['Customer Name :', inv.customerName ?? ''], ['Vehicle :', carName(car?.modelName, car?.variant) || (d.vehicle ?? '')], ['Date :', shortDate(inv.invoiceDate)]],
-    [['Mobile :', customer?.mobile ?? ''], ['Reg No :', car?.registrationNo ?? ''], ['RO No :', inv.sourceNo ?? '']],
+    [['Mobile :', customer?.mobile ?? ''], ['Reg No :', car?.registrationNo ?? ''], ['RO No :', roNumber(inv.sourceNo)]],
     [['Address :', [customer?.address, customer?.city].filter(Boolean).join(', ')], ['NTN :', customer?.ntn ?? ''], ['KM :', d.odometerKm != null ? String(d.odometerKm) : '']],
   ]);
   y += 4;
@@ -46,10 +46,15 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
     y += 9;
     return s;
   };
-  const parts = group('Parts & Lubricants', lines.filter((l) => l.kind === 'part'), 'Sub-total parts:');
-  const services = group('Services', lines.filter((l) => l.kind !== 'part'), 'Sub-total services:');
-  const ex = parts.ex + services.ex;
-  const tax = parts.tax + services.tax;
+  // Parts, accessories and lubricants are separate blocks (the last two only when the invoice has them).
+  const lubricantRows = lines.filter((l) => l.kind === 'lubricant');
+  const accessoryRows = lines.filter((l) => l.kind === 'accessory');
+  const parts = group('Parts', lines.filter((l) => l.kind === 'part'), 'Sub-total parts:');
+  const accessories = accessoryRows.length ? group('Accessories', accessoryRows, 'Sub-total accessories:') : { ex: 0, tax: 0 };
+  const lubricants = lubricantRows.length ? group('Lubricants', lubricantRows, 'Sub-total lubricants:') : { ex: 0, tax: 0 };
+  const services = group('Services & Labour', lines.filter((l) => !['part', 'lubricant', 'accessory'].includes(l.kind)), 'Sub-total services & labour:');
+  const ex = parts.ex + accessories.ex + lubricants.ex + services.ex;
+  const tax = parts.tax + accessories.tax + lubricants.tax + services.tax;
   const total = (label: string, v: string, big = false) => {
     text(label, M + 1, y, { bold: true, size: big ? 12 : 10.5 });
     text(v, M + W, y, { bold: true, size: big ? 12 : 10.5, align: 'right' });

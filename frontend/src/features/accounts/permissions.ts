@@ -32,6 +32,8 @@ export const INVOICE_LINE_KINDS = [
   { value: 'other', label: 'Other charge' },
   { value: 'labour', label: 'Labour' },
   { value: 'part', label: 'Part' },
+  { value: 'lubricant', label: 'Lubricant' },
+  { value: 'accessory', label: 'Accessory' },
   { value: 'vehicle', label: 'Vehicle' },
 ];
 export const JOURNAL_SOURCES = [

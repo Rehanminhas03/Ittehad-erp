@@ -3,7 +3,7 @@ import { loadImage } from './pdf';
 
 /**
  * The workshop documents (the repair order / job card and the sales invoice) in the dealership's own layout, from
- * Hyundai Islamabad's: "Ittehad Automotive (An Ittehad Steel Company)" with the address on the left and the brand logo on
+ * Hyundai Islamabad's: "Ittehad Motors (An Ittehad Steel Company)" with the address on the left and the brand logo on
  * the right. Jetour Ittehad has it now; the terms below are Hyundai's with the dealership's name, to be changed later.
  */
 export interface WorkshopBrand {
@@ -58,7 +58,9 @@ const INK: Rgb = [17, 17, 17];
 
 export const money = (n: number) => n.toLocaleString('en-PK', { maximumFractionDigits: 2 });
 export const rs = (n: number) => `Rs.${money(n)}`;
-export const shortDate = (v: string | Date) => new Date(v).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+/** The RO number is just the running number: JET-ITH-JC-2026-00003 prints as 00003. */
+export const roNumber = (jobCardNo: string | null | undefined) => (jobCardNo ?? '').split('-').pop() ?? '';
+export const shortDate =(v: string | Date) => new Date(v).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
 
 export function writer(doc: jsPDF) {
   return (s: string, x: number, y: number, o: { bold?: boolean; size?: number; color?: Rgb; align?: 'left' | 'right' | 'center'; max?: number } = {}) => {
@@ -70,11 +72,11 @@ export function writer(doc: jsPDF) {
 }
 export type Writer = ReturnType<typeof writer>;
 
-/** "Ittehad Automotive (An Ittehad Steel Company)", the address block and the brand logo on the right. Returns the next y. */
+/** "Ittehad Motors (An Ittehad Steel Company)", the address block and the brand logo on the right. Returns the next y. */
 export async function drawWorkshopLetterhead(doc: jsPDF, brand: WorkshopBrand, width = W): Promise<number> {
   const text = writer(doc);
   const logo = await loadImage(brand.logo);
-  text('Ittehad Automotive', M, 20, { bold: true, size: 21 });
+  text('Ittehad Motors', M, 20, { bold: true, size: 21 });
   text('(An Ittehad Steel Company)', M, 28, { bold: true, size: 13 });
   let y = 36;
   for (const l of brand.addressLines) {

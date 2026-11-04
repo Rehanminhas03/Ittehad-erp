@@ -45,7 +45,7 @@ export async function setPackageLines(ctx: EntityCtx, scheduleItemId: number, li
 }
 
 /** Sales tax on the service charges (parts prices on the price list already include their sales tax). */
-export const SERVICE_TAX_PERCENT = '18';
+export const SERVICE_TAX_PERCENT = '5';
 
 /** The store a job card's parts come from: its own branch, else the dealership's main branch. */
 async function storeBranchId(ctx: EntityCtx, dealershipId: number, branchId: number | null) {
@@ -66,7 +66,7 @@ interface ServiceInput {
 
 /**
  * The advisor puts a periodic service on the job card after checking what it includes: the service charges they
- * entered (with the 18% sales tax added as its own line), and, when they click send, one parts request to the
+ * entered (with the 5% sales tax added as its own line), and, when they click send, one parts request to the
  * store for the parts (with their discounts). The parts the store issues then appear on the job card by themselves.
  */
 export async function addService(ctx: EntityCtx, jobCardId: number, input: ServiceInput) {

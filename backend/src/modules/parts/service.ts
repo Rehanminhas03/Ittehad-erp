@@ -21,6 +21,7 @@ import {
   resolvePart,
   transfers,
 } from './entities';
+import { categoryOfType, type ItemType, itemTypeOf } from './lubricant';
 import {
   goodsReceipt,
   goodsReceiptLine,
@@ -70,10 +71,20 @@ function partLinePrepare(
   table: typeof purchaseOrderLine | typeof stockTransferLine | typeof stockAdjustmentLine,
   parentCol: typeof purchaseOrderLine.purchaseOrderId,
   priced: boolean,
+  /** A purchase order may name a part that is not in the catalogue yet: it is added (price 0 until the manager sets it). */
+  addMissing = false,
 ) {
   return async (ctx: EntityCtx, parent: Row, data: Record<string, unknown>, before?: Row) => {
     const out = { ...data };
     if (!before || (data.partNo && data.partNo !== before.partNo)) {
+      const partNo = normalizePartNo(String(data.partNo));
+      const name = String(data.description ?? '').trim();
+      if (addMissing && name.length >= 2 && !(await ctx.tx.part.findFirst({ where: { partNo }, select: { id: true } }))) {
+        const dealer = await ctx.tx.dealership.findFirst({ where: { id: parent.dealershipId as number }, select: { brand: true } });
+        await ctx.tx.part.create({
+          data: { partNo, description: name, brand: dealer?.brand ?? null, category: categoryOfType(data.itemType as ItemType | undefined), sellingPrice: '0', purchasePrice: out.unitPrice ? String(out.unitPrice) : null, createdById: ctx.access.userId, updatedById: ctx.access.userId },
+        });
+      }
       const p = await resolvePart(ctx, String(data.partNo));
       await assertPartNotOnDocument(ctx, table, parentCol, parent.id, p.id, before?.id);
       Object.assign(out, { partId: p.id, partNo: p.partNo, description: p.description });
@@ -100,7 +111,7 @@ export const purchaseOrderLines = new LineService({
   maxLines: 200,
   sortKey: 'createdAt',
   locked: (p) => (p.status !== 'draft' ? 'Only draft purchase orders can be changed' : null),
-  prepare: partLinePrepare(purchaseOrderLine, purchaseOrderLine.purchaseOrderId, true),
+  prepare: partLinePrepare(purchaseOrderLine, purchaseOrderLine.purchaseOrderId, true, true),
   afterChange: recomputePoTotal,
 });
 
@@ -137,7 +148,8 @@ export async function receiveGoods(ctx: EntityCtx, poId: number, input: z.output
   const po = await purchaseOrders.findVisible(ctx, poId, { lock: true });
   const target = { dealershipId: po.dealershipId as number, branchId: po.branchId as number };
   if (!ctx.access.canIn(P.receiptsCreate, target)) throw forbidden();
-  if (!['approved', 'partially_received'].includes(po.status as string)) throw conflict('Goods can only be received against an approved purchase order');
+  // There is no approval step in the system: the printed order is approved on paper, so goods can be received at once.
+  if (!['draft', 'approved', 'partially_received'].includes(po.status as string)) throw conflict('Goods can only be received against an open purchase order');
   const receivedDate = input.receivedDate ?? today();
   if (receivedDate > today()) throw validationError([{ in: 'body', path: 'receivedDate', message: 'Cannot be in the future' }]);
 
@@ -306,12 +318,13 @@ export async function partsRequestLines(ctx: EntityCtx, requestId: number) {
   const req = await partsRequests.findVisible(ctx, requestId);
   return query<{
     id: number; partId: number; partNo: string; description: string;
-    quantity: string; issuedQty: string; returnedQty: string; discountPercent: string; reason: string | null; onHand: string | null;
+    quantity: string; issuedQty: string; returnedQty: string; acceptedQty: string; discountPercent: string; reason: string | null; onHand: string | null;
   }>(
     ctx.tx,
     sql`select ${partsRequestLine.id} as "id", ${partsRequestLine.partId} as "partId", ${partsRequestLine.partNo} as "partNo",
                ${partsRequestLine.description} as "description", ${partsRequestLine.quantity}::text as "quantity",
                ${partsRequestLine.issuedQty}::text as "issuedQty", ${partsRequestLine.returnedQty}::text as "returnedQty",
+               ${partsRequestLine.acceptedQty}::text as "acceptedQty",
                ${partsRequestLine.discountPercent}::text as "discountPercent", ${partsRequestLine.reason} as "reason",
                ${stockItem.quantityOnHand}::text as "onHand"
           from ${partsRequestLine}
@@ -320,6 +333,31 @@ export async function partsRequestLines(ctx: EntityCtx, requestId: number) {
          order by ${partsRequestLine.id} asc
          limit 50`,
   );
+}
+
+/**
+ * The person collecting the parts for the job card (service advisor or mechanic) accepts what the store has given so
+ * far: every line's accepted quantity becomes what was issued (less what went back), with their name and the time.
+ */
+export async function acceptIssued(ctx: EntityCtx, requestId: number) {
+  const req = await partsRequests.findVisible(ctx, requestId, { lock: true });
+  if (req.kind === 'return') throw conflict('This is a return to the store: nothing to accept');
+  if (!ctx.access.canIn(P.requestsCreate, { dealershipId: req.dealershipId as number, branchId: (req.branchId as number | null) ?? null })) throw forbidden();
+  const lines = await ctx.tx.partsRequestLine.findMany({ where: { partsRequestId: requestId } });
+  const pending = [];
+  for (const l of lines) {
+    const { net, open } = await numeric<{ net: string; open: string }>(
+      ctx,
+      sql`select (${l.issuedQty}::numeric - ${l.returnedQty}::numeric)::text as net, ((${l.issuedQty}::numeric - ${l.returnedQty}::numeric) > ${l.acceptedQty}::numeric)::text as open`,
+    );
+    if (open === 'true') pending.push({ id: l.id, net });
+  }
+  if (!pending.length) throw conflict('The store has not given any parts that are waiting to be accepted');
+  for (const p of pending) {
+    await ctx.tx.partsRequestLine.update({ where: { id: p.id }, data: { acceptedQty: p.net, acceptedById: ctx.access.userId, acceptedAt: new Date() } });
+  }
+  await ctx.audit({ entityType: 'parts.parts_request', entityId: req.id, action: 'accept_issued', dealershipId: req.dealershipId as number, branchId: req.branchId as number, changes: { lines: pending.length } });
+  return partsRequestLines(ctx, requestId);
 }
 
 async function requestForIssue(ctx: EntityCtx, requestId: number) {
@@ -374,7 +412,7 @@ export async function issueParts(ctx: EntityCtx, requestId: number, input: z.out
 
   for (const l of input.lines) {
     const rl = byId.get(l.lineId)!;
-    const p = await ctx.tx.part.findFirst({ where: { id: rl.partId }, select: { sellingPrice: true } });
+    const p = await ctx.tx.part.findFirst({ where: { id: rl.partId }, select: { sellingPrice: true, description: true, category: true, uom: true } });
     const { issued } = await numeric<{ issued: string }>(ctx, sql`select (${rl.issuedQty}::numeric + ${l.quantity}::numeric - ${rl.returnedQty}::numeric)::text as issued`);
     let jobCardLineId = rl.jobCardLineId;
     if (jobCardLineId) {
@@ -387,7 +425,7 @@ export async function issueParts(ctx: EntityCtx, requestId: number, input: z.out
         data: {
           dealershipId: jc.dealershipId as number,
           jobCardId: jc.id,
-          kind: 'part',
+          kind: itemTypeOf(p!),
           description: rl.description,
           partNo: rl.partNo,
           quantity: issued,
@@ -515,13 +553,25 @@ export async function receiveDirect(ctx: EntityCtx, input: z.output<typeof Direc
   await assertBranch(ctx, input.dealershipId, input.branchId);
   const sup = await ctx.tx.supplier.findFirst({ where: { id: input.supplierId, dealershipId: input.dealershipId, isActive: true }, select: { id: true } });
   if (!sup) throw validationError([{ in: 'body', path: 'supplierId', message: 'Choose a supplier of this dealership' }]);
-  const lines = await resolveLines(ctx, input.lines);
   const modelIds = [...new Set(input.modelIds ?? [])];
+  const dealer = await ctx.tx.dealership.findFirst({ where: { id: input.dealershipId }, select: { brand: true } });
   if (modelIds.length) {
-    const dealer = await ctx.tx.dealership.findFirst({ where: { id: input.dealershipId }, select: { brand: true } });
     const ok = await ctx.tx.vehicleModel.findMany({ where: { id: { in: modelIds }, brand: { equals: dealer?.brand ?? '', mode: 'insensitive' } }, select: { id: true } });
     if (ok.length !== modelIds.length) throw validationError([{ in: 'body', path: 'modelIds', message: `Choose ${dealer?.brand ?? 'this dealership'} models only` }]);
   }
+  // Parts not in the catalogue yet are added first (a part number already there is simply used).
+  const newParts: string[] = [];
+  for (const l of input.lines) {
+    if (!l.newPart) continue;
+    if (!modelIds.length) throw validationError([{ in: 'body', path: 'modelIds', message: 'Choose the vehicle the new part is for' }]);
+    const partNo = normalizePartNo(l.partNo);
+    if (await ctx.tx.part.findFirst({ where: { partNo }, select: { id: true } })) continue;
+    await ctx.tx.part.create({
+      data: { partNo, description: l.newPart.description, brand: dealer?.brand ?? null, category: l.newPart.category ?? null, sellingPrice: l.newPart.sellingPrice, modelIds, createdById: ctx.access.userId, updatedById: ctx.access.userId },
+    });
+    newParts.push(partNo);
+  }
+  const lines = await resolveLines(ctx, input.lines);
 
   const grnNo = await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.goodsReceipt);
   const amounts = lines.map((l) => lineAmount(l.unitCost, l.quantity));
@@ -542,7 +592,7 @@ export async function receiveDirect(ctx: EntityCtx, input: z.output<typeof Direc
     const addModels = fits.length !== l.part.modelIds.length;
     await ctx.tx.part.update({ where: { id: l.part.id }, data: { purchasePrice: l.unitCost, ...(addModels ? { modelIds: fits } : {}) } });
   }
-  await ctx.audit({ entityType: 'parts.goods_receipt', entityId: grn!.id, action: 'create', ...target, changes: { direct: true, totalCost, modelIds, lines: input.lines } });
+  await ctx.audit({ entityType: 'parts.goods_receipt', entityId: grn!.id, action: 'create', ...target, changes: { direct: true, totalCost, modelIds, newParts, lines: input.lines } });
   await publish(ctx, {
     type: 'goods.received',
     dealershipId: target.dealershipId,

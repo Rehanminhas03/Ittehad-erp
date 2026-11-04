@@ -152,16 +152,17 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   },
   {
     name: 'Store Manager',
-    description: 'Runs the store: adds parts, changes part numbers and prices, receives and issues parts, approves stock adjustments, sees the store report. Assigned per dealership.',
-    patterns: ['core.dealerships.view', 'core.branches.view', 'parts.*', 'reports.parts.*'],
+    description: 'Runs the store: adds parts, changes part numbers and prices, receives and issues parts, approves stock adjustments, sees the store report, and sees and prints the counter sale invoices. Assigned per dealership.',
+    patterns: ['core.dealerships.view', 'core.branches.view', 'parts.*', 'reports.parts.*', 'accounts.invoices.view'],
   },
   {
     name: 'Storekeeper',
     description: 'The store desk: receives parts from head office, issues them to job cards / repair orders, takes unused parts back, looks up prices.',
     patterns: [
       'core.dealerships.view', 'core.branches.view',
-      'parts.catalog.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.receipts.*', 'parts.stock.view',
+      'parts.catalog.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.purchase_orders.create', 'parts.purchase_orders.update', 'parts.purchase_orders.submit', 'parts.receipts.*', 'parts.stock.view',
       'parts.transfers.*', 'parts.requests.view', 'parts.requests.cancel', 'parts.issues.*', 'parts.adjustments.view', 'parts.adjustments.create',
+      'accounts.invoices.view',
     ],
   },
   {
@@ -171,11 +172,12 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.dealerships.view', 'core.branches.view', 'master.customers.view', 'master.vehicles.view',
       'service.visits.view', 'service.job_cards.view',
       'accounts.invoices.view', 'accounts.invoices.create', 'accounts.invoices.issue', 'accounts.payments.view', 'accounts.payments.create',
+      'parts.purchase_orders.view', 'parts.purchase_orders.approve',
     ],
   },
   {
     name: 'Accountant',
-    description: 'Invoices, payments and the general ledger.',
-    patterns: ['core.dealerships.view', 'core.branches.view', 'core.entities.view', 'master.customers.view', 'parts.suppliers.view', 'accounts.*', 'reports.accounts.*'],
+    description: 'Invoices, payments and the general ledger. Approves the store\'s purchase orders.',
+    patterns: ['core.dealerships.view', 'core.branches.view', 'core.entities.view', 'master.customers.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.purchase_orders.approve', 'accounts.*', 'reports.accounts.*'],
   },
 ];

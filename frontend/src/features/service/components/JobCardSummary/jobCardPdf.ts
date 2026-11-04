@@ -1,5 +1,5 @@
 import type { Customer, Vehicle } from '@/features/crm/crmApi';
-import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money as fmt, PERIODIC_NOTE, repairOrderTerms, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
+import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money as fmt, PERIODIC_NOTE, repairOrderTerms, roNumber, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
 import type { JobCard, JobCardLine, Visit } from '../../serviceApi';
 
 const money = (n: number) => `Rs ${n.toLocaleString('en-PK', { maximumFractionDigits: 2 })}`;
@@ -137,15 +137,19 @@ const WORK_TYPE: Record<string, string> = { scheduled: 'PM', periodic_maintenanc
  * "REPAIR ESTIMATE / CONTRACT": the RO number, the customer and the car, the parts and lubricants, the services, the
  * totals, the customer's voice and, on the second page, the terms and the signature lines.
  */
-export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; lines: JobCardLine[]; vehicle?: Vehicle; customer?: Customer; brand: WorkshopBrand }): Promise<{ doc: import('jspdf').jsPDF; fileName: string }> {
+export type RepairOrderVariant = 'order' | 'contract';
+
+export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; lines: JobCardLine[]; vehicle?: Vehicle; customer?: Customer; brand: WorkshopBrand; variant?: RepairOrderVariant }): Promise<{ doc: import('jspdf').jsPDF; fileName: string }> {
   const { jobCard: jc, visit, lines, vehicle, customer, brand } = d;
+  // The plain "Repair Order" is the workshop copy; the "Repair Estimate / Contract" is what is sent to the customer.
+  const contract = d.variant === 'contract';
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const text = writer(doc);
   let y = await drawWorkshopLetterhead(doc, brand);
 
-  text('REPAIR ESTIMATE / CONTRACT', 105, y + 4, { bold: true, size: 18, align: 'center' });
-  text(`RO NO -${jc.jobCardNo}`, 105, y + 12, { bold: true, size: 13, color: [120, 120, 120], align: 'center' });
+  text(contract ? 'REPAIR ESTIMATE / CONTRACT' : 'Repair Order', 105, y + 4, { bold: true, size: 18, align: 'center' });
+  text(`RO NO -${roNumber(jc.jobCardNo)}`, 105, y + 12, { bold: true, size: 13, color: [120, 120, 120], align: 'center' });
   y += 20;
 
   const model = carName(vehicle?.modelName, vehicle?.variant) || (jc.vehicleLabel ?? visit.vehicleLabel ?? '');
@@ -177,10 +181,40 @@ export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; l
     y += 10;
     return sub;
   };
-  const parts = group('Parts & Lubricants', ['part', 'lubricant'], 'Sub-total parts:');
-  const services = group('Services', ['labour', 'sublet'], 'Sub-total services:');
+  // Parts and lubricants are separate blocks (the lubricants one only when there is oil or fluid on the job card).
+  const parts = group('Parts', ['part'], 'Sub-total parts:');
+  const accessories = lines.some((l) => l.kind === 'accessory') ? group('Accessories', ['accessory'], 'Sub-total accessories:') : 0;
+  const lubricants = lines.some((l) => l.kind === 'lubricant') ? group('Lubricants', ['lubricant'], 'Sub-total lubricants:') : 0;
+  // Services: the sales tax on the service charges is its own column, not a row (the tax line of the job card is
+  // spread over the service rows in proportion to their charge).
+  const serviceRows = lines.filter((l) => ['labour', 'sublet'].includes(l.kind));
+  const isTaxLine = (l: JobCardLine) => /^sales tax/i.test(l.description);
+  const charged = serviceRows.filter((l) => !isTaxLine(l));
+  const taxTotal = serviceRows.filter(isTaxLine).reduce((n, l) => n + amountOf(l), 0);
+  const base = charged.reduce((n, l) => n + amountOf(l), 0);
+  const taxRate = base > 0 ? Math.round((taxTotal / base) * 100) : 0;
+  const taxOf = (l: JobCardLine) => (base > 0 ? Math.round(((amountOf(l) * taxTotal) / base) * 100) / 100 : 0);
+  const serviceCols = [
+    { h: 'Description', w: 74, a: 'left' as const },
+    { h: 'Qty', w: 14, a: 'center' as const },
+    { h: 'Unit Rate', w: 24, a: 'right' as const },
+    { h: 'Charges', w: 26, a: 'right' as const },
+    { h: taxRate ? `Sales Tax ${taxRate}%` : 'Sales Tax', w: 24, a: 'right' as const },
+    { h: 'Total', w: 24, a: 'right' as const },
+  ];
+  text('Services & Labour', M, y, { bold: true, size: 13 });
+  y = drawTable(
+    doc,
+    y + 3,
+    serviceCols,
+    charged.map((l) => [l.description, String(Number(l.quantity)), fmt(Number(l.unitPrice)), l.billable ? fmt(Number(l.amount)) : 'Free', l.billable ? fmt(taxOf(l)) : '0', l.billable ? fmt(Number(l.amount) + taxOf(l)) : 'Free']),
+  ) + 7;
+  const services = base + taxTotal;
+  text('Sub-total services & labour:', M + 1, y, { bold: true, size: 11 });
+  text(rs(services), M + W, y, { bold: true, size: 11, align: 'right' });
+  y += 10;
   text('Grand-Total:', M + 1, y, { bold: true, size: 12 });
-  text(rs(parts + services), M + W, y, { bold: true, size: 12, align: 'right' });
+  text(rs(parts + accessories + lubricants + services), M + W, y, { bold: true, size: 12, align: 'right' });
   y += 9;
   const voice = doc.splitTextToSize(`Voice of Customer : ${visit.complaints ?? ''}`.toUpperCase().replace('VOICE OF CUSTOMER', 'Voice of Customer'), W) as string[];
   voice.forEach((l, i) => text(l, M, y + i * 4.2, { bold: true, size: 9 }));
@@ -216,7 +250,7 @@ export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; l
   sign('Jobs', M + 130, 14);
   sign('Workshop Controller', M + 152, 34);
 
-  return { doc, fileName: `Job card ${jc.jobCardNo}.pdf` };
+  return { doc, fileName: `${contract ? 'Repair estimate' : 'Repair order'} ${jc.jobCardNo}.pdf` };
 }
 
 const visitTypeText = (v: string) => v.replace(/_/g, ' ').toUpperCase();

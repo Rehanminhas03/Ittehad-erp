@@ -12,7 +12,7 @@ import {
 } from '../../serviceApi';
 
 const toBody = (d: LineDraft) => ({
-  kind: d.kind as 'labour' | 'part' | 'lubricant' | 'sublet',
+  kind: d.kind as 'labour' | 'part' | 'lubricant' | 'accessory' | 'sublet',
   description: d.description,
   partNo: d.partNo || null,
   quantity: d.quantity,

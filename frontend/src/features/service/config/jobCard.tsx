@@ -35,7 +35,8 @@ export const jobCardView: EntityViewConfig<JobCard> = {
     filters: [statusFilter(JOB_CARD_STATES), dealershipFilter],
     columns: [
       { key: 'jobCardNo', header: 'Job card', sortKey: 'jobCardNo', render: (j) => mono(j.jobCardNo) },
-      { key: 'vehicleLabel', header: 'Vehicle', render: (j) => strong(j.vehicleLabel) },
+      { key: 'customerName', header: 'Customer', render: (j) => strong(j.customerName) },
+      { key: 'vehicleLabel', header: 'Vehicle', render: (j) => muted(j.vehicleLabel) },
       { key: 'visitNo', header: 'Visit', render: (j) => mono(j.visitNo) },
       { key: 'technicianName', header: 'Technician', render: (j) => muted(j.technicianName ?? 'Not assigned') },
       { key: 'createdAt', header: 'Opened', sortKey: 'createdAt', render: (j) => formatDateTime(j.createdAt) },
@@ -44,9 +45,10 @@ export const jobCardView: EntityViewConfig<JobCard> = {
   },
   detail: {
     title: (j) => j.jobCardNo,
-    subtitle: (j) => `${j.vehicleLabel ?? ''} · ${j.visitNo ?? ''}`,
+    subtitle: (j) => [j.customerName, j.vehicleLabel, j.visitNo].filter(Boolean).join(' · '),
     actions: (j) => <GatePassButton jobCardId={j.id} />,
     fields: [
+      { label: 'Customer', value: (j) => j.customerName },
       { label: 'Vehicle', value: (j) => j.vehicleLabel },
       { label: 'Visit', value: (j) => j.visitNo },
       { label: 'Advisor', value: (j) => j.advisorName },

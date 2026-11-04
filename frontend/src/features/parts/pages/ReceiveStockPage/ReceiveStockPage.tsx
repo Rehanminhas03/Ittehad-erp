@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Button, Field, Input, PageHeader, Section, Select, Textarea } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
+import { NewPartOnReceipt, type NewPartLine } from '../../components/NewPartOnReceipt';
 import { PartPicker } from '../../components/PartPicker';
 import { StoreTargetFields, useStoreTarget } from '../../components/StoreTarget';
 import { useSupplierOptions } from '../../hooks';
@@ -16,6 +17,8 @@ interface Line {
   description: string;
   quantity: string;
   unitCost: string;
+  /** Set when the part is not in the catalogue yet: it is created as it is received. */
+  newPart?: NewPartLine['newPart'];
 }
 
 /**
@@ -29,7 +32,6 @@ export default function ReceiveStockPage() {
   const suppliers = useSupplierOptions(t.dealershipId);
   const [supplierId, setSupplierId] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
-  const [receivedDate, setReceivedDate] = useState('');
   const [notes, setNotes] = useState('');
   // The vehicles this delivery is for (Dashing, X70 Plus, ...): marked on every part received.
   const [modelIds, setModelIds] = useState<number[]>([]);
@@ -57,11 +59,10 @@ export default function ReceiveStockPage() {
           dealershipId: t.dealershipId,
           branchId: t.branchId,
           supplierId: Number(supplier),
-          receivedDate: receivedDate || undefined,
           supplierInvoiceNo: invoiceNo.trim() || null,
           notes: notes.trim() || null,
           modelIds,
-          lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitCost: l.unitCost.trim() })),
+          lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitCost: l.unitCost.trim(), newPart: l.newPart })),
         },
       }).unwrap();
       toast.success(`Goods receipt ${grn.grnNo} posted: ${lines.length} parts are in stock`);
@@ -90,8 +91,8 @@ export default function ReceiveStockPage() {
             <Field label="Invoice / challan no." htmlFor="rs-invoice" hint="The head-office document">
               <Input id="rs-invoice" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
             </Field>
-            <Field label="Received on" htmlFor="rs-date" hint="Empty: today">
-              <Input id="rs-date" type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
+            <Field label="Received on" htmlFor="rs-date" hint="Recorded by the system when you receive the parts: it cannot be typed">
+              <Input id="rs-date" value="Date and time: automatic" readOnly disabled />
             </Field>
             <Field label="Parts are for vehicle" htmlFor="rs-models" required hint="Tick every vehicle these parts fit. It is marked on each part received, and parts already marked for other vehicles keep them" className="sm:col-span-2 lg:col-span-3">
               <div id="rs-models" className="flex flex-wrap gap-x-5 gap-y-1.5">
@@ -119,6 +120,14 @@ export default function ReceiveStockPage() {
               setLines((ls) => (ls.some((l) => l.partNo === p.partNo) ? ls : [...ls, { partNo: p.partNo, description: p.description, quantity: '1', unitCost: '' }]))
             }
           />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <NewPartOnReceipt
+              brand={brand}
+              vehicles={models.filter((m) => modelIds.includes(Number(m.value))).map((m) => m.label.replace(`${brand} `, ''))}
+              onAdd={(line) => setLines((ls) => (ls.some((l) => l.partNo.toUpperCase() === line.partNo.toUpperCase()) ? ls : [...ls, line]))}
+            />
+            <span className="text-xs text-slate-500">A part that is not in the list is added to the catalogue for the vehicles ticked above.</span>
+          </div>
           {lines.length > 0 && (
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -136,6 +145,7 @@ export default function ReceiveStockPage() {
                     <tr key={l.partNo}>
                       <td className="py-2 pr-2">
                         <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
+                        {l.newPart && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">New part</span>}
                       </td>
                       <td className="py-2 pr-2 text-right">
                         <Input value={l.quantity} onChange={(e) => set(i, { quantity: e.target.value })} className="ml-auto w-20 py-1 text-right text-xs" inputMode="decimal" aria-label={`Quantity of ${l.partNo}`} />

@@ -4,8 +4,8 @@ export { account, journalEntry, journalLine, invoice, invoiceLine, payment, paym
 
 export const ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'income', 'expense'] as const;
 export const INVOICE_STATES = ['draft', 'issued', 'partially_paid', 'paid', 'void', 'cancelled'] as const;
-export const INVOICE_KINDS = ['vehicle_sale', 'service'] as const;
-export const INVOICE_LINE_KINDS = ['vehicle', 'labour', 'part', 'other'] as const;
+export const INVOICE_KINDS = ['vehicle_sale', 'service', 'parts_sale'] as const;
+export const INVOICE_LINE_KINDS = ['vehicle', 'labour', 'part', 'lubricant', 'accessory', 'other'] as const;
 export const PAYMENT_METHODS = ['cash', 'bank_transfer', 'cheque', 'card'] as const;
 export const JOURNAL_SOURCES = ['manual', 'reversal', 'invoice', 'payment', 'goods_receipt', 'stock'] as const;
 

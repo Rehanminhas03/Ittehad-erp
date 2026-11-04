@@ -3,7 +3,7 @@ import { type SQL, eq, inArray, sql } from '../../db/sql';
 import { INVOICE_DUE_DAYS, TAX_RATES } from '../../config/accounting';
 import { LineService } from '../../entity/lines';
 import type { EntityCtx, Row } from '../../entity/types';
-import { conflict, forbidden, validationError } from '../../lib/errors';
+import { conflict, forbidden, HttpError, validationError } from '../../lib/errors';
 import { addMoney, cmpMoney, lessPercent, lineAmount, subMoney, taxOf, toPaisa } from '../../lib/money';
 import type { z } from '../../lib/zod';
 import { DocType, nextDocumentNumber } from '../core/documents';
@@ -75,7 +75,7 @@ interface Draft {
   dealershipId: number;
   branchId: number | null;
   customerId: number;
-  kind: 'vehicle_sale' | 'service';
+  kind: 'vehicle_sale' | 'service' | 'parts_sale';
   sourceNo: string;
   lines: { kind: LineKind; description: string; partNo?: string | null; quantity: string; unitPrice: string }[];
 }
@@ -112,7 +112,7 @@ async function fromJobCard(ctx: EntityCtx, id: number): Promise<Draft> {
     kind: 'service',
     sourceNo: j.jobCardNo,
     // Lubricants are invoiced as parts; work done outside (sublet) as service work.
-    lines: lines.map((l) => ({ kind: (l.kind === 'lubricant' ? 'part' : l.kind === 'sublet' ? 'labour' : l.kind) as LineKind, description: l.billable ? l.description : `${l.description} (free of charge)`, partNo: l.partNo, quantity: l.quantity, unitPrice: l.billable ? lessPercent(l.unitPrice.toString(), l.discountPercent.toString()) : '0' })),
+    lines: lines.map((l) => ({ kind: (l.kind === 'sublet' ? 'labour' : l.kind) as LineKind, description: l.billable ? l.description : `${l.description} (free of charge)`, partNo: l.partNo, quantity: l.quantity, unitPrice: l.billable ? lessPercent(l.unitPrice.toString(), l.discountPercent.toString()) : '0' })),
   };
 }
 
@@ -125,7 +125,12 @@ export async function createInvoiceFromSource(ctx: EntityCtx, input: z.output<ty
     select: { invoiceNo: true },
   });
   if (live) throw conflict(`Already invoiced on ${live.invoiceNo}`);
+  const inv = await insertInvoice(ctx, draft, input.sourceType, input.sourceId, input.notes ?? null);
+  return invoices.get(ctx, inv.id);
+}
 
+/** Writes a draft invoice and its priced lines (the totals follow the lines). */
+async function insertInvoice(ctx: EntityCtx, draft: Draft, sourceType: string, sourceId: number, notes: string | null) {
   const d = await ctx.tx.dealership.findFirst({
     where: { id: draft.dealershipId },
     select: { legalEntityId: true, accountingEntityId: true },
@@ -140,15 +145,15 @@ export async function createInvoiceFromSource(ctx: EntityCtx, input: z.output<ty
       invoiceNo: await nextDocumentNumber(ctx.tx, draft.dealershipId, DocType.invoice),
       kind: draft.kind,
       customerId: draft.customerId,
-      sourceType: input.sourceType,
-      sourceId: input.sourceId,
+      sourceType,
+      sourceId,
       sourceNo: draft.sourceNo,
       invoiceDate: date,
       dueDate: addDays(date, INVOICE_DUE_DAYS),
       subtotal: '0',
       taxAmount: '0',
       totalAmount: '0',
-      notes: input.notes ?? null,
+      notes,
       createdById: ctx.access.userId,
       updatedById: ctx.access.userId,
     },
@@ -166,8 +171,28 @@ export async function createInvoiceFromSource(ctx: EntityCtx, input: z.output<ty
     })),
   });
   await recomputeInvoiceTotals(ctx, inv as unknown as Row);
-  await ctx.audit({ entityType: 'accounts.invoice', entityId: inv.id, action: 'create', dealershipId: draft.dealershipId, branchId: draft.branchId, changes: input });
-  return invoices.get(ctx, inv.id);
+  await ctx.audit({ entityType: 'accounts.invoice', entityId: inv.id, action: 'create', dealershipId: draft.dealershipId, branchId: draft.branchId, changes: { sourceType, sourceId, notes } });
+  return inv;
+}
+
+/**
+ * The invoice of a counter sale (parts sold over the counter, no repair order). Made by the store desk as it issues the parts,
+ * with no accounts right needed, and issued at once so Accounts can take the payment.
+ */
+export async function createCounterSaleInvoice(
+  ctx: EntityCtx,
+  input: { dealershipId: number; branchId: number | null; customerId: number; notes?: string | null; lines: Draft['lines'] },
+) {
+  const inv = await insertInvoice(ctx, { dealershipId: input.dealershipId, branchId: input.branchId, customerId: input.customerId, kind: 'parts_sale', sourceNo: 'Counter Sale', lines: input.lines }, 'counter_sale', 0, input.notes ?? null);
+  // A counter sale has no document of its own: the invoice is its own source.
+  await ctx.tx.invoice.update({ where: { id: inv.id }, data: { sourceId: inv.id } });
+  try {
+    await invoices.transition(ctx, inv.id as unknown as number, 'issue', undefined, { system: true });
+  } catch (e) {
+    // Left as a draft (e.g. everything at 0): Accounts can still deal with it.
+    if (!(e instanceof HttpError) || ![403, 409, 422].includes(e.status)) throw e;
+  }
+  return { id: Number(inv.id), invoiceNo: inv.invoiceNo };
 }
 
 // =============================================================================
