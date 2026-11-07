@@ -51,7 +51,7 @@ export default function LeaveDetailPage() {
           </Button>
         }
       />
-      <Section title="Application">
+      <Section compact title="Application">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
           {[
             ['Status', <Badge key="s" tone={s.tone}>{s.label}</Badge>],
@@ -72,7 +72,7 @@ export default function LeaveDetailPage() {
         </dl>
       </Section>
       {canDecide && (
-        <Section title="Approve or reject">
+        <Section compact title="Approve or reject">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <Field label="Note (required to reject)" htmlFor="lv-note">
               <Input id="lv-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="e.g. Approved; hand over your leads to Ali" />

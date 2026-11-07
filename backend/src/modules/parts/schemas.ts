@@ -657,3 +657,79 @@ export const AdjustmentLineUpdate = z
   .object({ quantity: SignedQuantity, unitCost: Money.nullish() })
   .partial()
   .openapi('AdjustmentLineUpdate');
+
+// ---- Purchase report: what was ordered and received, at what cost --------------------------------
+export const PurchaseReportQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  supplierId: z.coerce.number().int().positive().optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  q: z.string().trim().max(80).optional(),
+});
+export const PurchaseReportSchema = z
+  .object({
+    /** One row per part: ordered and received in the period, and its cost (weighted average of everything received). */
+    parts: z.array(
+      z.object({
+        partId: Id,
+        partNo: z.string(),
+        description: z.string(),
+        orderedQty: z.string(),
+        orderedValue: z.string(),
+        receivedQty: z.string(),
+        receivedCost: z.string(),
+        /** Total cost / quantity received in the period. */
+        averageCost: z.string(),
+        minCost: z.string().nullable(),
+        maxCost: z.string().nullable(),
+        lastCost: z.string().nullable(),
+        lastDate: z.string().nullable(),
+        /** The same average over everything ever received (not only the period). */
+        allTimeAverage: z.string().nullable(),
+      }),
+    ),
+    /** Every receipt line of the period: the price history of each part. */
+    lines: z.array(
+      z.object({
+        partId: Id,
+        date: z.string(),
+        grnNo: z.string(),
+        poNo: z.string().nullable(),
+        supplier: z.string(),
+        store: z.string(),
+        quantity: z.string(),
+        unitCost: z.string(),
+        amount: z.string(),
+      }),
+    ),
+    totals: z.object({ orderedValue: z.string(), receivedQty: z.string(), receivedCost: z.string(), partsCount: z.number().int() }),
+  })
+  .openapi('PartsPurchaseReport');
+
+// ---- Parts in and out report -------------------------------------------------------------------
+export const InOutReportQuery = z.object({
+  dealershipId: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  q: z.string().trim().max(80).optional(),
+});
+export const InOutReportSchema = z
+  .object({
+    /** One row per part that moved in the period: pieces and cost in, pieces and cost out, and the price charged for what went out. */
+    parts: z.array(
+      z.object({
+        partId: Id,
+        partNo: z.string(),
+        description: z.string(),
+        inQty: z.string(),
+        inCost: z.string(),
+        outQty: z.string(),
+        outCost: z.string(),
+        outPrice: z.string(),
+      }),
+    ),
+    totals: z.object({ inQty: z.string(), inCost: z.string(), outQty: z.string(), outCost: z.string(), outPrice: z.string(), partsCount: z.number().int() }),
+  })
+  .openapi('PartsInOutReport');

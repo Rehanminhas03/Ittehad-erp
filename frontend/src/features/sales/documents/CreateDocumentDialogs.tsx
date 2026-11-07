@@ -202,7 +202,7 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
         </>
       }
     >
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
           {!lead && (
             <>
               <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 sm:col-span-2">
@@ -469,7 +469,7 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
         </>
       }
     >
-      <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
         {!lead && (
           <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 sm:col-span-2">
             A PPF voucher without a lead (e.g. a customer who bought the car elsewhere): write the customer's and the vehicle's details. It is not added to the leads list.

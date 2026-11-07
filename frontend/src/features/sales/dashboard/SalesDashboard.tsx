@@ -5,7 +5,7 @@ import { TodayPanel } from './TodayPanel';
 import { DateRangePicker, type DateRange, lastDays, rangeLabel } from '@/shared/components';
 import { Button, Select, StatusBadge } from '@/shared/components/ui';
 import { useAuth, usePermission } from '@/shared/hooks';
-import { formatDate, formatMoney, humanize } from '@/shared/lib';
+import { cn, formatDate, formatMoney, humanize } from '@/shared/lib';
 import { labelOf, LEAD_SOURCES, LEAD_STATES, ORDER_STATES, P, showsVisited } from '../permissions';
 import {
   type Lead,
@@ -181,14 +181,14 @@ export function SalesDashboard() {
       : { title: layout === 'sales' ? 'My leads per day' : 'Leads per day', series: [SERIES_LOGGED, SERIES_CONVERTED] };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header + the one row of filters above the charts */}
-      <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[28px]">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
             {greeting()}, {user?.fullName}
           </h1>
-          <p className="mt-1 text-sm text-slate-600">{personName ? `Showing ${personName} only.` : SUBTITLES[layout]}</p>
+          <p className="text-sm text-slate-600">{personName ? `Showing ${personName} only.` : SUBTITLES[layout]}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Log a walk-in or a call straight from the dashboard (everyone who logs leads). */}
@@ -207,7 +207,7 @@ export function SalesDashboard() {
               aria-label="Salesperson"
               value={person ?? ''}
               onChange={(e) => setOwnerId(e.target.value ? Number(e.target.value) : null)}
-              className={person ? '!bg-brand-50 !ring-brand-300' : undefined}
+              className={cn('w-48', !!person && '!bg-brand-50 !ring-brand-300')}
             >
               <option value="">{layout === 'manager' ? 'Everyone' : 'All salespeople'}</option>
               {personOptions.map((o) => (
@@ -241,31 +241,31 @@ export function SalesDashboard() {
       {/* Walk-ins and calls come first; the social media leads are shown under them. */}
       {data?.social && (
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-lg font-semibold text-slate-900">Other leads (walk-ins, calls)</h2>
+          <h2 className="text-base font-semibold text-slate-900">Other leads (walk-ins, calls)</h2>
           <ExportButtons kind="leads" group="salespeople" query={{ activityFrom: data.period.from, activityTo: data.period.to }} periodLabel={periodLabel} />
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {tiles.map((t) => (
           <StatTile key={t.label} {...t} loading={isLoading} />
         ))}
       </div>
 
       {orders && perm.can(P.ordersInvoice) && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile label="Vehicle invoices not received" value={orders.invoicesPending} icon="clock" tone="orange" to="/sales/orders?invoice=pending&range=all" hint="Cars on approved or delivered orders" loading={isLoading} />
           <StatTile label="Vehicle invoices received" value={orders.invoicesReceived} icon="check" tone="aqua" to="/sales/orders?invoice=received&range=all" hint="Recorded with their numbers" loading={isLoading} />
         </div>
       )}
       {leads && layout !== 'delivery' && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile label="Test drives done" value={leads.testDrivesInPeriod} icon="check" tone="aqua" to={`/sales/leads?testDriveDone=true&range=all${who}`} hint={periodLabel} loading={isLoading} />
           <StatTile label="Waiting for a test drive" value={leads.testDrivesPending} icon="clock" tone="violet" to={`/sales/leads?open=true&testDriveDone=false&range=all${who}`} hint="Open leads without one" loading={isLoading} />
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {layout === 'delivery' ? (
           <Panel title="Open stock by stage" subtitle="Undelivered vehicles at your dealership" to="/sales/stock" className="lg:col-span-2">
             <BarList items={stockByStage} empty="No vehicles in stock yet." />
@@ -349,7 +349,7 @@ export function SalesDashboard() {
             </div>
             <ExportButtons kind="leads" group="social" query={{ activityFrom: data.period.from, activityTo: data.period.to }} periodLabel={periodLabel} />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatTile label="New today" value={data.social.loggedToday} icon="today" tone="blue" to="/sales/leads?group=social&range=all" hint="From the ads" />
             <StatTile label="Open social leads" value={data.social.open} icon="phone" tone="aqua" to="/sales/leads?group=social&open=true&range=all" hint={`of ${data.social.total} total`} />
             <StatTile label="Logged" value={data.social.loggedInPeriod} icon="leads" tone="orange" to="/sales/leads?group=social&range=all" hint={periodLabel} />
@@ -357,7 +357,7 @@ export function SalesDashboard() {
             <StatTile label="Test drives done" value={data.social.testDrivesInPeriod} icon="check" tone="aqua" to="/sales/leads?group=social&testDriveDone=true&range=all" hint={periodLabel} />
             <StatTile label="Waiting for a test drive" value={data.social.testDrivesPending} icon="clock" tone="violet" to="/sales/leads?group=social&open=true&testDriveDone=false&range=all" hint="Open social leads without one" />
           </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             <Panel title="Social media leads per day" subtitle={periodLabel} to="/sales/leads?group=social&range=all" className="lg:col-span-2">
               <TrendChart data={data.social.daily} series={[SERIES_LOGGED, SERIES_CONVERTED]} />
             </Panel>

@@ -151,11 +151,12 @@ export const leadView: EntityViewConfig<Lead> = {
       bar: ({ ids, clear }) => <BulkTransfer ids={ids} clear={clear} />,
     },
     // Total leads and the split by status for the chosen period and filters, above the search.
-    header: ({ query, periodLabel }) => (
-      <>
+    header: ({ query, periodLabel }) => <LeadStatusSummary query={query} periodLabel={periodLabel} />,
+    // The exports sit in the page header, to the left of "New Lead".
+    headerActions: ({ query, periodLabel }) => (
+      <div className="[&>div]:mb-0">
         <ExportButtons kind="leads" query={query} periodLabel={periodLabel} />
-        <LeadStatusSummary query={query} periodLabel={periodLabel} />
-      </>
+      </div>
     ),
     filters: [
       { param: 'lost', label: 'Lost leads', type: 'select', options: [{ value: 'true', label: 'Show lost leads' }], visible: (perm) => perm.can(WORKS_LEADS) },

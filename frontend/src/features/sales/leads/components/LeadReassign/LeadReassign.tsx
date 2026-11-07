@@ -26,7 +26,7 @@ export function LeadReassign({ lead }: { lead: Lead }) {
   const verb = manager ? 'Reassign' : 'Transfer';
 
   return (
-    <Section
+    <Section compact
       title="Salesperson"
       actions={
         !open && (

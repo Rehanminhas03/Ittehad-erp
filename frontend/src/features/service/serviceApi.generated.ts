@@ -233,6 +233,7 @@ const injectedRtkApi = api
             q: queryArg.q,
             modelId: queryArg.modelId,
             isActive: queryArg.isActive,
+            brand: queryArg.brand,
           },
         }),
         providesTags: ["ScheduleItem"],
@@ -805,6 +806,7 @@ export type ListScheduleItemsApiArg = {
   q?: string;
   modelId?: number;
   isActive?: "true" | "false";
+  brand?: string;
 };
 export type CreateScheduleItemApiResponse =
   /** status 201 Success */ ScheduleItem;

@@ -64,8 +64,21 @@ export default function LeadsReportPage() {
 
   return (
     <div>
-      <PageHeader title="Leads report" subtitle="Social media and salesperson leads, with every follow-up remark. Download as Excel (CSV) or PDF." />
-      <div className="surface relative z-20 mb-4 space-y-3 p-4">
+      <PageHeader
+        title="Leads report"
+        subtitle="Social media and salesperson leads, with every follow-up remark. Download as Excel (CSV) or PDF."
+        actions={
+          <>
+            <Button size="sm" variant="secondary" loading={busy === 'csv'} disabled={!rows.length} onClick={() => void run('csv')}>
+              Download Excel (CSV)
+            </Button>
+            <Button size="sm" loading={busy === 'pdf'} disabled={!rows.length} onClick={() => void run('pdf')}>
+              Download PDF
+            </Button>
+          </>
+        }
+      />
+      <div className="surface relative z-20 mb-3 space-y-2 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Select value={group} onChange={(e) => setGroup(e.target.value as Group)} className="!w-auto min-w-56" aria-label="Leads from">
             {GROUPS.map((g) => (
@@ -113,14 +126,6 @@ export default function LeadsReportPage() {
             }}
           />
           {isFetching && <Spinner className="size-4 text-slate-400" />}
-          <div className="ml-auto flex gap-2">
-            <Button variant="secondary" loading={busy === 'csv'} disabled={!rows.length} onClick={() => void run('csv')}>
-              Download Excel (CSV)
-            </Button>
-            <Button loading={busy === 'pdf'} disabled={!rows.length} onClick={() => void run('pdf')}>
-              Download PDF
-            </Button>
-          </div>
         </div>
       </div>
 

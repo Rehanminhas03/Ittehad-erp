@@ -99,9 +99,9 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
           { label: mode === 'create' ? 'New' : 'Edit' },
         ]}
       />
-      <form onSubmit={onSubmit} noValidate className="max-w-3xl">
+      <form onSubmit={onSubmit} noValidate className="max-w-4xl">
         <Section>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
             {fields.map((f) => (
               <FormFieldControl key={f.name} field={f} form={rhf} perm={perm} fallbackScope={config.permissions.create} />
             ))}

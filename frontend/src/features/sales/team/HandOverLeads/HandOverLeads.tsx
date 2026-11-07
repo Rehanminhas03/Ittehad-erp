@@ -39,7 +39,7 @@ function HandOverAt({ user, dealershipId, dealershipName }: { user: Person; deal
   const count = counts.open + (includeInProgress ? counts.inProgress : 0);
 
   return (
-    <Section title={`Hand over leads${dealershipName ? ` — ${dealershipName}` : ''}`}>
+    <Section compact title={`Hand over leads${dealershipName ? ` — ${dealershipName}` : ''}`}>
       <p className="mb-3 text-sm text-slate-700">
         {user.fullName} has <b>{counts.open}</b> open lead{counts.open === 1 ? '' : 's'} (new / follow-up)
         {counts.inProgress > 0 && (

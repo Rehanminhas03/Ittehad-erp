@@ -407,6 +407,7 @@ export const resultExtension = {
     totalAmount: { needs: { totalAmount: true }, compute: (r: { totalAmount: { toFixed(dp: number): string } }) => fromDecimal(r.totalAmount, 2) },
     bookingAmount: { needs: { bookingAmount: true }, compute: (r: { bookingAmount: { toFixed(dp: number): string } | null }) => fromDecimal(r.bookingAmount, 2) },
     validUntil: { needs: { validUntil: true }, compute: (r: { validUntil: Date }) => fromDate(r.validUntil) },
+    issuedOn: { needs: { issuedOn: true }, compute: (r: { issuedOn: Date | null }) => fromDate(r.issuedOn) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },
     updatedById: { needs: { updatedById: true }, compute: (r: { updatedById: bigint | null }) => fromBigInt(r.updatedById) },
   },

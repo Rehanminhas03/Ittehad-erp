@@ -91,12 +91,12 @@ export function LeaveFormatEditor({ dealer }: { dealer: Dealer }) {
 
   return (
     <>
-      <Section title="Leave application form">
+      <Section compact title="Leave application form">
         <p className="mb-4 text-sm text-slate-600">
           {data.isDefault ? 'Using the built-in form (not changed yet). ' : `Last changed ${data.updatedAt ? formatDateTime(data.updatedAt) : ''} by ${data.updatedByName ?? '—'}. `}
           Printed for every leave application (sick / emergency leave) of the dealership.
         </p>
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
           <Field label="Heading" htmlFor="lv-fmt-heading" error={errors.companyName} hint="e.g. HYUNDAI ISLAMABAD">
             <Input id="lv-fmt-heading" value={form.heading} onChange={(e) => setForm({ ...form, heading: e.target.value })} />
           </Field>
@@ -105,7 +105,7 @@ export function LeaveFormatEditor({ dealer }: { dealer: Dealer }) {
           </Field>
         </div>
       </Section>
-      <Section title="Rules (clauses)">
+      <Section compact title="Rules (clauses)">
         <Field label="In English (one clause per line)" htmlFor="lv-fmt-en" error={errors.terms} hint="Write **text** for bold.">
           <Textarea id="lv-fmt-en" rows={4} value={form.english} onChange={(e) => setForm({ ...form, english: e.target.value })} />
         </Field>
@@ -113,7 +113,7 @@ export function LeaveFormatEditor({ dealer }: { dealer: Dealer }) {
           <Textarea id="lv-fmt-ur" dir="rtl" lang="ur" rows={4} className="text-base leading-8" value={form.urdu} onChange={(e) => setForm({ ...form, urdu: e.target.value })} />
         </Field>
       </Section>
-      <Section title="Signatures">
+      <Section compact title="Signatures">
         <Field label="Signature lines (one per line)" htmlFor="lv-fmt-sign" error={errors.signOff} hint="e.g. Applicant's Signature, Department Head, Manager. Up to 4.">
           <Textarea id="lv-fmt-sign" rows={3} value={form.signOff} onChange={(e) => setForm({ ...form, signOff: e.target.value })} />
         </Field>

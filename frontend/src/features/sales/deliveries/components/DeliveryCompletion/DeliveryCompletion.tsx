@@ -16,7 +16,7 @@ export function DeliveryCompletion({ delivery }: { delivery: Delivery }) {
 
   if (delivery.status !== 'scheduled' || !perm.canIn(P.deliveriesComplete, delivery.dealershipId, delivery.branchId)) return null;
   return (
-    <Section title="Hand over">
+    <Section compact title="Hand over">
       <HandOverForm
         customerName={delivery.customerName}
         submitLabel="Complete delivery"

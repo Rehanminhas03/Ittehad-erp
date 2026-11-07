@@ -36,7 +36,7 @@ export function LeadStatusSummary({ query, periodLabel }: { query: Record<string
 
   const chip = (selected: boolean) =>
     cn(
-      'flex shrink-0 items-baseline gap-1.5 rounded-xl px-3.5 py-2 text-left transition',
+      'flex shrink-0 items-baseline gap-1.5 rounded-lg px-3 py-1 text-left transition',
       selected ? 'bg-white shadow-sm ring-1 ring-brand-200' : 'hover:bg-white/60',
     );
   const states = LEAD_STATES.filter(
@@ -44,18 +44,18 @@ export function LeadStatusSummary({ query, periodLabel }: { query: Record<string
   );
 
   return (
-    <div className="glass-soft scrollbar-thin mb-4 flex items-center gap-1 overflow-x-auto rounded-2xl p-1.5" aria-label="Leads by status">
+    <div className="glass-soft scrollbar-thin mb-3 flex items-center gap-1 overflow-x-auto rounded-xl p-1" aria-label="Leads by status">
       <button type="button" onClick={() => choose(null)} className={chip(!active)} aria-pressed={!active}>
-        <span className="text-xl font-semibold text-slate-900 tabular-nums">{leads.total.toLocaleString()}</span>
-        <span className="text-sm whitespace-nowrap text-slate-600">total leads · {periodLabel}</span>
+        <span className="text-lg font-semibold text-slate-900 tabular-nums">{leads.total.toLocaleString()}</span>
+        <span className="text-[13px] whitespace-nowrap text-slate-600">total leads · {periodLabel}</span>
       </button>
-      <span className="mx-1 h-8 w-px shrink-0 bg-slate-300/70" aria-hidden />
+      <span className="mx-1 h-6 w-px shrink-0 bg-slate-300/70" aria-hidden />
       {states.map((s) => {
         const n = leads.byStatus[s] ?? 0;
         return (
           <button key={s} type="button" onClick={() => choose(s)} className={chip(active === s)} aria-pressed={active === s} title={`${n} of ${leads.total} leads`}>
-            <span className="text-base font-semibold text-slate-900 tabular-nums">{n}</span>
-            <span className="text-sm whitespace-nowrap text-slate-600">{humanize(s)}</span>
+            <span className="text-sm font-semibold text-slate-900 tabular-nums">{n}</span>
+            <span className="text-[13px] whitespace-nowrap text-slate-600">{humanize(s)}</span>
             {leads.total > 0 && <span className="text-xs text-slate-500">{Math.round((n / leads.total) * 100)}%</span>}
           </button>
         );

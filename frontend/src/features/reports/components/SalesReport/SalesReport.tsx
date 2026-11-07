@@ -52,6 +52,14 @@ export function SalesReportButton() {
   first.setDate(1);
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
+  // This week: Monday to today. Last month: its first to its last day.
+  const monday = new Date();
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const lastMonthStart = new Date();
+  lastMonthStart.setDate(1);
+  lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+  const lastMonthEnd = new Date();
+  lastMonthEnd.setDate(0);
 
   const hasAccessories = rows.some((r) => num(r.accessories) > 0);
   const columns: Col[] = [
@@ -136,8 +144,14 @@ export function SalesReportButton() {
               <Button size="sm" variant={from === iso(yesterday) && to === iso(yesterday) ? 'primary' : 'secondary'} onClick={() => set(iso(yesterday), iso(yesterday))}>
                 Yesterday
               </Button>
+              <Button size="sm" variant={from === iso(monday) && to === today() ? 'primary' : 'secondary'} onClick={() => set(iso(monday), today())}>
+                This week
+              </Button>
               <Button size="sm" variant={from === iso(first) && to === today() ? 'primary' : 'secondary'} onClick={() => set(iso(first), today())}>
                 This month
+              </Button>
+              <Button size="sm" variant={from === iso(lastMonthStart) && to === iso(lastMonthEnd) ? 'primary' : 'secondary'} onClick={() => set(iso(lastMonthStart), iso(lastMonthEnd))}>
+                Last month
               </Button>
             </div>
             <label className="text-xs text-slate-500">

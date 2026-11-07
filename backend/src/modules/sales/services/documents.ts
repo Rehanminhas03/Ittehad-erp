@@ -213,7 +213,8 @@ async function parties(ctx: EntityCtx, doc: Row, modelId: number | null) {
   const m = mr ? { name: `${mr.brand} ${mr.name}` } : undefined;
   const v = order?.vehicleId ? await ctx.tx.vehicle.findUnique({ where: { id: order.vehicleId }, select: { vin: true, engineNo: true } }) : null;
   return {
-    issuedAt: doc.createdAt as Date,
+    // A quotation whose date was changed prints that date.
+    issuedAt: doc.issuedOn ? new Date(`${doc.issuedOn as string}T09:00:00+05:00`) : (doc.createdAt as Date),
     updatedAt: doc.updatedAt as Date,
     dealership: d!,
     // Without a lead: the customer written on the document.

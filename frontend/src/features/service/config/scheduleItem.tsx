@@ -27,7 +27,14 @@ export const scheduleItemView: EntityViewConfig<ScheduleItem> = {
   list: {
     defaultSort: 'sequence',
     searchPlaceholder: 'Search service name',
-    filters: [{ param: 'modelId', label: 'Model', type: 'select', useOptions: useVehicleModelOptions }, activeFilter],
+    // A dealership sees the schedules of its own brand (Jetour: only Jetour models); a user of several brands picks one.
+    defaults: (perm) => {
+      const brands = [...new Set(perm.dealershipsFor(P.setupView).map((d) => d.brand))];
+      const none: Record<string, string> = {};
+      return brands.length === 1 ? { brand: brands[0]! } : none;
+    },
+    filters: [
+      { param: 'brand', label: 'Brand', type: 'select', options: [{ value: 'Hyundai', label: 'Hyundai' }, { value: 'Jetour', label: 'Jetour' }, { value: 'Capital Smart Motors', label: 'Capital Smart Motors' }], visible: (perm) => new Set(perm.dealershipsFor(P.setupView).map((d) => d.brand)).size > 1 },{ param: 'modelId', label: 'Model', type: 'select', useOptions: useVehicleModelOptions }, activeFilter],
     columns: [
       { key: 'modelName', header: 'Model', render: (s) => strong(s.modelName) },
       { key: 'sequence', header: 'Service', sortKey: 'sequence', render: (s) => `${ordinal(s.sequence)} · ${s.name}` },

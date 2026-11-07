@@ -75,7 +75,7 @@ export function NewPartOnReceipt({ brand, vehicles, onAdd }: { brand?: string; v
             <p className="text-sm text-slate-600">
               The part is added to the catalogue for <span className="font-medium">{[brand, ...vehicles].filter(Boolean).join(' · ')}</span> and received into stock with this delivery.
             </p>
-            <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <Field label="Part number" htmlFor="np-no" required>
                 <Input id="np-no" value={partNo} onChange={(e) => setPartNo(e.target.value)} autoFocus />
               </Field>

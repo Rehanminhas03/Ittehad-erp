@@ -226,19 +226,19 @@ export default function DocumentFormatsPage() {
         <Spinner className="mx-auto my-10 size-6 text-slate-400" />
       ) : (
         <>
-          <Section title="Letterhead">
-            <p className="mb-4 text-sm text-slate-600">The {dealer?.brand} logo is printed at the top left and the Ittehad logo at the top right.</p>
-            <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+          <Section compact title="Letterhead">
+            <p className="mb-2 text-xs text-slate-600">The {dealer?.brand} logo is printed at the top left and the Ittehad logo at the top right.</p>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Company name" htmlFor="fmt-company" required error={errors.companyName}>
                 <Input id="fmt-company" value={form.companyName} onChange={set('companyName')} invalid={!!errors.companyName} />
               </Field>
-              <Field label="Ref prefix" htmlFor="fmt-ref" hint="Ref = prefix / variant code / date, e.g. HI/NX4FL16THAW/26-09-26. Empty: the quotation number.">
-                <Input id="fmt-ref" value={form.refPrefix} onChange={set('refPrefix')} placeholder="HI" />
+              <Field label="Ref prefix" htmlFor="fmt-ref">
+                <Input id="fmt-ref" value={form.refPrefix} onChange={set('refPrefix')} placeholder="HI" title="Ref = prefix / variant code / date, e.g. HI/NX4FL16THAW/26-09-26. Empty: the quotation number." />
               </Field>
-              <Field label="Tagline" htmlFor="fmt-tagline">
+              <Field label="Tagline" htmlFor="fmt-tagline" className="lg:col-span-2">
                 <Input id="fmt-tagline" value={form.tagline} onChange={set('tagline')} placeholder="(An Ittehad Steel Company)" />
               </Field>
-              <Field label="Address" htmlFor="fmt-address" className="sm:col-span-2">
+              <Field label="Address" htmlFor="fmt-address" className="sm:col-span-2 lg:col-span-2">
                 <Input id="fmt-address" value={form.address} onChange={set('address')} />
               </Field>
               <Field label="Tel" htmlFor="fmt-phone">
@@ -250,18 +250,18 @@ export default function DocumentFormatsPage() {
             </div>
           </Section>
 
-          <Section title="Quotation details">
-            <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-              <Field label="Validity (days)" htmlFor="fmt-validity" hint="Default for new quotations" error={errors.defaultValidityDays}>
+          <Section compact title="Quotation details (defaults for new quotations)">
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Validity (days)" htmlFor="fmt-validity" error={errors.defaultValidityDays}>
                 <Input id="fmt-validity" type="number" min={1} max={60} value={form.defaultValidityDays} onChange={set('defaultValidityDays')} />
               </Field>
-              <Field label="Tentative delivery period (days)" htmlFor="fmt-delivery" hint="Default for new quotations" error={errors.defaultDeliveryDays}>
+              <Field label="Tentative delivery period (days)" htmlFor="fmt-delivery" error={errors.defaultDeliveryDays}>
                 <Input id="fmt-delivery" type="number" min={0} max={365} value={form.defaultDeliveryDays} onChange={set('defaultDeliveryDays')} />
               </Field>
               <Field label="Delivery station" htmlFor="fmt-station">
                 <Input id="fmt-station" value={form.deliveryStation} onChange={set('deliveryStation')} />
               </Field>
-              <Field label="Payment mode" htmlFor="fmt-payment" hint="Default for new quotations">
+              <Field label="Payment mode" htmlFor="fmt-payment">
                 <Input id="fmt-payment" value={form.defaultPaymentMode} onChange={set('defaultPaymentMode')} />
               </Field>
               <Field label="Standard equipment" htmlFor="fmt-equipment">
@@ -270,13 +270,13 @@ export default function DocumentFormatsPage() {
               <Field label="Highlighted line" htmlFor="fmt-highlight">
                 <Input id="fmt-highlight" value={form.highlightLine} onChange={set('highlightLine')} />
               </Field>
-              <Field label="Delivery lines (one per line)" htmlFor="fmt-delivery-notes" className="sm:col-span-2" error={errors.deliveryNotes}>
-                <Textarea id="fmt-delivery-notes" rows={3} value={form.deliveryNotes} onChange={set('deliveryNotes')} />
+              <Field label="Delivery lines (one per line)" htmlFor="fmt-delivery-notes" className="sm:col-span-2 lg:col-span-3" error={errors.deliveryNotes}>
+                <Textarea id="fmt-delivery-notes" rows={2} value={form.deliveryNotes} onChange={set('deliveryNotes')} />
               </Field>
             </div>
           </Section>
 
-          <Section title="Terms & conditions">
+          <Section compact title="Terms & conditions">
             <p className="mb-3 text-sm text-slate-600">
               One term per line. Write <code className="rounded bg-slate-100 px-1">**text**</code> for bold. <code className="rounded bg-slate-100 px-1">{'{vehicle}'}</code> prints the
               vehicle and <code className="rounded bg-slate-100 px-1">{'{nonFilerTax}'}</code> the non-filer withholding tax (the line is left out when none is entered). A line
@@ -293,7 +293,7 @@ export default function DocumentFormatsPage() {
             </Field>
           </Section>
 
-          <Section title="Stamp & signature (full-page quotation)">
+          <Section compact title="Stamp & signature (full-page quotation)">
             <p className="mb-4 text-sm text-slate-600">
               Printed on the full-page quotation (with the header and footer, e.g. sent on WhatsApp), not on the letterhead-paper version, which is stamped and signed by hand.
             </p>

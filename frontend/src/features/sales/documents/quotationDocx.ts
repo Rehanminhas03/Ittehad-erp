@@ -1,8 +1,9 @@
 import type { QuotationDocument } from '../salesApi';
-import { fillTemplateLine, jetourVehicleLine, type TemplateContext } from './pdf';
+import { fillTemplateLine, freightLabel, hasSectionedTerms, quotationVehicleLine, type TemplateContext } from './pdf';
 
 const LOGOS: [prefix: string, src: string][] = [
   ['JET', '/logo/jetour-ittehad-logo.png'],
+  ['HYD', '/logo/Hyundai-logo.png'],
   ['CSM', '/logo/CSM-Logo.png'],
 ];
 
@@ -31,7 +32,7 @@ async function logoOf(src: string): Promise<{ data: Uint8Array; w: number; h: nu
 export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: Blob; fileName: string }> {
   const { AlignmentType, BorderStyle, Document, ImageRun, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, VerticalAlign, WidthType } = await import('docx');
   const t = q.template;
-  const jetour = q.dealership.brand === 'Jetour' || q.dealership.code.startsWith('JET');
+  // Jetour's and Hyundai's quotations are in the same format: the clauses are sections of the template.
   const logoSrc = LOGOS.find(([prefix]) => q.dealership.code.startsWith(prefix))?.[1];
   const logo = logoSrc ? await logoOf(logoSrc) : null;
 
@@ -78,14 +79,15 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
   });
 
   // Price lines
-  const vehicleLine = jetour ? jetourVehicleLine(q.vehicle.model, q.vehicle.variant, q.dealership.brand) : [q.vehicle.model, q.vehicle.variant].filter(Boolean).join(' ').toUpperCase();
+  const sectioned = hasSectionedTerms(q);
+  const vehicleLine = quotationVehicleLine(q);
   const qty = q.pricing.quantity;
   const items: { label: string; unit: number; sub?: string }[] = [{ label: vehicleLine, unit: Number(q.pricing.unitPrice), sub: `EX FACTORY${q.vehicle.color ? ` (${q.vehicle.color})` : ''}` }];
   if (Number(q.pricing.discount) > 0) items.push({ label: 'LESS: DISCOUNT', unit: -Number(q.pricing.discount) });
   const has = (v: string | null | undefined) => v != null && v !== '';
-  if (has(q.pricing.freightInsurance)) items.push({ label: 'FREIGHT AND TRANSIT INSURANCE', unit: Number(q.pricing.freightInsurance) });
+  if (has(q.pricing.freightInsurance)) items.push({ label: freightLabel(q), unit: Number(q.pricing.freightInsurance) });
   if (has(q.pricing.nevLevy)) items.push({ label: 'NEV LEVY', unit: Number(q.pricing.nevLevy) });
-  if (has(q.pricing.withholdingTax)) items.push({ label: jetour ? (q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer)' : 'WITH HOLDING TAX (Filer)') : q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', unit: Number(q.pricing.withholdingTax) });
+  if (has(q.pricing.withholdingTax)) items.push({ label: sectioned ? (q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer)' : 'WITH HOLDING TAX (Filer)') : q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', unit: Number(q.pricing.withholdingTax) });
   if (has(q.pricing.cvt)) items.push({ label: 'CVT (1%)', unit: Number(q.pricing.cvt) });
 
   const widths = [800, 4800, 800, 1900, 1900];
@@ -152,8 +154,8 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
   // A template line with **bold** runs.
   const rich = (text: string, o: { size?: number; baseBold?: boolean } = {}) => text.split('**').map((part, i) => run(part, { size: o.size ?? 9, bold: (o.baseBold ?? false) !== (i % 2 === 1) }));
   const terms: InstanceType<typeof Paragraph>[] = [];
-  if (jetour) {
-    // Jetour's format: "# Heading", "- bullet" and plain lines of the template, all from the dealership's format.
+  if (sectioned) {
+    // The new format: "# Heading", "- bullet" and plain lines of the template, all from the dealership's format.
     ctx.paymentMode = (q.paymentMode || t.defaultPaymentMode || '').trim();
     ctx.deliveryPeriod = q.deliveryPeriod?.trim() || undefined;
     terms.push(para([run('TERMS & CONDITIONS:', { bold: true, size: 9.5 })], { indent: 60, after: 60 }));
@@ -217,7 +219,7 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
           para([run(`Date: ${longDate(q.issuedAt)}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, after: 60 }),
           ...(q.notes ? [para([run(`Note: ${q.notes}`, { size: 11 })], { align: AlignmentType.CENTER, before: 80, after: 120 })] : [new Paragraph({ spacing: { after: 120 }, children: [] })]),
           priceTable,
-          ...(jetour && t.standardEquipment ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 160 }, children: [] })]),
+          ...(sectioned && t.standardEquipment ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 160 }, children: [] })]),
           ...terms,
           new Paragraph({ spacing: { after: 240 }, children: [] }),
           sign,

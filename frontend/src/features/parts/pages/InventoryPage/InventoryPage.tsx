@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Badge, Button, Dialog, Field, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
+import { InOutReportButton } from '../../components/InOutReport';
 import { StockMovementsTable } from '../../components/StockMovementsTable';
 import { StockSettings } from '../../components/StockSettings';
 import { usePartModelOptions } from '../../hooks/usePartModelOptions';
@@ -56,7 +57,8 @@ export default function InventoryPage() {
         title="Store stock"
         subtitle="Every part with what is in the store now, and what came in and went out this month."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <InOutReportButton />
             {canReceive && (
               <Link to="/parts/receive">
                 <Button>Receive parts</Button>

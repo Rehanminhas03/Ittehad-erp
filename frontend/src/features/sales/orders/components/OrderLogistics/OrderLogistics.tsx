@@ -63,7 +63,7 @@ function DispatchLogistics({ order }: { order: SalesOrder }) {
   const toast = useToast();
   const [advance, { isLoading }] = useAdvanceVehicleStatusMutation();
   return (
-    <Section title="Logistics">
+    <Section compact title="Logistics">
       {order.vehicleId ? (
         <div className="space-y-4 text-sm">
           <Pipeline status={order.vehicleStatus} />
@@ -136,7 +136,7 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
   const registerLink = `/sales/stock/new?dealershipId=${order.dealershipId}&modelId=${order.modelId}&orderId=${order.id}`;
 
   return (
-    <Section title="Logistics">
+    <Section compact title="Logistics">
       {order.status !== 'approved' && (
         <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Booked, waiting for the Manager's approval. You can already allocate the car; it goes in transit and is handed over after approval.

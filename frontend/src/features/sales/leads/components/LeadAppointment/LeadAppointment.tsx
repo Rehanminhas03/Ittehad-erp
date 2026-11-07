@@ -62,7 +62,7 @@ export function LeadAppointment({ lead }: { lead: Lead }) {
   };
 
   return (
-    <Section
+    <Section compact
       title="Appointment"
       actions={
         canSet &&

@@ -46,6 +46,10 @@ import {
   PartSchema,
   PriceChangeBody,
   SaleReportQuery,
+  PurchaseReportQuery,
+  InOutReportQuery,
+  InOutReportSchema,
+  PurchaseReportSchema,
   SaleReportRowSchema,
   PriceChangeResultSchema,
   GoodsReceiptLineSchema,
@@ -69,6 +73,8 @@ import {
 } from './schemas';
 import * as svc from './service';
 import * as store from './store';
+import { purchaseReport } from './purchaseReport';
+import { inOutReport } from './inOutReport';
 
 const RequestRead = PartsRequestSchema.extend({ availableActions: z.array(z.string()) });
 
@@ -263,6 +269,26 @@ const storeDesk = new ApiRouter('/parts/store', 'Store')
     query: MonthlyReportQuery,
     response: MonthlyReportSchema,
     handler: (ctx) => svc.monthlyReport(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/in-out-report',
+    operationId: 'getPartsInOutReport',
+    summary: 'Parts in and out of the store in a period: pieces and cost in, pieces and cost out, and the price charged for what went out',
+    permission: P.stockView,
+    query: InOutReportQuery,
+    response: InOutReportSchema,
+    handler: (ctx) => inOutReport(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/purchase-report',
+    operationId: 'getPartsPurchaseReport',
+    summary: 'Purchase report: parts ordered and received in a period with their cost (weighted average) and every receipt as the price history',
+    permission: P.stockView,
+    query: PurchaseReportQuery,
+    response: PurchaseReportSchema,
+    handler: (ctx) => purchaseReport(ctx, ctx.query),
   })
   .route({
     method: 'get',

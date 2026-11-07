@@ -45,12 +45,12 @@ export function OrderStatusSummary({ query, periodLabel }: { query: Record<strin
     );
 
   return (
-    <div className="glass-soft scrollbar-thin mb-4 flex items-center gap-1 overflow-x-auto rounded-2xl p-1.5" aria-label="Orders by status">
+    <div className="glass-soft scrollbar-thin mb-3 flex items-center gap-1 overflow-x-auto rounded-xl p-1" aria-label="Orders by status">
       <button type="button" onClick={() => choose(null)} className={chip(!active)} aria-pressed={!active}>
-        <span className="text-xl font-semibold text-slate-900 tabular-nums">{data.total.toLocaleString()}</span>
-        <span className="text-sm whitespace-nowrap text-slate-600">total orders · {periodLabel}</span>
+        <span className="text-lg font-semibold text-slate-900 tabular-nums">{data.total.toLocaleString()}</span>
+        <span className="text-[13px] whitespace-nowrap text-slate-600">total orders · {periodLabel}</span>
       </button>
-      <span className="mx-1 h-8 w-px shrink-0 bg-slate-300/70" aria-hidden />
+      <span className="mx-1 h-6 w-px shrink-0 bg-slate-300/70" aria-hidden />
       {CHIPS.filter((c) => c.key === 'processing' || c.key === 'submitted' || c.key === 'approved' || (data.byStatus[c.key] ?? 0) > 0).map((c) => {
         const n = c.key === 'processing' ? data.processing : (data.byStatus[c.key] ?? 0);
         return (

@@ -8,6 +8,7 @@ import NewPurchaseOrderPage from './pages/NewPurchaseOrderPage';
 import ManagePartsPage from './pages/ManagePartsPage';
 import PriceListPage from './pages/PriceListPage';
 import PartsReportPage from './pages/PartsReportPage';
+import PurchaseReportPage from './pages/PurchaseReportPage';
 import ReceiveStockPage from './pages/ReceiveStockPage';
 import StockMovementsPage from './pages/StockMovementsPage';
 import { P } from './permissions';
@@ -71,6 +72,14 @@ export default function PartsRoutes() {
         element={
           <RequirePermission any={[P.stockView]}>
             <PartsReportPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="purchase-report"
+        element={
+          <RequirePermission any={[P.stockView]}>
+            <PurchaseReportPage />
           </RequirePermission>
         }
       />

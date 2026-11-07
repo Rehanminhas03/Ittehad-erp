@@ -10,6 +10,8 @@ const BRAND_LOGOS: [prefix: string, file: string][] = [
   ['JET', JETOUR_LOGO],
   ['CSM', '/logo/CSM-Logo.png'],
 ];
+/** Hyundai's blue horizontal logo (ellipse and wordmark side by side), for the quotation header. */
+const HYUNDAI_WIDE_LOGO = '/logo/Hyundai-logo-wide.png';
 /** The group's logo, top right on every document. */
 const GROUP_LOGO = '/logo/Ittehad-logo.png';
 
@@ -218,7 +220,7 @@ const defaultStampSignature = (code: string) => DEFAULT_STAMP_SIGNATURE.find(([p
  * ending at it (side 'right'). Without uploaded images, `fallback` (a combined stamp & signature) is
  * used. Returns the height used.
  */
-async function stampAndSignature(p: Page, t: DocumentTemplate, x: number, y: number, side: 'left' | 'right' = 'right', fallback: string | null = null, fromBottom = false): Promise<number> {
+async function stampAndSignature(p: Page, t: DocumentTemplate, x: number, y: number, side: 'left' | 'right' = 'right', fallback: string | null = null, fromBottom = false, scale = 1): Promise<number> {
   const uploaded = !!(t.signatureImage || t.stampImage);
   const [sig, stamp] = await Promise.all([
     t.signatureImage ? loadImage(t.signatureImage) : null,
@@ -230,7 +232,7 @@ async function stampAndSignature(p: Page, t: DocumentTemplate, x: number, y: num
     return { img, w: img.w * s, h: img.h * s };
   };
   // Stamp first, then the signature beside it (a fallback image already holds both).
-  const parts = [fit(stamp, uploaded ? 26 : 58, 26), fit(sig, 40, 15)].filter((v) => v !== null);
+  const parts = [fit(stamp, (uploaded ? 26 : 58) * scale, 26 * scale), fit(sig, 40 * scale, 15 * scale)].filter((v) => v !== null);
   if (!parts.length) return 0;
   const gap = 3;
   const total = parts.reduce((s, v) => s + v.w, 0) + gap * (parts.length - 1);
@@ -285,6 +287,37 @@ async function letterhead(p: Page, code: string, t: DocumentTemplate, opts: { we
   p.y = Math.max(38, y + 2);
 }
 
+/**
+ * Hyundai Islamabad's quotation header: the Hyundai logo top left; top right the company name, "(An Ittehad Steel Company)"
+ * and the address, phone and e-mail. Leaves the cursor below it.
+ */
+async function hyundaiHeader(p: Page, t: DocumentTemplate) {
+  const { doc } = p;
+  const file = HYUNDAI_WIDE_LOGO;
+  const logo = file ? await loadImage(file) : null;
+  if (logo) {
+    const s = Math.min(55 / logo.w, 11 / logo.h);
+    doc.addImage(logo.data, 'JPEG', M, 12, logo.w * s, logo.h * s);
+  }
+  const x = 131;
+  p.font(19, 'bold');
+  doc.text(t.companyName, x, 21);
+  let y = 28;
+  if (t.tagline) {
+    p.font(14);
+    doc.text(t.tagline, x, y);
+    y += 4.7;
+  }
+  p.font(9);
+  for (const l of [t.address, t.phone && `Tel: ${t.phone}`, t.email && `E-mail: ${t.email}`].filter(Boolean) as string[]) {
+    for (const part of doc.splitTextToSize(l, W - M - x + 4) as string[]) {
+      doc.text(part, x, y);
+      y += 4.1;
+    }
+  }
+  p.y = Math.max(46, y + 3);
+}
+
 /** Small reference and page numbers at the foot of every page. */
 function footer(p: Page, ref: string) {
   const pages = p.doc.getNumberOfPages();
@@ -326,6 +359,20 @@ export async function buildQuotationPdf(q: QuotationDocument, opts: { letterhead
   const letterheadPaper = opts.letterhead ?? false;
   // Jetour Ittehad prints its own quotation layout (one format for every Jetour model).
   const draw = isJetour(q) ? drawJetourQuotation : isCsm(q) ? drawCsmQuotation : drawQuotation;
+  // Hyundai's: the clauses are in sections and keep their size; when the page is too full the table is made smaller, step by step.
+  if ((draw === drawQuotation || draw === drawJetourQuotation) && hasSectionedTerms(q)) {
+    // 1. the table gets smaller; 2. then the stamp and signature; 3. only then the clause text.
+    const steps: [number, number, number][] = [
+      ...[1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0].map((ts): [number, number, number] => [ts, 1, 1]),
+      [0, 0.9, 1], [0, 0.8, 1], [0, 0.7, 1], [0, 0.6, 1],
+      ...[0.97, 0.94, 0.91, 0.88, 0.85, 0.82].map((k): [number, number, number] => [0, 0.6, k]),
+    ];
+    for (const [ts, stamp, k] of steps) {
+      built = await draw(q, k, letterheadPaper, ts, stamp);
+      if (built.doc.getNumberOfPages() === 1) break;
+    }
+    return built!;
+  }
   for (const k of [1, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64]) {
     built = await draw(q, k, letterheadPaper);
     if (built.doc.getNumberOfPages() === 1) break;
@@ -334,12 +381,13 @@ export async function buildQuotationPdf(q: QuotationDocument, opts: { letterhead
 }
 
 /** Draws the quotation; `k` scales the terms text (1 = normal size). */
-async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = false): Promise<BuiltPdf> {
+async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = false, ts = 1, stampScale = 1): Promise<BuiltPdf> {
   const p = await newPage(letterheadPaper ? LETTERHEAD_BOTTOM : 284);
   const { doc } = p;
   const t = q.template;
   // On letterhead paper the header is already printed: start below it.
   if (letterheadPaper) p.y = LETTERHEAD_TOP;
+  else if (q.dealership.code.startsWith('HYD')) await hyundaiHeader(p, t);
   else await letterhead(p, q.dealership.code, t);
 
   const modelName = q.vehicle.model.replace(new RegExp(`^${q.dealership.brand}\\s+`, 'i'), '');
@@ -359,13 +407,13 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
   // ---- Title row and table -----------------------------------------------------------------------
   const cols = [16, 86, 18, 31, 31];
   const xs = cols.reduce<number[]>((a, w, i) => [...a, a[i]! + w], [M]);
+  // "QUOTATION" and the date are above the table, not in it.
   p.y = Math.max(p.y, 40);
-  doc.rect(M, p.y, CW, 8);
-  p.font(14, 'bold');
-  doc.text('QUOTATION', W / 2, p.y + 5.9, { align: 'center' });
+  p.font(16, 'bold');
+  doc.text('QUOTATION', W / 2, p.y + 5, { align: 'center' });
   p.font(9, 'bold');
-  doc.text(`Date: ${shortDate(q.issuedAt)}`, W - M - 3, p.y + 5.7, { align: 'right' });
-  p.y += 8;
+  doc.text(`Date: ${shortDate(q.issuedAt)}`, W - M - 1, p.y + 5, { align: 'right' });
+  p.y += 8 + 2 * ts;
 
   const centre = (text: string, col: number, y: number, span = 1) => doc.text(text, (xs[col]! + xs[col + span]!) / 2, y, { align: 'center' });
   const rowBox = (h: number, merge: number[] = []) => {
@@ -373,10 +421,11 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
     for (let i = 1; i < cols.length; i++) if (!merge.includes(i)) doc.line(xs[i]!, p.y, xs[i]!, p.y + h);
   };
 
+  doc.setDrawColor(175, 175, 175);
   // To / Ref
   p.font(10, 'bold');
   const toLines = doc.splitTextToSize(q.billTo || q.customer.name, cols[1]! - 4) as string[];
-  const toH = Math.max(11, 4 + toLines.length * 4.6);
+  const toH = Math.max(7 + 4 * ts, 3 + toLines.length * 4.6 * (0.6 + 0.4 * ts));
   rowBox(toH, [4]);
   p.font(8);
   doc.text('To:', xs[0]! + 2, p.y + toH - 3);
@@ -388,17 +437,18 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
   p.y += toH;
 
   // Header
-  rowBox(7);
+  const hh = 4.5 + 2.5 * ts;
+  rowBox(hh);
   p.font(7.5, 'bold');
-  ['SR', 'VEHICLE DESCRIPTION', 'QTY', 'UNIT PRICE (Rs.)', 'TOTAL PRICE (Rs.)'].forEach((h, i) => centre(h, i, p.y + 4.8));
-  p.y += 7;
+  ['SR', 'VEHICLE DESCRIPTION', 'QTY', 'UNIT PRICE (Rs.)', 'TOTAL PRICE (Rs.)'].forEach((h, i) => centre(h, i, p.y + hh / 2 + 1.3));
+  p.y += hh;
 
   // Items: the vehicle, then discount / freight / withholding tax when quoted.
   const qty = q.pricing.quantity;
   const items: [string, number][] = [[description, Number(q.pricing.unitPrice)]];
   if (Number(q.pricing.discount) > 0) items.push(['LESS: DISCOUNT', -Number(q.pricing.discount)]);
   // A charge left empty has no row; one entered as 0 prints with 0.
-  if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
+  if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push([freightLabel(q), Number(q.pricing.freightInsurance)]);
   if (q.pricing.nevLevy != null && q.pricing.nevLevy !== '') items.push(['NEV LEVY', Number(q.pricing.nevLevy)]);
   if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', Number(q.pricing.withholdingTax)]);
   if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
@@ -406,7 +456,7 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
     p.font(8.5);
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
     const sub = i === 0 && q.vehicle.color ? `Colour: ${q.vehicle.color}` : null;
-    const h = Math.max(8.5, 3.5 + (lines.length + (sub ? 1 : 0)) * 4);
+    const h = Math.max(5.2 + 3.3 * ts, 1 + 2.5 * ts + (lines.length + (sub ? 1 : 0)) * 4);
     rowBox(h);
     const mid = p.y + h / 2 + 1.2;
     centre(String(i + 1), 0, mid);
@@ -423,19 +473,27 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
     centre(num(unit * qty), 4, mid);
     p.y += h;
   });
-  rowBox(8);
+  const th = 5.2 + 2.8 * ts;
+  rowBox(th);
   p.font(9, 'bold');
-  centre('TOTAL', 1, p.y + 5.4);
-  centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + 5.4);
-  centre(num(q.pricing.total), 4, p.y + 5.4);
-  p.y += 8;
+  centre('TOTAL', 1, p.y + th / 2 + 1.5);
+  centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + th / 2 + 1.5);
+  centre(num(q.pricing.total), 4, p.y + th / 2 + 1.5);
+  p.y += th;
   if (t.standardEquipment) {
     p.font(8, 'bold');
     doc.text(`Standard Equipment: ${t.standardEquipment}`, W - M, p.y + 4, { align: 'right' });
   }
-  p.y += 8;
+  p.y += 4 + 4 * ts;
 
   // ---- Terms & conditions ------------------------------------------------------------------------
+  if (hasSectionedTerms(q)) {
+    drawSectionedTerms(p, q, ctx, k, true);
+    if (q.notes) {
+      p.font(9 * k);
+      p.rich(`**Note:** ${q.notes}`, M + 4, CW - 8, 9 * k, 4 * k);
+    }
+  } else {
   p.font(8.5 * k, 'bold');
   doc.text('TERMS & CONDITIONS:', M, p.y);
   p.y += 4.4 * k;
@@ -473,6 +531,7 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
     const line = fillTemplateLine(l, ctx);
     if (line) bullet(line, true);
   }
+  }
 
   // ---- Sign-off (and who prepared it) -------------------------------------------------------------
   p.y += 4.5;
@@ -480,7 +539,7 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
   // letterhead paper the sign-off is printed and the stamp and signature are added by hand).
   const fallback = defaultStampSignature(q.dealership.code);
   const withStamp = !letterheadPaper && !!(t.signatureImage || t.stampImage || fallback);
-  p.ensure(withStamp ? 48 : 12);
+  p.ensure(withStamp ? 48 * stampScale : 12);
   const top = p.y;
   p.font(8);
   doc.setTextColor(...muted);
@@ -488,7 +547,7 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
   if (q.orderNo) doc.text(`Order: ${q.orderNo}`, W - M, top + 4.5, { align: 'right' });
   doc.setTextColor(...ink);
   if (withStamp) {
-    const used = await stampAndSignature(p, t, M + 2, top, 'left', fallback);
+    const used = await stampAndSignature(p, t, M + 2, top, 'left', fallback, false, stampScale);
     p.y = top + used + 5;
     doc.setDrawColor(200, 200, 200);
     doc.line(M, p.y, W - M, p.y);
@@ -510,6 +569,50 @@ async function drawQuotation(q: QuotationDocument, k: number, letterheadPaper = 
 
 // ---- Jetour Ittehad's quotation ------------------------------------------------------------------
 const isJetour = (q: QuotationDocument) => q.dealership.brand === 'Jetour' || q.dealership.code.startsWith('JET');
+/** The format is written as sections ("# Heading", "- bullet" clauses): Jetour's and Hyundai's, drawn in the same layout. */
+export const hasSectionedTerms = (q: QuotationDocument) => isJetour(q) || q.template.terms.some((l) => l.startsWith('# '));
+/** The vehicle as the new quotation writes it: Jetour's own line, or the brand and the variant's description ("HYUNDAI PORTER H-100 2.6L DIESEL DECKLESS (WITH AC)"). */
+export function quotationVehicleLine(q: QuotationDocument) {
+  if (isJetour(q)) return jetourVehicleLine(q.vehicle.model, q.vehicle.variant, q.dealership.brand);
+  const modelName = q.vehicle.model.replace(new RegExp(`^${q.dealership.brand}\\s+`, 'i'), '');
+  const text = (q.variantCode && q.vehicle.variant ? q.vehicle.variant : [modelName, q.vehicle.variant].filter(Boolean).join(' ')).toUpperCase();
+  const brand = q.dealership.brand.toUpperCase();
+  return text.startsWith(brand) ? text : `${brand} ${text}`;
+}
+/** The freight row: a truck's is its transportation charges. */
+export const freightLabel = (q: QuotationDocument) => (/porter/i.test(q.vehicle.model) ? 'TRANSPORTATION CHARGES' : 'FREIGHT AND TRANSIT INSURANCE');
+/**
+ * The clauses of a format written in sections: "# Heading" lines, "- bullet" lines and plain lines (all **bold**-aware),
+ * under "TERMS & CONDITIONS:". {deliveryPeriod} is the delivery period typed on the quotation (the line is left out when
+ * empty) and {paymentMode} its payment mode.
+ */
+function drawSectionedTerms(p: Page, q: QuotationDocument, ctx: TemplateContext, k: number, big = false) {
+  const { doc } = p;
+  const t = q.template;
+  ctx.paymentMode = (q.paymentMode || t.defaultPaymentMode || '').trim();
+  ctx.deliveryPeriod = q.deliveryPeriod?.trim() || undefined;
+  const [head, body, headGap, bodyGap] = big ? [9.6, 9, 4.1, 3.5] : [8.8, 8.6, 4.3, 3.9];
+  p.font((big ? 10 : 9) * k, 'bold');
+  doc.text('TERMS & CONDITIONS:', M + 1, p.y);
+  p.y += 5.4 * k;
+  for (const raw of t.terms) {
+    if (raw.includes('{deliveryPeriod}') && !ctx.deliveryPeriod) continue;
+    const line = fillTemplateLine(raw, ctx);
+    if (!line) continue;
+    if (line.startsWith('# ')) {
+      p.y += 0.6 * k;
+      p.rich(line.slice(2), M + 4, CW - 8, head * k, headGap * k, true);
+    } else if (line.startsWith('- ')) {
+      p.ensure(4 * k);
+      p.font(body * k);
+      doc.text('\u2022', M + 10, p.y);
+      p.rich(line.slice(2), M + 15, CW - 19, body * k, bodyGap * k);
+    } else {
+      p.rich(line, M + 4, CW - 8, head * k, (headGap + 0.2) * k);
+    }
+  }
+  p.y += 2 * k;
+}
 /** The green of the Ittehad Motors logo, for the dealership name on the letterhead. */
 const ITTEHAD_GREEN = [16, 118, 56] as const;
 /** dd-mm-yyyy, as on Jetour's quotations (Pakistan time). */
@@ -535,11 +638,11 @@ export function jetourVehicleLine(model: string, variant: string | null | undefi
  * heading the table, "EX FACTORY (colour)" under the vehicle, an optional booking price row, the terms
  * as paragraphs and "Owned & Operated by: Ittehad Motors" with a stamp & signature space (no stamp).
  */
-async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPaper = false): Promise<BuiltPdf> {
+async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPaper = false, ts = 1, stampScale = 1): Promise<BuiltPdf> {
   const p = await newPage(letterheadPaper ? LETTERHEAD_BOTTOM : 284);
   const { doc } = p;
   const t = q.template;
-  const [wordmark, group] = letterheadPaper ? [null, null] : await Promise.all([loadImage(JETOUR_LOGO), loadImage(GROUP_LOGO)]);
+  const [wordmark, group] = letterheadPaper ? [null, null] : await Promise.all([loadImage(BRAND_LOGOS.find(([prefix]) => q.dealership.code.startsWith(prefix))?.[1] ?? JETOUR_LOGO), loadImage(GROUP_LOGO)]);
 
   // ---- Letterhead (printed on the paper when using letterhead paper) -------------------------------
   let ruleY = LETTERHEAD_TOP - 12;
@@ -571,13 +674,13 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   }
 
   // ---- Title, date and the quotation's note -------------------------------------------------------------
-  p.y = ruleY + 12;
+  p.y = ruleY + 6 + 6 * ts;
   p.font(16, 'bold');
   doc.text('QUOTATION', W / 2, p.y, { align: 'center' });
-  p.y += 9;
+  p.y += 5 + 4 * ts;
   p.font(9, 'bold');
   doc.text(`Date: ${longDate(q.issuedAt)}`, W - M - 2, p.y, { align: 'right' });
-  p.y += 6;
+  p.y += 3 + 3 * ts;
   if (q.notes) {
     p.font(11.5);
     for (const l of doc.splitTextToSize(`Note: ${q.notes}`, CW - 20) as string[]) {
@@ -599,7 +702,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   // Header: the bill-to name (e.g. the bank on the customer's account) heads the description column.
   p.font(10, 'bold');
   const who = doc.splitTextToSize(q.billTo || q.customer.name, cols[1]! - 4) as string[];
-  const headH = Math.max(11, 4 + who.length * 4.6);
+  const headH = Math.max(6 + 5 * ts, 3 + who.length * 4.6);
   rowBox(headH);
   who.forEach((l, i) => centre(l, 1, p.y + (headH - who.length * 4.6) / 2 + 3.6 + i * 4.6));
   p.font(9, 'bold');
@@ -610,12 +713,12 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   centre('TOTAL PRICE (Rs.)', 4, hMid);
   p.y += headH;
 
-  const vehicleLine = jetourVehicleLine(q.vehicle.model, q.vehicle.variant, q.dealership.brand);
+  const vehicleLine = quotationVehicleLine(q);
   const qty = q.pricing.quantity;
   const items: [string, number][] = [[vehicleLine, Number(q.pricing.unitPrice)]];
   if (Number(q.pricing.discount) > 0) items.push(['LESS: DISCOUNT', -Number(q.pricing.discount)]);
   // A charge left empty has no row; one entered as 0 prints with 0.
-  if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push(['FREIGHT AND TRANSIT INSURANCE', Number(q.pricing.freightInsurance)]);
+  if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push([freightLabel(q), Number(q.pricing.freightInsurance)]);
   if (q.pricing.nevLevy != null && q.pricing.nevLevy !== '') items.push(['NEV LEVY', Number(q.pricing.nevLevy)]);
   if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer)' : 'WITH HOLDING TAX (Filer)', Number(q.pricing.withholdingTax)]);
   if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
@@ -624,7 +727,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
     const exFactory = i === 0; // "EX FACTORY (Black)" under the vehicle
     const n = lines.length + (exFactory ? 1 : 0);
-    const h = Math.max(9, 3.6 + n * 4.3);
+    const h = Math.max(5 + 4 * ts, 1.6 + 2 * ts + n * 4.3);
     rowBox(h);
     const top = p.y + h / 2 - ((n - 1) * 4.3) / 2 + 1.3;
     lines.forEach((l, j) => centre(l, 1, top + j * 4.3));
@@ -658,12 +761,13 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     centre(`Booking Price (${num(q.pricing.bookingAmount)})`, 1, p.y + 5.4);
     p.y += 8;
   }
-  rowBox(8.5);
+  const th = 5 + 3.5 * ts;
+  rowBox(th);
   p.font(10, 'bold');
-  centre('TOTAL', 1, p.y + 5.7);
-  centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + 5.7);
-  centre(num(q.pricing.total), 4, p.y + 5.7);
-  p.y += 8.5 + 4.5;
+  centre('TOTAL', 1, p.y + th / 2 + 1.45);
+  centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + th / 2 + 1.45);
+  centre(num(q.pricing.total), 4, p.y + th / 2 + 1.45);
+  p.y += th + 2 + 2.5 * ts;
   if (t.standardEquipment) {
     p.font(8.6 * k, 'bold');
     doc.text(`*Standard Equipment: ${t.standardEquipment}`, W - M, p.y, { align: 'right' });
@@ -682,29 +786,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     // The battery warranty ("[Hybrid only]") is for the i-DM PHEV.
     hybrid: /PHEV|\bi-DM\b|HYBRID|\bHEV\b/i.test(`${q.vehicle.model} ${q.vehicle.variant ?? ''}`),
   };
-  ctx.paymentMode = (q.paymentMode || t.defaultPaymentMode || '').trim();
-  ctx.deliveryPeriod = q.deliveryPeriod?.trim() || undefined;
-  p.font(9 * k, 'bold');
-  doc.text('TERMS & CONDITIONS:', M + 1, p.y);
-  p.y += 5.4 * k;
-  // The clauses: "# Heading" lines, "- bullet" lines and plain lines (all **bold**-aware), from the format.
-  for (const raw of t.terms) {
-    if (raw.includes('{deliveryPeriod}') && !ctx.deliveryPeriod) continue;
-    const line = fillTemplateLine(raw, ctx);
-    if (!line) continue;
-    if (line.startsWith('# ')) {
-      p.y += 0.6 * k;
-      p.rich(line.slice(2), M + 4, CW - 8, 8.8 * k, 4.3 * k, true);
-    } else if (line.startsWith('- ')) {
-      p.ensure(4 * k);
-      p.font(8.6 * k);
-      doc.text('\u2022', M + 10, p.y);
-      p.rich(line.slice(2), M + 15, CW - 19, 8.6 * k, 3.9 * k);
-    } else {
-      p.rich(line, M + 4, CW - 8, 8.8 * k, 4.5 * k);
-    }
-  }
-  p.y += 2 * k;
+  drawSectionedTerms(p, q, ctx, k, true);
 
   // ---- Owned & operated by, and the stamp & signature space --------------------------------------------
   // Full page: room above "STAMP & SIGNATURE" for the stamp and the Manager's signature.
@@ -712,7 +794,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   const withStamp = !letterheadPaper && !!(t.signatureImage || t.stampImage || fallback);
   p.y += withStamp ? 14 : 5;
   // On letterhead paper only the stamp & signature line is drawn (the rest is printed on the paper).
-  p.ensure(letterheadPaper ? 12 : withStamp ? 40 : 30);
+  p.ensure(letterheadPaper ? 12 : withStamp ? 40 * stampScale : 30);
   const top = p.y;
   const cx = M + 22;
   // "Owned & Operated by: Ittehad Motors" is printed on the letterhead paper.
@@ -729,7 +811,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     });
   }
   // Full page: the stamp and the Manager's signature just above "STAMP & SIGNATURE", as signed by hand.
-  if (withStamp) await stampAndSignature(p, t, W - M - 4, top + 14, 'right', fallback, true);
+  if (withStamp) await stampAndSignature(p, t, W - M - 4, top + 14, 'right', fallback, true, stampScale);
   p.font(12);
   doc.text('STAMP & SIGNATURE', W - M - 8, top + (letterheadPaper ? 10 : 16), { align: 'right' });
 

@@ -76,7 +76,7 @@ function Row({ variant }: { variant: VariantCode }) {
 export function PriceListEditor({ dealershipId, brand }: { dealershipId: number; brand: string }) {
   const { data, isLoading, error, refetch } = useListVariantCodesQuery({ dealershipId, isActive: 'true', pageSize: 100, sort: 'code' }, { refetchOnMountOrArgChange: true });
   return (
-    <Section title={`${brand} price list`}>
+    <Section compact title={`${brand} price list`}>
       <p className="mb-4 text-sm text-slate-600">
         Net price = ex-factory + advance tax + freight. When a salesperson picks a variant on a quotation, these amounts are filled in automatically (Jetour: for the Filer or Non-filer tax they choose). A variant without a price (e.g. T1 Petrol) is
         filled in by the salesperson. New variants are added under <span className="font-medium">Variant codes</span>.

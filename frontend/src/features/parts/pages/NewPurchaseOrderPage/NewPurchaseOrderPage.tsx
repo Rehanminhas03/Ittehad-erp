@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Button, Field, Input, PageHeader, Section, Select, Textarea } from '@/shared/components/ui';
+import { Button, Field, Input, PageHeader, Section, Select } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
 import { ITEM_TYPES, type ItemType, itemTypeOf } from '../../lib/itemType';
-import { PartPicker } from '../../components/PartPicker';
+import { PartLookupInput, PartPicker } from '../../components/PartPicker';
+import type { Part } from '../../partsApi';
 import { StoreTargetFields, useStoreTarget } from '../../components/StoreTarget';
 import { useSupplierOptions } from '../../hooks';
 import { useAddPurchaseOrderLineMutation, useCreatePurchaseOrderMutation } from '../../partsApi';
@@ -20,8 +21,8 @@ interface Line {
 const blank = (): Line => ({ itemType: 'part', partNo: '', description: '', quantity: '1', unitCost: '' });
 
 /**
- * A new purchase order with its parts and lubricants in one go: pick a part from the catalogue, or type the part number and
- * the part name by hand when it is not in the list (it is added to the catalogue). Saved as one order, ready to print.
+ * A new purchase order with its parts and lubricants in one go: type a part number or name and choose the catalogue's part to fill
+ * the line (all of it stays editable), or write a part not in the list by hand (it is added to the catalogue). Saved as one order, ready to print.
  */
 export default function NewPurchaseOrderPage() {
   const toast = useToast();
@@ -38,7 +39,15 @@ export default function NewPurchaseOrderPage() {
   const [addLine] = useAddPurchaseOrderLineMutation();
   const supplier = supplierId || suppliers[0]?.value || '';
 
-  const set = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
+  // Filling in the last line opens the next one, so there is always an empty line to type into.
+  const set = (i: number, patch: Partial<Line>) =>
+    setLines((ls) => {
+      const next = ls.map((l, k) => (k === i ? { ...l, ...patch } : l));
+      const last = next[next.length - 1]!;
+      return last.partNo.trim() || last.description.trim() ? [...next, blank()] : next;
+    });
+  // A catalogue part chosen on a line fills the number, the name, the type and the cost; each stays editable.
+  const fromCatalogue = (i: number, p: Part): Partial<Line> => ({ itemType: itemTypeOf(p), partNo: p.partNo, description: p.description, ...(p.purchasePrice ? { unitCost: String(Number(p.purchasePrice)) } : {}) });
   const filled = lines.filter((l) => l.partNo.trim() || l.description.trim());
   const total = filled.reduce((s, l) => s + amountNumber(l.quantity) * amountNumber(l.unitCost), 0);
 
@@ -69,9 +78,9 @@ export default function NewPurchaseOrderPage() {
 
   return (
     <>
-      <PageHeader title="New purchase order" subtitle="The parts and lubricants to order from the company. The cost is what we pay the supplier per piece, not the customer's selling price. Save it, print it and send it; receive the goods against it when they arrive." />
-      <Section title="Order">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <PageHeader title="New purchase order" subtitle="The cost is what we pay the supplier per piece, not the customer's selling price. Save it, print it and send it; receive the goods against it when they arrive." />
+      <Section className="mb-4 p-3 sm:p-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StoreTargetFields t={t} />
           <Field label="Supplier (company)" htmlFor="po-supplier">
             <Select id="po-supplier" value={supplier} onChange={(e) => setSupplierId(e.target.value)}>
@@ -85,8 +94,8 @@ export default function NewPurchaseOrderPage() {
           <Field label="Expected delivery" htmlFor="po-expected">
             <Input id="po-expected" type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
           </Field>
-          <Field label="Notes" htmlFor="po-notes" className="sm:col-span-2">
-            <Textarea id="po-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          <Field label="Notes" htmlFor="po-notes">
+            <Input id="po-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </Field>
         </div>
       </Section>
@@ -123,10 +132,10 @@ export default function NewPurchaseOrderPage() {
                   </Select>
                 </td>
                 <td className="py-1.5 pr-2">
-                  <Input value={l.partNo} onChange={(e) => set(i, { partNo: e.target.value })} className="py-1 font-mono text-xs" placeholder="Part number" aria-label="Part number" />
+                  <PartLookupInput value={l.partNo} onChange={(v) => set(i, { partNo: v })} onPick={(p) => set(i, fromCatalogue(i, p))} className="py-1 font-mono text-xs" placeholder="Part number" label="Part number" />
                 </td>
                 <td className="py-1.5 pr-2">
-                  <Input value={l.description} onChange={(e) => set(i, { description: e.target.value })} className="py-1 text-xs" placeholder="Part name" aria-label="Part name" />
+                  <PartLookupInput value={l.description} onChange={(v) => set(i, { description: v })} onPick={(p) => set(i, fromCatalogue(i, p))} className="py-1 text-xs" placeholder="Part name" label="Part name" />
                 </td>
                 <td className="py-1.5 pr-2">
                   <Input value={l.quantity} onChange={(e) => set(i, { quantity: e.target.value })} className="ml-auto w-20 py-1 text-right text-xs" inputMode="decimal" aria-label="Quantity" />

@@ -18,7 +18,7 @@ export default function ReceivablesPage() {
     <div>
       <PageHeader title="Receivables aging" subtitle="Outstanding customer invoices by days past their due date." />
       {picker && <div className="mb-4">{picker}</div>}
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-3 sm:p-4">
         {!dealershipId ? (
           <EmptyState title="No dealership available" />
         ) : isLoading ? (

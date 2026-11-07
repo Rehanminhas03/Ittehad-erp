@@ -25,7 +25,7 @@ export default function TrialBalancePage() {
         </label>
         {data && (data.balanced ? <Badge tone="green">Balanced</Badge> : <Badge tone="red">Out of balance</Badge>)}
       </div>
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-3 sm:p-4">
         {!dealershipId ? (
           <EmptyState title="No dealership available" />
         ) : isLoading ? (

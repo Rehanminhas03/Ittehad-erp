@@ -151,6 +151,18 @@ export default function TrackRecordPage() {
               ? 'The salespeople (and team leaders with leads of their own): leads, conversions, cars and PPF, month by month.'
               : 'The whole sales team: leads, conversions, cars and PPF, month by month.'
         }
+        actions={
+          <>
+            <Button size="sm" variant="secondary" disabled={!data} loading={csvBusy} onClick={() => void downloadCsv()}>
+              <DownloadIcon className="size-4" />
+              Download CSV (Excel)
+            </Button>
+            <Button size="sm" disabled={!data} onClick={() => setPdfOpen(true)}>
+              <DownloadIcon className="size-4" />
+              Download PDF
+            </Button>
+          </>
+        }
       />
       <div className="mb-6 flex flex-wrap items-end gap-3">
         {dealerships.length > 1 && (
@@ -236,14 +248,6 @@ export default function TrackRecordPage() {
           </div>
         </div>
         {isFetching && <Spinner className="mb-2.5 size-4 text-slate-400" />}
-        <Button className="ml-auto" variant="secondary" disabled={!data} loading={csvBusy} onClick={() => void downloadCsv()}>
-          <DownloadIcon className="size-4" />
-          Download CSV (Excel)
-        </Button>
-        <Button disabled={!data} onClick={() => setPdfOpen(true)}>
-          <DownloadIcon className="size-4" />
-          Download PDF
-        </Button>
       </div>
       {pdfOpen && <PdfDialog open onClose={() => setPdfOpen(false)} title={`Track record — ${whoLabel} · ${periodLabel}`} pdf={pdf} loading={!pdf} />}
 

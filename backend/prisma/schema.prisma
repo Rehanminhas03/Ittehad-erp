@@ -1618,6 +1618,8 @@ model Quotation {
   totalAmount            Decimal      @map("total_amount") @db.Decimal(14, 2)
   bookingAmount          Decimal?     @map("booking_amount") @db.Decimal(14, 2)
   validUntil             DateTime     @map("valid_until") @db.Date
+  /// The date printed on the quotation when it was changed from the day it was created (to send it again).
+  issuedOn               DateTime?    @map("issued_on") @db.Date
   deliveryDays           Int?         @map("delivery_days")
   deliveryPeriod         String?      @map("delivery_period")
   paymentMode            String?      @map("payment_mode")

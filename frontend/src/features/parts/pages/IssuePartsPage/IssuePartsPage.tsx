@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Button, Field, Input, PageHeader, Section, Select, Textarea } from '@/shared/components/ui';
+import { Button, Field, Input, PageHeader, Section, Select } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
 import { CounterInvoice } from '../../components/CounterInvoice';
@@ -99,23 +99,23 @@ export default function IssuePartsPage() {
   return (
     <div>
       <PageHeader title={out ? 'Issue parts' : 'Take parts back'} subtitle="Parts that leave the store for a repair order (RO) / job card. Stock goes down straight away." />
-      <div className="space-y-5">
-        <Section title="Repair order / job card">
-          <div className="mb-4 inline-flex rounded-xl bg-slate-100 p-1 text-sm">
+      <div className="space-y-4">
+        <Section className="mb-0 p-3 sm:p-4">
+          <div className="mb-3 inline-flex rounded-xl bg-slate-100 p-1 text-sm">
             {(['issue', 'return'] as const).map((k) => (
               <button
                 key={k}
                 type="button"
                 onClick={() => setKind(k)}
-                className={`rounded-lg px-4 py-1.5 font-medium ${kind === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
+                className={`rounded-lg px-3 py-1 font-medium ${kind === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}
               >
                 {k === 'issue' ? 'Issue to RO / job card' : 'Unused parts back to stock'}
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
             <StoreTargetFields t={t} />
-            <Field label="Open job card" htmlFor="ip-card" required className="sm:col-span-2" hint="The job cards the workshop has open. The vehicle comes with the job card.">
+            <Field label="Open job card" htmlFor="ip-card" required className="sm:col-span-2">
               <Select id="ip-card" value={jobCardId} onChange={(e) => setJobCardId(e.target.value)}>
                 <option value="">Choose the open job card…</option>
                 {(cards ?? []).map((c) => (
@@ -128,7 +128,7 @@ export default function IssuePartsPage() {
               </Select>
             </Field>
             {card?.freeService && (
-              <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:col-span-2 lg:col-span-3">
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:col-span-2 lg:col-span-4">
                 This is a <span className="font-semibold">free service</span>{card.serviceLabel ? ` (${card.serviceLabel})` : ''}: the labour is free, but the parts and oil you issue here are charged to the customer.
               </p>
             )}
@@ -145,31 +145,31 @@ export default function IssuePartsPage() {
             )}
             {jobCardId === 'counter' && out && (
               <>
-                <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900 sm:col-span-2 lg:col-span-3">
+                <p className="rounded-lg bg-sky-50 px-3 py-1.5 text-xs text-sky-900 sm:col-span-2 lg:col-span-4">
                   A counter sale makes an <span className="font-semibold">invoice</span> for the customer, sent to Accounts where they pay. Parts issued against a repair order / job card do not: those are billed on the job card.
                 </p>
-                <Field label="Customer mobile" htmlFor="ip-cmobile" hint="Optional. Leave empty for a walk-in customer">
-                  <Input id="ip-cmobile" inputMode="tel" value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="0300 1234567" />
+                <Field label="Customer mobile" htmlFor="ip-cmobile">
+                  <Input id="ip-cmobile" inputMode="tel" value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="Optional, e.g. 0300 1234567" />
                 </Field>
-                <Field label="Customer name" htmlFor="ip-cname" required={!!customerMobile.trim()} hint="Needed with a mobile; kept for next time">
-                  <Input id="ip-cname" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                <Field label="Customer name" htmlFor="ip-cname" required={!!customerMobile.trim()}>
+                  <Input id="ip-cname" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Needed with a mobile" />
                 </Field>
               </>
             )}
             {jobCardId !== 'counter' && (
-              <Field label="Invoice no." htmlFor="ip-inv" hint="The customer invoice the parts are billed on">
+              <Field label="Invoice no." htmlFor="ip-inv">
                 <Input id="ip-inv" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
               </Field>
             )}
-            <Field label="Remarks" htmlFor="ip-notes" className="sm:col-span-2" hint="e.g. Campaign, 3% discount on this RO">
-              <Textarea id="ip-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Field label="Remarks" htmlFor="ip-notes" className="sm:col-span-2">
+              <Input id="ip-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Campaign, 3% discount on this RO" />
             </Field>
           </div>
         </Section>
 
-        <Section title="Parts">
+        <Section title="Parts" className="mb-0 p-3 sm:p-4">
           <div className="mb-3 flex flex-wrap items-end gap-2">
-            <Field label="Discount on all parts (%)" htmlFor="ip-all" hint="Type 1, 2, 3 ... to give the same discount on every part below">
+            <Field label="Discount on all parts (%)" htmlFor="ip-all">
               <Input id="ip-all" className="w-28" inputMode="decimal" placeholder="e.g. 5" value={allPct} onChange={(e) => setAllPct(e.target.value)} />
             </Field>
             <Button variant="secondary" disabled={!lines.length} onClick={() => setLines((ls) => ls.map((l) => ({ ...l, discountPercent: allPct })))}>

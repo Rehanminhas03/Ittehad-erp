@@ -9,7 +9,7 @@ import {
 import { useListCustomersQuery, useListVehiclesQuery } from '@/features/crm/crmApi';
 import { useListDeliveriesQuery, useListLeadsQuery, useListSalesOrdersQuery, useListStockVehiclesQuery } from '@/features/sales/salesApi';
 import { ServiceCallPanel } from '@/features/service';
-import { useListEstimatesQuery, useListVisitsQuery } from '@/features/service/serviceApi';
+import { useListEstimatesQuery, useListJobCardsQuery, useListVisitsQuery } from '@/features/service/serviceApi';
 import { useListOpenJobCardsQuery, useListPartsRequestsQuery, useListPurchaseOrdersQuery } from '@/features/parts/partsApi';
 import { useListInvoicesQuery } from '@/features/accounts/accountsApi';
 import { DashboardWidget } from '@/shared/components';
@@ -279,7 +279,7 @@ function StoreActions() {
         <Link
           key={a.to}
           to={a.to}
-          className={`rounded-xl px-5 py-3 text-sm shadow-sm transition ${a.primary ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-white text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+          className={`rounded-xl px-4 py-2 text-sm shadow-sm transition ${a.primary ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-white text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50'}`}
         >
           <span className="block font-semibold">{a.label}</span>
           <span className={`block text-xs ${a.primary ? 'text-white/80' : 'text-slate-500'}`}>{a.hint}</span>
@@ -290,6 +290,33 @@ function StoreActions() {
 }
 
 /** Every open job card of the workshop: the store clicks one to allocate the parts it needs. */
+/** The job cards being worked on (open or in progress), for the service advisor: click one to open it. */
+function OpenJobCards() {
+  const open = useListJobCardsQuery({ status: 'open', pageSize: 10, sort: '-createdAt' });
+  const working = useListJobCardsQuery({ status: 'in_progress', pageSize: 10, sort: '-createdAt' });
+  const rows = [...(open.data?.items ?? []), ...(working.data?.items ?? [])];
+  const total = (open.data?.total ?? 0) + (working.data?.total ?? 0);
+  return (
+    <DashboardWidget
+      kind="table"
+      title={`Open job cards${open.data && working.data ? ` (${total})` : ''}`}
+      loading={open.isLoading || working.isLoading}
+      error={(open.error || working.error) && apiErrorMessage(open.error || working.error)}
+      to="/service/job-cards"
+      columns={[
+        { key: 'jobCardNo', header: 'Job card', render: (r) => <Link to={`/service/job-cards/${r.id}`} className="font-mono text-xs font-semibold text-brand-700 hover:underline">{String(r.jobCardNo)}</Link> },
+        { key: 'customerName', header: 'Customer', render: (r) => String(r.customerName ?? '') },
+        { key: 'vehicleLabel', header: 'Car', render: (r) => String(r.vehicleLabel ?? '') },
+        { key: 'advisorName', header: 'Advisor name', render: (r) => <span className="text-xs text-slate-600">{String(r.advisorName ?? '—')}</span> },
+        { key: 'technicianName', header: 'Technician', render: (r) => String(r.technicianName ?? '—') },
+        { key: 'status', header: 'Status', render: (r) => humanize(String(r.status)) },
+      ]}
+      rows={rows as unknown as Record<string, unknown>[]}
+      empty="No open job cards right now."
+    />
+  );
+}
+
 function OpenJobCardsToIssue() {
   const perm = usePermission();
   const dealershipId = perm.dealershipsFor('parts.issues.create')[0]?.id ?? 0;
@@ -372,6 +399,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'parts-requests', module: 'parts', any: ['parts.issues.create'], render: () => <OpenPartsRequestsKpi /> },
   { id: 'parts-returns', module: 'parts', any: ['parts.issues.create'], render: () => <PartReturnsKpi /> },
   { id: 'pos-awaiting', module: 'parts', any: ['parts.purchase_orders.approve'], render: () => <PosAwaitingKpi /> },
+  { id: 'open-job-cards', module: 'service', any: ['service.job_cards.view'], span: 3, render: () => <OpenJobCards /> },
   { id: 'service-calls', module: 'service', any: ['service.reminders.view'], span: 3, render: () => <ServiceCallPanel /> },
   { id: 'workshop', module: 'service', any: ['service.visits.view', 'service.visits.view_own'], span: 2, render: () => <WorkshopKpis /> },
   { id: 'estimates-awaiting', module: 'service', any: ['service.estimates.approve'], render: () => <EstimatesAwaitingKpi /> },

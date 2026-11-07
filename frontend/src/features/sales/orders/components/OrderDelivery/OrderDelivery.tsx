@@ -30,7 +30,7 @@ export function OrderDelivery({ order }: { order: SalesOrder }) {
 
   if (!list?.length && !maySchedule) return null;
   return (
-    <Section title="Delivery">
+    <Section compact title="Delivery">
       {list && list.length > 0 && (
         <ul className="mb-3 divide-y divide-slate-100">
           {list.map((d) => (

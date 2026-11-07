@@ -38,6 +38,7 @@ export const jobCardView: EntityViewConfig<JobCard> = {
       { key: 'customerName', header: 'Customer', render: (j) => strong(j.customerName) },
       { key: 'vehicleLabel', header: 'Vehicle', render: (j) => muted(j.vehicleLabel) },
       { key: 'visitNo', header: 'Visit', render: (j) => mono(j.visitNo) },
+      { key: 'advisorName', header: 'Advisor', className: 'w-px', render: (j) => <span className="text-xs whitespace-nowrap text-slate-600">{j.advisorName ?? '—'}</span> },
       { key: 'technicianName', header: 'Technician', render: (j) => muted(j.technicianName ?? 'Not assigned') },
       { key: 'createdAt', header: 'Opened', sortKey: 'createdAt', render: (j) => formatDateTime(j.createdAt) },
       { key: 'status', header: 'Status', sortKey: 'status', render: (j) => <StatusBadge status={j.status} /> },

@@ -167,8 +167,8 @@ export function downloadCsv(fileName: string, columns: Column[], rows: Row[]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
-/** A landscape PDF table: title, period, the rows (wrapped, repeated header on each page), a total line. */
-export async function downloadTablePdf(fileName: string, title: string, subtitle: string, columns: Column[], rows: Row[], footnote?: string) {
+/** A landscape PDF table: title, period, the rows (wrapped, repeated header on each page), a total line. Drawn, not saved (to preview first). */
+export async function buildTablePdf(fileName: string, title: string, subtitle: string, columns: Column[], rows: Row[], footnote?: string) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
   const W = 297;
@@ -234,5 +234,11 @@ export async function downloadTablePdf(fileName: string, title: string, subtitle
     doc.setTextColor(100, 116, 139);
     doc.text(`${title} · Page ${i} of ${pages}`, W - M, 205, { align: 'right' });
   }
-  doc.save(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+  return { doc, fileName: fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf` };
+}
+
+/** The same PDF table, saved straight away. */
+export async function downloadTablePdf(fileName: string, title: string, subtitle: string, columns: Column[], rows: Row[], footnote?: string) {
+  const { doc, fileName: name } = await buildTablePdf(fileName, title, subtitle, columns, rows, footnote);
+  doc.save(name);
 }

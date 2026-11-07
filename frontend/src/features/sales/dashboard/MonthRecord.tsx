@@ -57,7 +57,7 @@ export function MonthRecord({ userId = null }: { userId?: number | null }) {
   const team = !!data && data.scope !== 'own' && !userId;
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
       <Panel title={`${userId ? (data?.people.find((p) => p.userId === userId)?.fullName ?? 'Salesperson') : team ? (data?.scope === 'salespeople' ? 'Salespeople' : 'Team') : 'My'} record · ${monthName}`} subtitle="Leads, conversions, cars and PPF this month" to="/sales/track-record" toLabel="Track record" className="lg:col-span-2">
         {isLoading || !data ? (
           <Spinner className="mx-auto my-6 size-5 text-slate-400" />

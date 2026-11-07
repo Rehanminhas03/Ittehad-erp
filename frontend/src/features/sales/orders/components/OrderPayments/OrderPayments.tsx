@@ -25,7 +25,7 @@ export function OrderPayments({ order }: { order: SalesOrder }) {
   const balance = Number(data?.balance ?? 0);
 
   return (
-    <Section
+    <Section compact
       title="Payments"
       actions={
         canRecord &&

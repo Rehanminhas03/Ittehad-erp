@@ -43,7 +43,7 @@ export function OrderInvoice({ order }: { order: SalesOrder }) {
   };
 
   return (
-    <Section
+    <Section compact
       title="Vehicle invoice (from the manufacturer)"
       actions={
         canRecord && (

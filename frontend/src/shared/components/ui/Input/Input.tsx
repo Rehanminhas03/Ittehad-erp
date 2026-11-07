@@ -9,7 +9,9 @@ const EYE_OFF = 'M3 3l14 14M8.6 4.7A8.6 8.6 0 0 1 10 4.5c5 0 8 5.5 8 5.5a14 14 0
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, invalid, type, onChange, ...rest }, ref) => {
   const [shown, setShown] = useState(false);
-  const cls = cn(controlClass, invalid && 'ring-2 ring-red-400 focus:ring-red-500', className);
+  // A width given by the caller (w-20, w-40 ...) replaces the full width: both classes together leave it to the stylesheet's order.
+  const base = className && /(^|\s)w-\S+/.test(className) ? controlClass.replace('w-full ', '') : controlClass;
+  const cls = cn(base, invalid && 'ring-2 ring-red-400 focus:ring-red-500', className);
   // An amount box (inputMode="decimal" on a text input): the thousands commas are added as you type.
   const isAmount = rest.inputMode === 'decimal' && (type === undefined || type === 'text');
   const inner = useRef<HTMLInputElement | null>(null);

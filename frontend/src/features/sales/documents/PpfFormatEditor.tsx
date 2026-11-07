@@ -109,7 +109,7 @@ export function PpfFormatEditor({ dealer }: { dealer: Dealer }) {
 
   return (
     <>
-      <Section title="Voucher">
+      <Section compact title="Voucher">
         <p className="mb-4 text-sm text-slate-600">
           {data.isDefault ? 'Using the built-in format (not changed yet). ' : `Last changed ${data.updatedAt ? formatDateTime(data.updatedAt) : ''} by ${data.updatedByName ?? '—'}. `}
           The letterhead (logos, company name, address) is the one in the Quotation format.
@@ -119,7 +119,7 @@ export function PpfFormatEditor({ dealer }: { dealer: Dealer }) {
         </Field>
       </Section>
 
-      <Section title="Fields">
+      <Section compact title="Fields">
         <p className="mb-3 text-sm text-slate-600">Rename a field, or untick it to leave it off the voucher. PBO, customer, chassis, engine and the amounts always print.</p>
         <div className="divide-y divide-slate-100">
           {PPF_VOUCHER_FIELDS.map((f) => (
@@ -174,7 +174,7 @@ export function PpfFormatEditor({ dealer }: { dealer: Dealer }) {
         </div>
       </Section>
 
-      <Section title="Notes and signatures">
+      <Section compact title="Notes and signatures">
         <Field label="Notes printed on the voucher (one per line)" htmlFor="ppf-fmt-terms" error={errors.terms} hint="e.g. Do not wash the car for 48 hours. Write **text** for bold.">
           <Textarea id="ppf-fmt-terms" rows={3} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} />
         </Field>

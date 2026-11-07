@@ -91,6 +91,7 @@ const ALL_SECTIONS: NavSection[] = [
       { label: 'Counter sale', to: '/parts/issue?for=counter', any: ['parts.issues.create'] },
       { label: 'Counter sale invoices', to: '/accounts/invoices?sourceType=counter_sale', any: ['accounts.invoices.view'] },
       { label: 'Store report', to: '/parts/report', any: ['parts.stock.view'] },
+      { label: 'Purchase report', to: '/parts/purchase-report', any: ['parts.stock.view'] },
       { label: 'Price list', to: '/parts/prices', any: ['parts.catalog.view'] },
       { label: 'Parts and prices', to: '/parts/manage', any: ['parts.catalog.manage'] },
       { label: 'Purchase orders', to: '/parts/purchase-orders', any: ['parts.purchase_orders.view'] },

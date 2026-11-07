@@ -23,7 +23,7 @@ export function StockPdi({ v }: { v: StockVehicle }) {
   const canEdit = v.dealershipId ? perm.canIn(P.stockManage, v.dealershipId) : perm.can(P.stockManage);
 
   return (
-    <Section title="PDI (pre-delivery inspection)" actions={canEdit && <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>{v.pdiStatus ? 'Update PDI' : 'Record the PDI'}</Button>}>
+    <Section compact title="PDI (pre-delivery inspection)" actions={canEdit && <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>{v.pdiStatus ? 'Update PDI' : 'Record the PDI'}</Button>}>
       {v.pdiStatus ? (
         <div className="space-y-2 text-sm">
           <PdiBadge status={v.pdiStatus} />

@@ -32,7 +32,7 @@ export function OrderClearance({ order }: { order: SalesOrder }) {
   const info = CLEARANCE_LABELS[status] ?? CLEARANCE_LABELS.none!;
 
   return (
-    <Section title="Delivery clearance">
+    <Section compact title="Delivery clearance">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Badge tone={info.tone}>{info.label}</Badge>
         {status !== 'none' && order.clearanceRequestedAt && (

@@ -51,7 +51,7 @@ export function StatTile({
   const number = loading ? (
     <Spinner className="mt-2 size-4 text-slate-400" />
   ) : (
-    <p className={cn('leading-none font-semibold tracking-tight text-slate-900', compact ? 'text-2xl' : 'mt-0.5 text-[28px]')}>{(value ?? 0).toLocaleString()}</p>
+    <p className={cn('leading-none font-semibold tracking-tight text-slate-900', compact ? 'text-2xl' : 'text-xl')}>{(value ?? 0).toLocaleString()}</p>
   );
   const chip = (size: string, iconSize: string) => (
     <span className={cn('flex shrink-0 items-center justify-center bg-gradient-to-br text-white shadow-lg', size, TONES[tone])}>
@@ -71,15 +71,15 @@ export function StatTile({
     </>
   ) : (
     <>
-      {chip('size-11 rounded-2xl', 'size-5')}
+      {chip('size-8 rounded-lg', 'size-4')}
       <div className="min-w-0">
-        <p className="text-[13px] leading-snug font-medium text-slate-600">{label}</p>
+        <p className="text-xs leading-snug font-medium text-slate-600">{label}</p>
         {number}
-        {hint && <p className="mt-1.5 text-xs leading-snug text-slate-500">{hint}</p>}
+        {hint && <p className="text-[11px] leading-snug text-slate-500">{hint}</p>}
       </div>
     </>
   );
-  const cls = compact ? 'surface flex min-w-0 flex-col gap-2 p-3.5' : 'surface flex items-center gap-4 p-4 sm:p-5';
+  const cls = compact ? 'surface flex min-w-0 flex-col gap-1.5 p-3' : 'surface flex items-center gap-3 px-3 py-2';
   return to ? (
     <Link to={to} className={cn(cls, 'transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none')}>
       {body}
@@ -106,8 +106,8 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className={cn('surface p-4 sm:p-5', className)}>
-      <header className="mb-4 flex items-start justify-between gap-3">
+    <section className={cn('surface p-3.5 sm:p-4', className)}>
+      <header className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}

@@ -121,7 +121,7 @@ export function LeadDocuments({ lead }: { lead: Lead }) {
   const rights = useLeadDocumentRights(lead);
   if (!rights.viewQuotations && !rights.viewPpf) return null;
   return (
-    <Section title="Quotations & PPF">
+    <Section compact title="Quotations & PPF">
       <LeadDocumentsPanel lead={lead} />
     </Section>
   );

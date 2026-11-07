@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Button, Field, Input, PageHeader, Section, Select, Textarea } from '@/shared/components/ui';
+import { Button, Field, Input, PageHeader, Section, Select } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
 import { NewPartOnReceipt, type NewPartLine } from '../../components/NewPartOnReceipt';
@@ -75,9 +75,9 @@ export default function ReceiveStockPage() {
   return (
     <div>
       <PageHeader title="Receive parts" subtitle="Parts that came from head office: enter each part with its quantity and price. They go into the store's stock straight away." />
-      <div className="space-y-5">
-        <Section title="Delivery">
-          <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-4">
+        <Section className="mb-0 p-3 sm:p-4">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
             <StoreTargetFields t={t} />
             <Field label="Received from" htmlFor="rs-supplier">
               <Select id="rs-supplier" value={supplier} onChange={(e) => setSupplierId(e.target.value)}>
@@ -88,14 +88,11 @@ export default function ReceiveStockPage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Invoice / challan no." htmlFor="rs-invoice" hint="The head-office document">
+            <Field label="Invoice / challan no." htmlFor="rs-invoice">
               <Input id="rs-invoice" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
             </Field>
-            <Field label="Received on" htmlFor="rs-date" hint="Recorded by the system when you receive the parts: it cannot be typed">
-              <Input id="rs-date" value="Date and time: automatic" readOnly disabled />
-            </Field>
-            <Field label="Parts are for vehicle" htmlFor="rs-models" required hint="Tick every vehicle these parts fit. It is marked on each part received, and parts already marked for other vehicles keep them" className="sm:col-span-2 lg:col-span-3">
-              <div id="rs-models" className="flex flex-wrap gap-x-5 gap-y-1.5">
+            <Field label="Parts are for vehicle (tick every vehicle these parts fit)" htmlFor="rs-models" required className="sm:col-span-2 lg:col-span-3">
+              <div id="rs-models" className="flex flex-wrap gap-x-5 gap-y-1.5 py-1.5">
                 {models.map((m) => (
                   <label key={m.value} className="flex items-center gap-1.5 text-sm">
                     <input
@@ -108,8 +105,8 @@ export default function ReceiveStockPage() {
                 ))}
               </div>
             </Field>
-            <Field label="Notes" htmlFor="rs-notes" className="sm:col-span-2">
-              <Textarea id="rs-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Field label="Notes" htmlFor="rs-notes">
+              <Input id="rs-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
             </Field>
           </div>
         </Section>

@@ -104,7 +104,7 @@ export function LeadOrder({ lead }: { lead: Lead }) {
   if (lead.salesOrderId && lead.status !== 'converted') {
     return (
       <>
-      <Section title="Sales order">
+      <Section compact title="Sales order">
         {payment}
         {canViewOrders ? (
           <Link to={`/sales/orders/${lead.salesOrderId}`} className="text-sm font-medium text-brand-700 hover:underline">
@@ -168,7 +168,7 @@ export function LeadOrder({ lead }: { lead: Lead }) {
   };
 
   return (
-    <Section title="Raise sales order">
+    <Section compact title="Raise sales order">
       {payment}
       <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
         <Field label="Order type" htmlFor="ro-type" required>

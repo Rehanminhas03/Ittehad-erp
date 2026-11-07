@@ -1480,6 +1480,7 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   totalAmount: string;
   bookingAmount: string | null;
   validUntil: string;
+  issuedOn?: string | null;
   deliveryDays: number | null;
   deliveryPeriod: string | null;
   paymentMode: string | null;
@@ -1928,6 +1929,7 @@ export type CreateStandaloneQuotationApiResponse = /** status 201 Success */ {
   totalAmount: string;
   bookingAmount: string | null;
   validUntil: string;
+  issuedOn?: string | null;
   deliveryDays: number | null;
   deliveryPeriod: string | null;
   paymentMode: string | null;
@@ -4523,6 +4525,7 @@ export type Quotation = {
   totalAmount: string;
   bookingAmount: string | null;
   validUntil: string;
+  issuedOn?: string | null;
   deliveryDays: number | null;
   deliveryPeriod: string | null;
   paymentMode: string | null;
@@ -4551,6 +4554,7 @@ export type QuotationUpdate = {
   variant?: string | null;
   color?: string | null;
   validUntil?: string;
+  issuedOn?: string | null;
   notes?: string | null;
   taxStatus?: "filer" | "non_filer";
   variantCode?: string | null;

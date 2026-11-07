@@ -141,7 +141,7 @@ export default function DeliveryReportPage() {
             <Stat label="Avg delivery time" value={days(data.total.avgDaysToDeliver)} note="Approval → delivery" />
           </div>
 
-          <Section title={many ? 'By dealership' : scopeName} className="mb-6">
+          <Section compact title={many ? 'By dealership' : scopeName} className="mb-6">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="text-xs tracking-wide text-slate-500 uppercase">

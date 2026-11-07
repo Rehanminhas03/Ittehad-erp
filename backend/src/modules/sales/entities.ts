@@ -924,6 +924,13 @@ export const quotationEntity: EntityConfig = {
     beforeUpdate: async (ctx, row, patch) => {
       // The customer is written on a quotation without a lead only (otherwise it is the lead's).
       if (row.leadId) for (const k of ['customerName', 'customerMobile', 'customerEmail']) delete patch[k];
+      // A new quotation date moves the valid-until date with it (the same number of days), unless that was changed too.
+      if (typeof patch.issuedOn === 'string') {
+        const day = (d: unknown) => Date.parse(`${String(d).slice(0, 10)}T00:00:00Z`);
+        const was = (row.issuedOn as string | null) ?? new Date(row.createdAt as string | Date).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+        const unchangedValidity = patch.validUntil === undefined || String(patch.validUntil).slice(0, 10) === String(row.validUntil).slice(0, 10);
+        if (unchangedValidity && day(patch.issuedOn) !== day(was)) patch.validUntil = new Date(day(row.validUntil) + (day(patch.issuedOn) - day(was))).toISOString().slice(0, 10);
+      }
       const requestedModel = patch.modelId as number | undefined;
       if (requestedModel !== undefined && requestedModel !== row.modelId) await assertActiveModel(ctx, requestedModel);
       if (patch.variantCode !== undefined) {
@@ -948,6 +955,8 @@ export const quotationEntity: EntityConfig = {
       (await withNames(ctx.tx, rows, { ...docTrailNames, modelName: { key: 'modelId', source: MODEL_NAME } })).map((r, i) => ({
         ...r,
         customerName: r.customerName ?? ((rows[i]!.customerName as string | null) || null),
+        // The date printed on it: the one set, or the day it was created (so the edit form shows it).
+        issuedOn: (rows[i]!.issuedOn as string | null) ?? new Date(rows[i]!.createdAt as string | Date).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' }),
       })),
   },
 };

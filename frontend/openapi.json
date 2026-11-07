@@ -9919,6 +9919,10 @@
           "validUntil": {
             "type": "string"
           },
+          "issuedOn": {
+            "type": "string",
+            "nullable": true
+          },
           "deliveryDays": {
             "type": "integer",
             "nullable": true
@@ -10056,6 +10060,11 @@
           },
           "validUntil": {
             "type": "string",
+            "format": "date"
+          },
+          "issuedOn": {
+            "type": "string",
+            "nullable": true,
             "format": "date"
           },
           "notes": {
@@ -11907,6 +11916,241 @@
         "required": [
           "months",
           "categories",
+          "totals"
+        ]
+      },
+      "PartsInOutReport": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "partNo": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "inQty": {
+                  "type": "string"
+                },
+                "inCost": {
+                  "type": "string"
+                },
+                "outQty": {
+                  "type": "string"
+                },
+                "outCost": {
+                  "type": "string"
+                },
+                "outPrice": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partId",
+                "partNo",
+                "description",
+                "inQty",
+                "inCost",
+                "outQty",
+                "outCost",
+                "outPrice"
+              ]
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "inQty": {
+                "type": "string"
+              },
+              "inCost": {
+                "type": "string"
+              },
+              "outQty": {
+                "type": "string"
+              },
+              "outCost": {
+                "type": "string"
+              },
+              "outPrice": {
+                "type": "string"
+              },
+              "partsCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "inQty",
+              "inCost",
+              "outQty",
+              "outCost",
+              "outPrice",
+              "partsCount"
+            ]
+          }
+        },
+        "required": [
+          "parts",
+          "totals"
+        ]
+      },
+      "PartsPurchaseReport": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "partNo": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "orderedQty": {
+                  "type": "string"
+                },
+                "orderedValue": {
+                  "type": "string"
+                },
+                "receivedQty": {
+                  "type": "string"
+                },
+                "receivedCost": {
+                  "type": "string"
+                },
+                "averageCost": {
+                  "type": "string"
+                },
+                "minCost": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "maxCost": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "lastCost": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "lastDate": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "allTimeAverage": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "partId",
+                "partNo",
+                "description",
+                "orderedQty",
+                "orderedValue",
+                "receivedQty",
+                "receivedCost",
+                "averageCost",
+                "minCost",
+                "maxCost",
+                "lastCost",
+                "lastDate",
+                "allTimeAverage"
+              ]
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "date": {
+                  "type": "string"
+                },
+                "grnNo": {
+                  "type": "string"
+                },
+                "poNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "supplier": {
+                  "type": "string"
+                },
+                "store": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "string"
+                },
+                "unitCost": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partId",
+                "date",
+                "grnNo",
+                "poNo",
+                "supplier",
+                "store",
+                "quantity",
+                "unitCost",
+                "amount"
+              ]
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "orderedValue": {
+                "type": "string"
+              },
+              "receivedQty": {
+                "type": "string"
+              },
+              "receivedCost": {
+                "type": "string"
+              },
+              "partsCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "orderedValue",
+              "receivedQty",
+              "receivedCost",
+              "partsCount"
+            ]
+          }
+        },
+        "required": [
+          "parts",
+          "lines",
           "totals"
         ]
       },
@@ -28016,6 +28260,10 @@
                     "validUntil": {
                       "type": "string"
                     },
+                    "issuedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "deliveryDays": {
                       "type": "integer",
                       "nullable": true
@@ -30406,6 +30654,10 @@
                     },
                     "validUntil": {
                       "type": "string"
+                    },
+                    "issuedOn": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "deliveryDays": {
                       "type": "integer",
@@ -42321,6 +42573,228 @@
         }
       }
     },
+    "/api/parts/store/in-out-report": {
+      "get": {
+        "operationId": "getPartsInOutReport",
+        "summary": "Parts in and out of the store in a period: pieces and cost in, pieces and cost out, and the price charged for what went out",
+        "description": "Requires: parts.stock.view",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsInOutReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parts/store/purchase-report": {
+      "get": {
+        "operationId": "getPartsPurchaseReport",
+        "summary": "Purchase report: parts ordered and received in a period with their cost (weighted average) and every receipt as the price history",
+        "description": "Requires: parts.stock.view",
+        "tags": [
+          "Store"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "supplierId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsPurchaseReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/parts/store/earlier-sales": {
       "get": {
         "operationId": "getEarlierSales",
@@ -50045,6 +50519,15 @@
             },
             "required": false,
             "name": "isActive",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "required": false,
+            "name": "brand",
             "in": "query"
           }
         ],

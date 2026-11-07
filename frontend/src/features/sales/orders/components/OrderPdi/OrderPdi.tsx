@@ -27,7 +27,7 @@ export function OrderPdi({ orderId, dealershipId, branchId, hasCar }: { orderId:
   const canRecord = atDealership && perm.canIn(P.ordersAllocate, dealershipId, branchId);
 
   return (
-    <Section
+    <Section compact
       title="PDI (pre-delivery inspection)"
       actions={canRecord && data?.recorded && <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Update PDI</Button>}
     >

@@ -59,7 +59,7 @@ export function LeadDetailsEditor({ lead }: { lead: Lead }) {
   };
 
   return (
-    <Section
+    <Section compact
       title="Customer details"
       actions={
         !editing && (

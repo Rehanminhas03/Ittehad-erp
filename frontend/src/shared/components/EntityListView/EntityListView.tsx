@@ -125,14 +125,17 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
       <PageHeader
         title={config.plural}
         actions={
-          canCreate && (
-            <Link to={list.createPath ?? `${config.basePath}/new`}>
-              <Button>
-                <PlusIcon />
-                {list.createLabel ?? `New ${config.singular.toLowerCase()}`}
-              </Button>
-            </Link>
-          )
+          <>
+            {list.headerActions?.({ query: queryArg, periodLabel })}
+            {canCreate && (
+              <Link to={list.createPath ?? `${config.basePath}/new`}>
+                <Button>
+                  <PlusIcon />
+                  {list.createLabel ?? `New ${config.singular.toLowerCase()}`}
+                </Button>
+              </Link>
+            )}
+          </>
         }
       />
 
@@ -140,7 +143,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
 
       {/* Search across the full width; every filter on one row beneath it (scrolls sideways on narrow phones).
           Raised above the table (z-20): glass panels are separate layers, and the date pop-up must open over the table, not under it. */}
-      <div className="surface relative z-20 mb-4 space-y-3 p-3 sm:p-4">
+      <div className="surface relative z-20 mb-3 space-y-2 p-2.5 sm:p-3">
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-slate-400" />
           <Input
@@ -148,7 +151,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={list.searchPlaceholder ?? 'Search…'}
-            className="h-11 !rounded-xl pr-10 pl-10 !text-[15px]"
+            className="h-9 !rounded-lg py-1 pr-10 pl-10 !text-sm"
             aria-label="Search"
           />
           {isFetching && !isLoading && <Spinner className="absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-slate-400" />}
@@ -161,7 +164,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                 value={filterValues[f.param]}
                 onChange={(e) => update({ [f.param]: e.target.value || null, page: null })}
                 className={cn(
-                  '!w-auto min-w-36 flex-1 shrink-0 !rounded-xl py-2.5',
+                  '!w-auto min-w-32 flex-1 shrink-0 !rounded-lg py-1.5 !text-[13px]',
                   filterValues[f.param] && '!bg-brand-50 font-medium text-brand-800 !ring-brand-300',
                 )}
                 aria-label={f.label}
@@ -272,7 +275,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-left text-xs font-medium tracking-wide text-slate-500">
                     {bulk && selectable.length > 0 && (
-                      <th className="w-px px-4 py-2.5" scope="col">
+                      <th className="w-px px-3 py-2" scope="col">
                         <input
                           type="checkbox"
                           className="size-4 rounded border-slate-300 text-brand-600"
@@ -283,7 +286,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                       </th>
                     )}
                     {columns.map((c) => (
-                      <th key={c.key} className={cn('px-4 py-2.5 font-medium whitespace-nowrap', c.className)} scope="col">
+                      <th key={c.key} className={cn('px-3 py-2 font-medium whitespace-nowrap', c.className)} scope="col">
                         {c.sortKey ? (
                           <button type="button" onClick={() => toggleSort(c.sortKey!)} className="inline-flex items-center gap-1 hover:text-slate-800">
                             {c.header}
@@ -306,7 +309,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                       onClick={() => navigate(`${config.basePath}/${row.id}`)}
                     >
                       {bulk && selectable.length > 0 && (
-                        <td className="w-px px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <td className="w-px px-3 py-2" onClick={(e) => e.stopPropagation()}>
                           {bulk.canSelect(row, perm) && (
                             <input
                               type="checkbox"
@@ -319,7 +322,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                         </td>
                       )}
                       {columns.map((c) => (
-                        <td key={c.key} className={cn('px-4 py-3 whitespace-nowrap text-slate-700', c.className)}>
+                        <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap text-slate-700', c.className)}>
                           {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '—')}
                         </td>
                       ))}

@@ -173,6 +173,8 @@ export interface EntityViewConfig<T extends { id: number }> {
     /** Rendered above the search (e.g. a summary of totals). */
     /** Above the list; gets the list's current query (filters, dates) and its period, e.g. "last 30 days". */
     header?: (ctx: { query: Record<string, unknown>; periodLabel: string }) => ReactNode;
+    /** Buttons in the page header, to the left of the create button (e.g. the exports); gets the list's current query and period. */
+    headerActions?: (ctx: { query: Record<string, unknown>; periodLabel: string }) => ReactNode;
     /**
      * A date filter (quick ranges + custom dates) sent as two query params, e.g. the leads list by
      * latest activity. `defaultPreset` applies when the URL names none (e.g. 'today').

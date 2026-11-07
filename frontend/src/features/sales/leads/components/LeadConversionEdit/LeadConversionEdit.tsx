@@ -124,7 +124,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
 
   return (
     <div ref={top} className="scroll-mt-24">
-    <Section
+    <Section compact
       title="Correct the conversion details"
       actions={
         !open && (

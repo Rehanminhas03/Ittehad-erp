@@ -48,7 +48,7 @@ export function LeadFollowUps({ lead }: { lead: Lead }) {
   const due = isOpenLead && !!lead.nextFollowUpOn && lead.nextFollowUpOn <= today;
 
   return (
-    <Section
+    <Section compact
       title={`Follow-ups (${lead.followUpCount})`}
       actions={isOpenLead && remaining > 0 && <span className="text-xs text-slate-500">{remaining} more before it can be marked exhausted</span>}
     >

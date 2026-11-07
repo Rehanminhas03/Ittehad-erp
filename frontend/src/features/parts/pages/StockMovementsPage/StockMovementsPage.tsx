@@ -37,7 +37,7 @@ export default function StockMovementsPage() {
           ))}
         </Select>
       </div>
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-3 sm:p-4">
         <StockMovementsTable
           key={`${branchId}-${type}`}
           filter={{ branchId: branchId ? Number(branchId) : undefined, type: (type || undefined) as never }}

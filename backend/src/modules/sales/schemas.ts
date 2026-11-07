@@ -230,6 +230,8 @@ export const QuotationSchema = z.object({
   totalAmount: z.string(),
   bookingAmount: z.string().nullable(),
   validUntil: z.string(),
+  /** The date printed on the quotation when changed from its creation day; null = the creation day. */
+  issuedOn: z.string().nullable().optional(),
   deliveryDays: z.number().int().nullable(),
   /** Free text (Jetour: "ONE MONTH AFTER FULL PAYMENT."), printed instead of the days when given. */
   deliveryPeriod: z.string().nullable(),
@@ -349,6 +351,8 @@ export const QuotationUpdate = z
     variant: optionalText(160),
     color: optionalText(40),
     validUntil: isoDate,
+    /** The quotation date as printed (e.g. to send the quotation again); empty = the day it was created. */
+    issuedOn: isoDate.nullable(),
     notes: optionalText(1000),
     ...quotationTerms,
   })

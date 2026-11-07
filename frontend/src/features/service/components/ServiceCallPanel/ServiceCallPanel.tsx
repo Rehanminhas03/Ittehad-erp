@@ -34,6 +34,7 @@ export function ServiceCallPanel() {
 
   return (
     <Section
+      className="mb-0 p-3 sm:p-4"
       title="Service calls and appointments"
       actions={
         <span className="flex items-center gap-3 text-sm">
@@ -48,13 +49,13 @@ export function ServiceCallPanel() {
     >
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((s) => (
-          <Link key={s.label} to={s.to} className={`rounded-xl p-3 ring-1 ${s.tone}`}>
+          <Link key={s.label} to={s.to} className={`rounded-xl px-3 py-2 ring-1 ${s.tone}`}>
             <p className="text-xs font-medium opacity-80">{s.label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{due.isLoading || appts.isLoading ? <Spinner className="size-4" /> : (s.value ?? 0)}</p>
+            <p className="text-xl leading-tight font-semibold tabular-nums">{due.isLoading || appts.isLoading ? <Spinner className="size-4" /> : (s.value ?? 0)}</p>
           </Link>
         ))}
       </div>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div>
           <p className="mb-1 text-xs font-medium tracking-wide text-slate-500 uppercase">Call next</p>
           {next.length === 0 ? (

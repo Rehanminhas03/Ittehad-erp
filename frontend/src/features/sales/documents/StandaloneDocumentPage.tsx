@@ -27,7 +27,7 @@ export default function StandaloneDocumentPage({ kind }: { kind: keyof typeof KI
     <div>
       <PageHeader title={k.title} breadcrumbs={[{ label: kind === 'quotation' ? 'Quotations' : 'PPF vouchers', to: k.list }, { label: 'Create' }]} />
       {dealerships.length > 1 && (
-        <Section>
+        <Section compact>
           <Field label="Dealership" htmlFor="sd-dealer" required>
             <Select id="sd-dealer" value={dealershipId ?? ''} onChange={(e) => setDealershipId(Number(e.target.value) || null)} className="max-w-sm">
               <option value="">Choose the dealership…</option>

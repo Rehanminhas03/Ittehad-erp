@@ -78,12 +78,12 @@ export function TodayPanel() {
     );
   }
   return (
-    <section className="surface p-5" aria-label="Today at a glance">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+    <section className="surface p-4" aria-label="Today at a glance">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-slate-900">Today at a glance</h2>
         <span className="text-sm text-slate-500">{new Date(`${data.today}T12:00:00+05:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
       </div>
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Appointments title="Appointments today" rows={data.appointmentsToday} empty="No appointments today." />
         <Deliveries title="Deliveries today" rows={data.deliveriesToday} empty="No deliveries today." today={data.today} />
         <Appointments title="Appointments tomorrow" rows={data.appointmentsTomorrow} empty="None yet for tomorrow." />

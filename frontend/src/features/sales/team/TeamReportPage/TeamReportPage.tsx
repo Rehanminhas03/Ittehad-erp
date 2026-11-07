@@ -64,7 +64,7 @@ export default function TeamReportPage() {
             />
           </div>
 
-          <Section title="Per person">
+          <Section compact title="Per person">
             <div className="-mx-5 overflow-x-auto sm:-mx-6">
               <table className="min-w-full text-sm">
                 <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
@@ -106,7 +106,7 @@ export default function TeamReportPage() {
             </div>
           </Section>
 
-          <Section title="By day">
+          <Section compact title="By day">
             <div className="-mx-5 overflow-x-auto sm:-mx-6">
               <table className="min-w-full text-sm">
                 <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">

@@ -1,6 +1,7 @@
+import { Link } from 'react-router';
 import { NewServiceButton, ServicePermissions as SvcP } from '@/features/service';
 import { SalesDashboard, SalesPermissions as SP } from '@/features/sales';
-import { PageHeader } from '@/shared/components/ui';
+import { Button, PageHeader } from '@/shared/components/ui';
 import { isModuleEnabled } from '@/shared/config';
 import { useAuth, usePermission } from '@/shared/hooks';
 import { cn } from '@/shared/lib';
@@ -45,6 +46,16 @@ function GeneralDashboard() {
         actions={
           <div className="flex items-center gap-2">
             <SalesReportButton />
+            {isModuleEnabled('parts') && perm.can('parts.issues.create') ? (
+              <Link to="/parts/issue">
+                <Button size="sm">Issue parts</Button>
+              </Link>
+            ) : isModuleEnabled('parts') && perm.can('parts.requests.view') ? (
+              // The service advisor asks the store for parts (it issues them): their requests and what was issued.
+              <Link to="/parts/requests?kind=request">
+                <Button size="sm">Parts requests</Button>
+              </Link>
+            ) : null}
             {isModuleEnabled('service') && perm.can(SvcP.visitsCreate) ? <NewServiceButton /> : null}
           </div>
         }
@@ -53,7 +64,7 @@ function GeneralDashboard() {
       {widgets.length > 0 && (
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Right now</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {widgets.map((w) => (
               <div key={w.id} className={cn(w.span === 2 && 'md:col-span-2', w.span === 3 && 'md:col-span-3')}>
                 {w.render()}

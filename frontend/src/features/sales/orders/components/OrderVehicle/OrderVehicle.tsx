@@ -44,7 +44,7 @@ export function OrderVehicle({ order }: { order: SalesOrder }) {
   };
 
   return (
-    <Section
+    <Section compact
       title="Vehicle"
       actions={
         canEdit && !editing && (

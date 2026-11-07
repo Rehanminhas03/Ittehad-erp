@@ -44,7 +44,7 @@ const ArrowIcon = () => (
 function WidgetInner(props: DashboardWidgetProps) {
   return (
     <>
-      <header className="mb-3 flex items-center justify-between gap-2">
+      <header className={cn('flex items-center justify-between gap-2', props.kind === 'kpi' ? 'mb-1' : 'mb-3')}>
         <h3 className="text-xs font-medium tracking-wide text-slate-500">{props.title}</h3>
         {props.to && (
           <span className="flex items-center gap-0.5 text-xs font-medium text-brand-600 opacity-0 transition-opacity group-hover:opacity-100">
@@ -68,7 +68,8 @@ function WidgetInner(props: DashboardWidgetProps) {
  * are arrangements of these, each gated by the same permission system as the rest of the app.
  */
 export function DashboardWidget(props: DashboardWidgetProps) {
-  const className = cn('surface group flex h-full flex-col p-5', props.to && 'transition-shadow hover:shadow-md hover:ring-1 hover:ring-brand-200', props.className);
+  // A figure card is compact (a few lines tall); tables and charts keep the roomier padding.
+  const className = cn('surface group flex h-full flex-col', props.kind === 'kpi' ? 'px-4 py-3' : 'p-4', props.to && 'transition-shadow hover:shadow-md hover:ring-1 hover:ring-brand-200', props.className);
   if (props.to) {
     return (
       <Link to={props.to} className={className}>
@@ -88,10 +89,10 @@ function Body(props: DashboardWidgetProps) {
     case 'kpi':
       return (
         <div className="mt-auto">
-          <p className="text-3xl font-semibold tracking-tight tabular-nums text-slate-900">
+          <p className="text-2xl leading-tight font-semibold tracking-tight tabular-nums text-slate-900">
             {typeof props.value === 'number' ? formatNumber(props.value) : (props.value ?? '—')}
           </p>
-          {props.hint && <p className="mt-1.5 text-xs text-slate-500">{props.hint}</p>}
+          {props.hint && <p className="mt-0.5 text-xs text-slate-500">{props.hint}</p>}
         </div>
       );
     case 'table':

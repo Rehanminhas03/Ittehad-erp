@@ -17,7 +17,7 @@ export default function PayablesPage() {
     <div>
       <PageHeader title="Payables" subtitle="Supplier balances from goods received and payments made." />
       {picker && <div className="mb-4">{picker}</div>}
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-3 sm:p-4">
         {!dealershipId ? (
           <EmptyState title="No dealership available" />
         ) : isLoading ? (

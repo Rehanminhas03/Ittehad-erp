@@ -129,7 +129,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
   };
 
   return (
-    <Section
+    <Section compact
       title="Convert to Lead"
       actions={!open && <Button onClick={() => setOpen(true)}>Convert to Lead</Button>}
     >

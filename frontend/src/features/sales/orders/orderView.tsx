@@ -72,11 +72,12 @@ export const orderView: EntityViewConfig<SalesOrder> = {
     dateRange: { label: 'Booked', fromParam: 'bookedFrom', toParam: 'bookedTo', defaultPreset: '30d' },
     // Export the orders of the period on screen (every detail, with each payment), and the split by
     // status (Processing: raised, not yet delivered) for the same period.
-    header: ({ query, periodLabel }) => (
-      <>
+    header: ({ query, periodLabel }) => <OrderStatusSummary query={query} periodLabel={periodLabel} />,
+    // The exports sit in the page header, to the left of "New order".
+    headerActions: ({ query, periodLabel }) => (
+      <div className="[&>div]:mb-0">
         <ExportButtons kind="orders" query={query} periodLabel={periodLabel} />
-        <OrderStatusSummary query={query} periodLabel={periodLabel} />
-      </>
+      </div>
     ),
     filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Processing (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, { param: 'invoice', label: 'Vehicle invoice', type: 'select', options: [{ value: 'received', label: 'Received' }, { value: 'pending', label: 'Not received yet' }] }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
     columns: [

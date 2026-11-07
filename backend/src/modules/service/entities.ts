@@ -45,7 +45,12 @@ export const scheduleItemEntity: EntityConfig = {
   permissions: { view: P.setupView, create: P.setupManage, update: P.setupManage, delete: P.setupManage },
   tenant: null,
   search: ['name'],
-  filters: { modelId: { key: 'modelId', schema: IdQuery }, isActive: { key: 'isActive', schema: BoolQuery } },
+  filters: {
+    modelId: { key: 'modelId', schema: IdQuery },
+    isActive: { key: 'isActive', schema: BoolQuery },
+    // The schedules of one brand's models (each dealership works with its own brand).
+    brand: { key: 'modelId', schema: z.string().trim().max(60), where: (v) => sql`${scheduleItem.modelId} in (select id from core.vehicle_model where brand = ${String(v)})` },
+  },
   sort: { default: 'sequence', keys: ['sequence', 'dueKm', 'name'] },
   hooks: {
     decorate: (ctx, rows) => withNames(ctx.tx, rows, { modelName: { key: 'modelId', source: MODEL_NAME } }),
