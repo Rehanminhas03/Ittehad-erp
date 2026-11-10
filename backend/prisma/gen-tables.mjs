@@ -6,7 +6,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
-const schema = readFileSync(path.join(root, 'prisma/schema.prisma'), 'utf8');
+// Windows checkouts may use CRLF line endings: the patterns below expect LF.
+const schema = readFileSync(path.join(root, 'prisma/schema.prisma'), 'utf8').replaceAll('\r\n', '\n');
 const SCALARS = new Set(['String', 'Int', 'BigInt', 'Decimal', 'DateTime', 'Boolean', 'Json', 'Float', 'Bytes']);
 const lowerFirst = (s) => s[0].toLowerCase() + s.slice(1);
 

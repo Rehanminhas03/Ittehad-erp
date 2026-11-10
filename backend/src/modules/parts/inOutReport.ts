@@ -43,9 +43,29 @@ export async function inOutReport(ctx: EntityCtx, f: z.output<typeof InOutReport
          order by ${part.partNo}
          limit 5000`,
   );
+  // Every movement with its own date and time, so the report can list the parts in and the parts out separately.
+  const movements = await query<{
+    partId: number; partNo: string; description: string; date: string; time: string; type: string; direction: 'in' | 'out'; quantity: string; cost: string; price: string;
+  }>(
+    ctx.tx,
+    sql`select ${part.id} as "partId", ${part.partNo} as "partNo", ${part.description} as "description",
+               to_char(${day}, 'DD-Mon-YYYY') as "date",
+               to_char(${inventoryTransaction.occurredAt} at time zone 'Asia/Karachi', 'HH12:MI AM') as "time",
+               ${inventoryTransaction.type}::text as "type",
+               (case when ${q} > 0 then 'in' else 'out' end) as "direction",
+               abs(${q})::text as "quantity",
+               round(abs(coalesce(${v}, 0)), 2)::text as "cost",
+               round(case when ${q} < 0 and ${inventoryTransaction.type} = 'issue' then -${q} * ${price} else 0 end, 2)::text as "price"
+          from ${inventoryTransaction}
+          inner join ${part} on ${part.id} = ${inventoryTransaction.partId}
+         where ${and(...conds)!}
+         order by ${inventoryTransaction.occurredAt} asc, ${inventoryTransaction.id} asc
+         limit 10000`,
+  );
   const sum = (k: 'inQty' | 'inCost' | 'outQty' | 'outCost' | 'outPrice') => rows.reduce((n, r) => n + Number(r[k]), 0);
   return {
     parts: rows,
+    movements,
     totals: { inQty: String(sum('inQty')), inCost: sum('inCost').toFixed(2), outQty: String(sum('outQty')), outCost: sum('outCost').toFixed(2), outPrice: sum('outPrice').toFixed(2), partsCount: rows.length },
   };
 }

@@ -63,7 +63,7 @@ export default function PriceListPage() {
       if (!rows.length) return toast.error('No part matches');
       downloadCsv(
         `${brand || 'Parts'}${modelId ? ` ${modelName(Number(modelId))}` : ''} price list - ${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })}`,
-        [...COLUMNS, { header: 'Fits', value: (r) => ((r.modelIds as number[] | undefined) ?? []).map(modelName).join(', ') }],
+        [...COLUMNS, { header: 'Vehicle', value: (r) => ((r.modelIds as number[] | undefined) ?? []).map(modelName).join(', ') }],
         rows as unknown as Record<string, unknown>[],
       );
     } catch (e) {
@@ -125,7 +125,7 @@ export default function PriceListPage() {
               <th className="py-2 pr-3 font-medium">Part code</th>
               <th className="py-2 pr-3 font-medium">Part name</th>
               <th className="py-2 pr-3 font-medium">Category</th>
-              <th className="py-2 pr-3 font-medium">Fits</th>
+              <th className="py-2 pr-3 font-medium">Vehicle</th>
               <th className="py-2 pr-3 text-right font-medium">Received price (from the company)</th>
               <th className="py-2 pr-3 text-right font-medium">MRP without sales tax</th>
               <th className="py-2 pr-3 text-right font-medium">Sales tax @ 18%</th>

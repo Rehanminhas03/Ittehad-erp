@@ -19,6 +19,8 @@ export const P = {
   estimatesCreate: 'service.estimates.create',
   estimatesUpdate: 'service.estimates.update',
   estimatesApprove: 'service.estimates.approve',
+  estimatesStoreView: 'service.estimates.store_view',
+  estimatesStoreEdit: 'service.estimates.store_edit',
   remindersView: 'service.reminders.view',
   remindersUpdate: 'service.reminders.update',
 } as const;

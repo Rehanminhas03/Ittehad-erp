@@ -70,7 +70,7 @@ export default function PartsRoutes() {
       <Route
         path="report"
         element={
-          <RequirePermission any={[P.stockView]}>
+          <RequirePermission any={[P.receiptsView]}>
             <PartsReportPage />
           </RequirePermission>
         }
@@ -78,7 +78,7 @@ export default function PartsRoutes() {
       <Route
         path="purchase-report"
         element={
-          <RequirePermission any={[P.stockView]}>
+          <RequirePermission any={[P.receiptsView]}>
             <PurchaseReportPage />
           </RequirePermission>
         }
@@ -86,7 +86,7 @@ export default function PartsRoutes() {
       <Route
         path="movements"
         element={
-          <RequirePermission any={[P.stockView]}>
+          <RequirePermission any={[P.receiptsView]}>
             <StockMovementsPage />
           </RequirePermission>
         }

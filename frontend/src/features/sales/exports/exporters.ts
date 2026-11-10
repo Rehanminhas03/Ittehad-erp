@@ -237,6 +237,103 @@ export async function buildTablePdf(fileName: string, title: string, subtitle: s
   return { doc, fileName: fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf` };
 }
 
+export type PdfSection = { title: string; columns: Column[]; rows: Row[]; totals: Row; summary: string };
+
+/** A landscape PDF with several tables one after another, each with its own heading, a total line and a summary under it. */
+export async function buildSectionedPdf(fileName: string, title: string, subtitle: string, sections: PdfSection[], footnote?: string) {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
+  const W = 297;
+  const M = 10;
+  const CW = W - 2 * M;
+  let y = 14;
+  const room = (h: number) => {
+    if (y + h > 200) {
+      doc.addPage();
+      y = 12;
+      return true;
+    }
+    return false;
+  };
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(title, M, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.text(subtitle, M, y + 5.5);
+  doc.setTextColor(17, 24, 39);
+  y += 12;
+  for (const s of sections) {
+    const totalW = s.columns.reduce((n, c) => n + (c.w ?? 1), 0);
+    const colWs = s.columns.map((c) => (CW * (c.w ?? 1)) / totalW);
+    const colX = colWs.map((_, i) => M + colWs.slice(0, i).reduce((a, b) => a + b, 0));
+    const header = () => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setFillColor(30, 58, 138);
+      doc.setTextColor(255, 255, 255);
+      doc.rect(M, y, CW, 7, 'F');
+      s.columns.forEach((c, i) => doc.text(c.header, colX[i]! + 1.5, y + 4.7, { maxWidth: colWs[i]! - 3 }));
+      doc.setTextColor(17, 24, 39);
+      y += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+    };
+    room(30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(s.title, M, y);
+    y += 3;
+    header();
+    const draw = (r: Row, n: number, bold = false) => {
+      const cells = s.columns.map((c, i) => doc.splitTextToSize(String(c.value(r) ?? ''), colWs[i]! - 3) as string[]);
+      const h = Math.max(...cells.map((l) => l.length)) * 3.4 + 2.6;
+      if (room(h)) header();
+      if (bold) {
+        doc.setFillColor(226, 232, 240);
+        doc.rect(M, y, CW, h, 'F');
+      } else if (n % 2) {
+        doc.setFillColor(241, 245, 249);
+        doc.rect(M, y, CW, h, 'F');
+      }
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(7.5);
+      cells.forEach((lines, i) => lines.forEach((l, k) => doc.text(l, colX[i]! + 1.5, y + 3.8 + k * 3.4)));
+      y += h;
+    };
+    if (!s.rows.length) {
+      doc.setFontSize(8);
+      doc.text('Nothing in this period.', M + 1.5, y + 4.5);
+      y += 7;
+    }
+    s.rows.forEach((r, n) => draw(r, n));
+    if (s.rows.length) draw(s.totals, 0, true);
+    room(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(s.summary, M, y + 6);
+    y += 16;
+  }
+  if (footnote) {
+    room(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(footnote, M, y, { maxWidth: CW });
+    doc.setTextColor(17, 24, 39);
+  }
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${title} · Page ${i} of ${pages}`, W - M, 205, { align: 'right' });
+  }
+  return { doc, fileName: fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf` };
+}
+
 /** The same PDF table, saved straight away. */
 export async function downloadTablePdf(fileName: string, title: string, subtitle: string, columns: Column[], rows: Row[], footnote?: string) {
   const { doc, fileName: name } = await buildTablePdf(fileName, title, subtitle, columns, rows, footnote);

@@ -96,7 +96,7 @@ export function NewPartOnReceipt({ brand, vehicles, onAdd }: { brand?: string; v
               <Field label="Quantity received" htmlFor="np-qty" required>
                 <Input id="np-qty" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               </Field>
-              <Field label="Price received (PKR per piece)" htmlFor="np-cost" required hint="What you paid head office, not the customer price">
+              <Field label="Price received (PKR per piece, without sales tax)" htmlFor="np-cost" required hint="What you paid head office, without the sales tax, not the customer price">
                 <Input id="np-cost" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} />
               </Field>
             </div>

@@ -399,10 +399,22 @@ export const EstimateSchema = z.object({
   estimateNo: z.string(),
   dealershipId: Id,
   branchId: Id.nullable(),
-  jobCardId: Id,
+  /** Empty for an estimate made on its own (no job card). */
+  jobCardId: Id.nullable(),
   jobCardNo: z.string().nullable().optional(),
-  customerId: Id,
+  customerId: Id.nullable(),
   customerName: z.string().nullable().optional(),
+  customerMobile: z.string().nullable().optional(),
+  vehicleModel: z.string().nullable().optional(),
+  registrationNo: z.string().nullable().optional(),
+  vehicleVariant: z.string().nullable().optional(),
+  vin: z.string().nullable().optional(),
+  engineNo: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  modelYear: z.number().int().nullable().optional(),
+  /** The car as shown in lists: model and registration. */
+  vehicleLabel: z.string().nullable().optional(),
+  advisorName: z.string().nullable().optional(),
   advisorId: Id,
   totalAmount: z.string(),
   validUntil: z.string().nullable(),
@@ -414,7 +426,28 @@ export const EstimateSchema = z.object({
 export const EstimateCreate = z
   .object({ jobCardId: Id, validUntil: z.iso.date().nullish(), notes: optionalText(4000), fromInspection: z.boolean().default(false) })
   .openapi('EstimateCreate');
-export const EstimateUpdate = z.object({ validUntil: z.iso.date().nullish(), notes: optionalText(4000) }).partial().openapi('EstimateUpdate');
+/** An estimate made on its own, without a job card: who it is for and which car; the lines are added afterwards. */
+export const StandaloneEstimateCreate = z
+  .object({
+    dealershipId: Id,
+    branchId: Id.nullish(),
+    customerName: z.string().trim().min(2, 'Enter the customer name').max(120),
+    customerMobile: z.string().trim().min(7, 'Enter the contact number').max(30),
+    vehicleModel: z.string().trim().min(1, 'Choose the model').max(80),
+    registrationNo: optionalText(30),
+    vehicleVariant: z.string().trim().min(1, 'Choose the variant').max(120),
+    vin: optionalText(40),
+    engineNo: optionalText(40),
+    color: optionalText(40),
+    modelYear: z.number().int().min(1980).max(2100).nullish(),
+    validUntil: z.iso.date().nullish(),
+    notes: optionalText(4000),
+  })
+  .openapi('StandaloneEstimateCreate');
+export const EstimateUpdate = z
+  .object({ validUntil: z.iso.date().nullish(), notes: optionalText(4000), customerName: z.string().trim().min(2).max(120), customerMobile: optionalText(30), vehicleModel: optionalText(80), registrationNo: optionalText(30), vehicleVariant: optionalText(120), vin: optionalText(40), engineNo: optionalText(40), color: optionalText(40), modelYear: z.number().int().min(1980).max(2100).nullish() })
+  .partial()
+  .openapi('EstimateUpdate');
 
 export const EstimateLineSchema = z.object({
   id: Id,

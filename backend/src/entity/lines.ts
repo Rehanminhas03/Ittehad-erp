@@ -25,6 +25,8 @@ export interface LineConfig {
   /** Permission(s) on the parent row needed to change lines (second = "own" variant). */
   editPermission: string;
   editOwnPermission?: string;
+  /** More permissions that may also change the lines (e.g. the store pricing an estimate's parts). */
+  editAlsoPermissions?: readonly string[];
   maxLines: number;
   /** Order lines are listed in. */
   sortKey: string;
@@ -67,7 +69,8 @@ export class LineService {
   async editableParent(ctx: EntityCtx, parentId: number): Promise<Row> {
     const { parent, editPermission, editOwnPermission, locked } = this.config;
     const p = await parent.findVisible(ctx, parentId, { lock: true });
-    if (!parent.canOnRow(ctx.access, p, editPermission, editOwnPermission)) throw forbidden();
+    const allowed = parent.canOnRow(ctx.access, p, editPermission, editOwnPermission) || (this.config.editAlsoPermissions ?? []).some((c) => parent.canOnRow(ctx.access, p, c));
+    if (!allowed) throw forbidden();
     const reason = locked?.(p);
     if (reason) throw conflict(reason);
     return p;
@@ -142,8 +145,8 @@ export class LineService {
 export function buildLineRouter(config: LineConfig, service = new LineService(config)) {
   const parent = config.parent.config;
   const router = new ApiRouter(`/${parent.module}/${parent.path}`, parent.names.singular);
-  const viewPerms = [parent.permissions.view, parent.permissions.viewOwn].filter((x): x is string => !!x);
-  const editPerms = [config.editPermission, config.editOwnPermission].filter((x): x is string => !!x);
+  const viewPerms = [parent.permissions.view, parent.permissions.viewOwn, ...[parent.permissions.viewWhen ?? []].flat().map((w) => w.code)].filter((x): x is string => !!x);
+  const editPerms = [config.editPermission, config.editOwnPermission, ...(config.editAlsoPermissions ?? [])].filter((x): x is string => !!x);
   const LineParams = IdParam.extend({ lineId: z.coerce.number().int().positive() });
   const Read = config.schemas.read.openapi(config.names.singular);
 

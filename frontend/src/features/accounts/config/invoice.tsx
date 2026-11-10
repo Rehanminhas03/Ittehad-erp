@@ -44,7 +44,13 @@ export const invoiceView: EntityViewConfig<Invoice> = {
   list: {
     defaultSort: '-createdAt',
     searchPlaceholder: 'Search invoice or order / job card number',
-    filters: [statusFilter(INVOICE_STATES), { param: 'kind', label: 'Kind', type: 'select', options: KINDS }, dealershipFilter],
+    filters: [
+      statusFilter(INVOICE_STATES),
+      { param: 'kind', label: 'Kind', type: 'select', options: KINDS },
+      dealershipFilter,
+      // Set by the store's "Counter sale invoices" link: only the invoices made by counter sales (shown as a removable chip).
+      { param: 'sourceType', label: 'Source', type: 'hidden', chip: (v) => (v === 'counter_sale' ? 'Counter sales only' : v === 'job_card' ? 'Job card invoices only' : v) },
+    ],
     columns: [
       { key: 'invoiceNo', header: 'Invoice', sortKey: 'invoiceNo', render: (i) => mono(i.invoiceNo) },
       { key: 'customerName', header: 'Customer', render: (i) => strong(i.customerName) },

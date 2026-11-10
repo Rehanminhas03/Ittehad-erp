@@ -106,7 +106,7 @@ export const goodsReceiptView: EntityViewConfig<GoodsReceipt> = {
       { key: 'poNo', header: 'PO', render: (g) => mono(g.poNo) },
       { key: 'supplierName', header: 'Supplier', render: (g) => strong(g.supplierName) },
       { key: 'supplierInvoiceNo', header: 'Supplier invoice', render: (g) => muted(g.supplierInvoiceNo) },
-      { key: 'receivedDate', header: 'Received', sortKey: 'receivedDate', render: (g) => formatDate(g.receivedDate) },
+      { key: 'createdAt', header: 'Received (date and time)', sortKey: 'createdAt', render: (g) => formatDateTime(g.createdAt) },
       { key: 'totalCost', header: 'Value', sortKey: 'totalCost', className: 'text-right tabular-nums', render: (g) => formatMoney(g.totalCost) },
     ],
   },

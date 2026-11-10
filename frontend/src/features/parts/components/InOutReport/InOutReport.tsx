@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
 import { Button, Dialog, Input, Select, Spinner } from '@/shared/components/ui';
-import { buildTablePdf, downloadCsv, type Column } from '@/features/sales/exports/exporters';
+import { buildSectionedPdf, downloadCsv, type Column } from '@/features/sales/exports/exporters';
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { useGetPartsInOutReportQuery } from '../../partsApi';
@@ -11,14 +11,48 @@ const iso = (d: Date) => d.toLocaleDateString('en-CA');
 const today = () => iso(new Date());
 const qty = (v: string | number) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-const COLUMNS: Column[] = [
-  { header: 'Part no.', value: (r) => String(r.partNo), w: 1.3 },
-  { header: 'Part name', value: (r) => String(r.description), w: 2.6 },
-  { header: 'Pieces in', value: (r) => Number(r.inQty) },
-  { header: 'Cost in', value: (r) => Number(r.inCost) },
-  { header: 'Pieces out', value: (r) => Number(r.outQty) },
-  { header: 'Cost out', value: (r) => Number(r.outCost) },
-  { header: 'Price charged (out)', value: (r) => Number(r.outPrice) },
+type Move = { partNo: string; description: string; date: string; time: string; type: string; direction: 'in' | 'out'; quantity: string; cost: string; price: string };
+const HOW: Record<string, string> = {
+  receipt: 'Received from supplier',
+  return: 'Taken back from the workshop',
+  transfer_in: 'Transferred in',
+  transfer_out: 'Transferred out',
+  issue: 'Issued',
+};
+const how = (m: Move) => HOW[m.type] ?? (m.direction === 'in' ? 'Stock adjusted up' : 'Stock adjusted down');
+const total = (xs: Move[], k: 'quantity' | 'cost' | 'price') => xs.reduce((n, m) => n + Number(m[k]), 0);
+
+const num = (v: unknown) => (v === '' || v == null ? '' : Number(v));
+const IN_COLUMNS: Column[] = [
+  { header: 'Date', value: (r) => String(r.date), w: 1 },
+  { header: 'Time', value: (r) => String(r.time), w: 0.8 },
+  { header: 'Part no.', value: (r) => String(r.partNo), w: 1.4 },
+  { header: 'Part name', value: (r) => String(r.description), w: 2.8 },
+  { header: 'How it came in', value: (r) => String(r.how), w: 1.8 },
+  { header: 'Pieces in', value: (r) => num(r.quantity), w: 0.8 },
+  { header: 'Cost in', value: (r) => num(r.cost), w: 1 },
+];
+const OUT_COLUMNS: Column[] = [
+  { header: 'Date', value: (r) => String(r.date), w: 1 },
+  { header: 'Time', value: (r) => String(r.time), w: 0.8 },
+  { header: 'Part no.', value: (r) => String(r.partNo), w: 1.4 },
+  { header: 'Part name', value: (r) => String(r.description), w: 2.8 },
+  { header: 'How it went out', value: (r) => String(r.how), w: 1.8 },
+  { header: 'Pieces out', value: (r) => num(r.quantity), w: 0.8 },
+  { header: 'Cost out', value: (r) => num(r.cost), w: 1 },
+  { header: 'Price charged', value: (r) => num(r.price), w: 1 },
+];
+/** The Excel file: parts in first, then parts out, each with its total line. */
+const CSV_COLUMNS: Column[] = [
+  { header: 'In / Out', value: (r) => String(r.dir) },
+  { header: 'Date', value: (r) => String(r.date) },
+  { header: 'Time', value: (r) => String(r.time) },
+  { header: 'Part no.', value: (r) => String(r.partNo) },
+  { header: 'Part name', value: (r) => String(r.description) },
+  { header: 'How', value: (r) => String(r.how) },
+  { header: 'Pieces', value: (r) => num(r.quantity) },
+  { header: 'Cost', value: (r) => num(r.cost) },
+  { header: 'Price charged (out)', value: (r) => num(r.price) },
 ];
 
 /**
@@ -40,16 +74,43 @@ export function InOutReportButton() {
     { dealershipId: dealershipId ? Number(dealershipId) : undefined, branchId: branchId ? Number(branchId) : undefined, from, to, q: q.trim() || undefined },
     { skip: !open },
   );
-  const rows = (data?.parts ?? []) as unknown as Record<string, unknown>[];
+  const moves = (data?.movements ?? []) as Move[];
+  const ins = moves.filter((m) => m.direction === 'in');
+  const outs = moves.filter((m) => m.direction === 'out');
+  const withHow = (xs: Move[]) => xs.map((m) => ({ ...m, how: how(m) })) as unknown as Record<string, unknown>[];
+  const rows = moves as unknown as Record<string, unknown>[];
+  const inTotals = { date: 'TOTAL', time: '', partNo: '', description: '', how: '', quantity: String(total(ins, 'quantity')), cost: total(ins, 'cost').toFixed(2), price: '' };
+  const outTotals = { date: 'TOTAL', time: '', partNo: '', description: '', how: '', quantity: String(total(outs, 'quantity')), cost: total(outs, 'cost').toFixed(2), price: total(outs, 'price').toFixed(2) };
   const where = dealerships.find((d) => String(d.id) === dealershipId)?.name ?? (dealerships.length === 1 ? dealerships[0]!.name : 'All dealerships');
   const name = `Parts in and out - ${from} to ${to}`;
-  const totalRow = data ? { partNo: 'TOTAL', description: '', ...data.totals } : null;
 
   // Memoised: the PDF is drawn again whenever this function changes.
   const build = useMemo(
     () =>
       viewing && data && rows.length
-        ? () => buildTablePdf(name, 'Store: parts in and out', `${where} · ${from} to ${to}`, COLUMNS, [...rows, totalRow as never], 'In: received, transferred in, taken back from the workshop, adjusted up. Out: issued, transferred out, adjusted down. Price charged is for the parts issued, less parts taken back.')
+        ? () =>
+            buildSectionedPdf(
+              name,
+              'Store: parts in and out',
+              `${where} · ${from} to ${to}`,
+              [
+                {
+                  title: 'Parts in',
+                  columns: IN_COLUMNS,
+                  rows: withHow(ins),
+                  totals: inTotals,
+                  summary: `Parts in: ${qty(inTotals.quantity)} pieces, cost ${formatMoney(inTotals.cost)}`,
+                },
+                {
+                  title: 'Parts out',
+                  columns: OUT_COLUMNS,
+                  rows: withHow(outs),
+                  totals: outTotals,
+                  summary: `Parts out: ${qty(outTotals.quantity)} pieces, cost ${formatMoney(outTotals.cost)}, price charged ${formatMoney(outTotals.price)}`,
+                },
+              ],
+              'In: received, transferred in, taken back from the workshop, adjusted up. Out: issued, transferred out, adjusted down. Price charged is for the parts issued.',
+            )
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [viewing, data, name, where],
@@ -94,7 +155,12 @@ export function InOutReportButton() {
               <Button variant="secondary" onClick={() => setOpen(false)}>
                 Close
               </Button>
-              <Button variant="secondary" disabled={!rows.length} onClick={() => downloadCsv(name, COLUMNS, [...rows, totalRow as never])}>
+              <Button variant="secondary" disabled={!rows.length} onClick={() => downloadCsv(name, CSV_COLUMNS, [
+                    ...withHow(ins).map((m) => ({ ...m, dir: 'In' })),
+                    { ...inTotals, dir: 'In', date: 'TOTAL IN' },
+                    ...withHow(outs).map((m) => ({ ...m, dir: 'Out' })),
+                    { ...outTotals, dir: 'Out', date: 'TOTAL OUT' },
+                  ])}>
                 Export to Excel (CSV)
               </Button>
               <Button disabled={!rows.length} onClick={() => setViewing(true)}>
@@ -168,49 +234,61 @@ export function InOutReportButton() {
             <p className="mt-5 text-sm text-slate-500">No parts came in or went out in this period.</p>
           ) : (
             <>
-              <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-                {[
-                  ['Pieces in', qty(data!.totals.inQty)],
-                  ['Cost in', formatMoney(data!.totals.inCost)],
-                  ['Pieces out', qty(data!.totals.outQty)],
-                  ['Cost out', formatMoney(data!.totals.outCost)],
-                  ['Price charged (out)', formatMoney(data!.totals.outPrice)],
-                ].map(([label, value]) => (
-                  <div key={label} className="surface p-3">
-                    <p className="text-xs text-slate-500">{label}</p>
-                    <p className="text-lg font-semibold tabular-nums">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 max-h-[50vh] overflow-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="sticky top-0 bg-white">
-                    <tr className="border-b border-slate-200 text-right text-xs font-medium tracking-wide text-slate-500">
-                      <th className="py-2 pr-3 text-left font-medium">Part</th>
-                      <th className="py-2 pr-3 font-medium">Pieces in</th>
-                      <th className="py-2 pr-3 font-medium">Cost in</th>
-                      <th className="py-2 pr-3 font-medium">Pieces out</th>
-                      <th className="py-2 pr-3 font-medium">Cost out</th>
-                      <th className="py-2 font-medium">Price charged (out)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 tabular-nums">
-                    {data!.parts.map((p) => (
-                      <tr key={p.partId} className="text-right">
-                        <td className="py-1.5 pr-3 text-left">
-                          <span className="block font-mono text-xs text-slate-900">{p.partNo}</span>
-                          <span className="block max-w-xs truncate text-slate-600">{p.description}</span>
-                        </td>
-                        <td className="py-1.5 pr-3">{Number(p.inQty) ? qty(p.inQty) : '–'}</td>
-                        <td className="py-1.5 pr-3">{Number(p.inCost) ? formatMoney(p.inCost) : '–'}</td>
-                        <td className="py-1.5 pr-3">{Number(p.outQty) ? qty(p.outQty) : '–'}</td>
-                        <td className="py-1.5 pr-3">{Number(p.outCost) ? formatMoney(p.outCost) : '–'}</td>
-                        <td className="py-1.5">{Number(p.outPrice) ? formatMoney(p.outPrice) : '–'}</td>
-                      </tr>
+              {[
+                { title: 'Parts in', list: ins, out: false },
+                { title: 'Parts out', list: outs, out: true },
+              ].map(({ title, list, out }) => (
+                <section key={title} className="mt-4">
+                  <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+                  <div className={`mt-2 grid grid-cols-2 gap-3 ${out ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+                    {[
+                      [out ? 'Pieces out' : 'Pieces in', qty(total(list, 'quantity'))],
+                      [out ? 'Cost out' : 'Cost in', formatMoney(total(list, 'cost'))],
+                      ...(out ? [['Price charged', formatMoney(total(list, 'price'))]] : []),
+                    ].map(([label, value]) => (
+                      <div key={label} className="surface p-3">
+                        <p className="text-xs text-slate-500">{label}</p>
+                        <p className="text-lg font-semibold tabular-nums">{value}</p>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                  <div className="mt-2 max-h-[30vh] overflow-auto">
+                    {!list.length ? (
+                      <p className="py-2 text-sm text-slate-500">Nothing in this period.</p>
+                    ) : (
+                      <table className="min-w-full text-sm">
+                        <thead className="sticky top-0 bg-white">
+                          <tr className="border-b border-slate-200 text-right text-xs font-medium tracking-wide text-slate-500">
+                            <th className="py-2 pr-3 text-left font-medium">Date and time</th>
+                            <th className="py-2 pr-3 text-left font-medium">Part</th>
+                            <th className="py-2 pr-3 text-left font-medium">{out ? 'How it went out' : 'How it came in'}</th>
+                            <th className="py-2 pr-3 font-medium">{out ? 'Pieces out' : 'Pieces in'}</th>
+                            <th className={`py-2 font-medium ${out ? 'pr-3' : ''}`}>{out ? 'Cost out' : 'Cost in'}</th>
+                            {out && <th className="py-2 font-medium">Price charged</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 tabular-nums">
+                          {list.map((m, i) => (
+                            <tr key={i} className="text-right">
+                              <td className="whitespace-nowrap py-1.5 pr-3 text-left text-xs text-slate-600">
+                                {m.date}, {m.time}
+                              </td>
+                              <td className="py-1.5 pr-3 text-left">
+                                <span className="block font-mono text-xs text-slate-900">{m.partNo}</span>
+                                <span className="block max-w-xs truncate text-slate-600">{m.description}</span>
+                              </td>
+                              <td className="py-1.5 pr-3 text-left text-xs text-slate-600">{how(m)}</td>
+                              <td className="py-1.5 pr-3">{qty(m.quantity)}</td>
+                              <td className={`py-1.5 ${out ? 'pr-3' : ''}`}>{formatMoney(m.cost)}</td>
+                              {out && <td className="py-1.5">{Number(m.price) ? formatMoney(m.price) : '–'}</td>}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </section>
+              ))}
             </>
           )}
         </Dialog>

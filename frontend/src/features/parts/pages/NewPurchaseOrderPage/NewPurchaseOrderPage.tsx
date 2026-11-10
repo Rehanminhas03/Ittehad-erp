@@ -114,7 +114,7 @@ export default function NewPurchaseOrderPage() {
               <th className="py-2 pr-2 font-medium">Part number</th>
               <th className="py-2 pr-2 font-medium">Part name</th>
               <th className="py-2 pr-2 text-right font-medium">Qty</th>
-              <th className="py-2 pr-2 text-right font-medium">Cost from supplier (each)</th>
+              <th className="py-2 pr-2 text-right font-medium">Cost from supplier (each, without sales tax)</th>
               <th className="py-2 pr-2 text-right font-medium">Amount</th>
               <th className="w-8" />
             </tr>

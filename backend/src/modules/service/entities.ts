@@ -337,10 +337,11 @@ export const estimateEntity: EntityConfig = {
   table: estimate,
   // Created from a job card (see service.ts).
   schemas: { read: EstimateSchema, update: EstimateUpdate },
-  permissions: { view: P.estimatesView, viewOwn: P.estimatesViewOwn, update: P.estimatesUpdate },
+  // The store sees every estimate of its dealership (to add parts and prices).
+  permissions: { view: P.estimatesView, viewOwn: P.estimatesViewOwn, viewWhen: { code: P.estimatesStoreView, condition: sql`true` }, update: P.estimatesUpdate },
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'advisorId',
-  search: ['estimateNo'],
+  search: ['estimateNo', 'customerName', 'registrationNo', 'vin'],
   filters: {
     status: statusFilter(['draft', 'submitted', 'approved', 'rejected']),
     jobCardId: { key: 'jobCardId', schema: IdQuery },
@@ -375,11 +376,14 @@ export const estimateEntity: EntityConfig = {
         to: 'approved',
         permission: P.estimatesApprove,
         guard: async (ctx, row) => {
+          // An estimate on its own has no job card: it is only the price given to the customer.
+          if (!row.jobCardId) return null;
           const jc = await ctx.tx.jobCard.findFirst({ where: { id: row.jobCardId as number }, select: { status: true } });
           return jc && ['open', 'in_progress'].includes(jc.status) ? null : 'The job card is no longer open';
         },
         // Approved work goes onto the job card.
         effect: async (ctx, row) => {
+          if (!row.jobCardId) return;
           const lines = await ctx.tx.estimateLine.findMany({ where: { estimateId: row.id } });
           const card = await ctx.tx.jobCard.findFirst({ where: { id: row.jobCardId as number }, select: { visit: { select: { freeService: true } } } });
           const freeVisit = !!card?.visit.freeService;
@@ -411,13 +415,21 @@ export const estimateEntity: EntityConfig = {
   hooks: {
     beforeUpdate: async (_ctx, row, patch) => {
       if (row.status !== 'draft') throw conflict('Only draft estimates can be edited');
+      // The customer and the car are typed only on an estimate made on its own (otherwise they are the job card's).
+      if (row.jobCardId) for (const k of ['customerName', 'customerMobile', 'vehicleModel', 'registrationNo', 'vehicleVariant', 'vin', 'engineNo', 'color', 'modelYear']) delete patch[k];
       return patch;
     },
-    decorate: (ctx, rows) =>
-      withNames(ctx.tx, rows, {
+    decorate: async (ctx, rows) =>
+      (await withNames(ctx.tx, rows, {
         jobCardNo: { key: 'jobCardId', source: JOB_CARD_NO },
         customerName: { key: 'customerId', source: CUSTOMER_NAME },
-      }),
+        advisorName: { key: 'advisorId', source: USER_NAME },
+      })).map((r, i) => ({
+        ...r,
+        // An estimate on its own carries the customer and the car typed on it.
+        customerName: r.customerName ?? (rows[i]!.customerName as string | null) ?? null,
+        vehicleLabel: [rows[i]!.vehicleModel, rows[i]!.registrationNo].filter(Boolean).join(' · ') || null,
+      })),
   },
 };
 

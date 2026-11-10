@@ -93,7 +93,7 @@ export default function ManagePartsPage() {
               <th className="py-2 pr-3 font-medium">Part no.</th>
               <th className="py-2 pr-3 font-medium">Description</th>
               <th className="py-2 pr-3 font-medium">Category</th>
-              <th className="py-2 pr-3 font-medium">Fits</th>
+              <th className="py-2 pr-3 font-medium">Vehicle</th>
               <th className="py-2 pr-3 text-right font-medium">Received (PKR)</th>
               <th className="py-2 pr-3 text-right font-medium">Customer price (PKR)</th>
               <th />
@@ -327,7 +327,7 @@ function FitsDialog({ brand, models, onClose, toast }: { brand: string; models: 
                 <th className="px-3 py-2 font-medium">Starts with</th>
                 <th className="px-3 py-2 font-medium">Parts</th>
                 <th className="px-3 py-2 font-medium">Example</th>
-                <th className="px-3 py-2 font-medium">Fits</th>
+                <th className="px-3 py-2 font-medium">Vehicle</th>
                 <th />
               </tr>
             </thead>

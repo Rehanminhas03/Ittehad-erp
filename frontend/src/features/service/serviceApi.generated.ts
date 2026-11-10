@@ -5,9 +5,9 @@ export const addTagTypes = [
   "VehicleSchedule",
   "ServicePackage",
   "JobCard",
+  "Estimate",
   "ScheduleItem",
   "InspectionTemplateItem",
-  "Estimate",
 ] as const;
 const injectedRtkApi = api
   .enhanceEndpoints({
@@ -219,6 +219,17 @@ const injectedRtkApi = api
           body: queryArg.body,
         }),
         invalidatesTags: ["JobCard"],
+      }),
+      createStandaloneEstimate: build.mutation<
+        CreateStandaloneEstimateApiResponse,
+        CreateStandaloneEstimateApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/service/estimates/standalone`,
+          method: "POST",
+          body: queryArg.standaloneEstimateCreate,
+        }),
+        invalidatesTags: ["Estimate"],
       }),
       listScheduleItems: build.query<
         ListScheduleItemsApiResponse,
@@ -776,10 +787,20 @@ export type CreateEstimateApiResponse = /** status 201 Success */ {
   estimateNo: string;
   dealershipId: number;
   branchId: number | null;
-  jobCardId: number;
+  jobCardId: number | null;
   jobCardNo?: string | null;
-  customerId: number;
+  customerId: number | null;
   customerName?: string | null;
+  customerMobile?: string | null;
+  vehicleModel?: string | null;
+  registrationNo?: string | null;
+  vehicleVariant?: string | null;
+  vin?: string | null;
+  engineNo?: string | null;
+  color?: string | null;
+  modelYear?: number | null;
+  vehicleLabel?: string | null;
+  advisorName?: string | null;
   advisorId: number;
   totalAmount: string;
   validUntil: string | null;
@@ -796,6 +817,37 @@ export type CreateEstimateApiArg = {
     notes?: string | null;
     fromInspection?: boolean;
   };
+};
+export type CreateStandaloneEstimateApiResponse = /** status 201 Success */ {
+  id: number;
+  estimateNo: string;
+  dealershipId: number;
+  branchId: number | null;
+  jobCardId: number | null;
+  jobCardNo?: string | null;
+  customerId: number | null;
+  customerName?: string | null;
+  customerMobile?: string | null;
+  vehicleModel?: string | null;
+  registrationNo?: string | null;
+  vehicleVariant?: string | null;
+  vin?: string | null;
+  engineNo?: string | null;
+  color?: string | null;
+  modelYear?: number | null;
+  vehicleLabel?: string | null;
+  advisorName?: string | null;
+  advisorId: number;
+  totalAmount: string;
+  validUntil: string | null;
+  notes: string | null;
+  status: "draft" | "submitted" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type CreateStandaloneEstimateApiArg = {
+  standaloneEstimateCreate: StandaloneEstimateCreate;
 };
 export type ListScheduleItemsApiResponse =
   /** status 200 Success */ ScheduleItemPage;
@@ -1272,6 +1324,21 @@ export type InspectionItemsUpdate = {
   }[];
   notes?: string | null;
 };
+export type StandaloneEstimateCreate = {
+  dealershipId: number;
+  branchId?: number | null;
+  customerName: string;
+  customerMobile: string;
+  vehicleModel: string;
+  registrationNo?: string | null;
+  vehicleVariant: string;
+  vin?: string | null;
+  engineNo?: string | null;
+  color?: string | null;
+  modelYear?: number | null;
+  validUntil?: string | null;
+  notes?: string | null;
+};
 export type ScheduleItem = {
   id: number;
   modelId: number;
@@ -1550,10 +1617,20 @@ export type Estimate = {
   estimateNo: string;
   dealershipId: number;
   branchId: number | null;
-  jobCardId: number;
+  jobCardId: number | null;
   jobCardNo?: string | null;
-  customerId: number;
+  customerId: number | null;
   customerName?: string | null;
+  customerMobile?: string | null;
+  vehicleModel?: string | null;
+  registrationNo?: string | null;
+  vehicleVariant?: string | null;
+  vin?: string | null;
+  engineNo?: string | null;
+  color?: string | null;
+  modelYear?: number | null;
+  vehicleLabel?: string | null;
+  advisorName?: string | null;
   advisorId: number;
   totalAmount: string;
   validUntil: string | null;
@@ -1572,6 +1649,15 @@ export type EstimatePage = {
 export type EstimateUpdate = {
   validUntil?: string | null;
   notes?: string | null;
+  customerName?: string;
+  customerMobile?: string | null;
+  vehicleModel?: string | null;
+  registrationNo?: string | null;
+  vehicleVariant?: string | null;
+  vin?: string | null;
+  engineNo?: string | null;
+  color?: string | null;
+  modelYear?: number | null;
 };
 export const {
   useFindCheckInCustomerQuery,
@@ -1602,6 +1688,7 @@ export const {
   useRecordInspectionMutation,
   useCompleteInspectionMutation,
   useCreateEstimateMutation,
+  useCreateStandaloneEstimateMutation,
   useListScheduleItemsQuery,
   useLazyListScheduleItemsQuery,
   useCreateScheduleItemMutation,

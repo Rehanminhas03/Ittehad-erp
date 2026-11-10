@@ -1774,8 +1774,18 @@ model Estimate {
   dealershipId  BigInt         @map("dealership_id")
   branchId      BigInt?        @map("branch_id")
   estimateNo    String         @unique(map: "estimate_estimateNo_unique") @map("estimate_no")
-  jobCardId     BigInt         @map("job_card_id")
-  customerId    BigInt         @map("customer_id")
+  /// Empty for an estimate made on its own (no job card): the customer and the car are typed on it.
+  jobCardId     BigInt?        @map("job_card_id")
+  customerId    BigInt?        @map("customer_id")
+  customerName  String?        @map("customer_name")
+  customerMobile String?       @map("customer_mobile")
+  vehicleModel  String?        @map("vehicle_model")
+  registrationNo String?       @map("registration_no")
+  vehicleVariant String?       @map("vehicle_variant")
+  vin           String?
+  engineNo      String?        @map("engine_no")
+  color         String?
+  modelYear     Int?           @map("model_year")
   advisorId     BigInt         @map("advisor_id")
   totalAmount   Decimal        @default(0) @map("total_amount") @db.Decimal(14, 2)
   validUntil    DateTime?      @map("valid_until") @db.Date
@@ -1788,9 +1798,9 @@ model Estimate {
   advisor       User           @relation("estimate_advisor_idTouser", fields: [advisorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_advisor_id_user_id_fk")
   branch        Branch?        @relation(fields: [branchId, dealershipId], references: [id, dealershipId], onDelete: NoAction, onUpdate: NoAction, map: "estimate_branch_id_dealership_id_branch_id_dealership_id_fk")
   createdBy     User?          @relation("estimate_created_by_idTouser", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_created_by_id_user_id_fk")
-  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_customer_id_customer_id_fk")
+  customer      Customer?      @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_customer_id_customer_id_fk")
   dealership    Dealership     @relation(fields: [dealershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_dealership_id_dealership_id_fk")
-  jobCard       JobCard        @relation(fields: [jobCardId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_job_card_id_job_card_id_fk")
+  jobCard       JobCard?       @relation(fields: [jobCardId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_job_card_id_job_card_id_fk")
   updatedBy     User?          @relation("estimate_updated_by_idTouser", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "estimate_updated_by_id_user_id_fk")
   estimateLines EstimateLine[]
 

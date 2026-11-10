@@ -26,8 +26,9 @@ export function Topbar() {
           <button
             type="button"
             onClick={toggle}
-            className="rounded-lg p-1.5 text-slate-600 hover:bg-white/60 hover:text-slate-900"
-            aria-label="Toggle navigation"
+            className="rounded-lg bg-white/50 p-1.5 text-slate-700 ring-1 ring-white hover:bg-white/80 hover:text-slate-900"
+            aria-label="Show or hide the menu"
+            title="Show or hide the menu"
           >
             <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden>
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

@@ -27,6 +27,7 @@ import {
   JobCardLineSchema,
   JobCardLineUpdate,
   type EstimateCreate,
+  type StandaloneEstimateCreate,
   type InspectionItemsUpdate,
   type RegisterVehicleBody,
 } from './schemas';
@@ -459,6 +460,36 @@ export async function createEstimate(ctx: EntityCtx, jobCardId: number, input: z
   return estimates.get(ctx, row.id);
 }
 
+/** An estimate on its own, without a job card: the customer and the car are typed on it; the lines come next. */
+export async function createStandaloneEstimate(ctx: EntityCtx, input: z.output<typeof StandaloneEstimateCreate>) {
+  const target = { dealershipId: input.dealershipId, branchId: input.branchId ?? null };
+  if (!ctx.access.canIn(P.estimatesCreate, target)) throw forbidden('You cannot create estimates at this dealership');
+  const row = await ctx.tx.estimate.create({
+    data: {
+      ...target,
+      estimateNo: await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.estimate),
+      jobCardId: null,
+      customerId: null,
+      customerName: input.customerName,
+      customerMobile: input.customerMobile,
+      vehicleModel: input.vehicleModel ?? null,
+      registrationNo: input.registrationNo ?? null,
+      vehicleVariant: input.vehicleVariant ?? null,
+      vin: input.vin ?? null,
+      engineNo: input.engineNo ?? null,
+      color: input.color ?? null,
+      modelYear: input.modelYear ?? null,
+      advisorId: ctx.access.userId,
+      validUntil: input.validUntil ?? null,
+      notes: input.notes ?? null,
+      createdById: ctx.access.userId,
+      updatedById: ctx.access.userId,
+    },
+  });
+  await ctx.audit({ entityType: 'service.estimate', entityId: row.id, action: 'create', ...target, changes: { standalone: true } });
+  return estimates.get(ctx, row.id);
+}
+
 async function recomputeEstimateTotal(ctx: EntityCtx, parent: Row) {
   await execute(
     ctx.tx,
@@ -473,6 +504,8 @@ export const estimateLines = new LineService({
   names: { singular: 'EstimateLine', plural: 'EstimateLines' },
   schemas: { read: EstimateLineSchema, create: EstimateLineCreate, update: EstimateLineUpdate },
   editPermission: P.estimatesUpdate,
+  // The store adds the parts and their prices to a draft estimate.
+  editAlsoPermissions: [P.estimatesStoreEdit],
   maxLines: 200,
   sortKey: 'sortOrder',
   locked: (p) => (p.status !== 'draft' ? 'Only draft estimates can be changed' : null),

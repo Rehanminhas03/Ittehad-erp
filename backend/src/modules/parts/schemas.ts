@@ -206,6 +206,10 @@ export const DirectIssueBody = z
     /** Counter sale customer: a mobile finds or adds the customer (then the name is needed); empty is a walk-in customer. */
     customerMobile: optionalText(30),
     customerName: optionalText(120),
+    /** Counter sale customer's CNIC, NTN and address (kept on the customer; the invoice prints them). */
+    customerCnic: optionalText(25),
+    customerNtn: optionalText(25),
+    customerAddress: optionalText(300),
     lines: z.array(z.object({ partNo: PartNo, quantity: Quantity, unitPrice: Money.optional(), discountPercent: DiscountPercent.optional() })).min(1).max(100),
   })
   .openapi('DirectIssueRequest');
@@ -694,6 +698,8 @@ export const PurchaseReportSchema = z
       z.object({
         partId: Id,
         date: z.string(),
+        /** The time the goods receipt was entered (recorded by the system). */
+        time: z.string(),
         grnNo: z.string(),
         poNo: z.string().nullable(),
         supplier: z.string(),
@@ -728,6 +734,21 @@ export const InOutReportSchema = z
         outQty: z.string(),
         outCost: z.string(),
         outPrice: z.string(),
+      }),
+    ),
+    /** Each movement with its own date and time; "in" ones list the parts in, "out" ones the parts out. */
+    movements: z.array(
+      z.object({
+        partId: Id,
+        partNo: z.string(),
+        description: z.string(),
+        date: z.string(),
+        time: z.string(),
+        type: z.string(),
+        direction: z.enum(['in', 'out']),
+        quantity: z.string(),
+        cost: z.string(),
+        price: z.string(),
       }),
     ),
     totals: z.object({ inQty: z.string(), inCost: z.string(), outQty: z.string(), outCost: z.string(), outPrice: z.string(), partsCount: z.number().int() }),

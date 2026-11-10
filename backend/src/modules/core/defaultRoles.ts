@@ -153,7 +153,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
   {
     name: 'Store Manager',
     description: 'Runs the store: adds parts, changes part numbers and prices, receives and issues parts, approves stock adjustments, sees the store report, and sees and prints the counter sale invoices. Assigned per dealership.',
-    patterns: ['core.dealerships.view', 'core.branches.view', 'parts.*', 'reports.parts.*', 'accounts.invoices.view'],
+    patterns: ['core.dealerships.view', 'core.branches.view', 'parts.*', 'reports.parts.*', 'accounts.invoices.view', 'service.estimates.store_*'],
   },
   {
     name: 'Storekeeper',
@@ -162,7 +162,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.dealerships.view', 'core.branches.view',
       'parts.catalog.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.purchase_orders.create', 'parts.purchase_orders.update', 'parts.purchase_orders.submit', 'parts.receipts.*', 'parts.stock.view',
       'parts.transfers.*', 'parts.requests.view', 'parts.requests.cancel', 'parts.issues.*', 'parts.adjustments.view', 'parts.adjustments.create',
-      'accounts.invoices.view',
+      'accounts.invoices.view', 'service.estimates.store_*',
     ],
   },
   {

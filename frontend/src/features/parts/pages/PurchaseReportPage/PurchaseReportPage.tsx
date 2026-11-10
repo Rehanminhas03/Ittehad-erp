@@ -24,6 +24,7 @@ const PART_COLUMNS: Column[] = [
 ];
 const HISTORY_COLUMNS: Column[] = [
   { header: 'Date', value: (r) => String(r.date) },
+  { header: 'Time', value: (r) => String(r.time ?? '') },
   { header: 'Part no.', value: (r) => String(r.partNo) },
   { header: 'Part name', value: (r) => String(r.description), w: 2 },
   { header: 'Goods receipt', value: (r) => String(r.grnNo) },
@@ -231,7 +232,7 @@ export default function PurchaseReportPage() {
                                 <table className="min-w-full text-xs">
                                   <thead>
                                     <tr className="text-left font-medium text-slate-500">
-                                      <th className="py-1 pr-3 font-medium">Date</th>
+                                      <th className="py-1 pr-3 font-medium">Date and time</th>
                                       <th className="py-1 pr-3 font-medium">Goods receipt</th>
                                       <th className="py-1 pr-3 font-medium">Purchase order</th>
                                       <th className="py-1 pr-3 font-medium">Supplier</th>
@@ -244,7 +245,7 @@ export default function PurchaseReportPage() {
                                   <tbody className="tabular-nums">
                                     {ls.map((l, i) => (
                                       <tr key={`${l.grnNo}-${i}`} className="border-t border-slate-200">
-                                        <td className="py-1 pr-3">{l.date}</td>
+                                        <td className="py-1 pr-3 whitespace-nowrap">{l.date}, {l.time}</td>
                                         <td className="py-1 pr-3 font-mono">{l.grnNo}</td>
                                         <td className="py-1 pr-3 font-mono">{l.poNo ?? '–'}</td>
                                         <td className="py-1 pr-3">{l.supplier}</td>

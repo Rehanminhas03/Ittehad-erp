@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { useGetUnreadNotificationCountQuery } from '@/features/notifications';
-import { setMobileNavOpen } from '@/features/ui/uiSlice';
+import { setMobileNavOpen, toggleSidebar } from '@/features/ui/uiSlice';
 import { useAppDispatch, useAppSelector, usePermission } from '@/shared/hooks';
 import { cn } from '@/shared/lib';
 import { NAVIGATION } from '../navigation';
@@ -163,7 +163,15 @@ export function Sidebar() {
       {/* Desktop */}
       <aside className={cn('sticky top-0 hidden h-screen shrink-0 p-3 pr-0 transition-all lg:block', open ? 'w-72' : 'w-0 overflow-hidden p-0')}>
         <div className="glass flex h-full flex-col rounded-3xl">
-          <BrandMark />
+          <div className="flex items-center justify-between pr-3">
+            <BrandMark />
+            {/* Hide the menu; the icon at the left of the top bar brings it back. */}
+            <button type="button" onClick={() => dispatch(toggleSidebar())} className="rounded-lg p-1.5 text-slate-500 hover:bg-white/60 hover:text-slate-900" aria-label="Hide navigation" title="Hide the menu">
+              <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden>
+                <path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
           <NavList />
         </div>
       </aside>

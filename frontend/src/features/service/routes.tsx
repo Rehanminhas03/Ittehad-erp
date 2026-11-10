@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { RequirePermission } from '@/features/auth';
 import { entityRoutes } from '@/shared/routing';
 import AppointmentsPage from './pages/AppointmentsPage';
+import NewEstimatePage from './pages/NewEstimatePage';
 import ServicesDuePage from './pages/ServicesDuePage';
 import { P } from './permissions';
 import { estimateView, inspectionTemplateView, jobCardView, scheduleItemView, visitView } from './config';
@@ -29,6 +30,14 @@ export default function ServiceRoutes() {
       />
       {entityRoutes('visits', visitView)}
       {entityRoutes('job-cards', jobCardView)}
+      <Route
+        path="estimates/new"
+        element={
+          <RequirePermission any={[P.estimatesCreate]}>
+            <NewEstimatePage />
+          </RequirePermission>
+        }
+      />
       {entityRoutes('estimates', estimateView)}
       {entityRoutes('setup/schedules', scheduleItemView)}
       {entityRoutes('setup/checklist', inspectionTemplateView)}

@@ -112,7 +112,8 @@ async function fromJobCard(ctx: EntityCtx, id: number): Promise<Draft> {
     kind: 'service',
     sourceNo: j.jobCardNo,
     // Lubricants are invoiced as parts; work done outside (sublet) as service work.
-    lines: lines.map((l) => ({ kind: (l.kind === 'sublet' ? 'labour' : l.kind) as LineKind, description: l.billable ? l.description : `${l.description} (free of charge)`, partNo: l.partNo, quantity: l.quantity, unitPrice: l.billable ? lessPercent(l.unitPrice.toString(), l.discountPercent.toString()) : '0' })),
+    // The job card's "Sales tax 5%" line is not copied: the invoice adds the 5% (services) and 18% (goods) itself, line by line.
+    lines: lines.filter((l) => !(['labour', 'sublet'].includes(l.kind) && /^sales tax/i.test(l.description))).map((l) => ({ kind: (l.kind === 'sublet' ? 'labour' : l.kind) as LineKind, description: l.billable ? l.description : `${l.description} (free of charge)`, partNo: l.partNo, quantity: l.quantity, unitPrice: l.billable ? lessPercent(l.unitPrice.toString(), l.discountPercent.toString()) : '0' })),
   };
 }
 

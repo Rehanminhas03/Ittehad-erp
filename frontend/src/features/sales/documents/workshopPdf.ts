@@ -72,6 +72,16 @@ export function writer(doc: jsPDF) {
 }
 export type Writer = ReturnType<typeof writer>;
 
+/** The checks and work a service includes (no charge): one line of text under the services, not a row each with zeros. Returns the next y. */
+export function drawIncluded(doc: jsPDF, y: number, items: string[]): number {
+  const names = [...new Set(items.map((i) => i.replace(/\s*\(free of charge\)\s*$/i, '').replace(/\s*\(included\)\s*$/i, '').trim()).filter(Boolean))];
+  if (!names.length) return y;
+  const text = writer(doc);
+  const lines = doc.splitTextToSize(`Included in the service: ${names.join(' • ')}`, W - 2) as string[];
+  lines.forEach((l, i) => text(l, M + 1, y + i * 4.2, { size: 8.6, color: [70, 70, 70] }));
+  return y + lines.length * 4.2 + 3;
+}
+
 /** "Ittehad Motors (An Ittehad Steel Company)", the address block and the brand logo on the right. Returns the next y. */
 export async function drawWorkshopLetterhead(doc: jsPDF, brand: WorkshopBrand, width = W): Promise<number> {
   const text = writer(doc);

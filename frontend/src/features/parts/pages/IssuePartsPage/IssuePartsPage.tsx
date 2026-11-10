@@ -43,6 +43,9 @@ export default function IssuePartsPage() {
   // Counter sale only: who is buying (a mobile finds or adds the customer; empty is a walk-in customer).
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [customerCnic, setCustomerCnic] = useState('');
+  const [customerNtn, setCustomerNtn] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<DirectIssueResult | null>(null);
@@ -77,7 +80,7 @@ export default function IssuePartsPage() {
           invoiceNo: invoiceNo.trim() || undefined,
           vehicleRef: card ? undefined : vehicleRef.trim() || null,
           notes: notes.trim() || null,
-          ...(counter && out ? { counterSale: true, customerMobile: customerMobile.trim() || null, customerName: customerName.trim() || null } : {}),
+          ...(counter && out ? { counterSale: true, customerMobile: customerMobile.trim() || null, customerName: customerName.trim() || null, customerCnic: customerCnic.trim() || null, customerNtn: customerNtn.trim() || null, customerAddress: customerAddress.trim() || null } : {}),
           lines: lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity.trim(), unitPrice: l.unitPrice.trim() || undefined, discountPercent: l.discountPercent.replace('%', '').trim() || undefined })),
         },
       }).unwrap();
@@ -153,6 +156,15 @@ export default function IssuePartsPage() {
                 </Field>
                 <Field label="Customer name" htmlFor="ip-cname" required={!!customerMobile.trim()}>
                   <Input id="ip-cname" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Needed with a mobile" />
+                </Field>
+                <Field label="CNIC" htmlFor="ip-ccnic">
+                  <Input id="ip-ccnic" value={customerCnic} onChange={(e) => setCustomerCnic(e.target.value)} placeholder="e.g. 35202-1234567-1" />
+                </Field>
+                <Field label="NTN" htmlFor="ip-cntn">
+                  <Input id="ip-cntn" value={customerNtn} onChange={(e) => setCustomerNtn(e.target.value)} />
+                </Field>
+                <Field label="Address" htmlFor="ip-caddress" className="sm:col-span-2">
+                  <Input id="ip-caddress" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} />
                 </Field>
               </>
             )}

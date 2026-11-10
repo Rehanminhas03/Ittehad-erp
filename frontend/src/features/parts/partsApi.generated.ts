@@ -1665,6 +1665,9 @@ export type DirectIssueRequest = {
   counterSale?: boolean;
   customerMobile?: string | null;
   customerName?: string | null;
+  customerCnic?: string | null;
+  customerNtn?: string | null;
+  customerAddress?: string | null;
   lines: {
     partNo: string;
     quantity: string;
@@ -1869,6 +1872,18 @@ export type PartsInOutReport = {
     outCost: string;
     outPrice: string;
   }[];
+  movements: {
+    partId: number;
+    partNo: string;
+    description: string;
+    date: string;
+    time: string;
+    type: string;
+    direction: "in" | "out";
+    quantity: string;
+    cost: string;
+    price: string;
+  }[];
   totals: {
     inQty: string;
     inCost: string;
@@ -1897,6 +1912,7 @@ export type PartsPurchaseReport = {
   lines: {
     partId: number;
     date: string;
+    time: string;
     grnNo: string;
     poNo: string | null;
     supplier: string;

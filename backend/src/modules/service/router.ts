@@ -21,6 +21,7 @@ import {
   PackageLinesBody,
   EstimateCreate,
   EstimateSchema,
+  StandaloneEstimateCreate,
   InspectionBase,
   InspectionItemsUpdate,
   InspectionSchema,
@@ -255,6 +256,19 @@ const jobCardActions = new ApiRouter('/service/job-cards', 'JobCard')
     handler: (ctx) => svc.createEstimate(ctx, ctx.params.id, { ...ctx.body, jobCardId: ctx.params.id }),
   });
 
+/** An estimate made on its own, without a job card. */
+const estimateActions = new ApiRouter('/service/estimates', 'Estimate').route({
+  method: 'post',
+  path: '/standalone',
+  operationId: 'createStandaloneEstimate',
+  summary: 'Create a draft estimate without a job card (the customer and the car are typed on it)',
+  permission: P.estimatesCreate,
+  body: StandaloneEstimateCreate,
+  response: EstimateRead,
+  status: 201,
+  handler: (ctx) => svc.createStandaloneEstimate(ctx, ctx.body),
+});
+
 export const serviceRouters = [
   visitActions,
   scheduleRouter,
@@ -266,6 +280,7 @@ export const serviceRouters = [
   buildEntityRouter(visitEntity, visits).router,
   buildLineRouter(svc.jobCardLines.config, svc.jobCardLines).router,
   buildEntityRouter(jobCardEntity, jobCards).router,
+  estimateActions,
   buildLineRouter(svc.estimateLines.config, svc.estimateLines).router,
   buildEntityRouter(estimateEntity, estimates).router,
 ];

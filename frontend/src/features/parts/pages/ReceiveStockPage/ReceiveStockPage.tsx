@@ -74,7 +74,7 @@ export default function ReceiveStockPage() {
 
   return (
     <div>
-      <PageHeader title="Receive parts" subtitle="Parts that came from head office: enter each part with its quantity and price. They go into the store's stock straight away." />
+      <PageHeader title="Receive parts" subtitle="Parts that came from head office: enter each part with its quantity and its price without the sales tax. They go into the store's stock straight away." />
       <div className="space-y-4">
         <Section className="mb-0 p-3 sm:p-4">
           <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -132,7 +132,7 @@ export default function ReceiveStockPage() {
                   <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
                     <th className="py-2 pr-2 font-medium">Part</th>
                     <th className="py-2 pr-2 text-right font-medium">Quantity</th>
-                    <th className="py-2 pr-2 text-right font-medium">Price received (PKR per piece)<span className="block text-[10px] font-normal normal-case text-slate-400">what you paid head office, not the customer price</span></th>
+                    <th className="py-2 pr-2 text-right font-medium">Price received (PKR per piece, without sales tax)<span className="block text-[10px] font-normal normal-case text-slate-400">what you paid head office, without the sales tax, not the customer price</span></th>
                     <th className="py-2 pr-2 text-right font-medium">Amount</th>
                     <th />
                   </tr>

@@ -1,5 +1,5 @@
 import type { Customer, Vehicle } from '@/features/crm/crmApi';
-import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money, PERIODIC_NOTE, roNumber, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
+import { carName, drawIncluded, drawTable, drawWorkshopLetterhead, fieldGrid, M, money, PERIODIC_NOTE, roNumber, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
 import type { InvoiceLine } from '../../accountsApi';
 import type { InvoiceDocument } from './invoicePdf';
 
@@ -26,19 +26,20 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
   ]);
   y += 4;
 
-  const cols = [
+  const colsOf = (taxHeader: string) => [
     { h: 'Description', w: 78, a: 'left' as const },
     { h: 'Qty', w: 12, a: 'center' as const },
     { h: 'Unit Price', w: 24, a: 'right' as const },
     { h: 'Value excl. GST', w: 26, a: 'right' as const },
-    { h: 'Sales Tax', w: 20, a: 'right' as const },
+    { h: taxHeader, w: 20, a: 'right' as const },
     { h: 'Value incl. GST', w: 26, a: 'right' as const },
   ];
   const rowOf = (l: InvoiceLine) => [l.description, String(Number(l.quantity)), money(Number(l.unitPrice)), money(Number(l.amount)), money(Number(l.taxAmount)), money(Number(l.amount) + Number(l.taxAmount))];
   const sum = (rows: InvoiceLine[]) => ({ ex: rows.reduce((n, l) => n + Number(l.amount), 0), tax: rows.reduce((n, l) => n + Number(l.taxAmount), 0) });
-  const group = (title: string, rows: InvoiceLine[], label: string) => {
+  const group = (title: string, rows: InvoiceLine[], label: string, taxHeader = 'Sales Tax 18%', included?: string[]) => {
     text(title, M, y, { bold: true, size: 12 });
-    y = drawTable(doc, y + 3, cols, rows.map(rowOf)) + 5;
+    y = drawTable(doc, y + 3, colsOf(taxHeader), rows.map(rowOf)) + 5;
+    if (included?.length) y = drawIncluded(doc, y, included);
     const s = sum(rows);
     text(`${label} ${rs(s.ex)}`, M + 1, y, { bold: true, size: 9 });
     text(`GST: ${rs(s.tax)}`, M + 80, y, { bold: true, size: 9 });
@@ -52,7 +53,8 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
   const parts = group('Parts', lines.filter((l) => l.kind === 'part'), 'Sub-total parts:');
   const accessories = accessoryRows.length ? group('Accessories', accessoryRows, 'Sub-total accessories:') : { ex: 0, tax: 0 };
   const lubricants = lubricantRows.length ? group('Lubricants', lubricantRows, 'Sub-total lubricants:') : { ex: 0, tax: 0 };
-  const services = group('Services & Labour', lines.filter((l) => !['part', 'lubricant', 'accessory'].includes(l.kind)), 'Sub-total services & labour:');
+  // Services: the 5% is its own column; the "Sales tax" line of the job card and the no-charge checklist tasks are not rows.
+  const services = group('Services', lines.filter((l) => !['part', 'lubricant', 'accessory'].includes(l.kind) && !/^sales tax/i.test(l.description) && Number(l.amount) > 0), 'Sub-total services:', 'Sales Tax 5%', lines.filter((l) => !['part', 'lubricant', 'accessory'].includes(l.kind) && Number(l.amount) === 0).map((l) => l.description));
   const ex = parts.ex + accessories.ex + lubricants.ex + services.ex;
   const tax = parts.tax + accessories.tax + lubricants.tax + services.tax;
   const total = (label: string, v: string, big = false) => {
@@ -68,7 +70,7 @@ export async function buildSalesInvoicePdf(d: InvoiceDocument & { customer?: Cus
   total('Total GST:', rs(tax));
   total('Total with GST:', rs(ex + tax));
   total('Discount:', rs(0));
-  total('Net Amount:', rs(Number(inv.totalAmount)), true);
+  total('Net Amount:', rs(ex + tax), true);
   y += 2;
   const voice = doc.splitTextToSize(`Voice of Customer : ${d.complaints ?? ''}`, W) as string[];
   voice.forEach((l, i) => text(l, M, y + i * 4.2, { bold: true, size: 9 }));

@@ -591,8 +591,8 @@ function drawSectionedTerms(p: Page, q: QuotationDocument, ctx: TemplateContext,
   const t = q.template;
   ctx.paymentMode = (q.paymentMode || t.defaultPaymentMode || '').trim();
   ctx.deliveryPeriod = q.deliveryPeriod?.trim() || undefined;
-  const [head, body, headGap, bodyGap] = big ? [9.6, 9, 4.1, 3.5] : [8.8, 8.6, 4.3, 3.9];
-  p.font((big ? 10 : 9) * k, 'bold');
+  const [head, body, headGap, bodyGap] = big ? [10.6, 10, 4.6, 4.0] : [8.8, 8.6, 4.3, 3.9];
+  p.font((big ? 11 : 9) * k, 'bold');
   doc.text('TERMS & CONDITIONS:', M + 1, p.y);
   p.y += 5.4 * k;
   for (const raw of t.terms) {
@@ -700,11 +700,11 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   };
 
   // Header: the bill-to name (e.g. the bank on the customer's account) heads the description column.
-  p.font(10, 'bold');
+  p.font(9.5, 'bold');
   const who = doc.splitTextToSize(q.billTo || q.customer.name, cols[1]! - 4) as string[];
-  const headH = Math.max(6 + 5 * ts, 3 + who.length * 4.6);
+  const headH = Math.max(5 + 3 * ts, 2.4 + who.length * 4.2);
   rowBox(headH);
-  who.forEach((l, i) => centre(l, 1, p.y + (headH - who.length * 4.6) / 2 + 3.6 + i * 4.6));
+  who.forEach((l, i) => centre(l, 1, p.y + (headH - who.length * 4.2) / 2 + 3.3 + i * 4.2));
   p.font(9, 'bold');
   const hMid = p.y + headH / 2 + 1.4;
   centre('SR', 0, hMid);
@@ -723,16 +723,16 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer)' : 'WITH HOLDING TAX (Filer)', Number(q.pricing.withholdingTax)]);
   if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
   items.forEach(([label, unit], i) => {
-    p.font(9.5);
+    p.font(9);
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
     const exFactory = i === 0; // "EX FACTORY (Black)" under the vehicle
     const n = lines.length + (exFactory ? 1 : 0);
-    const h = Math.max(5 + 4 * ts, 1.6 + 2 * ts + n * 4.3);
+    const h = Math.max(4.4 + 2.6 * ts, 1.2 + 1.4 * ts + n * 4);
     rowBox(h);
-    const top = p.y + h / 2 - ((n - 1) * 4.3) / 2 + 1.3;
-    lines.forEach((l, j) => centre(l, 1, top + j * 4.3));
+    const top = p.y + h / 2 - ((n - 1) * 4) / 2 + 1.2;
+    lines.forEach((l, j) => centre(l, 1, top + j * 4));
     if (exFactory) {
-      const yy = top + lines.length * 4.3;
+      const yy = top + lines.length * 4;
       const plain = 'EX FACTORY';
       const colour = q.vehicle.color ? ` (${q.vehicle.color})` : '';
       p.font(9.5);
@@ -748,7 +748,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
       }
       p.font(9.5);
     }
-    const mid = p.y + h / 2 + 1.3;
+    const mid = p.y + h / 2 + 1.2;
     centre(String(i + 1), 0, mid);
     centre(String(qty), 2, mid);
     centre(num(unit), 3, mid);
@@ -761,18 +761,18 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     centre(`Booking Price (${num(q.pricing.bookingAmount)})`, 1, p.y + 5.4);
     p.y += 8;
   }
-  const th = 5 + 3.5 * ts;
+  const th = 4.6 + 2 * ts;
   rowBox(th);
   p.font(10, 'bold');
   centre('TOTAL', 1, p.y + th / 2 + 1.45);
   centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + th / 2 + 1.45);
   centre(num(q.pricing.total), 4, p.y + th / 2 + 1.45);
-  p.y += th + 2 + 2.5 * ts;
+  p.y += th + 1.8 + 1.5 * ts;
   if (t.standardEquipment) {
     p.font(8.6 * k, 'bold');
     doc.text(`*Standard Equipment: ${t.standardEquipment}`, W - M, p.y, { align: 'right' });
   }
-  p.y += 9 * k;
+  p.y += 7 * k;
 
   // ---- Terms & conditions ------------------------------------------------------------------------------
   const issued = new Date(q.issuedAt);

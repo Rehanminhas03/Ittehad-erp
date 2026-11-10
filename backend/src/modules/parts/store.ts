@@ -238,16 +238,21 @@ export async function storeJobCard(ctx: EntityCtx, jobCardId: number) {
  * parts are added to the job card's lines (priced for the customer's bill).
  */
 /** The customer of a counter sale: found (or added) by mobile, or the dealership's shared walk-in customer. */
-async function counterCustomer(ctx: EntityCtx, dealershipId: number, name?: string | null, mobile?: string | null) {
+async function counterCustomer(ctx: EntityCtx, dealershipId: number, name?: string | null, mobile?: string | null, details: { cnic?: string | null; ntn?: string | null; address?: string | null } = {}) {
+  // What was typed for the CNIC, NTN and address is kept on the customer (an empty box leaves what is saved).
+  const extra = Object.fromEntries(Object.entries({ cnic: details.cnic?.trim(), ntn: details.ntn?.trim(), address: details.address?.trim() }).filter(([, v]) => !!v));
   const given = mobile?.trim();
   const normalized = given ? normalizeMobile(given) : null;
   if (given && !normalized) throw validationError([{ in: 'body', path: 'customerMobile', message: 'Enter a valid mobile number' }]);
   const mobileNormalized = normalized ?? '+920000000000';
   const found = await ctx.tx.customer.findFirst({ where: { dealershipId, mobileNormalized }, select: { id: true } });
-  if (found) return Number(found.id);
+  if (found) {
+    if (normalized && Object.keys(extra).length) await ctx.tx.customer.update({ where: { id: found.id }, data: { ...extra, updatedById: ctx.access.userId } });
+    return Number(found.id);
+  }
   if (normalized && !name?.trim()) throw validationError([{ in: 'body', path: 'customerName', message: 'Enter the customer name' }]);
   const c = await ctx.tx.customer.create({
-    data: { dealershipId, kind: 'individual', fullName: normalized ? name!.trim() : 'Walk-in customer', mobile: normalized ? given! : '0000000000', mobileNormalized, createdById: ctx.access.userId, updatedById: ctx.access.userId },
+    data: { dealershipId, kind: 'individual', fullName: normalized ? name!.trim() : 'Walk-in customer', mobile: normalized ? given! : '0000000000', mobileNormalized, ...(normalized ? extra : {}), createdById: ctx.access.userId, updatedById: ctx.access.userId },
   });
   return Number(c.id);
 }
@@ -323,7 +328,7 @@ export async function issueDirect(ctx: EntityCtx, input: z.output<typeof DirectI
     input.counterSale && out && !jc
       ? await createCounterSaleInvoice(ctx, {
           ...target,
-          customerId: await counterCustomer(ctx, input.dealershipId, input.customerName, input.customerMobile),
+          customerId: await counterCustomer(ctx, input.dealershipId, input.customerName, input.customerMobile, { cnic: input.customerCnic, ntn: input.customerNtn, address: input.customerAddress }),
           notes: [input.customerMobile?.trim() ? null : input.customerName?.trim() ? `Customer: ${input.customerName.trim()}` : null, input.notes?.trim()].filter(Boolean).join(' · ') || null,
           lines: lines.map((l) => {
             const pct = l.discountPercent ?? '0';

@@ -13,7 +13,7 @@ import { goodsReceipt, goodsReceiptLine, part, purchaseOrder, purchaseOrderLine,
 import { PartsPerm as P } from './permissions';
 import type { PurchaseReportQuery } from './schemas';
 
-type Line = { partId: number; date: string; grnNo: string; poNo: string | null; supplier: string; store: string; quantity: string; unitCost: string; amount: string };
+type Line = { partId: number; date: string; time: string; grnNo: string; poNo: string | null; supplier: string; store: string; quantity: string; unitCost: string; amount: string };
 
 export async function purchaseReport(ctx: EntityCtx, f: z.output<typeof PurchaseReportQuery>) {
   const like = f.q ? `%${f.q}%` : null;
@@ -28,7 +28,7 @@ export async function purchaseReport(ctx: EntityCtx, f: z.output<typeof Purchase
 
   const lines = await query<Line>(
     ctx.tx,
-    sql`select ${goodsReceiptLine.partId} as "partId", to_char(${goodsReceipt.receivedDate}, 'DD-Mon-YYYY') as "date", ${goodsReceipt.grnNo} as "grnNo",
+    sql`select ${goodsReceiptLine.partId} as "partId", to_char(${goodsReceipt.receivedDate}, 'DD-Mon-YYYY') as "date", to_char(${goodsReceipt.createdAt} at time zone 'Asia/Karachi', 'HH12:MI AM') as "time", ${goodsReceipt.grnNo} as "grnNo",
                ${purchaseOrder.poNo} as "poNo", ${supplier.name} as "supplier", ${branchTable.name} as "store",
                ${goodsReceiptLine.quantity}::text as "quantity", ${goodsReceiptLine.unitCost}::text as "unitCost", ${goodsReceiptLine.amount}::text as "amount"
           from ${goodsReceiptLine}

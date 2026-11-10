@@ -1,5 +1,6 @@
 import type { Customer, Vehicle } from '@/features/crm/crmApi';
-import { carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money as fmt, PERIODIC_NOTE, repairOrderTerms, roNumber, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
+import {
+  drawIncluded, carName, drawTable, drawWorkshopLetterhead, fieldGrid, M, money as fmt, PERIODIC_NOTE, repairOrderTerms, roNumber, rs, shortDate, W, type WorkshopBrand, writer } from '@/features/sales/documents/workshopPdf';
 import type { JobCard, JobCardLine, Visit } from '../../serviceApi';
 
 const money = (n: number) => `Rs ${n.toLocaleString('en-PK', { maximumFractionDigits: 2 })}`;
@@ -164,18 +165,23 @@ export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; l
   y += 5;
 
   const amountOf = (l: JobCardLine) => (l.billable ? Number(l.amount) : 0);
-  const cols = [
-    { h: 'Description', w: 110, a: 'left' as const },
-    { h: 'Qty', w: 16, a: 'center' as const },
-    { h: 'Unit Rate', w: 30, a: 'right' as const },
-    { h: 'Subtotal', w: 30, a: 'right' as const },
+  // Parts, accessories and lubricants are priced without tax: 18% sales tax is its own column.
+  const GOODS_TAX = 18;
+  const goodsTax = (l: JobCardLine) => Math.round(amountOf(l) * GOODS_TAX) / 100;
+  const goodsCols = [
+    { h: 'Description', w: 70, a: 'left' as const },
+    { h: 'Qty', w: 12, a: 'center' as const },
+    { h: 'Unit Rate', w: 26, a: 'right' as const },
+    { h: 'Subtotal', w: 26, a: 'right' as const },
+    { h: `Sales Tax ${GOODS_TAX}%`, w: 24, a: 'right' as const },
+    { h: 'Total', w: 28, a: 'right' as const },
   ];
-  const rowOf = (l: JobCardLine) => [l.description, String(Number(l.quantity)), fmt(Number(l.unitPrice)), l.billable ? fmt(Number(l.amount)) : 'Free'];
+  const rowOf = (l: JobCardLine) => [l.description, String(Number(l.quantity)), fmt(Number(l.unitPrice)), l.billable ? fmt(Number(l.amount)) : 'Free', l.billable ? fmt(goodsTax(l)) : '0', l.billable ? fmt(Number(l.amount) + goodsTax(l)) : 'Free'];
   const group = (title: string, kinds: string[], label: string) => {
     text(title, M, y, { bold: true, size: 13 });
     const rows = lines.filter((l) => kinds.includes(l.kind));
-    y = drawTable(doc, y + 3, cols, rows.map(rowOf)) + 7;
-    const sub = rows.reduce((n, l) => n + amountOf(l), 0);
+    y = drawTable(doc, y + 3, goodsCols, rows.map(rowOf)) + 7;
+    const sub = rows.reduce((n, l) => n + amountOf(l) + goodsTax(l), 0);
     text(label, M + 1, y, { bold: true, size: 11 });
     text(rs(sub), M + W, y, { bold: true, size: 11, align: 'right' });
     y += 10;
@@ -203,15 +209,17 @@ export async function buildRepairOrderPdf(d: { jobCard: JobCard; visit: Visit; l
     { h: taxRate ? `Sales Tax ${taxRate}%` : 'Sales Tax', w: 24, a: 'right' as const },
     { h: 'Total', w: 24, a: 'right' as const },
   ];
-  text('Services & Labour', M, y, { bold: true, size: 13 });
+  text('Services', M, y, { bold: true, size: 13 });
   y = drawTable(
     doc,
     y + 3,
     serviceCols,
     charged.map((l) => [l.description, String(Number(l.quantity)), fmt(Number(l.unitPrice)), l.billable ? fmt(Number(l.amount)) : 'Free', l.billable ? fmt(taxOf(l)) : '0', l.billable ? fmt(Number(l.amount) + taxOf(l)) : 'Free']),
-  ) + 7;
+  ) + 5;
+  // The checks and work of the service (no charge) in one line under it.
+  y = drawIncluded(doc, y, lines.filter((l) => ['labour', 'sublet'].includes(l.kind) && l.source === 'schedule' && !l.billable && Number(l.unitPrice) === 0).map((l) => l.description)) + 2;
   const services = base + taxTotal;
-  text('Sub-total services & labour:', M + 1, y, { bold: true, size: 11 });
+  text('Sub-total services:', M + 1, y, { bold: true, size: 11 });
   text(rs(services), M + W, y, { bold: true, size: 11, align: 'right' });
   y += 10;
   text('Grand-Total:', M + 1, y, { bold: true, size: 12 });
