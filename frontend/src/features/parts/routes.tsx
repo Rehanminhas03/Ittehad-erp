@@ -8,7 +8,7 @@ import NewPurchaseOrderPage from './pages/NewPurchaseOrderPage';
 import ManagePartsPage from './pages/ManagePartsPage';
 import PriceListPage from './pages/PriceListPage';
 import PartsReportPage from './pages/PartsReportPage';
-import PurchaseReportPage from './pages/PurchaseReportPage';
+import ReportsPage from './pages/ReportsPage';
 import ReceiveStockPage from './pages/ReceiveStockPage';
 import StockMovementsPage from './pages/StockMovementsPage';
 import { P } from './permissions';
@@ -68,18 +68,18 @@ export default function PartsRoutes() {
         }
       />
       <Route
-        path="report"
+        path="reports"
         element={
           <RequirePermission any={[P.receiptsView]}>
-            <PartsReportPage />
+            <ReportsPage />
           </RequirePermission>
         }
       />
       <Route
-        path="purchase-report"
+        path="report"
         element={
           <RequirePermission any={[P.receiptsView]}>
-            <PurchaseReportPage />
+            <PartsReportPage />
           </RequirePermission>
         }
       />

@@ -160,7 +160,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     description: 'The store desk: receives parts from head office, issues them to job cards / repair orders, takes unused parts back, looks up prices.',
     patterns: [
       'core.dealerships.view', 'core.branches.view',
-      'parts.catalog.view', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.purchase_orders.create', 'parts.purchase_orders.update', 'parts.purchase_orders.submit', 'parts.receipts.*', 'parts.stock.view',
+      'parts.catalog.view', 'parts.catalog.manage', 'parts.suppliers.view', 'parts.purchase_orders.view', 'parts.purchase_orders.create', 'parts.purchase_orders.update', 'parts.purchase_orders.submit', 'parts.receipts.*', 'parts.stock.view',
       'parts.transfers.*', 'parts.requests.view', 'parts.requests.cancel', 'parts.issues.*', 'parts.adjustments.view', 'parts.adjustments.create',
       'accounts.invoices.view', 'service.estimates.store_*',
     ],

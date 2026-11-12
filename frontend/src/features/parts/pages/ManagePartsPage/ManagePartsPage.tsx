@@ -94,7 +94,7 @@ export default function ManagePartsPage() {
               <th className="py-2 pr-3 font-medium">Description</th>
               <th className="py-2 pr-3 font-medium">Category</th>
               <th className="py-2 pr-3 font-medium">Vehicle</th>
-              <th className="py-2 pr-3 text-right font-medium">Received (PKR)</th>
+              <th className="py-2 pr-3 text-right font-medium">Retail price (PKR)</th>
               <th className="py-2 pr-3 text-right font-medium">Customer price (PKR)</th>
               <th />
             </tr>
@@ -141,7 +141,7 @@ function PartDialog({ part, brand, categories, models, onClose, toast }: { part:
   const [modelIds, setModelIds] = useState<number[]>(part?.modelIds ?? []);
   const [partNo, setPartNo] = useState(part?.partNo ?? '');
   const [description, setDescription] = useState(part?.description ?? '');
-  const [category, setCategory] = useState(part?.category ?? '');
+  const [category, setCategory] = useState(part?.category ?? 'Mechanical');
   const [price, setPrice] = useState(part ? String(Number(part.sellingPrice)) : '');
   const [received, setReceived] = useState(part?.purchasePrice != null ? String(Number(part.purchasePrice)) : '');
   const [active, setActive] = useState(part?.isActive ?? true);
@@ -152,13 +152,14 @@ function PartDialog({ part, brand, categories, models, onClose, toast }: { part:
   const save = async () => {
     if (partNo.trim().length < 2 || description.trim().length < 2) return setError('Enter the part number and the description');
     if (!clean(price) || Number.isNaN(Number(clean(price)))) return setError('Enter the price');
+    if (!modelIds.length) return setError('Choose the vehicle this part is for');
     setError(null);
     try {
       if (part) {
-        await change({ id: part.id, managePartUpdate: { partNo: partNo.trim(), description: description.trim(), category: category.trim() || null, sellingPrice: clean(price), purchasePrice: clean(received) || undefined, isActive: active, modelIds } }).unwrap();
+        await change({ id: part.id, managePartUpdate: { partNo: partNo.trim(), description: description.trim(), category: category as 'Mechanical', sellingPrice: clean(price), purchasePrice: clean(received) || undefined, isActive: active, modelIds } }).unwrap();
         toast.success(`${partNo.trim().toUpperCase()} saved`);
       } else {
-        await add({ managePartCreate: { brand, partNo: partNo.trim(), description: description.trim(), category: category.trim() || null, sellingPrice: clean(price), purchasePrice: clean(received) || undefined, modelIds } }).unwrap();
+        await add({ managePartCreate: { brand, partNo: partNo.trim(), description: description.trim(), category: category as 'Mechanical', sellingPrice: clean(price), purchasePrice: clean(received) || undefined, modelIds } }).unwrap();
         toast.success(`${partNo.trim().toUpperCase()} added to the catalogue`);
       }
       onClose();
@@ -190,21 +191,22 @@ function PartDialog({ part, brand, categories, models, onClose, toast }: { part:
         <Field label="Description" htmlFor="pd-desc">
           <Input id="pd-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
-        <Field label="Category" htmlFor="pd-cat" hint="Choose one, or type a new one">
-          <Input id="pd-cat" list="pd-cats" value={category} onChange={(e) => setCategory(e.target.value)} />
-          <datalist id="pd-cats">
+        <Field label="Category" htmlFor="pd-cat" required>
+          <Select id="pd-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
             {categories.map((c) => (
-              <option key={c} value={c} />
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
-          </datalist>
+          </Select>
         </Field>
-        <Field label="Received price (PKR)" htmlFor="pd-received" hint="The price received from the company. Updated automatically when parts are received with a price">
+        <Field label="Retail price (PKR)" htmlFor="pd-received" hint="The retail price of the part. Updated automatically when parts are received with a price">
           <Input id="pd-received" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} />
         </Field>
         <Field label="Customer price (PKR)" htmlFor="pd-price" hint="The price told to the customer, including sales tax, as on the price list">
           <Input id="pd-price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
         </Field>
-        <Field label="Fits vehicle" htmlFor="pd-models" hint="Tick every vehicle this part fits">
+        <Field label="Vehicle" htmlFor="pd-models" required hint="Tick the vehicle name (every vehicle this part is for)">
           <div id="pd-models" className="flex flex-wrap gap-x-4 gap-y-1">
             {models.map((m) => (
               <label key={m.value} className="flex items-center gap-1.5 text-sm">
@@ -239,7 +241,7 @@ function PriceDialog({ brand, categories, onClose, toast }: { brand: string; cat
     if (!percent.trim() || Number.isNaN(n) || n === 0) return setError('Enter a percentage, e.g. 5 to raise or -5 to lower');
     setError(null);
     try {
-      const r = await change({ priceChangeRequest: { brand, category: category || null, percent: n } }).unwrap();
+      const r = await change({ priceChangeRequest: { brand, category: (category || null) as 'Mechanical' | null, percent: n } }).unwrap();
       toast.success(`${r.changed} prices changed by ${n > 0 ? '+' : ''}${n}%`);
       onClose();
     } catch (e) {

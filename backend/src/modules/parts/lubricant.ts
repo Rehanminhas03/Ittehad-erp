@@ -28,7 +28,7 @@ export function itemTypeOf(p: PartLike): ItemType {
 }
 
 /** The category a new part of that type is filed under (so it is recognised again), or null for an ordinary part. */
-export const categoryOfType = (t: ItemType | undefined) => (t === 'lubricant' ? 'Lubricants' : t === 'accessory' ? 'Accessories' : null);
+export const categoryOfType = (t: ItemType | undefined) => (t === 'lubricant' ? 'Lubricants' : t === 'accessory' ? 'Accessories' : 'Mechanical');
 
 /** The job card / invoice line kind of a part. */
 export const partLineKind = itemTypeOf;

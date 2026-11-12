@@ -4,6 +4,7 @@ import { Badge, Button, Dialog, Field, Input, PageHeader, Pagination, Select, Sp
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { InOutReportButton } from '../../components/InOutReport';
+import { StockReportButton } from '../../components/StockReport';
 import { StockMovementsTable } from '../../components/StockMovementsTable';
 import { StockSettings } from '../../components/StockSettings';
 import { usePartModelOptions } from '../../hooks/usePartModelOptions';
@@ -26,6 +27,7 @@ export default function InventoryPage() {
   const [view, setView] = useState<'all' | 'inStock' | 'low'>('inStock');
   const [modelId, setModelId] = useState('');
   const models = usePartModelOptions(brand);
+  const modelName = (id: number) => models.find((m) => m.value === String(id))?.label.replace(`${brand} `, '') ?? '';
   const [page, setPage] = useState(1);
   const [history, setHistory] = useState<InventoryRow | null>(null);
   const [settings, setSettings] = useState<InventoryRow | null>(null);
@@ -58,22 +60,29 @@ export default function InventoryPage() {
         subtitle="Every part with what is in the store now, and what came in and went out this month."
         actions={
           <div className="flex flex-wrap gap-2">
-            <InOutReportButton />
+            <StockReportButton brand={brand || undefined} category={category || undefined} modelId={modelId ? Number(modelId) : undefined} q={q || undefined} inStockOnly={view !== 'all'} />
+            <InOutReportButton only="in" />
+            <InOutReportButton only="out" />
+            <Link to="/parts/reports">
+              <Button size="sm" variant="secondary">
+                All reports
+              </Button>
+            </Link>
             {canReceive && (
               <Link to="/parts/receive">
-                <Button>Receive parts</Button>
+                <Button size="sm">Receive parts</Button>
               </Link>
             )}
             {canIssue && (
               <Link to="/parts/issue">
-                <Button variant="secondary">Issue parts</Button>
+                <Button size="sm" variant="secondary">Issue parts</Button>
               </Link>
             )}
           </div>
         }
       />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <Field label="Search" htmlFor="inv-q" className="min-w-56 flex-1">
+      <div className="mb-2 flex flex-wrap items-end gap-2">
+        <Field label="Search" htmlFor="inv-q" className="min-w-44 flex-1">
           <Input id="inv-q" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Part number or name" />
         </Field>
         {brands.length > 1 && (
@@ -94,7 +103,7 @@ export default function InventoryPage() {
           </Field>
         )}
         <Field label="Vehicle" htmlFor="inv-model">
-          <Select id="inv-model" value={modelId} onChange={(e) => { setModelId(e.target.value); setPage(1); }}>
+          <Select id="inv-model" className="w-40" value={modelId} onChange={(e) => { setModelId(e.target.value); setPage(1); }}>
             <option value="">All vehicles</option>
             {models.map((m) => (
               <option key={m.value} value={m.value}>
@@ -106,6 +115,7 @@ export default function InventoryPage() {
         <Field label="Category" htmlFor="inv-cat">
           <Select
             id="inv-cat"
+            className="w-44"
             value={category}
             onChange={(e) => {
               setCategory(e.target.value);
@@ -121,6 +131,7 @@ export default function InventoryPage() {
         <Field label="Show" htmlFor="inv-view">
           <Select
             id="inv-view"
+            className="w-44"
             value={view}
             onChange={(e) => {
               setView(e.target.value as typeof view);
@@ -128,14 +139,14 @@ export default function InventoryPage() {
             }}
           >
             <option value="inStock">Parts in stock</option>
-            <option value="low">Low stock (at or below reorder level)</option>
-            <option value="all">All parts (also with none in stock)</option>
+            <option value="low">Low stock</option>
+            <option value="all">All parts</option>
           </Select>
         </Field>
       </div>
 
       {data && (
-        <p className="mb-3 text-sm text-slate-600">
+        <p className="mb-2 text-sm text-slate-600">
           {data.total.toLocaleString()} parts shown · <span className="font-medium text-slate-900">{data.partsInStock.toLocaleString()}</span> in stock · stock value at cost{' '}
           <span className="font-medium text-slate-900">{formatMoney(data.stockValue)}</span>
         </p>
@@ -148,6 +159,7 @@ export default function InventoryPage() {
               <th className="py-2 pr-3 font-medium">Part no.</th>
               <th className="py-2 pr-3 font-medium">Description</th>
               <th className="py-2 pr-3 font-medium">Category</th>
+              <th className="py-2 pr-3 font-medium">Vehicle</th>
               <th className="py-2 pr-3 text-right font-medium">Price</th>
               <th className="py-2 pr-3 text-right font-medium">In stock</th>
               <th className="py-2 pr-3 font-medium">Bin</th>
@@ -159,7 +171,7 @@ export default function InventoryPage() {
           <tbody className="divide-y divide-slate-100">
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-slate-500">
+                <td colSpan={10} className="py-8 text-center text-slate-500">
                   {view === 'inStock' ? 'No part is in stock yet. Use "Receive parts" when stock arrives from head office, or show all parts.' : 'No part matches.'}
                 </td>
               </tr>
@@ -171,6 +183,7 @@ export default function InventoryPage() {
                   <td className="py-2 pr-3 font-mono text-xs">{r.partNo}</td>
                   <td className="py-2 pr-3">{r.description}</td>
                   <td className="py-2 pr-3 text-slate-500">{r.category}</td>
+                  <td className="py-2 pr-3 text-xs text-slate-600">{(r.modelIds ?? []).length ? (r.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(r.sellingPrice)}</td>
                   <td className="py-2 pr-3 text-right font-medium tabular-nums">
                     {Number(r.onHand)} {low && <Badge tone="amber">Low</Badge>}
@@ -210,7 +223,7 @@ export default function InventoryPage() {
       <Dialog open={!!history} size="xl" onClose={() => setHistory(null)} title={history ? `${history.partNo} · ${history.description}` : ''} footer={<Button variant="secondary" onClick={() => setHistory(null)}>Close</Button>}>
         {history && (
           <>
-            <p className="mb-3 text-sm text-slate-600">
+            <p className="mb-2 text-sm text-slate-600">
               In stock now: <span className="font-semibold text-slate-900">{Number(history.onHand)}</span>. Every stock in and out of this part, newest first. These records can never be changed.
             </p>
             <StockMovementsTable filter={{ partId: history.partId }} pageSize={15} />

@@ -20,6 +20,7 @@ import { partLineKind } from './lubricant';
 import { PartsPerm as P } from './permissions';
 import type { AssignModelsBody, DirectIssueBody, InventoryQuery, ManagePartCreate, ManagePartUpdate, PartPrefixQuery, PriceChangeBody, SaleReportQuery, EarlierSalesQuery, StockSettingsBody } from './schemas';
 import { assertBranch, resolveLines } from './service';
+import { PART_CATEGORIES } from './categories';
 import { moveStockLines } from './stock';
 
 const karachiMonth = () => new Date(Date.now() + 5 * 3_600_000).toISOString().slice(0, 7);
@@ -388,11 +389,11 @@ export async function inventory(ctx: EntityCtx, q: PageQuery, f: z.output<typeof
                  from ${inventoryTransaction} where ${and(...moveConds)!} group by ${inventoryTransaction.partId}) m on m.part_id = ${part.id}`;
   const where = and(...conds)!;
   const items = await query<{
-    partId: number; partNo: string; description: string; brand: string | null; category: string | null; sellingPrice: string;
+    partId: number; partNo: string; description: string; brand: string | null; category: string | null; modelIds: number[]; sellingPrice: string;
     onHand: string; stockValue: string; reorderLevel: string; binLocation: string | null; inThisMonth: string; outThisMonth: string;
   }>(
     ctx.tx,
-    sql`select ${part.id} as "partId", ${part.partNo} as "partNo", ${part.description} as "description", ${part.brand} as "brand", ${part.category} as "category",
+    sql`select ${part.id} as "partId", ${part.partNo} as "partNo", ${part.description} as "description", ${part.brand} as "brand", ${part.category} as "category", ${part.modelIds} as "modelIds",
                ${part.sellingPrice}::text as "sellingPrice", coalesce(s.on_hand, 0)::text as "onHand",
                coalesce(round(s.value, 2), 0)::text as "stockValue", coalesce(s.reorder, 0)::text as "reorderLevel", s.bin as "binLocation",
                coalesce(m.in_qty, 0)::text as "inThisMonth", coalesce(m.out_qty, 0)::text as "outThisMonth"
@@ -538,12 +539,7 @@ export async function setStockSettings(ctx: EntityCtx, input: z.output<typeof St
 }
 
 /** Distinct categories of a brand's parts, for the filter lists. */
-export async function partCategories(ctx: EntityCtx, brand?: string) {
-  const rows = await query<{ category: string }>(
-    ctx.tx,
-    sql`select distinct ${part.category} as "category" from ${part}
-         where ${part.category} is not null ${brand ? sql`and lower(${part.brand}) = lower(${brand})` : sql``} order by 1`,
-  );
-  return rows.map((r) => r.category);
+export async function partCategories(_ctx: EntityCtx, _brand?: string) {
+  return [...PART_CATEGORIES];
 }
 

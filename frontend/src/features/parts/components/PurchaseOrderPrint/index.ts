@@ -1,1 +1,1 @@
-export { PurchaseOrderPrintButton } from './PurchaseOrderPrint';
+export { PurchaseOrderPrintButton, PurchaseOrderPrintIcon } from './PurchaseOrderPrint';

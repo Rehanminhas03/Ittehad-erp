@@ -4,7 +4,9 @@ import { dealershipFilter, type EntityViewConfig, idField, mono, muted, optional
 import { formatDate, formatDateTime, formatMoney } from '@/shared/lib';
 import { GoodsReceiptLines } from '../components/GoodsReceiptLines';
 import { PurchaseOrderLines } from '../components/PurchaseOrderLines';
-import { PurchaseOrderPrintButton } from '../components/PurchaseOrderPrint';
+import { PurchaseOrderPrintButton, PurchaseOrderPrintIcon } from '../components/PurchaseOrderPrint';
+import { GoodsReceiptPrintButton, GoodsReceiptPrintIcon } from '../components/GoodsReceiptPrint';
+import { PurchaseReportButton } from '../components/PurchaseReportButton';
 import { PurchaseOrderReceipts } from '../components/PurchaseOrderReceipts';
 import { ReceiveGoods } from '../components/ReceiveGoods';
 import {
@@ -32,14 +34,21 @@ export const purchaseOrderView: EntityViewConfig<PurchaseOrder> = {
   list: {
     defaultSort: '-createdAt',
     searchPlaceholder: 'Search PO number',
+    // The purchase report is here, not a separate menu item.
+    headerActions: () => (
+      <div className="[&>div]:mb-0">
+        <PurchaseReportButton />
+      </div>
+    ),
     filters: [statusFilter(PO_STATES), dealershipFilter, { param: 'supplierId', label: 'Supplier', type: 'select', useOptions: useSupplierOptions }],
     columns: [
       { key: 'poNo', header: 'PO', sortKey: 'poNo', render: (p) => mono(p.poNo) },
       { key: 'supplierName', header: 'Supplier', render: (p) => strong(p.supplierName) },
       { key: 'branchName', header: 'Receive at', render: (p) => muted(p.branchName) },
-      { key: 'orderDate', header: 'Ordered', sortKey: 'orderDate', render: (p) => formatDate(p.orderDate) },
+      { key: 'createdAt', header: 'Ordered (date and time)', sortKey: 'createdAt', render: (p) => <span className="whitespace-nowrap">{formatDateTime(p.createdAt)}</span> },
       { key: 'totalAmount', header: 'Total', sortKey: 'totalAmount', className: 'text-right tabular-nums', render: (p) => formatMoney(p.totalAmount) },
       { key: 'status', header: 'Status', sortKey: 'status', render: (p) => <StatusBadge status={p.status} /> },
+      { key: 'print', header: '', className: 'w-10 text-right', render: (p) => <PurchaseOrderPrintIcon po={p} /> },
     ],
   },
   detail: {
@@ -108,11 +117,13 @@ export const goodsReceiptView: EntityViewConfig<GoodsReceipt> = {
       { key: 'supplierInvoiceNo', header: 'Supplier invoice', render: (g) => muted(g.supplierInvoiceNo) },
       { key: 'createdAt', header: 'Received (date and time)', sortKey: 'createdAt', render: (g) => formatDateTime(g.createdAt) },
       { key: 'totalCost', header: 'Value', sortKey: 'totalCost', className: 'text-right tabular-nums', render: (g) => formatMoney(g.totalCost) },
+      { key: 'print', header: '', className: 'w-10 text-right', render: (g) => <GoodsReceiptPrintIcon grn={g} /> },
     ],
   },
   detail: {
     title: (g) => g.grnNo,
     subtitle: (g) => `${g.supplierName ?? ''} · ${g.poNo ?? 'No purchase order'}`,
+    actions: (g) => <GoodsReceiptPrintButton grn={g} />,
     fields: [
       { label: 'Purchase order', value: (g) => g.poNo ?? 'None: received straight from head office' },
       { label: 'Supplier', value: (g) => g.supplierName },

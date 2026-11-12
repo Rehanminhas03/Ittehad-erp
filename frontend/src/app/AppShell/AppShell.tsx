@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { Outlet } from 'react-router';
+import { CsvPreviewHost } from '@/features/sales/exports/CsvPreviewHost';
 import { LiveNotifications } from '@/features/notifications';
 import { GlassBackdrop, PageSpinner, Toasts } from '@/shared/components/ui';
 import { Sidebar } from './Sidebar';
@@ -19,6 +20,7 @@ export function AppShell() {
         <main className="mx-auto w-full max-w-7xl flex-1 px-3 pt-4 pb-10 sm:px-6 lg:px-8">
           <Suspense fallback={<PageSpinner />}>
             <Outlet />
+            <CsvPreviewHost />
           </Suspense>
         </main>
       </div>

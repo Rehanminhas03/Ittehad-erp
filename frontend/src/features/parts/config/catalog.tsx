@@ -56,7 +56,7 @@ export const partView: EntityViewConfig<Part> = {
       { name: 'partNo', label: 'Part number', type: 'text', required: true, mode: 'create', hint: 'Stored uppercase without spaces' },
       { name: 'description', label: 'Description', type: 'text', required: true, span: 2 },
       { name: 'brand', label: 'Brand', type: 'text' },
-      { name: 'category', label: 'Category', type: 'text' },
+      { name: 'category', label: 'Category', type: 'select', options: ['Lubricants', 'Mechanical', 'Body shop', 'Accessories'].map((c) => ({ value: c, label: c })) },
       { name: 'uom', label: 'Unit', type: 'select', required: true, options: UOMS },
       { name: 'sellingPrice', label: 'Selling price (PKR)', type: 'money', required: true },
       { name: 'isActive', label: 'Active', type: 'boolean', mode: 'edit' },

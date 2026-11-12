@@ -1,3 +1,5 @@
+import { PartPicker } from '../PartPicker';
+import { itemTypeOf } from '../../lib/itemType';
 import { LineItemsTable, type LineDraft } from '@/shared/components';
 import { Section, Spinner } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
@@ -14,7 +16,7 @@ import { P } from '../../permissions';
 
 const body = (d: LineDraft) => ({ partNo: d.partNo.trim(), description: d.description.trim(), quantity: d.quantity.trim(), unitPrice: d.unitPrice.replace(/,/g, '') });
 
-/** PO lines: the part number and name are typed in (a part not in the catalogue yet is added to it); the server computes amounts and the total. */
+/** PO lines: a part is chosen from the catalogue by searching its number or name (never typed in); the server computes amounts and the total. */
 export function PurchaseOrderLines({ po }: { po: PurchaseOrder }) {
   const perm = usePermission();
   const toast = useToast();
@@ -42,7 +44,11 @@ export function PurchaseOrderLines({ po }: { po: PurchaseOrder }) {
           lines={(lines ?? []).map((l) => ({ ...l, kind: l.itemType }))}
           kinds={ITEM_TYPES}
           editable={editable}
-          descriptionHint={() => 'Part name'}
+          partNoField={() => 'auto'}
+          descriptionHint={() => 'Chosen from the parts above'}
+          addHelper={(_kind, fill) => (
+            <PartPicker placeholder="Search the part by number or name, then choose it…" onPick={(p) => fill({ kind: itemTypeOf(p), partNo: p.partNo, description: p.description, ...(p.purchasePrice ? { unitPrice: String(Number(p.purchasePrice)) } : {}) })} />
+          )}
           priceLabel="Cost from supplier"
           onAdd={(d) => withToast(add({ id: po.id, purchaseOrderLineCreate: { ...body(d), itemType: d.kind as 'part' | 'accessory' | 'lubricant' } }).unwrap())}
           onUpdate={(lineId, d) => withToast(update({ id: po.id, lineId, purchaseOrderLineUpdate: body(d) }).unwrap())}

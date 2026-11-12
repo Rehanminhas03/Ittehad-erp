@@ -20,6 +20,7 @@ export const FILM_BRAND_PLACEHOLDER = 'Gold, Platinum, Hyper, Ultra, Matte';
 export const PPF_VOUCHER_FIELDS = [
   { key: 'pbo', label: 'PBO', hideable: false },
   { key: 'customerName', label: 'Customer Name', hideable: false },
+  { key: 'cnic', label: 'CNIC', hideable: true },
   { key: 'email', label: 'Email', hideable: true },
   { key: 'address', label: 'Address', hideable: false },
   { key: 'phone', label: 'Phone #', hideable: true },

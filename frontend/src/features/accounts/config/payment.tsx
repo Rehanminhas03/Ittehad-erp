@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { StatusBadge } from '@/shared/components/ui';
 import { dealershipFilter, type EntityViewConfig, mono, muted, statusFilter, strong } from '@/shared/entity';
-import { formatDate, formatMoney } from '@/shared/lib';
+import { formatDate, formatDateTime, formatMoney } from '@/shared/lib';
 import {
   type Payment,
   useGetPaymentHistoryQuery,
@@ -41,6 +41,7 @@ export const paymentView: EntityViewConfig<Payment> = {
     columns: [
       { key: 'paymentNo', header: 'Number', sortKey: 'paymentNo', render: (p) => mono(p.paymentNo) },
       { key: 'paymentDate', header: 'Date', sortKey: 'paymentDate', render: (p) => formatDate(p.paymentDate) },
+      { key: 'createdAt', header: 'Entered (date and time)', sortKey: 'createdAt', render: (p) => <span className="whitespace-nowrap text-xs text-slate-500">{formatDateTime(p.createdAt)}</span> },
       { key: 'party', header: 'From / to', render: (p) => strong(party(p)) },
       { key: 'direction', header: 'Type', render: (p) => muted(labelOf(DIRECTIONS, p.direction)) },
       { key: 'method', header: 'Method', render: (p) => `${labelOf(PAYMENT_METHODS, p.method)}${p.reference ? ` · ${p.reference}` : ''}` },

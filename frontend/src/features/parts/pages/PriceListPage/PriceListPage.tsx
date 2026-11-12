@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
 import { Button, Field, Input, PageHeader, Pagination, Select, Spinner } from '@/shared/components/ui';
-import { downloadCsv, type Column } from '@/features/sales/exports/exporters';
+import { buildTablePdf, saveCsv, type Column } from '@/features/sales/exports/exporters';
 import { useAppDispatch, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { usePartModelOptions } from '../../hooks/usePartModelOptions';
@@ -21,7 +22,7 @@ const COLUMNS: Column[] = [
   { header: 'Part code', value: (r) => String(r.partNo) },
   { header: 'Part name', value: (r) => String(r.description) },
   { header: 'Category', value: (r) => String(r.category ?? '') },
-  { header: 'Price received from the company', value: (r) => (r.purchasePrice == null ? '' : Number(r.purchasePrice)) },
+  { header: 'Retail price', value: (r) => (r.purchasePrice == null ? '' : Number(r.purchasePrice)) },
   { header: 'MRP without sales tax', value: (r) => split(String(r.sellingPrice)).ex },
   { header: 'Sales tax @ 18%', value: (r) => split(String(r.sellingPrice)).tax },
   { header: 'Customer price (final MRP with sales tax)', value: (r) => split(String(r.sellingPrice)).final },
@@ -51,21 +52,37 @@ export default function PriceListPage() {
   const { data: categories } = useListPartCategoriesQuery({ brand: brand || undefined });
   const { data, isFetching } = useListPartsQuery({ brand: brand || undefined, category: category || undefined, modelId: modelId ? Number(modelId) : undefined, q: q || undefined, isActive: 'true', sort: 'partNo', page, pageSize: PAGE });
 
-  const download = async () => {
+  // The whole list (every part matching the search and filters) opens as a report: view it, then print or download (PDF or Excel).
+  const [report, setReport] = useState<{ name: string; sub: string; rows: Part[] } | null>(null);
+  const vehicleOf = (r: Record<string, unknown>) => ((r.modelIds as number[] | undefined) ?? []).map(modelName).join(', ');
+  const PDF_COLUMNS: Column[] = [
+    { header: 'Part code', value: COLUMNS[0]!.value, w: 1.4 },
+    { header: 'Part name', value: COLUMNS[1]!.value, w: 2.6 },
+    { header: 'Category', value: COLUMNS[2]!.value, w: 1.6 },
+    { header: 'Vehicle', value: vehicleOf, w: 1.3 },
+    { header: 'MRP without sales tax', value: COLUMNS[4]!.value },
+    { header: 'Sales tax @ 18%', value: COLUMNS[5]!.value },
+    { header: 'Customer price (with sales tax)', value: COLUMNS[6]!.value },
+  ];
+  const excelColumns: Column[] = [...COLUMNS, { header: 'Vehicle', value: vehicleOf }];
+  const build = useMemo(
+    () => (report ? () => buildTablePdf(report.name, 'Price list', report.sub, PDF_COLUMNS, report.rows as unknown as Record<string, unknown>[]) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [report],
+  );
+  const pdf = usePdf(build);
+
+  const open = async () => {
     setBusy(true);
     try {
-      const rows: Part[] = [];
-      for (let p = 1; ; p++) {
-        const r = await dispatch(partsApi.endpoints.listParts.initiate({ brand: brand || undefined, category: category || undefined, modelId: modelId ? Number(modelId) : undefined, q: q || undefined, isActive: 'true', sort: 'partNo', page: p, pageSize: 100 }, { forceRefetch: true })).unwrap();
-        rows.push(...r.items);
-        if (rows.length >= r.total || !r.items.length) break;
-      }
+      const args = { brand: brand || undefined, category: category || undefined, modelId: modelId ? Number(modelId) : undefined, q: q || undefined, isActive: 'true' as const, sort: 'partNo' };
+      const get = (p: number) => dispatch(partsApi.endpoints.listParts.initiate({ ...args, page: p, pageSize: 100 }, { forceRefetch: true })).unwrap();
+      const first = await get(1);
+      const rest = await Promise.all(Array.from({ length: Math.max(0, Math.ceil(first.total / 100) - 1) }, (_, i) => get(i + 2)));
+      const rows: Part[] = [...first.items, ...rest.flatMap((r) => r.items)];
       if (!rows.length) return toast.error('No part matches');
-      downloadCsv(
-        `${brand || 'Parts'}${modelId ? ` ${modelName(Number(modelId))}` : ''} price list - ${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })}`,
-        [...COLUMNS, { header: 'Vehicle', value: (r) => ((r.modelIds as number[] | undefined) ?? []).map(modelName).join(', ') }],
-        rows as unknown as Record<string, unknown>[],
-      );
+      const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+      setReport({ name: `${brand || 'Parts'}${modelId ? ` ${modelName(Number(modelId))}` : ''} price list - ${day}`, sub: `${rows.length} parts · ${day}`, rows });
     } catch (e) {
       toast.error(e);
     } finally {
@@ -79,8 +96,8 @@ export default function PriceListPage() {
         title="Price list"
         subtitle="Look up the price of any part: search by part code or name."
         actions={
-          <Button variant="secondary" loading={busy} onClick={download}>
-            Download price list (Excel)
+          <Button variant="secondary" loading={busy} onClick={() => void open()}>
+            Price list report (view, print or download)
           </Button>
         }
       />
@@ -126,7 +143,7 @@ export default function PriceListPage() {
               <th className="py-2 pr-3 font-medium">Part name</th>
               <th className="py-2 pr-3 font-medium">Category</th>
               <th className="py-2 pr-3 font-medium">Vehicle</th>
-              <th className="py-2 pr-3 text-right font-medium">Received price (from the company)</th>
+              <th className="py-2 pr-3 text-right font-medium">Retail price</th>
               <th className="py-2 pr-3 text-right font-medium">MRP without sales tax</th>
               <th className="py-2 pr-3 text-right font-medium">Sales tax @ 18%</th>
               <th className="py-2 text-right font-medium">Customer price (with sales tax)</th>
@@ -159,6 +176,18 @@ export default function PriceListPage() {
         </table>
         {data && data.total > PAGE && <Pagination page={page} pageSize={PAGE} total={data.total} onPage={setPage} />}
       </div>
+      <PdfDialog
+        open={!!report}
+        onClose={() => setReport(null)}
+        title="Price list"
+        pdf={pdf}
+        loading={!!report && !pdf}
+        extra={
+          <Button variant="secondary" onClick={() => report && saveCsv(report.name, excelColumns, report.rows as unknown as Record<string, unknown>[])}>
+            Download Excel (CSV)
+          </Button>
+        }
+      />
     </div>
   );
 }

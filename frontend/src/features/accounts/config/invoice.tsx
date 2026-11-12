@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 import { z } from 'zod';
 import { StatusBadge } from '@/shared/components/ui';
 import { dealershipFilter, type EntityViewConfig, mono, muted, optionalText, statusFilter, strong } from '@/shared/entity';
-import { formatDate, formatMoney } from '@/shared/lib';
+import { formatDate, formatDateTime, formatMoney } from '@/shared/lib';
 import {
   type Invoice,
   useGetInvoiceHistoryQuery,
@@ -56,6 +56,7 @@ export const invoiceView: EntityViewConfig<Invoice> = {
       { key: 'customerName', header: 'Customer', render: (i) => strong(i.customerName) },
       { key: 'sourceNo', header: 'For', render: (i) => muted(i.sourceNo) },
       { key: 'invoiceDate', header: 'Date', sortKey: 'invoiceDate', render: (i) => formatDate(i.invoiceDate) },
+      { key: 'createdAt', header: 'Entered (date and time)', sortKey: 'createdAt', render: (i) => <span className="whitespace-nowrap text-xs text-slate-500">{formatDateTime(i.createdAt)}</span> },
       {
         key: 'dueDate',
         header: 'Due',

@@ -156,8 +156,20 @@ const csvCell = (v: unknown) => {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-/** Downloads the rows as a CSV file (with a byte-order mark so Excel reads Urdu / special characters). */
+export type CsvPreview = { fileName: string; columns: Column[]; rows: Row[] };
+let previewHandler: ((p: CsvPreview) => void) | null = null;
+/** The app shows every Excel export in a preview first (view, then print or download); the shell registers its dialog here. */
+export const setCsvPreviewHandler = (h: ((p: CsvPreview) => void) | null) => {
+  previewHandler = h;
+};
+/** "Export to Excel": opens the preview (view, then print or download); the file is saved from there. */
 export function downloadCsv(fileName: string, columns: Column[], rows: Row[]) {
+  if (previewHandler) previewHandler({ fileName, columns, rows });
+  else saveCsv(fileName, columns, rows);
+}
+
+/** Saves the rows as a CSV file (with a byte-order mark so Excel reads Urdu / special characters). */
+export function saveCsv(fileName: string, columns: Column[], rows: Row[]) {
   const lines = [columns.map((c) => csvCell(c.header)).join(','), ...rows.map((r) => columns.map((c) => csvCell(c.value(r))).join(','))];
   const blob = new Blob([`﻿${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');

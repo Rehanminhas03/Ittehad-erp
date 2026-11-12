@@ -71,7 +71,7 @@ function partLinePrepare(
   table: typeof purchaseOrderLine | typeof stockTransferLine | typeof stockAdjustmentLine,
   parentCol: typeof purchaseOrderLine.purchaseOrderId,
   priced: boolean,
-  /** A purchase order may name a part that is not in the catalogue yet: it is added (price 0 until the manager sets it). */
+  /** Only the catalogue's parts can be ordered; kept for callers that may add a missing part. */
   addMissing = false,
 ) {
   return async (ctx: EntityCtx, parent: Row, data: Record<string, unknown>, before?: Row) => {
@@ -111,7 +111,7 @@ export const purchaseOrderLines = new LineService({
   maxLines: 200,
   sortKey: 'createdAt',
   locked: (p) => (p.status !== 'draft' ? 'Only draft purchase orders can be changed' : null),
-  prepare: partLinePrepare(purchaseOrderLine, purchaseOrderLine.purchaseOrderId, true, true),
+  prepare: partLinePrepare(purchaseOrderLine, purchaseOrderLine.purchaseOrderId, true, false),
   afterChange: recomputePoTotal,
 });
 

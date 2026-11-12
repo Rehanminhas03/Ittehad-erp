@@ -1523,6 +1523,7 @@ export type CreateLeadPpfFormApiResponse = /** status 201 Success */ {
   protectionPackage: ("nenotek_prime" | "proskin_platinum" | null) | null;
   customerEmail: string | null;
   customerAddress: string | null;
+  customerCnic?: string | null;
   filmBrand: string | null;
   finish: "gloss" | "matte";
   warrantyYears: number | null;
@@ -1971,6 +1972,7 @@ export type CreateStandalonePpfFormApiResponse = /** status 201 Success */ {
   protectionPackage: ("nenotek_prime" | "proskin_platinum" | null) | null;
   customerEmail: string | null;
   customerAddress: string | null;
+  customerCnic?: string | null;
   filmBrand: string | null;
   finish: "gloss" | "matte";
   warrantyYears: number | null;
@@ -3318,6 +3320,7 @@ export type PpfFormCreate = {
   customerName: string;
   customerEmail: string;
   customerAddress: string;
+  customerCnic?: string | null;
   filmBrand?: string | null;
   finish?: "gloss" | "matte";
   warrantyYears?: number | null;
@@ -3457,6 +3460,7 @@ export type QuotationDocument = {
     mobile: string;
     email: string | null;
     address?: string | null;
+    cnic?: string | null;
   };
   salesperson: {
     name: string;
@@ -3518,6 +3522,7 @@ export type PpfDocument = {
     mobile: string;
     email: string | null;
     address?: string | null;
+    cnic?: string | null;
   };
   salesperson: {
     name: string;
@@ -4592,6 +4597,7 @@ export type PpfForm = {
   protectionPackage: ("nenotek_prime" | "proskin_platinum" | null) | null;
   customerEmail: string | null;
   customerAddress: string | null;
+  customerCnic?: string | null;
   filmBrand: string | null;
   finish: "gloss" | "matte";
   warrantyYears: number | null;
@@ -4627,6 +4633,7 @@ export type PpfFormUpdate = {
   customerName?: string;
   customerEmail?: string;
   customerAddress?: string;
+  customerCnic?: string | null;
   filmBrand?: string | null;
   finish?: "gloss" | "matte";
   warrantyYears?: number | null;

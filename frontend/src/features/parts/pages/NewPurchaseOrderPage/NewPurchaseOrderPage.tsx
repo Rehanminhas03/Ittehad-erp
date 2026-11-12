@@ -4,8 +4,7 @@ import { Button, Field, Input, PageHeader, Section, Select } from '@/shared/comp
 import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
 import { ITEM_TYPES, type ItemType, itemTypeOf } from '../../lib/itemType';
-import { PartLookupInput, PartPicker } from '../../components/PartPicker';
-import type { Part } from '../../partsApi';
+import { PartPicker } from '../../components/PartPicker';
 import { StoreTargetFields, useStoreTarget } from '../../components/StoreTarget';
 import { useSupplierOptions } from '../../hooks';
 import { useAddPurchaseOrderLineMutation, useCreatePurchaseOrderMutation } from '../../partsApi';
@@ -18,11 +17,10 @@ interface Line {
   quantity: string;
   unitCost: string;
 }
-const blank = (): Line => ({ itemType: 'part', partNo: '', description: '', quantity: '1', unitCost: '' });
 
 /**
- * A new purchase order with its parts and lubricants in one go: type a part number or name and choose the catalogue's part to fill
- * the line (all of it stays editable), or write a part not in the list by hand (it is added to the catalogue). Saved as one order, ready to print.
+ * A new purchase order with its parts and lubricants in one go. Parts cannot be typed in by hand: search the catalogue by part number
+ * or name and choose the part (a part not in the list is first added under Parts and prices). Saved as one order, ready to print.
  */
 export default function NewPurchaseOrderPage() {
   const toast = useToast();
@@ -32,30 +30,22 @@ export default function NewPurchaseOrderPage() {
   const [supplierId, setSupplierId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [lines, setLines] = useState<Line[]>([blank()]);
+  const [lines, setLines] = useState<Line[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [createPo] = useCreatePurchaseOrderMutation();
   const [addLine] = useAddPurchaseOrderLineMutation();
   const supplier = supplierId || suppliers[0]?.value || '';
 
-  // Filling in the last line opens the next one, so there is always an empty line to type into.
-  const set = (i: number, patch: Partial<Line>) =>
-    setLines((ls) => {
-      const next = ls.map((l, k) => (k === i ? { ...l, ...patch } : l));
-      const last = next[next.length - 1]!;
-      return last.partNo.trim() || last.description.trim() ? [...next, blank()] : next;
-    });
-  // A catalogue part chosen on a line fills the number, the name, the type and the cost; each stays editable.
-  const fromCatalogue = (i: number, p: Part): Partial<Line> => ({ itemType: itemTypeOf(p), partNo: p.partNo, description: p.description, ...(p.purchasePrice ? { unitCost: String(Number(p.purchasePrice)) } : {}) });
-  const filled = lines.filter((l) => l.partNo.trim() || l.description.trim());
+  const set = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
+  const filled = lines;
   const total = filled.reduce((s, l) => s + amountNumber(l.quantity) * amountNumber(l.unitCost), 0);
 
   const submit = async () => {
     if (!t.dealershipId || !t.branchId || !supplier) return setError('Choose the store and the supplier');
-    if (!filled.length) return setError('Add at least one part');
-    const bad = filled.findIndex((l) => l.partNo.trim().length < 2 || l.description.trim().length < 2 || !(amountNumber(l.quantity) > 0) || !l.unitCost.trim());
-    if (bad >= 0) return setError(`Line ${bad + 1}: enter the part number, the part name, the quantity and the cost from the supplier`);
+    if (!filled.length) return setError('Search and choose at least one part from the catalogue');
+    const bad = filled.findIndex((l) => !(amountNumber(l.quantity) > 0) || !l.unitCost.trim());
+    if (bad >= 0) return setError(`Line ${bad + 1}: enter the quantity and the cost from the supplier`);
     setError(null);
     setBusy(true);
     let id: number | null = null;
@@ -103,9 +93,10 @@ export default function NewPurchaseOrderPage() {
       <Section title="Parts and lubricants">
         <div className="mb-3">
           <PartPicker
-            placeholder="Search the catalogue by number or name, then choose it… (or type a new part below)"
-            onPick={(p) => setLines((ls) => [...ls.filter((l) => l.partNo.trim() || l.description.trim()), ...(ls.some((l) => l.partNo === p.partNo) ? [] : [{ itemType: itemTypeOf(p), partNo: p.partNo, description: p.description, quantity: '1', unitCost: p.purchasePrice ? String(Number(p.purchasePrice)) : '' }]), blank()])}
+            placeholder="Search the part by number or name, then choose it…"
+            onPick={(p) => setLines((ls) => (ls.some((l) => l.partNo === p.partNo) ? ls : [...ls, { itemType: itemTypeOf(p), partNo: p.partNo, description: p.description, quantity: '1', unitCost: p.purchasePrice ? String(Number(p.purchasePrice)) : '' }]))}
           />
+          <p className="mt-1 text-xs text-slate-500">A part that is not in the list cannot be ordered: add it first under Parts and prices.</p>
         </div>
         <table className="min-w-full text-sm">
           <thead>
@@ -122,21 +113,9 @@ export default function NewPurchaseOrderPage() {
           <tbody className="divide-y divide-slate-100">
             {lines.map((l, i) => (
               <tr key={i}>
-                <td className="py-1.5 pr-2">
-                  <Select value={l.itemType} onChange={(e) => set(i, { itemType: e.target.value as ItemType })} className="py-1 text-xs" aria-label="Type">
-                    {ITEM_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </Select>
-                </td>
-                <td className="py-1.5 pr-2">
-                  <PartLookupInput value={l.partNo} onChange={(v) => set(i, { partNo: v })} onPick={(p) => set(i, fromCatalogue(i, p))} className="py-1 font-mono text-xs" placeholder="Part number" label="Part number" />
-                </td>
-                <td className="py-1.5 pr-2">
-                  <PartLookupInput value={l.description} onChange={(v) => set(i, { description: v })} onPick={(p) => set(i, fromCatalogue(i, p))} className="py-1 text-xs" placeholder="Part name" label="Part name" />
-                </td>
+                <td className="py-1.5 pr-2 text-xs text-slate-600">{ITEM_TYPES.find((t) => t.value === l.itemType)?.label}</td>
+                <td className="py-1.5 pr-2 font-mono text-xs">{l.partNo}</td>
+                <td className="py-1.5 pr-2">{l.description}</td>
                 <td className="py-1.5 pr-2">
                   <Input value={l.quantity} onChange={(e) => set(i, { quantity: e.target.value })} className="ml-auto w-20 py-1 text-right text-xs" inputMode="decimal" aria-label="Quantity" />
                 </td>
@@ -145,20 +124,15 @@ export default function NewPurchaseOrderPage() {
                 </td>
                 <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(amountNumber(l.quantity) * amountNumber(l.unitCost))}</td>
                 <td className="py-1.5 text-right">
-                  {lines.length > 1 && (
-                    <button type="button" className="text-slate-400 hover:text-red-600" aria-label="Remove line" onClick={() => setLines((ls) => ls.filter((_, k) => k !== i))}>
-                      ×
-                    </button>
-                  )}
+                  <button type="button" className="text-slate-400 hover:text-red-600" aria-label="Remove line" onClick={() => setLines((ls) => ls.filter((_, k) => k !== i))}>
+                    ×
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <Button variant="secondary" size="sm" onClick={() => setLines((ls) => [...ls, blank()])}>
-            Add another part
-          </Button>
+        <div className="mt-3 flex justify-end">
           <span className="text-sm font-semibold">Total {formatMoney(total)}</span>
         </div>
       </Section>

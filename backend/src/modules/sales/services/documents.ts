@@ -178,6 +178,7 @@ async function issuePpf(
     customerName: input.customerName,
     customerEmail: input.customerEmail,
     customerAddress: input.customerAddress,
+    customerCnic: input.customerCnic ?? null,
     filmBrand: input.filmBrand ?? null,
     finish: input.finish,
     warrantyYears: input.warrantyYears ?? null,
@@ -288,6 +289,7 @@ export async function ppfDocument(ctx: EntityCtx, id: number) {
       name: (f.customerName as string | null) || p.customer.name,
       email: (f.customerEmail as string | null) || p.customer.email,
       address: (f.customerAddress as string | null) ?? null,
+      cnic: (f.customerCnic as string | null) ?? null,
     },
     // Written on the voucher, else the allocated vehicle's.
     vehicle: { ...p.vehicle, vin: (f.chassisNo as string | null) || p.vehicle.vin, engineNo: (f.engineNo as string | null) || p.vehicle.engineNo },

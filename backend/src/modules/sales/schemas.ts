@@ -386,6 +386,7 @@ export const PpfFormSchema = z.object({
   /** The customer as printed on the voucher (older vouchers: null, the lead's details print). */
   customerEmail: z.string().nullable(),
   customerAddress: z.string().nullable(),
+  customerCnic: z.string().nullable().optional(),
   filmBrand: z.string().nullable(),
   finish: z.enum(PPF_FINISHES),
   warrantyYears: z.number().int().nullable(),
@@ -410,6 +411,8 @@ const ppfFields = {
   customerName: requiredText('Customer name'),
   customerEmail: email,
   customerAddress: requiredText('Address', 300),
+  /** The customer's CNIC (optional): printed on the voucher. */
+  customerCnic: optionalText(25),
   filmBrand: optionalText(80),
   finish: z.enum(PPF_FINISHES),
   /** No longer on the form; kept for older vouchers. */
@@ -440,7 +443,7 @@ export const StandalonePpfCreate = PpfFormCreate.extend({
 const documentParties = {
   issuedAt: Timestamp,
   dealership: z.object({ name: z.string(), code: z.string(), brand: z.string(), address: z.string().nullable(), city: z.string().nullable(), phone: z.string().nullable() }),
-  customer: z.object({ name: z.string(), mobile: z.string(), email: z.string().nullable(), address: z.string().nullable().optional() }),
+  customer: z.object({ name: z.string(), mobile: z.string(), email: z.string().nullable(), address: z.string().nullable().optional(), cnic: z.string().nullable().optional() }),
   salesperson: z.object({ name: z.string(), phone: z.string().nullable(), email: z.string() }),
   vehicle: z.object({ model: z.string(), variant: z.string().nullable(), color: z.string().nullable(), vin: z.string().nullable(), engineNo: z.string().nullable() }),
   orderNo: z.string().nullable(),

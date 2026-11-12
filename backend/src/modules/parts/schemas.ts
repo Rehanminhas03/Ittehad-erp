@@ -1,5 +1,6 @@
 import { DiscountPercent, Id, Money, Timestamp, z } from '../../lib/zod';
 import { ADJUSTMENT_STATES, MOVEMENT_TYPES, PO_STATES, REQUEST_STATES, TRANSFER_STATES, UOMS } from './models';
+import { DEFAULT_PART_CATEGORY, PART_CATEGORIES } from './categories';
 
 const optionalText = (max = 200) => z.string().trim().max(max).nullish();
 const decimal = (v: string) => /^-?\d{1,9}(\.\d{1,2})?$/.test(v);
@@ -33,11 +34,12 @@ export const PartSchema = z.object({
   createdAt: Timestamp,
   updatedAt: Timestamp,
 });
+const PartCategoryEnum = z.enum(PART_CATEGORIES, { error: "Choose the category: Lubricants, Mechanical, Body shop or Accessories" });
 const partFields = {
   partNo: PartNo,
   description: z.string().trim().min(2).max(200),
   brand: optionalText(60),
-  category: optionalText(60),
+  category: PartCategoryEnum.nullish(),
   uom: z.enum(UOMS).default('each'),
   sellingPrice: Money,
   isActive: z.boolean().optional(),
@@ -179,7 +181,7 @@ export const DirectReceiveBody = z
           quantity: Quantity,
           unitCost: Money,
           /** A part that is not in the catalogue yet: it is added (for the dealership's brand, fitting the vehicles chosen) as it is received. */
-          newPart: z.object({ description: z.string().trim().min(2).max(200), category: optionalText(60), sellingPrice: Money }).optional(),
+          newPart: z.object({ description: z.string().trim().min(2).max(200), category: PartCategoryEnum.default(DEFAULT_PART_CATEGORY), sellingPrice: Money }).optional(),
         }),
       )
       .min(1)
@@ -251,7 +253,7 @@ export const ManagePartCreate = z
     brand: z.string().trim().min(2).max(60),
     partNo: PartNo,
     description: z.string().trim().min(2).max(200),
-    category: optionalText(60),
+    category: PartCategoryEnum.default(DEFAULT_PART_CATEGORY),
     uom: z.enum(UOMS).default('each'),
     sellingPrice: Money,
     purchasePrice: Money.nullish(),
@@ -262,7 +264,7 @@ export const ManagePartUpdate = z
   .object({
     partNo: PartNo,
     description: z.string().trim().min(2).max(200),
-    category: optionalText(60),
+    category: PartCategoryEnum.default(DEFAULT_PART_CATEGORY),
     uom: z.enum(UOMS),
     sellingPrice: Money,
     purchasePrice: Money.nullable(),
@@ -295,7 +297,7 @@ export const AssignModelsResultSchema = z.object({ changed: z.number().int() }).
 export const PriceChangeBody = z
   .object({
     brand: z.string().trim().min(2).max(60),
-    category: optionalText(60),
+    category: PartCategoryEnum.nullish(),
     percent: z.coerce.number().min(-90).max(500).refine((v) => v !== 0, 'Enter a percentage other than 0'),
   })
   .openapi('PriceChangeRequest');
@@ -407,6 +409,8 @@ export const InventoryRowSchema = z
     description: z.string(),
     brand: z.string().nullable(),
     category: z.string().nullable(),
+    /** The vehicles the part is for (model ids). */
+    modelIds: z.array(z.number().int()).default([]),
     sellingPrice: z.string(),
     onHand: z.string(),
     stockValue: z.string(),
@@ -461,7 +465,7 @@ export const PartImportBody = z
   .object({
     brand: z.string().trim().min(2).max(60),
     rows: z
-      .array(z.object({ partNo: PartNo, description: z.string().trim().min(2).max(200), sellingPrice: Money, category: optionalText(60) }))
+      .array(z.object({ partNo: PartNo, description: z.string().trim().min(2).max(200), sellingPrice: Money, category: PartCategoryEnum.default(DEFAULT_PART_CATEGORY) }))
       .min(1)
       .max(5000),
   })

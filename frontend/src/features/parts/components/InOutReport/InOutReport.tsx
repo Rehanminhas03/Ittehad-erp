@@ -59,7 +59,10 @@ const CSV_COLUMNS: Column[] = [
  * "Parts in and out" at the top of Store stock: for the dates chosen, how many pieces of each part came in and went out, what
  * they cost, and the price charged for what went out. Excel (CSV) and PDF.
  */
-export function InOutReportButton() {
+export function InOutReportButton({ only, label, variant = 'secondary' }: { only?: 'in' | 'out'; label?: string; variant?: 'primary' | 'secondary' } = {}) {
+  const showIn = only !== 'out';
+  const showOut = only !== 'in';
+  const heading = only === 'in' ? 'Parts in' : only === 'out' ? 'Parts out' : 'Parts in and out';
   const perm = usePermission();
   const dealerships = perm.dealershipsFor(P.stockView);
   const [open, setOpen] = useState(false);
@@ -82,7 +85,7 @@ export function InOutReportButton() {
   const inTotals = { date: 'TOTAL', time: '', partNo: '', description: '', how: '', quantity: String(total(ins, 'quantity')), cost: total(ins, 'cost').toFixed(2), price: '' };
   const outTotals = { date: 'TOTAL', time: '', partNo: '', description: '', how: '', quantity: String(total(outs, 'quantity')), cost: total(outs, 'cost').toFixed(2), price: total(outs, 'price').toFixed(2) };
   const where = dealerships.find((d) => String(d.id) === dealershipId)?.name ?? (dealerships.length === 1 ? dealerships[0]!.name : 'All dealerships');
-  const name = `Parts in and out - ${from} to ${to}`;
+  const name = `${heading} - ${from} to ${to}`;
 
   // Memoised: the PDF is drawn again whenever this function changes.
   const build = useMemo(
@@ -91,7 +94,7 @@ export function InOutReportButton() {
         ? () =>
             buildSectionedPdf(
               name,
-              'Store: parts in and out',
+              `Store: ${heading.toLowerCase()}`,
               `${where} · ${from} to ${to}`,
               [
                 {
@@ -108,7 +111,7 @@ export function InOutReportButton() {
                   totals: outTotals,
                   summary: `Parts out: ${qty(outTotals.quantity)} pieces, cost ${formatMoney(outTotals.cost)}, price charged ${formatMoney(outTotals.price)}`,
                 },
-              ],
+              ].filter((sec) => (sec.title === 'Parts in' ? showIn : showOut)),
               'In: received, transferred in, taken back from the workshop, adjusted up. Out: issued, transferred out, adjusted down. Price charged is for the parts issued.',
             )
         : null,
@@ -141,25 +144,23 @@ export function InOutReportButton() {
   if (dealerships.length === 0) return null;
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>
-        Parts in and out report
+      <Button size="sm" variant={variant} onClick={() => setOpen(true)}>
+        {label ?? `${heading} report`}
       </Button>
       {open && (
         <Dialog
           open
           onClose={() => setOpen(false)}
           size="xl"
-          title="Parts in and out"
+          title={heading}
           footer={
             <>
               <Button variant="secondary" onClick={() => setOpen(false)}>
                 Close
               </Button>
               <Button variant="secondary" disabled={!rows.length} onClick={() => downloadCsv(name, CSV_COLUMNS, [
-                    ...withHow(ins).map((m) => ({ ...m, dir: 'In' })),
-                    { ...inTotals, dir: 'In', date: 'TOTAL IN' },
-                    ...withHow(outs).map((m) => ({ ...m, dir: 'Out' })),
-                    { ...outTotals, dir: 'Out', date: 'TOTAL OUT' },
+                    ...(showIn ? [...withHow(ins).map((m) => ({ ...m, dir: 'In' })), { ...inTotals, dir: 'In', date: 'TOTAL IN' }] : []),
+                    ...(showOut ? [...withHow(outs).map((m) => ({ ...m, dir: 'Out' })), { ...outTotals, dir: 'Out', date: 'TOTAL OUT' }] : []),
                   ])}>
                 Export to Excel (CSV)
               </Button>
@@ -237,7 +238,7 @@ export function InOutReportButton() {
               {[
                 { title: 'Parts in', list: ins, out: false },
                 { title: 'Parts out', list: outs, out: true },
-              ].map(({ title, list, out }) => (
+              ].filter((sec) => (sec.out ? showOut : showIn)).map(({ title, list, out }) => (
                 <section key={title} className="mt-4">
                   <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
                   <div className={`mt-2 grid grid-cols-2 gap-3 ${out ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
@@ -293,7 +294,7 @@ export function InOutReportButton() {
           )}
         </Dialog>
       )}
-      <PdfDialog open={viewing} onClose={() => setViewing(false)} title={`Parts in and out ${from} to ${to}`} pdf={pdf} loading={viewing && !pdf} />
+      <PdfDialog open={viewing} onClose={() => setViewing(false)} title={`${heading} ${from} to ${to}`} pdf={pdf} loading={viewing && !pdf} />
     </>
   );
 }

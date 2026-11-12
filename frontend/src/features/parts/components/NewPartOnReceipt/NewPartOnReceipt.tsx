@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Dialog, Field, Input } from '@/shared/components/ui';
+import { Button, Dialog, Field, Input, Select } from '@/shared/components/ui';
 import { amountNumber } from '@/shared/lib';
 import { useListPartCategoriesQuery } from '../../partsApi';
 
@@ -8,7 +8,7 @@ export interface NewPartLine {
   description: string;
   quantity: string;
   unitCost: string;
-  newPart: { description: string; category: string | null; sellingPrice: string };
+  newPart: { description: string; category: "Lubricants" | "Mechanical" | "Body shop" | "Accessories"; sellingPrice: string };
 }
 
 /**
@@ -17,7 +17,7 @@ export interface NewPartLine {
  */
 export function NewPartOnReceipt({ brand, vehicles, onAdd }: { brand?: string; vehicles: string[]; onAdd: (line: NewPartLine) => void }) {
   const [open, setOpen] = useState(false);
-  const [partNo, setPartNo] = useState('');
+  const [partNo, setPartNo] = useState('Mechanical');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
@@ -40,11 +40,11 @@ export function NewPartOnReceipt({ brand, vehicles, onAdd }: { brand?: string; v
       description: description.trim(),
       quantity: quantity.trim(),
       unitCost: received.trim(),
-      newPart: { description: description.trim(), category: category.trim() || null, sellingPrice: price.trim() || '0' },
+      newPart: { description: description.trim(), category: category as 'Mechanical', sellingPrice: price.trim() || '0' },
     });
     setPartNo('');
     setDescription('');
-    setCategory('');
+    setCategory('Mechanical');
     setPrice('');
     setQuantity('1');
     setReceived('');
@@ -82,13 +82,14 @@ export function NewPartOnReceipt({ brand, vehicles, onAdd }: { brand?: string; v
               <Field label="Part name" htmlFor="np-name" required>
                 <Input id="np-name" value={description} onChange={(e) => setDescription(e.target.value)} />
               </Field>
-              <Field label="Category" htmlFor="np-cat" hint="Optional, e.g. Filters, Brakes">
-                <Input id="np-cat" list="np-cats" value={category} onChange={(e) => setCategory(e.target.value)} />
-                <datalist id="np-cats">
+              <Field label="Category" htmlFor="np-cat" required>
+                <Select id="np-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
                   {(categories ?? []).map((c) => (
-                    <option key={c} value={c} />
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
                   ))}
-                </datalist>
+                </Select>
               </Field>
               <Field label="Customer price (PKR)" htmlFor="np-price" hint="The price told to the customer. Leave empty to set it later in Manage parts">
                 <Input id="np-price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />

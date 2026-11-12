@@ -1554,6 +1554,7 @@ model PpfForm {
   customerName      String?    @map("customer_name")
   customerEmail     String?    @map("customer_email")
   customerAddress   String?    @map("customer_address")
+  customerCnic      String?    @map("customer_cnic")
   filmBrand         String?    @map("film_brand")
   finish            String     @default("gloss")
   warrantyYears     Int?       @map("warranty_years")

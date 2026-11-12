@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react';
+import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
 import { Button, Field, Input, PageHeader, Section, Select, Spinner } from '@/shared/components/ui';
-import { downloadCsv, downloadTablePdf, type Column } from '@/features/sales/exports/exporters';
+import { buildTablePdf, downloadCsv, type Column } from '@/features/sales/exports/exporters';
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { useSupplierOptions } from '../../hooks';
@@ -58,7 +59,7 @@ function Change({ now, before }: { now: number; before: number | null }) {
  * The purchase report: what was ordered and received in a period and what it cost. A part bought at different prices shows
  * the weighted average cost (total cost / pieces received) and, when opened, every purchase with the price going up or down.
  */
-export default function PurchaseReportPage() {
+export default function PurchaseReportPage({ embedded = false }: { embedded?: boolean }) {
   const perm = usePermission();
   const dealerships = perm.dealershipsFor(P.stockView);
   const [dealershipId, setDealershipId] = useState('');
@@ -79,6 +80,7 @@ export default function PurchaseReportPage() {
     q: q.trim() || undefined,
   });
 
+  const [preview, setPreview] = useState<{ name: string; sub: string; foot: string } | null>(null);
   const history = useMemo(() => {
     const by = new Map<number, NonNullable<typeof data>['lines']>();
     for (const l of data?.lines ?? []) by.set(l.partId, [...(by.get(l.partId) ?? []), l]);
@@ -88,6 +90,8 @@ export default function PurchaseReportPage() {
   const where = dealerships.find((d) => String(d.id) === dealershipId)?.name ?? 'All dealerships';
   const label = `${from || 'start'} to ${to || 'today'}`;
   const name = `Purchase report - ${from || 'start'} to ${to || today()}`;
+  const build = useMemo(() => (preview ? () => buildTablePdf(preview.name, 'Store: purchase report', preview.sub, PART_COLUMNS, parts as never, preview.foot) : null), [preview, parts]);
+  const pdf = usePdf(build);
   const withNames = () => {
     const byId = new Map((data?.parts ?? []).map((p) => [p.partId, p]));
     return (data?.lines ?? []).map((l) => ({ ...l, partNo: byId.get(l.partId)?.partNo ?? '', description: byId.get(l.partId)?.description ?? '' })) as unknown as Record<string, unknown>[];
@@ -95,23 +99,40 @@ export default function PurchaseReportPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Purchase report"
-        subtitle="What was ordered and received in a period, and what it cost. A part bought at different prices shows its average cost (total cost ÷ pieces received); open a part to see every purchase and how the price moved."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled={!parts.length} onClick={() => downloadCsv(name, PART_COLUMNS, parts)}>
-              Summary (Excel)
-            </Button>
-            <Button variant="secondary" disabled={!parts.length} onClick={() => downloadTablePdf(name, 'Store: purchase report', `${where} · ${label}`, PART_COLUMNS, parts, `Received cost ${formatMoney(data!.totals.receivedCost)} · ordered ${formatMoney(data!.totals.orderedValue)}. Average cost = total cost ÷ pieces received.`)}>
-              Summary (PDF)
-            </Button>
-            <Button variant="secondary" disabled={!data?.lines.length} onClick={() => downloadCsv(`${name} - every purchase`, HISTORY_COLUMNS, withNames())}>
-              Every purchase (Excel)
-            </Button>
-          </div>
-        }
-      />
+      {embedded ? (
+        <div className="mb-5 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <p className="mb-2 text-sm text-slate-600">What was ordered and received in a period and what it cost. Open a part to see every purchase and how the price moved.</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={!parts.length} onClick={() => downloadCsv(name, PART_COLUMNS, parts)}>
+                Download Excel (summary)
+              </Button>
+              <Button variant="primary" disabled={!parts.length} onClick={() => setPreview({ name, sub: `${where} · ${label}`, foot: `Received cost ${formatMoney(data!.totals.receivedCost)} · ordered ${formatMoney(data!.totals.orderedValue)}. Average cost = total cost ÷ pieces received.` })}>
+                View / print report
+              </Button>
+              <Button variant="secondary" disabled={!data?.lines.length} onClick={() => downloadCsv(`${name} - every purchase`, HISTORY_COLUMNS, withNames())}>
+                Download Excel (every purchase)
+              </Button>
+            </div>
+        </div>
+      ) : (
+        <PageHeader
+          title="Purchase report"
+          subtitle="What was ordered and received in a period, and what it cost. A part bought at different prices shows its average cost (total cost ÷ pieces received); open a part to see every purchase and how the price moved."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={!parts.length} onClick={() => downloadCsv(name, PART_COLUMNS, parts)}>
+                Summary (Excel)
+              </Button>
+              <Button variant="secondary" disabled={!parts.length} onClick={() => setPreview({ name, sub: `${where} · ${label}`, foot: `Received cost ${formatMoney(data!.totals.receivedCost)} · ordered ${formatMoney(data!.totals.orderedValue)}. Average cost = total cost ÷ pieces received.` })}>
+                Summary (view / print)
+              </Button>
+              <Button variant="secondary" disabled={!data?.lines.length} onClick={() => downloadCsv(`${name} - every purchase`, HISTORY_COLUMNS, withNames())}>
+                Every purchase (Excel)
+              </Button>
+            </div>
+          }
+        />
+      )}
       <div className="mb-5 flex flex-wrap items-end gap-3">
         {dealerships.length > 1 && (
           <Field label="Dealership" htmlFor="pu-d">
@@ -272,6 +293,7 @@ export default function PurchaseReportPage() {
           </Section>
         </div>
       )}
+      <PdfDialog open={!!preview} onClose={() => setPreview(null)} title="Purchase report" pdf={pdf} loading={!!preview && !pdf} />
     </div>
   );
 }

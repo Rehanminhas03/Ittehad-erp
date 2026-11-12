@@ -4548,6 +4548,11 @@
             "minLength": 1,
             "maxLength": 300
           },
+          "customerCnic": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 25
+          },
           "filmBrand": {
             "type": "string",
             "nullable": true,
@@ -5034,6 +5039,10 @@
               "address": {
                 "type": "string",
                 "nullable": true
+              },
+              "cnic": {
+                "type": "string",
+                "nullable": true
               }
             },
             "required": [
@@ -5503,6 +5512,10 @@
                 "nullable": true
               },
               "address": {
+                "type": "string",
+                "nullable": true
+              },
+              "cnic": {
                 "type": "string",
                 "nullable": true
               }
@@ -10268,6 +10281,10 @@
             "type": "string",
             "nullable": true
           },
+          "customerCnic": {
+            "type": "string",
+            "nullable": true
+          },
           "filmBrand": {
             "type": "string",
             "nullable": true
@@ -10422,6 +10439,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300
+          },
+          "customerCnic": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 25
           },
           "filmBrand": {
             "type": "string",
@@ -10867,8 +10889,13 @@
                     },
                     "category": {
                       "type": "string",
-                      "nullable": true,
-                      "maxLength": 60
+                      "enum": [
+                        "Lubricants",
+                        "Mechanical",
+                        "Body shop",
+                        "Accessories"
+                      ],
+                      "default": "Mechanical"
                     },
                     "sellingPrice": {
                       "type": "string",
@@ -11127,8 +11154,13 @@
                 },
                 "category": {
                   "type": "string",
-                  "nullable": true,
-                  "maxLength": 60
+                  "enum": [
+                    "Lubricants",
+                    "Mechanical",
+                    "Body shop",
+                    "Accessories"
+                  ],
+                  "default": "Mechanical"
                 }
               },
               "required": [
@@ -11166,8 +11198,13 @@
           },
           "category": {
             "type": "string",
-            "nullable": true,
-            "maxLength": 60
+            "enum": [
+              "Lubricants",
+              "Mechanical",
+              "Body shop",
+              "Accessories"
+            ],
+            "default": "Mechanical"
           },
           "uom": {
             "type": "string",
@@ -11220,8 +11257,13 @@
           },
           "category": {
             "type": "string",
-            "nullable": true,
-            "maxLength": 60
+            "enum": [
+              "Lubricants",
+              "Mechanical",
+              "Body shop",
+              "Accessories"
+            ],
+            "default": "Mechanical"
           },
           "uom": {
             "type": "string",
@@ -11277,7 +11319,13 @@
           "category": {
             "type": "string",
             "nullable": true,
-            "maxLength": 60
+            "enum": [
+              "Lubricants",
+              "Mechanical",
+              "Body shop",
+              "Accessories",
+              null
+            ]
           },
           "percent": {
             "type": "number",
@@ -11703,6 +11751,13 @@
           "category": {
             "type": "string",
             "nullable": true
+          },
+          "modelIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "default": []
           },
           "sellingPrice": {
             "type": "string"
@@ -12858,7 +12913,13 @@
           "category": {
             "type": "string",
             "nullable": true,
-            "maxLength": 60
+            "enum": [
+              "Lubricants",
+              "Mechanical",
+              "Body shop",
+              "Accessories",
+              null
+            ]
           },
           "uom": {
             "type": "string",
@@ -12901,7 +12962,13 @@
           "category": {
             "type": "string",
             "nullable": true,
-            "maxLength": 60
+            "enum": [
+              "Lubricants",
+              "Mechanical",
+              "Body shop",
+              "Accessories",
+              null
+            ]
           },
           "uom": {
             "type": "string",
@@ -28833,6 +28900,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "filmBrand": {
                       "type": "string",
                       "nullable": true
@@ -31213,6 +31284,10 @@
                       "nullable": true
                     },
                     "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
                       "type": "string",
                       "nullable": true
                     },

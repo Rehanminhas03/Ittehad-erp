@@ -373,6 +373,7 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
     customerName: lead?.prospectName ?? '',
     customerEmail: lead?.email ?? '',
     customerAddress: lead?.customerAddress ?? '',
+    customerCnic: '',
     pboNo: '',
     chassisNo: '',
     engineNo: '',
@@ -423,6 +424,7 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
             customerName: v.customerName.trim(),
             customerEmail: v.customerEmail.trim(),
             customerAddress: v.customerAddress.trim(),
+            customerCnic: blank(v.customerCnic),
             coverage: v.coverage as 'full_body',
             protectionPackage: v.protectionPackage as 'nenotek_prime',
             filmBrand: blank(v.filmBrand),
@@ -480,6 +482,9 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
         </Field>
         <Field label="Email" htmlFor="ppf-email" required error={errors.customerEmail}>
           <Input id="ppf-email" type="email" value={v.customerEmail} onChange={set('customerEmail')} invalid={!!errors.customerEmail} placeholder="customer@example.com" />
+        </Field>
+        <Field label="CNIC" htmlFor="ppf-cnic" error={errors.customerCnic}>
+          <Input id="ppf-cnic" value={v.customerCnic} onChange={set('customerCnic')} invalid={!!errors.customerCnic} placeholder="e.g. 61101-1234567-1" />
         </Field>
         <Field label="Address" htmlFor="ppf-address" required className="sm:col-span-2" error={errors.customerAddress}>
           <Input id="ppf-address" value={v.customerAddress} onChange={set('customerAddress')} invalid={!!errors.customerAddress} placeholder="House, street, sector, city" />

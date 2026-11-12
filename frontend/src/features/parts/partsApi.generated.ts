@@ -1632,7 +1632,7 @@ export type DirectReceiveRequest = {
     unitCost: string;
     newPart?: {
       description: string;
-      category?: string | null;
+      category?: "Lubricants" | "Mechanical" | "Body shop" | "Accessories";
       sellingPrice: string;
     };
   }[];
@@ -1686,14 +1686,14 @@ export type PartImportRequest = {
     partNo: string;
     description: string;
     sellingPrice: string;
-    category?: string | null;
+    category?: "Lubricants" | "Mechanical" | "Body shop" | "Accessories";
   }[];
 };
 export type ManagePartCreate = {
   brand: string;
   partNo: string;
   description: string;
-  category?: string | null;
+  category?: "Lubricants" | "Mechanical" | "Body shop" | "Accessories";
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
   purchasePrice?: string;
@@ -1702,7 +1702,7 @@ export type ManagePartCreate = {
 export type ManagePartUpdate = {
   partNo?: string;
   description?: string;
-  category?: string | null;
+  category?: "Lubricants" | "Mechanical" | "Body shop" | "Accessories";
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice?: string;
   purchasePrice?: string;
@@ -1714,7 +1714,8 @@ export type PriceChangeResult = {
 };
 export type PriceChangeRequest = {
   brand: string;
-  category?: string | null;
+  category?:
+    ("Lubricants" | "Mechanical" | "Body shop" | "Accessories" | null) | null;
   percent: number;
 };
 export type PartVehicleModel = {
@@ -1802,6 +1803,7 @@ export type InventoryRow = {
   description: string;
   brand: string | null;
   category: string | null;
+  modelIds?: number[];
   sellingPrice: string;
   onHand: string;
   stockValue: string;
@@ -2094,7 +2096,8 @@ export type PartCreate = {
   partNo: string;
   description: string;
   brand?: string | null;
-  category?: string | null;
+  category?:
+    ("Lubricants" | "Mechanical" | "Body shop" | "Accessories" | null) | null;
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice: string;
   isActive?: boolean;
@@ -2102,7 +2105,8 @@ export type PartCreate = {
 export type PartUpdate = {
   description?: string;
   brand?: string | null;
-  category?: string | null;
+  category?:
+    ("Lubricants" | "Mechanical" | "Body shop" | "Accessories" | null) | null;
   uom?: "each" | "set" | "litre" | "kg" | "metre";
   sellingPrice?: string;
   isActive?: boolean;

@@ -1037,6 +1037,27 @@ async function drawCsmQuotation(q: QuotationDocument, k: number, letterheadPaper
   return { doc, fileName: fileNameOf('Quotation', q.quotationNo, q.customer.name) };
 }
 
+/** The standard PPF terms and conditions, printed on the voucher's second page (a format's own terms replace them). */
+const PPF_STANDARD_TERMS = [
+  'IN CONSIDERATION OF THE MUTUAL UNDERSTANDING, THE CUSTOMER AGREES UPON ALL THE FACTORS/TERMS STATED BELOW:',
+  'CUSTOMER IS OBLIGED TO REMOVE ANY SORT OF PERSONAL BELONGINGS (MONEY AND OTHER SIGNIFICANT ITEMS) FROM THEIR VEHICLE PRIOR TO HANDING OVER THE VEHICLE.',
+  'TIMINGS PROVIDED, FOR THE INSTALLATION OF PPF, BY THE REPRESENTATIVE(S) ARE SPECULATED TIMES ONLY. EACH VEHICLE IS UNIQUE AND IT MAY TAKE MORE OR LESS TIME TO COMPLETE THE SERVICE.',
+  'CUSTOMER IS OBLIGED TO CHECK/INSPECT THE PHYSICAL CONDITION OF THE VEHICLE BEFORE TAKING DELIVERY. ITTEHAD AUTOMOTIVE X AUTOEXTREME WILL NOT BE LIABLE TO ANY CLAIMS OF PHYSICAL DAMAGES PERPETUATED AFTER THE VEHICLE HAS LEFT THE BUSINESS PREMISES.',
+  'CUSTOMER IS RESTRICTED TO ENTER THE PPF ROOM WHEN THE WORK IS IN PROGRESS. IF THE CUSTOMER MAY DEEM IT NECESSARY TO ENTER THE ROOM, HE/SHE MAY WISH TO DO SO UPON THE PERMISSION PROVIDED BY THE RELEVANT REPRESENTATIVE.',
+  'RIMS, CHROME PANELS, WINDOWS, TAILLIGHTS, FOG COVERS, NON-PAINTED TRIMS ARE NOT INCLUDED FOR THE INSTALLATION OF PPF.',
+  'THE PRICE ONCE AGREED UPON WILL NOT BE FURTHER AMENDED.',
+  'NO WARRANTY OR DAMAGE CAN BE CLAIMED FOR REPAINTED PANELS.',
+  'ITTEHAD AUTOMOTIVE X AUTOEXTREME WILL NOT BE LIABLE IF THE DAMAGE IS CAUSED THROUGH NATURAL DISASTERS.',
+  'IT IS MANDATORY UPON THE CUSTOMER TO GET THE CAR INSPECTED AND SIMULTANEOUSLY MAINTAINED AFTER EVERY 6 MONTHS.',
+  'IT IS COMPULSORY UPON THE CLIENT TO GET THE FIRST 2 MAINTENANCE DONE FOR OPTIMAL PERFORMANCE.',
+  '100% LIMESCALE REMOVAL AND PAINT SPECS REMOVAL IS NOT POSSIBLE.',
+  'MOISTURE/AIR BUBBLES ARE PART OF INSTALLATION PROCESS AND THEY WILL GET REMOVED ON 1ST MAINTENANCE OF VEHICLE, AFTER 10-14 DAYS.',
+  'THERE IS NO WARRANTY OF SLIGHT LIFTING OF PPF FROM EDGES, EITHER THROUGH BAD WASHING TECHNIQUES OR ACCUMULATION OF DUST.',
+  'IF RAINWATER REMAINS ON YOUR CAR FOR A LONG TIME AND THE CAR IS NOT CLEANED, YOU WILL BE RESPONSIBLE FOR ANY WATER SPOTS THAT FORM ON IT.',
+  '7% TO 10% MARGIN OF CONTAMINATION IS ALWAYS ACCEPTED. THIS PRIMARILY INCLUDES DUST PARTICLES, NEGLIGIBLE DISTORTION IN FILM, LIFT LINES, PAINT DEFECTS PROMINENT AFTER APPLICATION OF FILM.',
+  'WITH REGARDS TO WINDOWFILM, 10% MARGIN OF CONTAMINATION IS ACCEPTED. THIS PRIMARILY INCLUDES DUST BUBBLES.',
+];
+
 /** The PPF voucher: customer, vehicle, sales executive, promise date, price / paid / un-paid, manager sign. */
 export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   const p = await newPage();
@@ -1071,6 +1092,7 @@ export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   const values: Record<PpfVoucherField, [string | null, boolean?]> = {
     pbo: [f.pboNo],
     customerName: [f.customer.name],
+    cnic: [f.customer.cnic ?? null],
     email: [f.customer.email],
     address: [f.customer.address ?? null],
     phone: [f.customer.mobile],
@@ -1115,14 +1137,34 @@ export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
     field(r.label, r.value, r.bold);
   }
 
-  // Notes / terms of the format, then the signature lines at the foot.
-  if (t.terms.length) {
-    p.y += 2;
-    for (const line of t.terms) p.rich(line, M, CW, 8.5, 4.2);
-  }
+  // The manager's signature at the foot of the first page.
   p.y = Math.max(p.y + 10, 284 - t.signOff.length * (step + 3));
   for (const sign of t.signOff) field(sign, null);
+  footer(p, f.formNo);
 
+  // Page 2: the terms and conditions (the format's own, else the standard PPF ones) and the signatures.
+  doc.addPage();
+  p.y = 20;
+  p.font(12, 'bold');
+  doc.text('Terms & Conditions', M, p.y);
+  p.y += 6;
+  p.font(8.5);
+  const terms = t.terms.length ? t.terms : PPF_STANDARD_TERMS;
+  for (const line of terms) {
+    const clause = line.replace(/^[-•]\s*/, '');
+    p.font(8.5);
+    const intro = /^IN CONSIDERATION/i.test(clause);
+    if (!intro) doc.text('\u2022', M + 2, p.y);
+    p.rich(clause, intro ? M : M + 7, intro ? CW : CW - 8, 8.5, 4.1);
+    p.y += 1.2;
+  }
+  p.y = Math.max(p.y + 14, 262);
+  doc.setDrawColor(40, 40, 40);
+  doc.line(M, p.y, M + 70, p.y);
+  doc.line(W - M - 70, p.y, W - M, p.y);
+  p.font(9.5, 'bold');
+  doc.text('Customer signature', M, p.y + 5);
+  doc.text('Representative signature', W - M - 70, p.y + 5);
   footer(p, f.formNo);
   doc.setProperties({ title: `${title} ${f.formNo}`, subject: `Paint Protection Film for ${f.customer.name}`, author: f.template.companyName });
   return { doc, fileName: fileNameOf('PPF Voucher', f.formNo, f.customer.name) };

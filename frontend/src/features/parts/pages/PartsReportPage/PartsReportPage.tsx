@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
 import { Button, Field, Input, PageHeader, Pagination, Section, Select, Spinner } from '@/shared/components/ui';
-import { downloadCsv, downloadTablePdf, type Column } from '@/features/sales/exports/exporters';
+import { buildTablePdf, downloadCsv, type Column } from '@/features/sales/exports/exporters';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { useGetEarlierSalesQuery, useGetPartsMonthlyReportQuery, useLazyGetEarlierSalesQuery, useLazyGetPartsSaleReportQuery, useLazyGetStockSheetQuery } from '../../partsApi';
@@ -53,8 +54,14 @@ export default function PartsReportPage() {
   const dealerships = perm.dealershipsFor(P.stockView);
   const [dealershipId, setDealershipId] = useState('');
   const [branchId, setBranchId] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // Opens on the last 30 days or so: last month to this month (change the months to look further back).
+  const [from, setFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    return d.toLocaleDateString('en-CA').slice(0, 7);
+  });
+  const [to, setTo] = useState(() => new Date().toLocaleDateString('en-CA').slice(0, 7));
   const branches = dealershipId ? perm.branchesFor(P.stockView, Number(dealershipId)) : [];
   const arg = {
     dealershipId: dealershipId ? Number(dealershipId) : undefined,
@@ -65,6 +72,10 @@ export default function PartsReportPage() {
   const { data, isFetching, isError } = useGetPartsMonthlyReportQuery(arg);
   const [loadSheet, { isFetching: loadingSheet }] = useLazyGetStockSheetQuery();
   const [loadSales, { isFetching: loadingSales }] = useLazyGetPartsSaleReportQuery();
+  // A PDF report opens in a preview first; it is printed or downloaded from there.
+  const [preview, setPreview] = useState<{ name: string; title: string; sub: string; cols: Column[]; rows: Record<string, unknown>[]; foot?: string } | null>(null);
+  const build = useMemo(() => (preview ? () => buildTablePdf(preview.name, preview.title, preview.sub, preview.cols, preview.rows as never, preview.foot) : null), [preview]);
+  const pdf = usePdf(build);
   const label = `${from ? monthName(from) : 'last 6 months'}${to ? ` to ${monthName(to)}` : ''}`;
   const where = dealerships.find((d) => String(d.id) === dealershipId)?.name ?? 'All dealerships';
 
@@ -86,7 +97,7 @@ export default function PartsReportPage() {
       const total = { roNo: 'TOTAL', quantity: String(sum('quantity')), totalPrice: String(sum('totalPrice')), totalCost: String(sum('totalCost')) };
       const name = `Store sale report - ${from || 'start'} to ${toM}`;
       if (as === 'csv') downloadCsv(name, SALE_COLUMNS, [...rows, total]);
-      else await downloadTablePdf(name, 'Store: sale report', `${where} · ${label}`, SALE_COLUMNS.slice(0, 10), [...rows, total], `Total price ${formatMoney(String(total.totalPrice))} · total cost ${formatMoney(String(total.totalCost))}`);
+      else setPreview({ name, title: 'Store: sale report', sub: `${where} · ${label}`, cols: SALE_COLUMNS.slice(0, 10), rows: [...rows, total], foot: `Total price ${formatMoney(String(total.totalPrice))} · total cost ${formatMoney(String(total.totalCost))}` });
     } catch (e) {
       toast.error(e);
     }
@@ -114,15 +125,15 @@ export default function PartsReportPage() {
             <Button
               variant="secondary"
               disabled={!data}
-              onClick={() => downloadTablePdf(`Store parts in and out - ${stamp()}`, 'Store: parts in and out', `${where} · ${label}`, MONTH_COLUMNS, monthRows, 'Revenue is the price charged for the parts issued, less parts taken back. Margin = revenue − cost.')}
+              onClick={() => setPreview({ name: `Store parts in and out - ${stamp()}`, title: 'Store: parts in and out', sub: `${where} · ${label}`, cols: MONTH_COLUMNS, rows: monthRows, foot: 'Revenue is the price charged for the parts issued, less parts taken back. Margin = revenue − cost.' })}
             >
-              Monthly report (PDF)
+              Monthly report (view / print)
             </Button>
             <Button variant="secondary" loading={loadingSales} onClick={() => downloadSales('csv')}>
               Sale report (Excel)
             </Button>
             <Button variant="secondary" loading={loadingSales} onClick={() => downloadSales('pdf')}>
-              Sale report (PDF)
+              Sale report (view / print)
             </Button>
             <Button variant="secondary" loading={loadingSheet} onClick={downloadStock}>
               Stock sheet (Excel)
@@ -251,6 +262,7 @@ export default function PartsReportPage() {
         </div>
       )}
       <EarlierSales dealershipId={arg.dealershipId} />
+      <PdfDialog open={!!preview} onClose={() => setPreview(null)} title={preview?.title ?? 'Report'} pdf={pdf} loading={!!preview && !pdf} />
     </div>
   );
 }
