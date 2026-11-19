@@ -165,7 +165,7 @@ export async function computeCheckIn(
     const next = await nextScheduledService(ctx, v.id);
     if (!next) {
       throw validationError([
-        { in: 'body', path: 'visitType', message: 'No scheduled service is pending for this vehicle; choose "Paid service" or "Repair"' },
+        { in: 'body', path: 'visitType', message: 'No scheduled service is pending for this vehicle; choose "Periodic maintenance" or "Repair"' },
       ]);
     }
     serviceNumber = next.sequence;

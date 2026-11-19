@@ -80,7 +80,7 @@ export function MonthRecord({ userId = null }: { userId?: number | null }) {
             <ul className="-my-1 divide-y divide-slate-200/60">
               {recent.map((r) => (
                 <li key={r.key} className="flex items-center gap-1">
-                  <Link to={r.to} className="flex min-w-0 flex-1 items-center gap-3 py-2 text-sm hover:text-brand-700">
+                  <Link to={r.to} className="flex min-w-0 flex-1 items-center gap-3 py-1.5 text-[13px] hover:text-brand-700">
                     <span className={`w-16 shrink-0 rounded-md px-1.5 py-0.5 text-center text-[11px] font-semibold ${r.kind === 'PPF' ? 'bg-violet-100 text-violet-800' : 'bg-blue-100 text-blue-800'}`}>{r.kind}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-slate-900">{r.customer ?? r.no}</span>
@@ -97,7 +97,7 @@ export function MonthRecord({ userId = null }: { userId?: number | null }) {
               ))}
             </ul>
           ) : (
-            <p className="py-6 text-center text-sm text-slate-500">No quotations or PPF forms yet.</p>
+            <p className="py-4 text-center text-sm text-slate-500">No quotations or PPF forms yet.</p>
           )}
         </Panel>
       )}

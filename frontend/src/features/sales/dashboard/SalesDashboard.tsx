@@ -10,10 +10,12 @@ import { labelOf, LEAD_SOURCES, LEAD_STATES, ORDER_STATES, P, showsVisited } fro
 import {
   type Lead,
   type SalesOrder,
+  type StockVehicle,
   useGetSalesDashboardQuery,
   useGetSalesTeamReportQuery,
   useListLeadsQuery,
   useListSalesOrdersQuery,
+  useListStockVehiclesQuery,
 } from '../salesApi';
 import { BarList } from './charts/BarList';
 import { TrendChart } from './charts/TrendChart';
@@ -21,6 +23,7 @@ import { Panel, RecordsTable, StatTile, type TileIcon, type TileTone } from './c
 import { MonthRecord } from './MonthRecord';
 import { useSalespersonOptions } from '../team/useSalespersonOptions';
 import { ActionNeeded } from '../actions';
+import { VehicleReceivedButton } from '../stock/VehicleReceived';
 import { ExportButtons } from '../exports/ExportButtons';
 
 // Validated categorical slots (dataviz reference palette): slot 1 blue, slot 2 orange.
@@ -66,6 +69,17 @@ const leadColumns = [
   { header: 'Logged', render: (l: Lead) => <span className="text-slate-500">{formatDate(l.createdAt)}</span>, hideOnMobile: true },
 ];
 
+/** Cars allocated from the plant to an order (chassis and engine number entered) that have not arrived yet. */
+const incomingColumns = [
+  { header: 'Chassis no.', render: (v: StockVehicle) => <span className="font-mono text-xs">{v.vin ?? '—'}</span> },
+  { header: 'Engine no.', render: (v: StockVehicle) => <span className="font-mono text-xs">{v.engineNo ?? '—'}</span>, hideOnMobile: true },
+  { header: 'Car', render: (v: StockVehicle) => <span className="text-slate-700">{[v.modelName, v.variant, v.color].filter(Boolean).join(' · ')}</span> },
+  { header: 'Order', render: (v: StockVehicle) => (v.orderNo ? <span className="font-mono text-xs">{v.orderNo}</span> : <span className="text-slate-400">Free stock</span>), hideOnMobile: true },
+  { header: 'Customer', render: (v: StockVehicle) => v.customerName ?? '—', hideOnMobile: true },
+  { header: 'Allocated', render: (v: StockVehicle) => <span className="text-slate-500">{formatDate(v.updatedAt ?? v.createdAt)}</span> },
+  { header: 'Status', render: (v: StockVehicle) => <StatusBadge status={v.status} /> },
+];
+
 const orderColumns = [
   { header: 'Order', render: (o: SalesOrder) => <span className="font-mono text-xs">{o.orderNo}</span> },
   { header: 'Customer', render: (o: SalesOrder) => o.customerName },
@@ -107,6 +121,8 @@ export function SalesDashboard() {
     { ...(layout === 'admin' ? { pageSize: 6, status: 'converted', sort: '-convertedAt' } : layout === 'am' ? { pageSize: 6, escalated: 'true' } : { pageSize: 6 }), ownerId: person ?? undefined },
     { skip: layout === 'delivery' || layout === 'manager' || (!!data && !canLeads) },
   );
+  // Delivery team: the cars allocated from the plant and not received yet (they arrive in a few days).
+  const incomingCars = useListStockVehiclesQuery({ incoming: 'true', pageSize: 8, sort: '-createdAt' }, { skip: layout !== 'delivery' });
   const recordsOrders = useListSalesOrdersQuery(
     { ...(layout === 'delivery' ? { pageSize: 6, live: 'true' as const, sort: 'createdAt' } : { pageSize: 6, awaitingApproval: 'true' as const, sort: 'createdAt' }), salespersonId: person ?? undefined },
     { skip: layout !== 'delivery' && layout !== 'manager' },
@@ -181,7 +197,7 @@ export function SalesDashboard() {
       : { title: layout === 'sales' ? 'My leads per day' : 'Leads per day', series: [SERIES_LOGGED, SERIES_CONVERTED] };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header + the one row of filters above the charts */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -191,6 +207,8 @@ export function SalesDashboard() {
           <p className="text-sm text-slate-600">{personName ? `Showing ${personName} only.` : SUBTITLES[layout]}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* The Delivery Team marks an arrived car (already in the system) received, with its PDI. */}
+          {layout === 'delivery' && <VehicleReceivedButton />}
           {/* Log a walk-in or a call straight from the dashboard (everyone who logs leads). */}
           {perm.can(P.leadsCreate) && (
             <Link to="/sales/leads/new">
@@ -237,6 +255,11 @@ export function SalesDashboard() {
 
       {/* What is waiting for you (approvals, cars to hand over…), with a pop-up when something is new. */}
       <ActionNeeded />
+      {layout === 'delivery' && (
+        <Panel title="Cars allocated, on their way" subtitle="Allocated from the plant, not received yet (usually 3 to 4 days). Click one, or use Vehicle received when it arrives." to="/sales/stock?incoming=true">
+          <RecordsTable rows={incomingCars.data?.items} columns={incomingColumns} href={(v) => `/sales/stock/${v.id}`} loading={incomingCars.isLoading} empty="No car is waiting to arrive." />
+        </Panel>
+      )}
 
       {/* Walk-ins and calls come first; the social media leads are shown under them. */}
       {data?.social && (

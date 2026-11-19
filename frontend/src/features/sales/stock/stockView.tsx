@@ -17,6 +17,7 @@ import {
   useReceiveStockVehicleMutation,
   useUpdateStockVehicleMutation,
 } from '../salesApi';
+import { VehicleReceivedButton } from './VehicleReceived';
 import { WaitingOrderSelect } from './WaitingOrderSelect';
 
 const chassis = z
@@ -55,10 +56,12 @@ export const stockView: EntityViewConfig<StockVehicle> = {
   canEdit: (_v, perm) => perm.can(P.stockManage),
   list: {
     defaultSort: '-createdAt',
+    headerActions: () => <VehicleReceivedButton variant="secondary" />,
     searchPlaceholder: 'Search chassis, engine, registration, PBO or customer',
     filters: [
       { param: 'status', label: 'Status', type: 'select', options: VEHICLE_STATUSES.filter((s) => s.value !== 'delivered') },
       { param: 'allocated', label: 'On an order', type: 'boolean' },
+      { param: 'incoming', label: 'Not received yet', type: 'boolean' },
       { param: 'modelId', label: 'Model', type: 'select', useOptions: useVehicleModelOptions },
       dealershipFilter,
     ],

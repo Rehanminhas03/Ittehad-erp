@@ -376,6 +376,17 @@ const injectedRtkApi = api
         }),
         providesTags: ["PartsRequest"],
       }),
+      setPartsRequestLineRemark: build.mutation<
+        SetPartsRequestLineRemarkApiResponse,
+        SetPartsRequestLineRemarkApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/parts/requests/${queryArg.id}/remark`,
+          method: "PUT",
+          body: queryArg.partsRequestRemarkRequest,
+        }),
+        invalidatesTags: ["PartsRequest"],
+      }),
       issueParts: build.mutation<IssuePartsApiResponse, IssuePartsApiArg>({
         query: (queryArg) => ({
           url: `/api/parts/requests/${queryArg.id}/issue`,
@@ -1247,6 +1258,14 @@ export type ListPartsRequestLinesApiResponse =
 export type ListPartsRequestLinesApiArg = {
   id: number;
 };
+export type SetPartsRequestLineRemarkApiResponse = /** status 200 Success */ {
+  lineId: number;
+  storeRemark: string | null;
+};
+export type SetPartsRequestLineRemarkApiArg = {
+  id: number;
+  partsRequestRemarkRequest: PartsRequestRemarkRequest;
+};
 export type IssuePartsApiResponse =
   /** status 200 Success */ PartsRequestLine[];
 export type IssuePartsApiArg = {
@@ -1745,8 +1764,12 @@ export type OpenJobCard = {
   status: string;
   registrationNo: string | null;
   vin: string | null;
+  engineNo: string | null;
   modelName: string | null;
   customerName: string | null;
+  advisorName: string | null;
+  technicianName: string | null;
+  totalAmount: string;
   freeService: boolean;
   serviceLabel: string | null;
 };
@@ -2063,8 +2086,13 @@ export type PartsRequestLine = {
   returnedQty: string;
   acceptedQty?: string;
   reason?: string | null;
+  storeRemark?: string | null;
   discountPercent?: string;
   onHand?: string | null;
+};
+export type PartsRequestRemarkRequest = {
+  lineId: number;
+  remark?: string | null;
 };
 export type IssuePartsRequest = {
   lines: {
@@ -2451,6 +2479,7 @@ export const {
   useLazyListPartsRequestsQuery,
   useListPartsRequestLinesQuery,
   useLazyListPartsRequestLinesQuery,
+  useSetPartsRequestLineRemarkMutation,
   useIssuePartsMutation,
   useReturnPartsMutation,
   useAcceptIssuedPartsMutation,

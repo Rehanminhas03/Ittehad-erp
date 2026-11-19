@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { PartPicker } from '@/features/parts/components/PartPicker';
 import { LineItemsTable, type LineDraft } from '@/shared/components';
 import { Button, Section, Spinner } from '@/shared/components/ui';
@@ -32,8 +33,18 @@ export function EstimateLines({ estimate }: { estimate: Estimate }) {
   const [update] = useUpdateEstimateLineMutation();
   const [remove] = useRemoveEstimateLineMutation();
   const [periodic, setPeriodic] = useState(false);
+  const [params, setParams] = useSearchParams();
   // The advisor edits the estimate; the store adds the parts and their prices.
   const editable = estimate.status === 'draft' && (perm.canIn(P.estimatesUpdate, estimate.dealershipId, estimate.branchId) || perm.canIn(P.estimatesStoreEdit, estimate.dealershipId, estimate.branchId));
+  // A new estimate made for a periodic maintenance (PM) opens the service picker straight away.
+  useEffect(() => {
+    if (params.get('pm') !== '1') return;
+    if (editable) setPeriodic(true);
+    setParams((p) => {
+      p.delete('pm');
+      return p;
+    }, { replace: true });
+  }, [params, editable, setParams]);
   const withToast = async (p: Promise<unknown>) => {
     try {
       await p;

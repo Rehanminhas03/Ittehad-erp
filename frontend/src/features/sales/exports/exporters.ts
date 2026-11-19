@@ -179,6 +179,62 @@ export function saveCsv(fileName: string, columns: Column[], rows: Row[]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+
+/** The dealership whose letterhead the report PDFs carry; the app shell sets it from the signed-in user's dealership(s). */
+let reportDealershipCode: string | null = null;
+export const setReportDealership = (code: string | null) => {
+  reportDealershipCode = code;
+};
+
+/**
+ * The letterhead of a landscape report: "Ittehad Motors (An Ittehad Steel Company)" with the dealership's address on the left
+ * and its logo on the right, a line under it. Returns the y where the report starts (a plain start without a known dealership).
+ */
+async function reportLetterhead(doc: import('jspdf').jsPDF, W: number, M: number): Promise<number> {
+  const code = reportDealershipCode ?? '';
+  const [{ loadImage }, { workshopBrand }] = await Promise.all([import('../documents/pdf'), import('../documents/workshopPdf')]);
+  const known = workshopBrand(code);
+  const logoFile = known?.logo ?? (code.startsWith('HYD') ? '/logo/Hyundai-logo-wide.png' : code.startsWith('CSM') ? '/logo/CSM-Logo.png' : null);
+  if (!known && !logoFile) return 14;
+  const logo = logoFile ? await loadImage(logoFile) : null;
+  doc.setTextColor(17, 24, 39);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text('Ittehad Motors', M, 14);
+  doc.setFontSize(9);
+  doc.text('(An Ittehad Steel Company)', M, 19.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  let y = 24.5;
+  for (const l of known?.addressLines ?? []) {
+    doc.text(l, M, y);
+    y += 3.6;
+  }
+  if (logo) {
+    const h = Math.min(16, 12 + 0);
+    const w = Math.min((logo.w / logo.h) * h, 60);
+    doc.addImage(logo.data, 'JPEG', W - M - w, 8, w, w / (logo.w / logo.h));
+  }
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.3);
+  doc.line(M, y + 0.5, W - M, y + 0.5);
+  return y + 7;
+}
+
+/** The heading row of a report table: the headings wrap to as many lines as they need, so none is cut off. Returns its height. */
+function drawHeadRow(doc: import('jspdf').jsPDF, columns: Column[], colX: number[], colWs: number[], y: number, M: number, CW: number): number {
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  const lines = columns.map((c, i) => doc.splitTextToSize(c.header, colWs[i]! - 3) as string[]);
+  const h = Math.max(...lines.map((l) => l.length)) * 3.5 + 3.6;
+  doc.setFillColor(30, 58, 138);
+  doc.rect(M, y, CW, h, 'F');
+  doc.setTextColor(255, 255, 255);
+  lines.forEach((l, i) => l.forEach((t, k) => doc.text(t, colX[i]! + 1.5, y + 4.4 + k * 3.5)));
+  doc.setTextColor(17, 24, 39);
+  return h;
+}
+
 /** A landscape PDF table: title, period, the rows (wrapped, repeated header on each page), a total line. Drawn, not saved (to preview first). */
 export async function buildTablePdf(fileName: string, title: string, subtitle: string, columns: Column[], rows: Row[], footnote?: string) {
   const { jsPDF } = await import('jspdf');
@@ -189,16 +245,9 @@ export async function buildTablePdf(fileName: string, title: string, subtitle: s
   const totalW = columns.reduce((n, c) => n + (c.w ?? 1), 0);
   const colWs = columns.map((c) => (CW * (c.w ?? 1)) / totalW);
   const colX = colWs.map((_, i) => M + colWs.slice(0, i).reduce((a, b) => a + b, 0));
-  let y = 14;
+  let y = await reportLetterhead(doc, W, M);
   const header = () => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setFillColor(30, 58, 138);
-    doc.setTextColor(255, 255, 255);
-    doc.rect(M, y, CW, 7, 'F');
-    columns.forEach((c, i) => doc.text(c.header, colX[i]! + 1.5, y + 4.7, { maxWidth: colWs[i]! - 3 }));
-    doc.setTextColor(17, 24, 39);
-    y += 7;
+    y += drawHeadRow(doc, columns, colX, colWs, y, M, CW);
   };
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
@@ -258,7 +307,7 @@ export async function buildSectionedPdf(fileName: string, title: string, subtitl
   const W = 297;
   const M = 10;
   const CW = W - 2 * M;
-  let y = 14;
+  let y = await reportLetterhead(doc, W, M);
   const room = (h: number) => {
     if (y + h > 200) {
       doc.addPage();
@@ -281,14 +330,7 @@ export async function buildSectionedPdf(fileName: string, title: string, subtitl
     const colWs = s.columns.map((c) => (CW * (c.w ?? 1)) / totalW);
     const colX = colWs.map((_, i) => M + colWs.slice(0, i).reduce((a, b) => a + b, 0));
     const header = () => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setFillColor(30, 58, 138);
-      doc.setTextColor(255, 255, 255);
-      doc.rect(M, y, CW, 7, 'F');
-      s.columns.forEach((c, i) => doc.text(c.header, colX[i]! + 1.5, y + 4.7, { maxWidth: colWs[i]! - 3 }));
-      doc.setTextColor(17, 24, 39);
-      y += 7;
+      y += drawHeadRow(doc, s.columns, colX, colWs, y, M, CW);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
     };

@@ -243,7 +243,7 @@ export function NewServiceButton() {
           </div>
           <Field label="Visit type" htmlFor="ns-type" required>
             <Select id="ns-type" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
-              {VISIT_TYPES.filter((t) => t.value !== 'scheduled' || !vehicleId || hasScheduled).map((t) => (
+              {VISIT_TYPES.filter((t) => t.value !== 'paid_service' && (t.value !== 'scheduled' || !vehicleId || hasScheduled)).map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>

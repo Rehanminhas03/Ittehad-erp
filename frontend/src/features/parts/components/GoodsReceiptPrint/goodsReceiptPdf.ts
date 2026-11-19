@@ -53,7 +53,7 @@ export async function buildGoodsReceiptPdf(d: GoodsReceiptDocument): Promise<{ d
     { h: 'Amount', w: 28, a: 'right' as const },
   ];
   y = drawTable(doc, y, cols, lines.map((l, i) => [String(i + 1), l.partNo, l.description, String(Number(l.quantity)), money(Number(l.unitCost)), money(Number(l.amount))])) + 6;
-  text(`${lines.length} items · ${lines.reduce((n, l) => n + Number(l.quantity), 0)} pieces`, M + 1, y, { size: 9.5 });
+  text(`${lines.length} items · total quantity ${lines.reduce((n, l) => n + Number(l.quantity), 0)}`, M + 1, y, { size: 9.5 });
   text('Total:', M + W - 60, y, { bold: true, size: 12 });
   text(rs(Number(grn.totalCost)), M + W, y, { bold: true, size: 12, align: 'right' });
   y += 10;

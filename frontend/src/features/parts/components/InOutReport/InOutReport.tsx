@@ -5,6 +5,7 @@ import { buildSectionedPdf, downloadCsv, type Column } from '@/features/sales/ex
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { useGetPartsInOutReportQuery } from '../../partsApi';
+import { withTax } from '../../lib/tax';
 import { P } from '../../permissions';
 
 const iso = (d: Date) => d.toLocaleDateString('en-CA');
@@ -29,8 +30,9 @@ const IN_COLUMNS: Column[] = [
   { header: 'Part no.', value: (r) => String(r.partNo), w: 1.4 },
   { header: 'Part name', value: (r) => String(r.description), w: 2.8 },
   { header: 'How it came in', value: (r) => String(r.how), w: 1.8 },
-  { header: 'Pieces in', value: (r) => num(r.quantity), w: 0.8 },
-  { header: 'Cost in', value: (r) => num(r.cost), w: 1 },
+  { header: 'Quantity in', value: (r) => num(r.quantity), w: 0.8 },
+  { header: 'Cost in (without tax)', value: (r) => num(r.cost), w: 1 },
+  { header: 'Cost in (with tax)', value: (r) => num(withTax(r.cost as string)), w: 1 },
 ];
 const OUT_COLUMNS: Column[] = [
   { header: 'Date', value: (r) => String(r.date), w: 1 },
@@ -38,8 +40,9 @@ const OUT_COLUMNS: Column[] = [
   { header: 'Part no.', value: (r) => String(r.partNo), w: 1.4 },
   { header: 'Part name', value: (r) => String(r.description), w: 2.8 },
   { header: 'How it went out', value: (r) => String(r.how), w: 1.8 },
-  { header: 'Pieces out', value: (r) => num(r.quantity), w: 0.8 },
-  { header: 'Cost out', value: (r) => num(r.cost), w: 1 },
+  { header: 'Quantity out', value: (r) => num(r.quantity), w: 0.8 },
+  { header: 'Cost out (without tax)', value: (r) => num(r.cost), w: 1 },
+  { header: 'Cost out (with tax)', value: (r) => num(withTax(r.cost as string)), w: 1 },
   { header: 'Price charged', value: (r) => num(r.price), w: 1 },
 ];
 /** The Excel file: parts in first, then parts out, each with its total line. */
@@ -50,13 +53,14 @@ const CSV_COLUMNS: Column[] = [
   { header: 'Part no.', value: (r) => String(r.partNo) },
   { header: 'Part name', value: (r) => String(r.description) },
   { header: 'How', value: (r) => String(r.how) },
-  { header: 'Pieces', value: (r) => num(r.quantity) },
-  { header: 'Cost', value: (r) => num(r.cost) },
+  { header: 'Quantity', value: (r) => num(r.quantity) },
+  { header: 'Cost (without tax)', value: (r) => num(r.cost) },
+  { header: 'Cost (with tax)', value: (r) => num(withTax(r.cost as string)) },
   { header: 'Price charged (out)', value: (r) => num(r.price) },
 ];
 
 /**
- * "Parts in and out" at the top of Store stock: for the dates chosen, how many pieces of each part came in and went out, what
+ * "Parts in and out" at the top of Store stock: for the dates chosen, how many of each part came in and went out, what
  * they cost, and the price charged for what went out. Excel (CSV) and PDF.
  */
 export function InOutReportButton({ only, label, variant = 'secondary' }: { only?: 'in' | 'out'; label?: string; variant?: 'primary' | 'secondary' } = {}) {
@@ -102,14 +106,14 @@ export function InOutReportButton({ only, label, variant = 'secondary' }: { only
                   columns: IN_COLUMNS,
                   rows: withHow(ins),
                   totals: inTotals,
-                  summary: `Parts in: ${qty(inTotals.quantity)} pieces, cost ${formatMoney(inTotals.cost)}`,
+                  summary: `Parts in: ${qty(inTotals.quantity)} quantity, cost ${formatMoney(inTotals.cost)}`,
                 },
                 {
                   title: 'Parts out',
                   columns: OUT_COLUMNS,
                   rows: withHow(outs),
                   totals: outTotals,
-                  summary: `Parts out: ${qty(outTotals.quantity)} pieces, cost ${formatMoney(outTotals.cost)}, price charged ${formatMoney(outTotals.price)}`,
+                  summary: `Parts out: ${qty(outTotals.quantity)} quantity, cost ${formatMoney(outTotals.cost)}, price charged ${formatMoney(outTotals.price)}`,
                 },
               ].filter((sec) => (sec.title === 'Parts in' ? showIn : showOut)),
               'In: received, transferred in, taken back from the workshop, adjusted up. Out: issued, transferred out, adjusted down. Price charged is for the parts issued.',
@@ -243,7 +247,7 @@ export function InOutReportButton({ only, label, variant = 'secondary' }: { only
                   <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
                   <div className={`mt-2 grid grid-cols-2 gap-3 ${out ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
                     {[
-                      [out ? 'Pieces out' : 'Pieces in', qty(total(list, 'quantity'))],
+                      [out ? 'Quantity out' : 'Quantity in', qty(total(list, 'quantity'))],
                       [out ? 'Cost out' : 'Cost in', formatMoney(total(list, 'cost'))],
                       ...(out ? [['Price charged', formatMoney(total(list, 'price'))]] : []),
                     ].map(([label, value]) => (
@@ -263,8 +267,9 @@ export function InOutReportButton({ only, label, variant = 'secondary' }: { only
                             <th className="py-2 pr-3 text-left font-medium">Date and time</th>
                             <th className="py-2 pr-3 text-left font-medium">Part</th>
                             <th className="py-2 pr-3 text-left font-medium">{out ? 'How it went out' : 'How it came in'}</th>
-                            <th className="py-2 pr-3 font-medium">{out ? 'Pieces out' : 'Pieces in'}</th>
-                            <th className={`py-2 font-medium ${out ? 'pr-3' : ''}`}>{out ? 'Cost out' : 'Cost in'}</th>
+                            <th className="py-2 pr-3 font-medium">{out ? 'Quantity out' : 'Quantity in'}</th>
+                            <th className="py-2 pr-3 font-medium">{out ? 'Cost out (no tax)' : 'Cost in (no tax)'}</th>
+                            <th className={`py-2 font-medium ${out ? 'pr-3' : ''}`}>{out ? 'Cost out (with tax)' : 'Cost in (with tax)'}</th>
                             {out && <th className="py-2 font-medium">Price charged</th>}
                           </tr>
                         </thead>
@@ -280,7 +285,8 @@ export function InOutReportButton({ only, label, variant = 'secondary' }: { only
                               </td>
                               <td className="py-1.5 pr-3 text-left text-xs text-slate-600">{how(m)}</td>
                               <td className="py-1.5 pr-3">{qty(m.quantity)}</td>
-                              <td className={`py-1.5 ${out ? 'pr-3' : ''}`}>{formatMoney(m.cost)}</td>
+                              <td className="py-1.5 pr-3">{formatMoney(m.cost)}</td>
+                              <td className={`py-1.5 ${out ? 'pr-3' : ''}`}>{formatMoney(String(withTax(m.cost)))}</td>
                               {out && <td className="py-1.5">{Number(m.price) ? formatMoney(m.price) : '–'}</td>}
                             </tr>
                           ))}

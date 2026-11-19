@@ -301,12 +301,27 @@ export const jobCardEntity: EntityConfig = {
         advisorName: { key: 'advisorId', source: USER_NAME },
         technicianName: { key: 'technicianId', source: USER_NAME },
       });
+      // Registration and chassis numbers of the car, and the total payable so far (billable lines + sales tax).
+      const cars = await ctx.tx.vehicle.findMany({ where: { id: { in: [...new Set(rows.map((r) => Number(r.vehicleId)))] } }, select: { id: true, registrationNo: true, vin: true, engineNo: true } });
+      const carOf = new Map(cars.map((c) => [Number(c.id), c]));
+      const cardLines = rows.length ? await ctx.tx.jobCardLine.findMany({ where: { jobCardId: { in: rows.map((r) => r.id as number) }, billable: true }, select: { jobCardId: true, kind: true, amount: true } }) : [];
+      const totalOf = new Map<number, number>();
+      for (const l of cardLines) {
+        const rate = l.kind === 'labour' || l.kind === 'sublet' ? 0.05 : l.kind === 'part' || l.kind === 'lubricant' || l.kind === 'accessory' ? 0.18 : 0;
+        totalOf.set(Number(l.jobCardId), (totalOf.get(Number(l.jobCardId)) ?? 0) + Number(l.amount) * (1 + rate));
+      }
       const visits = await ctx.tx.visit.findMany({ where: { id: { in: [...new Set(rows.map((r) => Number(r.visitId)))] } }, select: { id: true, customerId: true } });
       const customerOf = new Map(visits.map((v) => [Number(v.id), Number(v.customerId)]));
       const withCustomer = await withNames(ctx.tx, named.map((r) => ({ ...r, customerId: customerOf.get(Number(r.visitId)) ?? null })), {
         customerName: { key: 'customerId', source: CUSTOMER_NAME },
       });
-      return withCustomer.map(({ customerId: _customerId, ...r }) => r);
+      return withCustomer.map(({ customerId: _customerId, ...r }) => ({
+        ...r,
+        registrationNo: carOf.get(Number(r.vehicleId))?.registrationNo ?? null,
+        vin: carOf.get(Number(r.vehicleId))?.vin ?? null,
+        engineNo: carOf.get(Number(r.vehicleId))?.engineNo ?? null,
+        totalAmount: (totalOf.get(Number(r.id)) ?? 0).toFixed(2),
+      }));
     },
   },
 };

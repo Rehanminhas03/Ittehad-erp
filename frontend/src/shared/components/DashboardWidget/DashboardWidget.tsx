@@ -44,7 +44,7 @@ const ArrowIcon = () => (
 function WidgetInner(props: DashboardWidgetProps) {
   return (
     <>
-      <header className={cn('flex items-center justify-between gap-2', props.kind === 'kpi' ? 'mb-1' : 'mb-3')}>
+      <header className={cn('flex items-center justify-between gap-2', props.kind === 'kpi' ? 'mb-0.5' : 'mb-2')}>
         <h3 className="text-xs font-medium tracking-wide text-slate-500">{props.title}</h3>
         {props.to && (
           <span className="flex items-center gap-0.5 text-xs font-medium text-brand-600 opacity-0 transition-opacity group-hover:opacity-100">
@@ -69,7 +69,7 @@ function WidgetInner(props: DashboardWidgetProps) {
  */
 export function DashboardWidget(props: DashboardWidgetProps) {
   // A figure card is compact (a few lines tall); tables and charts keep the roomier padding.
-  const className = cn('surface group flex h-full flex-col', props.kind === 'kpi' ? 'px-4 py-3' : 'p-4', props.to && 'transition-shadow hover:shadow-md hover:ring-1 hover:ring-brand-200', props.className);
+  const className = cn('surface group flex h-full flex-col', props.kind === 'kpi' ? 'px-3 py-2' : 'p-3', props.to && 'transition-shadow hover:shadow-md hover:ring-1 hover:ring-brand-200', props.className);
   if (props.to) {
     return (
       <Link to={props.to} className={className}>
@@ -89,7 +89,7 @@ function Body(props: DashboardWidgetProps) {
     case 'kpi':
       return (
         <div className="mt-auto">
-          <p className="text-2xl leading-tight font-semibold tracking-tight tabular-nums text-slate-900">
+          <p className="text-xl leading-tight font-semibold tracking-tight tabular-nums text-slate-900">
             {typeof props.value === 'number' ? formatNumber(props.value) : (props.value ?? '—')}
           </p>
           {props.hint && <p className="mt-0.5 text-xs text-slate-500">{props.hint}</p>}
@@ -102,7 +102,7 @@ function Body(props: DashboardWidgetProps) {
           <thead>
             <tr className="text-left text-xs text-slate-500">
               {props.columns.map((c) => (
-                <th key={c.key} className={cn('pb-2 font-medium', c.align === 'right' && 'text-right')}>
+                <th key={c.key} className={cn('pb-1.5 font-medium', c.align === 'right' && 'pr-8 text-right')}>
                   {c.header}
                 </th>
               ))}
@@ -112,7 +112,7 @@ function Body(props: DashboardWidgetProps) {
             {props.rows.map((r, i) => (
               <tr key={i}>
                 {props.columns.map((c) => (
-                  <td key={c.key} className={cn('py-2 text-slate-700', c.align === 'right' && 'text-right tabular-nums')}>
+                  <td key={c.key} className={cn('py-1.5 text-[13px] text-slate-700', c.align === 'right' && 'pr-8 text-right tabular-nums')}>
                     {c.render ? c.render(r) : String(r[c.key] ?? '—')}
                   </td>
                 ))}
@@ -125,7 +125,7 @@ function Body(props: DashboardWidgetProps) {
       const max = Math.max(1, ...props.data.map((d) => d.value));
       if (!props.data.length) return <p className="text-sm text-slate-500">No data.</p>;
       return (
-        <ul className="space-y-2.5" role="list">
+        <ul className="space-y-2" role="list">
           {props.data.map((d) => (
             <li key={d.label} className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-xs sm:grid-cols-[8rem_1fr_auto]">
               <span className="truncate text-slate-600" title={d.label}>

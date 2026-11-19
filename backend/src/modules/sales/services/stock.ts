@@ -8,7 +8,7 @@ import { orders, salesOrderEntity, stock } from '../entities';
 import { SalesPerm as P } from '../permissions';
 import type { PdiBody, StockVehicleCreate } from '../schemas';
 import { saveVehiclePdi, savePdi } from './pdi';
-import { LIVE_ORDER_STATES } from './orders';
+import { LIVE_ORDER_STATES, setVehicleStatus } from './orders';
 
 /**
  * Registers an incoming vehicle at the dealership. Chassis and engine numbers are unique across the
@@ -67,6 +67,24 @@ export async function receiveStockVehicle(ctx: EntityCtx, input: z.output<typeof
     });
   }
   return stock.get(ctx, v.id);
+}
+
+/**
+ * The Delivery Team marks a car that is already in the system (its chassis / engine number was entered, e.g. by the Sales Admin
+ * when it was allocated from the plant) as received at the dealership, with its PDI: done, pending or an issue found.
+ */
+export async function receiveIncomingVehicle(ctx: EntityCtx, vehicleId: number, input: z.output<typeof PdiBody>) {
+  const row = await stock.findVisible(ctx, vehicleId, { lock: true });
+  const links = await ctx.tx.vehicleDealership.findMany({ where: { vehicleId }, select: { dealershipId: true } });
+  const dealershipId = links.find((l) => ctx.access.canIn(P.stockManage, { dealershipId: l.dealershipId }))?.dealershipId;
+  if (!dealershipId) throw forbidden();
+  if (!['booked', 'in_transit'].includes(row.status as string)) throw conflict(`This vehicle is already ${String(row.status).replace(/_/g, ' ')}`);
+  await saveVehiclePdi(ctx, vehicleId, input);
+  const o = await ctx.tx.salesOrder.findFirst({ where: { vehicleId, status: { not: 'cancelled' } }, select: { id: true } });
+  if (o) await savePdi(ctx, await orders.findById(ctx, o.id), input);
+  await setVehicleStatus(ctx, vehicleId, 'received', dealershipId);
+  await ctx.audit({ entityType: 'sales.stock_vehicle', entityId: vehicleId, action: 'received', dealershipId, branchId: null, changes: { status: { from: row.status, to: 'received' }, pdi: input } });
+  return stock.get(ctx, vehicleId);
 }
 
 /**

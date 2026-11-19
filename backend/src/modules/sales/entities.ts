@@ -758,6 +758,8 @@ export const stockVehicleEntity: EntityConfig = {
       schema: IdQuery,
       where: (v) => sql`exists (select 1 from ${vehicleDealership} vd where vd.vehicle_id = ${vehicle.id} and vd.dealership_id = ${v as number})`,
     },
+    // Cars still on their way (booked or in transit): the ones the Delivery Team marks received.
+    incoming: { key: 'status', schema: BoolQuery, where: (v) => (v ? sql`${vehicle.status} in ('booked', 'in_transit')` : sql`${vehicle.status} not in ('booked', 'in_transit')`) },
     // Free stock vs. vehicles already on a live order.
     allocated: { key: 'id', schema: BoolQuery, where: (v) => (v ? liveOrderExists : sql`not ${liveOrderExists}`) },
   },

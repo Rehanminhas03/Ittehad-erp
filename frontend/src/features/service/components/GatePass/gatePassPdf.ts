@@ -5,6 +5,11 @@ export interface GatePassData {
   customerName: string;
   vehicle: string;
   regNo: string;
+  /** Chassis (VIN) and engine numbers, colour and model year of the car. */
+  vin?: string;
+  engineNo?: string;
+  color?: string;
+  modelYear?: string;
   roNo: string;
   /** "PAID" once the invoice is paid; "SERVICE COMPLETED" when nothing was charged. */
   status: string;
@@ -40,6 +45,12 @@ export async function buildGatePassPdf(d: GatePassData): Promise<{ doc: import('
   y += 9;
   cell('Time', `${shortDate(now)} ${time}`, M, y, 80);
   cell('RO No', d.roNo, M + 150, y, 60);
+  y += 9;
+  cell('Chassis No', d.vin ?? '', M, y, 80);
+  cell('Engine No', d.engineNo ?? '', M + 150, y, 60);
+  y += 9;
+  cell('Colour', d.color ?? '', M, y, 80);
+  cell('Model Year', d.modelYear ?? '', M + 150, y, 60);
 
   y = 178;
   doc.setDrawColor(40, 40, 40);

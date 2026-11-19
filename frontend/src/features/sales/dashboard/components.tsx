@@ -71,7 +71,7 @@ export function StatTile({
     </>
   ) : (
     <>
-      {chip('size-8 rounded-lg', 'size-4')}
+      {chip('size-7 rounded-lg', 'size-3.5')}
       <div className="min-w-0">
         <p className="text-xs leading-snug font-medium text-slate-600">{label}</p>
         {number}
@@ -79,7 +79,7 @@ export function StatTile({
       </div>
     </>
   );
-  const cls = compact ? 'surface flex min-w-0 flex-col gap-1.5 p-3' : 'surface flex items-center gap-3 px-3 py-2';
+  const cls = compact ? 'surface flex min-w-0 flex-col gap-1 p-2.5' : 'surface flex items-center gap-2.5 px-2.5 py-1.5';
   return to ? (
     <Link to={to} className={cn(cls, 'transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none')}>
       {body}
@@ -106,10 +106,10 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className={cn('surface p-3.5 sm:p-4', className)}>
-      <header className="mb-3 flex items-start justify-between gap-3">
+    <section className={cn('surface p-3 sm:p-3.5', className)}>
+      <header className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
         </div>
         {to && (
@@ -146,14 +146,14 @@ export function RecordsTable<R extends { id: number }>({
   empty: string;
 }) {
   if (loading) return <Spinner className="mx-auto my-8 size-5 text-slate-400" />;
-  if (!rows?.length) return <p className="py-8 text-center text-sm text-slate-500">{empty}</p>;
+  if (!rows?.length) return <p className="py-5 text-center text-sm text-slate-500">{empty}</p>;
   return (
     <div className="-mx-4 overflow-x-auto sm:-mx-5">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200/80 text-left text-xs font-medium text-slate-500">
             {columns.map((c) => (
-              <th key={c.header} scope="col" className={cn('px-4 py-2 font-medium first:pl-4 sm:first:pl-5 last:pr-4 sm:last:pr-5', c.hideOnMobile && 'hidden md:table-cell', c.className)}>
+              <th key={c.header} scope="col" className={cn('px-3.5 py-1.5 font-medium first:pl-4 sm:first:pl-5 last:pr-4 sm:last:pr-5', c.hideOnMobile && 'hidden md:table-cell', c.className)}>
                 {c.header}
               </th>
             ))}
@@ -165,7 +165,7 @@ export function RecordsTable<R extends { id: number }>({
               {columns.map((c, i) => (
                 <td
                   key={c.header}
-                  className={cn('px-4 py-2.5 whitespace-nowrap first:pl-4 sm:first:pl-5 last:pr-4 sm:last:pr-5', c.hideOnMobile && 'hidden md:table-cell', c.className)}
+                  className={cn('px-3.5 py-1.5 text-[13px] whitespace-nowrap first:pl-4 sm:first:pl-5 last:pr-4 sm:last:pr-5', c.hideOnMobile && 'hidden md:table-cell', c.className)}
                 >
                   {i === 0 ? (
                     <Link to={href(r)} className="font-medium text-slate-900 group-hover:text-brand-700">

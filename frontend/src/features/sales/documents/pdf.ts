@@ -792,9 +792,9 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   // Full page: room above "STAMP & SIGNATURE" for the stamp and the Manager's signature.
   const fallback = letterheadPaper ? null : defaultStampSignature(q.dealership.code);
   const withStamp = !letterheadPaper && !!(t.signatureImage || t.stampImage || fallback);
-  p.y += withStamp ? 14 : 5;
+  p.y += withStamp ? 26 : 5;
   // On letterhead paper only the stamp & signature line is drawn (the rest is printed on the paper).
-  p.ensure(letterheadPaper ? 12 : withStamp ? 40 * stampScale : 30);
+  p.ensure(letterheadPaper ? 12 : withStamp ? 52 * stampScale : 30);
   const top = p.y;
   const cx = M + 22;
   // "Owned & Operated by: Ittehad Motors" is printed on the letterhead paper.
@@ -811,7 +811,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     });
   }
   // Full page: the stamp and the Manager's signature just above "STAMP & SIGNATURE", as signed by hand.
-  if (withStamp) await stampAndSignature(p, t, W - M - 4, top + 14, 'right', fallback, true, stampScale);
+  if (withStamp) await stampAndSignature(p, t, W - M - 4, top + 14, 'right', fallback, true, stampScale * 1.45);
   p.font(12);
   doc.text('STAMP & SIGNATURE', W - M - 8, top + (letterheadPaper ? 10 : 16), { align: 'right' });
 

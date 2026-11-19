@@ -100,7 +100,7 @@ export const visitView: EntityViewConfig<Visit> = {
           </div>
         ),
       },
-      { name: 'visitType', label: 'Visit type', type: 'select', required: true, mode: 'create', options: VISIT_TYPES },
+      { name: 'visitType', label: 'Visit type', type: 'select', required: true, mode: 'create', options: VISIT_TYPES.filter((t) => t.value !== 'paid_service') },
       { name: 'odometerKm', label: 'Odometer (km)', type: 'number', required: true, mode: 'create' },
       {
         name: 'customerId',

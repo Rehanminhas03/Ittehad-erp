@@ -1,0 +1,1 @@
+export { JobCardPartsDesk } from './JobCardPartsDesk';

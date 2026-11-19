@@ -15,14 +15,14 @@ export function ReportDashboard({ arg }: { arg: GetDashboardApiArg }) {
   if (!data) return <EmptyState title="No data" />;
 
   return (
-    <div className={cn('space-y-8 transition-opacity', isFetching && 'opacity-60')}>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-6 md:grid-cols-4">
+    <div className={cn('space-y-5 transition-opacity', isFetching && 'opacity-60')}>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
         {data.metrics.map((m) => (
           <DashboardWidget key={m.key} kind="kpi" title={m.label} value={formatValue(m.value, m.format)} hint={m.hint ?? undefined} to={m.to ?? undefined} />
         ))}
       </div>
       {data.charts.length > 0 && (
-        <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
           {data.charts.map((c) => (
             <DashboardWidget
               key={c.key}

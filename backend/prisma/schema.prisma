@@ -1050,6 +1050,8 @@ model PartsRequestLine {
   jobCardLineId  BigInt?      @map("job_card_line_id")
   /// A return: why the part goes back (not used, replaced, wrong part ...).
   reason         String?
+  /// The store's remark on a part it cannot give yet (e.g. not in stock, available in 3-4 days); the workshop sees it.
+  storeRemark    String?      @map("store_remark")
   /// A discount agreed for the part (percent); the job card line is charged net of it when the store issues it.
   discountPercent Decimal     @default(0) @map("discount_percent") @db.Decimal(5, 2)
   /// What the workshop has accepted of the parts the store gave (the person collecting them confirms receipt).

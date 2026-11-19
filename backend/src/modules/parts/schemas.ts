@@ -310,8 +310,13 @@ export const OpenJobCardSchema = z
     status: z.string(),
     registrationNo: z.string().nullable(),
     vin: z.string().nullable(),
+    engineNo: z.string().nullable(),
     modelName: z.string().nullable(),
     customerName: z.string().nullable(),
+    advisorName: z.string().nullable(),
+    technicianName: z.string().nullable(),
+    /** The total payable so far: billable lines with sales tax (parts 18%, services 5%). */
+    totalAmount: z.string(),
     /** A free scheduled service: its labour is free, but parts and oil issued to it are charged to the customer. */
     freeService: z.boolean(),
     serviceLabel: z.string().nullable(),
@@ -580,10 +585,13 @@ export const PartsRequestLineSchema = z
     /** How much of what the store issued the workshop has accepted. */
     acceptedQty: z.string().optional(),
     reason: z.string().nullable().optional(),
+    /** The store's remark on a part it cannot give yet (not in stock, available in 3-4 days ...). */
+    storeRemark: z.string().nullable().optional(),
     discountPercent: z.string().optional(),
     onHand: z.string().nullable().optional(),
   })
   .openapi('PartsRequestLine');
+export const PartsRequestRemarkBody = z.object({ lineId: Id, remark: z.string().trim().max(300).nullish() }).openapi('PartsRequestRemarkRequest');
 /** The workshop sends parts issued to a job card back to the store (not used, replaced, wrong part ...). */
 export const PartsReturnCreate = z
   .object({

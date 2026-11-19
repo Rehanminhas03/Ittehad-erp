@@ -653,6 +653,10 @@ export type OpenJobCardApiResponse = /** status 201 Success */ {
   visitNo?: string | null;
   vehicleId: number;
   vehicleLabel?: string | null;
+  registrationNo?: string | null;
+  vin?: string | null;
+  engineNo?: string | null;
+  totalAmount?: string;
   customerName?: string | null;
   advisorId: number;
   advisorName?: string | null;
@@ -1557,6 +1561,10 @@ export type JobCard = {
   visitNo?: string | null;
   vehicleId: number;
   vehicleLabel?: string | null;
+  registrationNo?: string | null;
+  vin?: string | null;
+  engineNo?: string | null;
+  totalAmount?: string;
   customerName?: string | null;
   advisorId: number;
   advisorName?: string | null;

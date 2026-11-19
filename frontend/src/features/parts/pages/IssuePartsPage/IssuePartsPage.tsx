@@ -5,6 +5,7 @@ import { useToast } from '@/shared/hooks';
 import { amountNumber, formatMoney } from '@/shared/lib';
 import { CounterInvoice } from '../../components/CounterInvoice';
 import { StoreJobCard } from '../../components/StoreJobCard';
+import { JobCardRequestsList } from '../JobCardRequestsPage';
 import { PartPicker } from '../../components/PartPicker';
 import { StoreTargetFields, useStoreTarget } from '../../components/StoreTarget';
 import { usePrefillPart } from '../../hooks/usePrefillPart';
@@ -136,6 +137,12 @@ export default function IssuePartsPage() {
               </p>
             )}
             {card && <StoreJobCard jobCardId={card.id} />}
+            {/* Every part the advisor or the store manager asked for on this job card, to issue from here. */}
+            {card && (
+              <div className="space-y-2 sm:col-span-2 lg:col-span-4">
+                <JobCardRequestsList jobCardId={card.id} />
+              </div>
+            )}
             {jobCardId === 'other' && (
               <>
                 <Field label="Repair order (RO) no." htmlFor="ip-ref" required>

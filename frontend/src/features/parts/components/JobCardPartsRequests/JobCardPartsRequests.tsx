@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { Button, ConfirmDialog, Input, Section, Select, StatusBadge } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { formatDateTime } from '@/shared/lib';
-import { useAcceptIssuedPartsMutation, useCreatePartsRequestMutation, useListPartsRequestsQuery, useListPendingPartReturnsQuery, useTransitionPartsRequestMutation } from '../../partsApi';
+import { useAcceptIssuedPartsMutation, useCreatePartsRequestMutation, useListPartsRequestLinesQuery, useListPartsRequestsQuery, useListPendingPartReturnsQuery, useTransitionPartsRequestMutation } from '../../partsApi';
 import { P } from '../../permissions';
 import { PartPicker } from '../PartPicker';
 import { ReturnRequestParts } from '../ReturnRequestParts';
@@ -49,7 +49,7 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
       {data?.items.length ? (
         <ul className="mb-4 divide-y divide-slate-100">
           {data.items.map((r) => (
-            <li key={r.id} className="flex items-center justify-between py-2 text-sm">
+            <li key={r.id} className="flex flex-wrap items-center justify-between py-2 text-sm">
               <Link to={`/parts/requests/${r.id}`} className="font-mono text-xs text-slate-800 hover:text-brand-700">
                 {r.requestNo}
                 {r.kind === 'return' && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-amber-800">Return</span>}
@@ -83,6 +83,7 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
                   </button>
                 )}
               </span>
+              <RequestParts id={r.id} />
             </li>
           ))}
         </ul>
@@ -172,5 +173,27 @@ export function JobCardPartsRequests({ jobCard }: { jobCard: JobCardRef }) {
         }}
       />
     </Section>
+  );
+}
+
+/** The parts asked for in one request: number, name, quantity asked and what has been issued so far. */
+function RequestParts({ id }: { id: number }) {
+  const { data: lines } = useListPartsRequestLinesQuery({ id });
+  if (!lines?.length) return null;
+  return (
+    <ul className="mt-1 mb-1 basis-full space-y-0.5 rounded-lg bg-slate-50 px-3 py-2 text-xs">
+      {lines.map((l) => (
+        <li key={l.id} className="flex items-center justify-between gap-3">
+          <span>
+            <span className="font-mono text-slate-600">{l.partNo}</span> <span className="text-slate-800">{l.description}</span>
+          </span>
+          <span className="text-right text-slate-600 tabular-nums">
+            {l.storeRemark && <span className="mr-2 rounded bg-amber-100 px-1.5 py-0.5 text-amber-900">{l.storeRemark}</span>}
+            Qty {Number(l.quantity)}
+            {Number(l.issuedQty) > 0 && <span className="ml-2 text-emerald-700">issued {Number(l.issuedQty)}</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

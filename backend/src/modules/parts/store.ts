@@ -133,12 +133,24 @@ export async function openJobCards(ctx: EntityCtx, dealershipId: number) {
   const entryNames = new Map((entryIds.length ? await ctx.tx.vehicleSchedule.findMany({ where: { id: { in: entryIds } }, select: { id: true, name: true } }) : []).map((e) => [e.id, e.name]));
   const models = new Map((await ctx.tx.vehicleModel.findMany({ where: { id: { in: [...new Set(cards.map((c) => c.vehicle.modelId))] } }, select: { id: true, name: true } })).map((m) => [m.id, m.name]));
   const customers = new Map((await ctx.tx.customer.findMany({ where: { id: { in: [...new Set(cards.map((c) => c.visit.customerId))] } }, select: { id: true, fullName: true } })).map((c) => [c.id, c.fullName]));
+  const userIds = [...new Set(cards.flatMap((c) => [c.advisorId, c.technicianId]).filter((x): x is number => !!x))];
+  const users = new Map((userIds.length ? await ctx.tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true } }) : []).map((u) => [Number(u.id), u.fullName]));
+  const lines = cards.length ? await ctx.tx.jobCardLine.findMany({ where: { jobCardId: { in: cards.map((c) => c.id) }, billable: true }, select: { jobCardId: true, kind: true, amount: true } }) : [];
+  const totals = new Map<number, number>();
+  for (const l of lines) {
+    const rate = l.kind === 'labour' || l.kind === 'sublet' ? 0.05 : l.kind === 'part' || l.kind === 'lubricant' || l.kind === 'accessory' ? 0.18 : 0;
+    totals.set(Number(l.jobCardId), (totals.get(Number(l.jobCardId)) ?? 0) + Number(l.amount) * (1 + rate));
+  }
   return cards.map((c) => ({
     id: c.id,
     jobCardNo: c.jobCardNo,
     status: c.status,
     registrationNo: c.vehicle.registrationNo,
     vin: c.vehicle.vin,
+    engineNo: c.vehicle.engineNo,
+    advisorName: users.get(Number(c.advisorId)) ?? null,
+    technicianName: c.technicianId ? users.get(Number(c.technicianId)) ?? null : null,
+    totalAmount: (totals.get(Number(c.id)) ?? 0).toFixed(2),
     modelName: models.get(c.vehicle.modelId) ?? null,
     customerName: customers.get(c.visit.customerId) ?? null,
     freeService: c.visit.freeService,

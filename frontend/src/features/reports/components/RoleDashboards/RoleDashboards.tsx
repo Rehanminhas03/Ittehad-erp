@@ -43,7 +43,7 @@ export function RoleDashboards() {
 
   return (
     <section>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <nav className="inline-flex items-center gap-1 rounded-xl bg-slate-200/60 p-1" aria-label="Dashboards">
           {available.map((d) => (
             <button
@@ -63,7 +63,7 @@ export function RoleDashboards() {
         <Badge tone="blue">{MODE_LABELS[current.mode]}</Badge>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-2.5">
+      <div className="mb-3 flex flex-wrap items-center gap-2.5">
         <PeriodPicker
           value={period}
           onChange={(v) =>

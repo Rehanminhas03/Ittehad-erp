@@ -63,7 +63,7 @@ export const JETOUR_PRICES: Record<string, { exFactoryPrice?: string; advanceTax
   'X70-1.5TCI': { exFactoryPrice: '8299000', advanceTaxFiler: '168140', advanceTaxNonFiler: '504420', freightCharges: '108000' },
   'T2-IDM': { exFactoryPrice: '12795000', advanceTaxFiler: '257400', freightCharges: '75000', bookingPrice: '2500000' },
   'T2-PETROL': { exFactoryPrice: '13590000', advanceTaxFiler: '683250', freightCharges: '75000', bookingPrice: '3000000' },
-  'T1-IDM': { exFactoryPrice: '10799000', advanceTaxFiler: '215980', freightCharges: '75000', bookingPrice: '2000000' },
+  'T1-IDM': { exFactoryPrice: '10798999', advanceTaxFiler: '217479', freightCharges: '74999', bookingPrice: '2000000' },
   'T1-PETROL': { bookingPrice: '2000000' },
 };
 

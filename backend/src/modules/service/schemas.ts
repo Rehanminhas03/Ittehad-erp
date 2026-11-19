@@ -322,6 +322,11 @@ export const JobCardSchema = z.object({
   visitNo: z.string().nullable().optional(),
   vehicleId: Id,
   vehicleLabel: z.string().nullable().optional(),
+  /** The car's registration and chassis (VIN) numbers, and the total payable so far (parts 18% and services 5% sales tax included). */
+  registrationNo: z.string().nullable().optional(),
+  vin: z.string().nullable().optional(),
+  engineNo: z.string().nullable().optional(),
+  totalAmount: z.string().optional(),
   customerName: z.string().nullable().optional(),
   advisorId: Id,
   advisorName: z.string().nullable().optional(),

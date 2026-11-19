@@ -620,6 +620,7 @@ const injectedRtkApi = api
             status: queryArg.status,
             modelId: queryArg.modelId,
             dealershipId: queryArg.dealershipId,
+            incoming: queryArg.incoming,
             allocated: queryArg.allocated,
           },
         }),
@@ -632,6 +633,17 @@ const injectedRtkApi = api
         query: (queryArg) => ({
           url: `/api/sales/stock/${queryArg.id}/pdi`,
           method: "PUT",
+          body: queryArg.pdiRequest,
+        }),
+        invalidatesTags: ["StockVehicle"],
+      }),
+      receiveIncomingVehicle: build.mutation<
+        ReceiveIncomingVehicleApiResponse,
+        ReceiveIncomingVehicleApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/stock/${queryArg.id}/receive`,
+          method: "POST",
           body: queryArg.pdiRequest,
         }),
         invalidatesTags: ["StockVehicle"],
@@ -2827,11 +2839,18 @@ export type ListStockVehiclesApiArg = {
     | "hold";
   modelId?: number;
   dealershipId?: number;
+  incoming?: "true" | "false";
   allocated?: "true" | "false";
 };
 export type RecordStockVehiclePdiApiResponse =
   /** status 200 Success */ StockVehicle;
 export type RecordStockVehiclePdiApiArg = {
+  id: number;
+  pdiRequest: PdiRequest;
+};
+export type ReceiveIncomingVehicleApiResponse =
+  /** status 200 Success */ StockVehicle;
+export type ReceiveIncomingVehicleApiArg = {
   id: number;
   pdiRequest: PdiRequest;
 };
@@ -4777,6 +4796,7 @@ export const {
   useListStockVehiclesQuery,
   useLazyListStockVehiclesQuery,
   useRecordStockVehiclePdiMutation,
+  useReceiveIncomingVehicleMutation,
   useGetDeliveryNoteQuery,
   useLazyGetDeliveryNoteQuery,
   useCompleteDeliveryMutation,

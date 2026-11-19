@@ -46,7 +46,7 @@ export function ActionNeeded() {
   return (
     <>
       <section
-        className={`glass-soft mb-5 rounded-2xl p-4 ring-1 ${urgent ? 'ring-red-200' : 'ring-amber-200'}`}
+        className={`glass-soft mb-3 rounded-2xl p-3 ring-1 ${urgent ? 'ring-red-200' : 'ring-amber-200'}`}
         aria-label="Action needed"
       >
         <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">

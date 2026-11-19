@@ -62,6 +62,7 @@ import {
   PartsRequestCreate,
   PartsReturnCreate,
   PartsRequestLineSchema,
+  PartsRequestRemarkBody,
   PartsRequestSchema,
   ReceiveBody,
   StockMovementQuery,
@@ -377,6 +378,17 @@ const requestActions = new ApiRouter('/parts/requests', 'PartsRequest')
     params: IdParam,
     response: z.array(PartsRequestLineSchema),
     handler: (ctx) => svc.partsRequestLines(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'put',
+    path: '/:id/remark',
+    operationId: 'setPartsRequestLineRemark',
+    summary: "The store's remark on a requested part it cannot give yet (e.g. not in stock, available in 3-4 days)",
+    permission: P.issuesCreate,
+    params: IdParam,
+    body: PartsRequestRemarkBody,
+    response: z.object({ lineId: z.number().int(), storeRemark: z.string().nullable() }),
+    handler: (ctx) => svc.setRequestLineRemark(ctx, ctx.params.id, ctx.body),
   })
   .route({
     method: 'post',

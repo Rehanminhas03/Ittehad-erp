@@ -62,8 +62,8 @@ function GeneralDashboard() {
       />
       {widgets.length === 0 && !hasReports && <p className="py-10 text-sm text-slate-500">No dashboard is available for your roles yet.</p>}
       {widgets.length > 0 && (
-        <section className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Right now</h2>
+        <section className="mb-5">
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">Right now</h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {widgets.map((w) => (
               <div key={w.id} className={cn(w.span === 2 && 'md:col-span-2', w.span === 3 && 'md:col-span-3')}>

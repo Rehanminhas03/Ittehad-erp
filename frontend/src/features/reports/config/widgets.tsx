@@ -15,7 +15,7 @@ import { useListInvoicesQuery } from '@/features/accounts/accountsApi';
 import { DashboardWidget } from '@/shared/components';
 import type { ModuleKey } from '@/shared/config';
 import { usePermission } from '@/shared/hooks';
-import { apiErrorMessage, formatDateTime, humanize } from '@/shared/lib';
+import { apiErrorMessage, formatDateTime, formatMoney, humanize } from '@/shared/lib';
 
 /**
  * Widget registry. A dashboard is the subset of widgets the user holds permissions for, so
@@ -306,7 +306,10 @@ function OpenJobCards() {
       columns={[
         { key: 'jobCardNo', header: 'Job card', render: (r) => <Link to={`/service/job-cards/${r.id}`} className="font-mono text-xs font-semibold text-brand-700 hover:underline">{String(r.jobCardNo)}</Link> },
         { key: 'customerName', header: 'Customer', render: (r) => String(r.customerName ?? '') },
-        { key: 'vehicleLabel', header: 'Car', render: (r) => String(r.vehicleLabel ?? '') },
+        { key: 'registrationNo', header: 'Registration no.', render: (r) => String(r.registrationNo ?? '—') },
+        { key: 'vin', header: 'Chassis no.', render: (r) => <span className="font-mono text-xs">{String(r.vin ?? '—')}</span> },
+        { key: 'engineNo', header: 'Engine no.', render: (r) => <span className="font-mono text-xs">{String(r.engineNo ?? '—')}</span> },
+        { key: 'totalAmount', header: 'Total (PKR)', align: 'right', render: (r) => formatMoney(String(r.totalAmount ?? '0')) },
         { key: 'advisorName', header: 'Advisor name', render: (r) => <span className="text-xs text-slate-600">{String(r.advisorName ?? '—')}</span> },
         { key: 'technicianName', header: 'Technician', render: (r) => String(r.technicianName ?? '—') },
         { key: 'status', header: 'Status', render: (r) => humanize(String(r.status)) },
@@ -330,7 +333,12 @@ function OpenJobCardsToIssue() {
       columns={[
         { key: 'jobCardNo', header: 'Job card', render: (r) => <Link to={`/parts/issue?jobCard=${r.id}`} className="font-mono text-xs font-semibold text-brand-700 hover:underline">{String(r.jobCardNo)}</Link> },
         { key: 'customerName', header: 'Customer', render: (r) => String(r.customerName ?? '') },
-        { key: 'vehicle', header: 'Car', render: (r) => [r.modelName, r.registrationNo].filter(Boolean).join(' · ') },
+        { key: 'registrationNo', header: 'Registration no.', render: (r) => String(r.registrationNo ?? '—') },
+        { key: 'vin', header: 'Chassis no.', render: (r) => <span className="font-mono text-xs">{String(r.vin ?? '—')}</span> },
+        { key: 'engineNo', header: 'Engine no.', render: (r) => <span className="font-mono text-xs">{String(r.engineNo ?? '—')}</span> },
+        { key: 'totalAmount', header: 'Total (PKR)', align: 'right', render: (r) => formatMoney(String(r.totalAmount ?? '0')) },
+        { key: 'advisorName', header: 'Advisor name', render: (r) => <span className="text-xs text-slate-600">{String(r.advisorName ?? '—')}</span> },
+        { key: 'technicianName', header: 'Technician', render: (r) => String(r.technicianName ?? '—') },
         { key: 'status', header: 'Status', render: (r) => humanize(String(r.status)) },
         { key: 'assign', header: '', align: 'right', render: (r) => <Link to={`/parts/issue?jobCard=${r.id}`} className="rounded-lg bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-700">Assign parts</Link> },
       ]}

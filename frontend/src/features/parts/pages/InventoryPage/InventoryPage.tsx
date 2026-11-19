@@ -4,6 +4,7 @@ import { Badge, Button, Dialog, Field, Input, PageHeader, Pagination, Select, Sp
 import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { InOutReportButton } from '../../components/InOutReport';
+import { withoutTax } from '../../lib/tax';
 import { StockReportButton } from '../../components/StockReport';
 import { StockMovementsTable } from '../../components/StockMovementsTable';
 import { StockSettings } from '../../components/StockSettings';
@@ -160,9 +161,10 @@ export default function InventoryPage() {
               <th className="py-2 pr-3 font-medium">Description</th>
               <th className="py-2 pr-3 font-medium">Category</th>
               <th className="py-2 pr-3 font-medium">Vehicle</th>
-              <th className="py-2 pr-3 text-right font-medium">Price</th>
+              <th className="py-2 pr-3 text-right font-medium">Price (without tax)</th>
+              <th className="py-2 pr-3 text-right font-medium">Price (with tax)</th>
               <th className="py-2 pr-3 text-right font-medium">In stock</th>
-              <th className="py-2 pr-3 font-medium">Bin</th>
+              <th className="py-2 pr-3 text-right font-medium">Stock value (cost)</th>
               <th className="py-2 pr-3 text-right font-medium">In this month</th>
               <th className="py-2 pr-3 text-right font-medium">Out this month</th>
               <th />
@@ -171,7 +173,7 @@ export default function InventoryPage() {
           <tbody className="divide-y divide-slate-100">
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={10} className="py-8 text-center text-slate-500">
+                <td colSpan={11} className="py-8 text-center text-slate-500">
                   {view === 'inStock' ? 'No part is in stock yet. Use "Receive parts" when stock arrives from head office, or show all parts.' : 'No part matches.'}
                 </td>
               </tr>
@@ -184,11 +186,12 @@ export default function InventoryPage() {
                   <td className="py-2 pr-3">{r.description}</td>
                   <td className="py-2 pr-3 text-slate-500">{r.category}</td>
                   <td className="py-2 pr-3 text-xs text-slate-600">{(r.modelIds ?? []).length ? (r.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(withoutTax(r.sellingPrice))}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(r.sellingPrice)}</td>
                   <td className="py-2 pr-3 text-right font-medium tabular-nums">
                     {Number(r.onHand)} {low && <Badge tone="amber">Low</Badge>}
                   </td>
-                  <td className="py-2 pr-3 text-xs text-slate-500">{r.binLocation ?? '—'}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-slate-600">{formatMoney(r.stockValue)}</td>
                   <td className="py-2 pr-3 text-right text-emerald-700 tabular-nums">{Number(r.inThisMonth) ? `+${Number(r.inThisMonth)}` : '–'}</td>
                   <td className="py-2 pr-3 text-right text-red-600 tabular-nums">{Number(r.outThisMonth) ? `−${Number(r.outThisMonth)}` : '–'}</td>
                   <td className="py-2 text-right whitespace-nowrap">
@@ -204,7 +207,7 @@ export default function InventoryPage() {
                     )}
                     {canSettings && (
                       <button type="button" className="mr-3 text-xs text-brand-700 hover:underline" onClick={() => setSettings(r)}>
-                        Bin / reorder
+                        Reorder level
                       </button>
                     )}
                     <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => setHistory(r)}>

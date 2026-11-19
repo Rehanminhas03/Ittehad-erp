@@ -1,11 +1,11 @@
+import { withTax, withoutTax } from '../../lib/tax';
 import { useMemo, useState } from 'react';
 import { PdfDialog, usePdf } from '@/features/sales/documents/DocumentPreview';
 import { buildTablePdf, saveCsv, type Column } from '@/features/sales/exports/exporters';
 import { Button } from '@/shared/components/ui';
 import { useAppDispatch, useToast } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
-import { usePartModelOptions } from '../../hooks/usePartModelOptions';
-import { type InventoryRow, partsApi } from '../../partsApi';
+import { type InventoryRow, partsApi, useListPartVehicleModelsQuery } from '../../partsApi';
 
 type Filters = { brand?: string; category?: string; modelId?: number; q?: string; inStockOnly?: boolean };
 
@@ -16,21 +16,23 @@ type Filters = { brand?: string; category?: string; modelId?: number; q?: string
 export function StockReportButton({ brand, category, modelId, q, inStockOnly = true, label = 'Stock report', variant = 'secondary' }: Filters & { label?: string; variant?: 'primary' | 'secondary' }) {
   const toast = useToast();
   const dispatch = useAppDispatch();
-  const models = usePartModelOptions(brand ?? '');
+  // Every brand's models, so the Vehicle column can name them whichever brand is filtered.
+  const { data: allModels } = useListPartVehicleModelsQuery({});
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<{ name: string; sub: string; rows: InventoryRow[] } | null>(null);
-  const modelName = (id: number) => models.find((m) => m.value === String(id))?.label.replace(`${brand} `, '') ?? '';
-  const vehicleOf = (r: Record<string, unknown>) => ((r.modelIds as number[] | undefined) ?? []).map(modelName).join(', ');
+  const modelName = (id: number) => allModels?.find((m) => m.id === id)?.name ?? '';
+  const vehicleOf = (r: Record<string, unknown>) => ((r.modelIds as number[] | undefined) ?? []).map(modelName).filter(Boolean).join(', ');
 
   const columns: Column[] = [
     { header: 'Part no.', value: (r) => String(r.partNo), w: 1.5 },
     { header: 'Description', value: (r) => String(r.description), w: 2.8 },
     { header: 'Category', value: (r) => String(r.category ?? ''), w: 1.2 },
     { header: 'Vehicle', value: vehicleOf, w: 1.3 },
-    { header: 'Bin', value: (r) => String(r.binLocation ?? ''), w: 0.8 },
     { header: 'In stock', value: (r) => Number(r.onHand), w: 0.8 },
-    { header: 'Cost value', value: (r) => Number(r.stockValue), w: 1.1 },
-    { header: 'Price', value: (r) => Number(r.sellingPrice), w: 1.1 },
+    { header: 'Cost value (without tax)', value: (r) => Number(r.stockValue), w: 1.1 },
+    { header: 'Cost value (with tax)', value: (r) => withTax(String(r.stockValue)), w: 1.1 },
+    { header: 'Price (without tax)', value: (r) => (r.sellingPrice === '' ? '' : withoutTax(String(r.sellingPrice))), w: 1.1 },
+    { header: 'Price (with tax)', value: (r) => (r.sellingPrice === '' ? '' : Number(r.sellingPrice)), w: 1.1 },
   ];
   const withTotal = (rows: InventoryRow[]) => [
     ...rows,

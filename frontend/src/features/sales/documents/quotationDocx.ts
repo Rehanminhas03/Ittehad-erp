@@ -1,40 +1,21 @@
 import type { QuotationDocument } from '../salesApi';
 import { fillTemplateLine, freightLabel, hasSectionedTerms, quotationVehicleLine, type TemplateContext } from './pdf';
 
-const LOGOS: [prefix: string, src: string][] = [
-  ['JET', '/logo/jetour-ittehad-logo.png'],
-  ['HYD', '/logo/Hyundai-logo.png'],
-  ['CSM', '/logo/CSM-Logo.png'],
-];
-
 const num = (v: string | number | null | undefined) => Number(v ?? 0).toLocaleString('en-PK', { maximumFractionDigits: 2 });
 const longDate = (d: string | Date) => {
   const [y, m, day] = new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' }).split('-');
   return `${day}-${m}-${y}`;
 };
 
-/** A logo as Word wants it: the PNG bytes and its size, or null when the file is missing. */
-async function logoOf(src: string): Promise<{ data: Uint8Array; w: number; h: number } | null> {
-  try {
-    const blob = await (await fetch(src)).blob();
-    const bitmap = await createImageBitmap(blob);
-    return { data: new Uint8Array(await blob.arrayBuffer()), w: bitmap.width, h: bitmap.height };
-  } catch {
-    return null;
-  }
-}
-
 /**
- * The quotation as an editable Word document (.docx): the letterhead, QUOTATION with the date, the price table (the
- * bill-to name heads it), the terms and conditions and the stamp & signature space. The same content as the PDF, with
- * the dealership's own terms; Word lets it be edited before it is sent.
+ * The quotation as an editable Word document (.docx), for printing on the dealership's own letterhead: no letterhead
+ * (header) and no sign-off block (footer), with the paper's blank header (about 41 mm) and footer (about 23 mm) space left empty, only QUOTATION with the date, the price table (the bill-to name heads it),
+ * the terms and conditions and the stamp & signature line. The dealership's own terms; edit it in Word before printing.
  */
 export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: Blob; fileName: string }> {
-  const { AlignmentType, BorderStyle, Document, ImageRun, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, VerticalAlign, WidthType } = await import('docx');
+  const { AlignmentType, BorderStyle, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, VerticalAlign, WidthType } = await import('docx');
   const t = q.template;
   // Jetour's and Hyundai's quotations are in the same format: the clauses are sections of the template.
-  const logoSrc = LOGOS.find(([prefix]) => q.dealership.code.startsWith(prefix))?.[1];
-  const logo = logoSrc ? await logoOf(logoSrc) : null;
 
   const FONT = 'Arial';
   const run = (text: string, o: { bold?: boolean; size?: number; italics?: boolean; color?: string } = {}) => new TextRun({ text, font: FONT, size: (o.size ?? 10) * 2, bold: o.bold, italics: o.italics, color: o.color });
@@ -44,39 +25,6 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
   const noBorders = { top: none, bottom: none, left: none, right: none };
   const line = { style: BorderStyle.SINGLE, size: 6, color: '000000' };
   const boxBorders = { top: line, bottom: line, left: line, right: line };
-
-  // Letterhead: the company and its contact lines on the left, the logo on the right.
-  const contact = [t.address, t.phone, t.email, t.tagline].filter(Boolean) as string[];
-  const logoWidth = 190;
-  const head = new Table({
-    width: { size: 10200, type: WidthType.DXA },
-    columnWidths: [6600, 3600],
-    borders: { ...noBorders, insideHorizontal: none, insideVertical: none },
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 6600, type: WidthType.DXA },
-            borders: noBorders,
-            children: [para([run(t.companyName, { bold: true, size: 17, color: '107638' })], { after: 80 }), ...contact.map((c) => para([run(c, { bold: true, size: 8.5 })], { after: 30 }))],
-          }),
-          new TableCell({
-            width: { size: 3600, type: WidthType.DXA },
-            borders: noBorders,
-            verticalAlign: VerticalAlign.TOP,
-            children: [
-              logo
-                ? new Paragraph({
-                    alignment: AlignmentType.RIGHT,
-                    children: [new ImageRun({ type: 'png', data: logo.data, transformation: { width: logoWidth, height: Math.round((logo.h / logo.w) * logoWidth) } })],
-                  })
-                : new Paragraph({ children: [] }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
 
   // Price lines
   const sectioned = hasSectionedTerms(q);
@@ -114,7 +62,7 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
     }),
     ...items.map(
       (it, i) =>
-        new TableRow({
+        new TableRow({ cantSplit: true,
           children: [
             cell([centred(String(i + 1))], 0),
             cell([centred(it.label), ...(it.sub ? [centred(it.sub)] : [])], 1),
@@ -195,10 +143,10 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
     columnWidths: [5100, 5100],
     borders: { ...noBorders, insideHorizontal: none, insideVertical: none },
     rows: [
-      new TableRow({
+      new TableRow({ cantSplit: true,
         children: [
-          new TableCell({ width: { size: 5100, type: WidthType.DXA }, borders: noBorders, children: t.signOff.map((l, i) => para([run(l, { size: i === 1 ? 11.5 : 9, italics: i === 0 })], { after: 40 })) }),
-          new TableCell({ width: { size: 5100, type: WidthType.DXA }, borders: noBorders, verticalAlign: VerticalAlign.BOTTOM, children: [para([run('STAMP & SIGNATURE', { size: 12 })], { align: AlignmentType.RIGHT, before: 900, after: 0 })] }),
+          new TableCell({ width: { size: 5100, type: WidthType.DXA }, borders: noBorders, children: [new Paragraph({ children: [] })] }),
+          new TableCell({ width: { size: 5100, type: WidthType.DXA }, borders: noBorders, verticalAlign: VerticalAlign.BOTTOM, children: [para([run('STAMP & SIGNATURE', { size: 12 })], { align: AlignmentType.RIGHT, before: 360, after: 0 })] }),
         ],
       }),
     ],
@@ -211,17 +159,15 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
     styles: { default: { document: { run: { font: FONT, size: 20 } } } },
     sections: [
       {
-        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 700, bottom: 700, left: 850, right: 850 } } },
+        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 2350, bottom: 1300, left: 850, right: 850 } } },
         children: [
-          head,
-          new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '444444', space: 4 } }, spacing: { after: 200 }, children: [] }),
           para([run('QUOTATION', { bold: true, size: 16 })], { align: AlignmentType.CENTER, after: 80 }),
           para([run(`Date: ${longDate(q.issuedAt)}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, after: 60 }),
-          ...(q.notes ? [para([run(`Note: ${q.notes}`, { size: 11 })], { align: AlignmentType.CENTER, before: 80, after: 120 })] : [new Paragraph({ spacing: { after: 120 }, children: [] })]),
+          ...(q.notes ? [para([run(`Note: ${q.notes}`, { size: 11 })], { align: AlignmentType.CENTER, before: 80, after: 120 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
           priceTable,
-          ...(sectioned && t.standardEquipment ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 160 }, children: [] })]),
+          ...(sectioned && t.standardEquipment ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
           ...terms,
-          new Paragraph({ spacing: { after: 240 }, children: [] }),
+          new Paragraph({ spacing: { after: 60 }, children: [] }),
           sign,
         ],
       },

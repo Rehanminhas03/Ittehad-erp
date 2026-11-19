@@ -6,6 +6,7 @@ import { usePermission } from '@/shared/hooks';
 import { formatMoney } from '@/shared/lib';
 import { useSupplierOptions } from '../../hooks';
 import { useGetPartsPurchaseReportQuery } from '../../partsApi';
+import { withTax } from '../../lib/tax';
 import { P } from '../../permissions';
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
@@ -16,8 +17,10 @@ const PART_COLUMNS: Column[] = [
   { header: 'Part name', value: (r) => String(r.description), w: 2.4 },
   { header: 'Ordered qty', value: (r) => Number(r.orderedQty) },
   { header: 'Received qty', value: (r) => Number(r.receivedQty) },
-  { header: 'Received cost', value: (r) => Number(r.receivedCost) },
-  { header: 'Average cost (each)', value: (r) => Number(r.averageCost) },
+  { header: 'Received cost (without tax)', value: (r) => Number(r.receivedCost) },
+  { header: 'Received cost (with tax)', value: (r) => withTax(String(r.receivedCost)) },
+  { header: 'Average cost each (without tax)', value: (r) => Number(r.averageCost) },
+  { header: 'Average cost each (with tax)', value: (r) => withTax(String(r.averageCost)) },
   { header: 'Lowest', value: (r) => (r.minCost == null ? '' : Number(r.minCost)) },
   { header: 'Highest', value: (r) => (r.maxCost == null ? '' : Number(r.maxCost)) },
   { header: 'Last cost', value: (r) => (r.lastCost == null ? '' : Number(r.lastCost)) },
@@ -32,8 +35,10 @@ const HISTORY_COLUMNS: Column[] = [
   { header: 'Purchase order', value: (r) => String(r.poNo ?? '') },
   { header: 'Supplier', value: (r) => String(r.supplier), w: 1.4 },
   { header: 'Quantity', value: (r) => Number(r.quantity) },
-  { header: 'Cost (each)', value: (r) => Number(r.unitCost) },
-  { header: 'Amount', value: (r) => Number(r.amount) },
+  { header: 'Cost each (without tax)', value: (r) => Number(r.unitCost) },
+  { header: 'Cost each (with tax)', value: (r) => withTax(String(r.unitCost)) },
+  { header: 'Amount (without tax)', value: (r) => Number(r.amount) },
+  { header: 'Amount (with tax)', value: (r) => withTax(String(r.amount)) },
 ];
 
 const Stat = ({ label, value, hint, plain }: { label: string; value: string; hint?: string; plain?: boolean }) => (
@@ -57,7 +62,7 @@ function Change({ now, before }: { now: number; before: number | null }) {
 
 /**
  * The purchase report: what was ordered and received in a period and what it cost. A part bought at different prices shows
- * the weighted average cost (total cost / pieces received) and, when opened, every purchase with the price going up or down.
+ * the weighted average cost (total cost / quantity received) and, when opened, every purchase with the price going up or down.
  */
 export default function PurchaseReportPage({ embedded = false }: { embedded?: boolean }) {
   const perm = usePermission();
@@ -106,7 +111,7 @@ export default function PurchaseReportPage({ embedded = false }: { embedded?: bo
               <Button variant="secondary" disabled={!parts.length} onClick={() => downloadCsv(name, PART_COLUMNS, parts)}>
                 Download Excel (summary)
               </Button>
-              <Button variant="primary" disabled={!parts.length} onClick={() => setPreview({ name, sub: `${where} · ${label}`, foot: `Received cost ${formatMoney(data!.totals.receivedCost)} · ordered ${formatMoney(data!.totals.orderedValue)}. Average cost = total cost ÷ pieces received.` })}>
+              <Button variant="primary" disabled={!parts.length} onClick={() => setPreview({ name, sub: `${where} · ${label}`, foot: `Received cost ${formatMoney(data!.totals.receivedCost)} · ordered ${formatMoney(data!.totals.orderedValue)}. Average cost = total cost ÷ quantity received.` })}>
                 View / print report
               </Button>
               <Button variant="secondary" disabled={!data?.lines.length} onClick={() => downloadCsv(`${name} - every purchase`, HISTORY_COLUMNS, withNames())}>
@@ -117,13 +122,13 @@ export default function PurchaseReportPage({ embedded = false }: { embedded?: bo
       ) : (
         <PageHeader
           title="Purchase report"
-          subtitle="What was ordered and received in a period, and what it cost. A part bought at different prices shows its average cost (total cost ÷ pieces received); open a part to see every purchase and how the price moved."
+          subtitle="What was ordered and received in a period, and what it cost. A part bought at different prices shows its average cost (total cost ÷ quantity received); open a part to see every purchase and how the price moved."
           actions={
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" disabled={!parts.length} onClick={() => downloadCsv(name, PART_COLUMNS, parts)}>
                 Summary (Excel)
               </Button>
-              <Button variant="secondary" disabled={!parts.length} onClick={() => setPreview({ name, sub: `${where} · ${label}`, foot: `Received cost ${formatMoney(data!.totals.receivedCost)} · ordered ${formatMoney(data!.totals.orderedValue)}. Average cost = total cost ÷ pieces received.` })}>
+              <Button variant="secondary" disabled={!parts.length} onClick={() => setPreview({ name, sub: `${where} · ${label}`, foot: `Received cost ${formatMoney(data!.totals.receivedCost)} · ordered ${formatMoney(data!.totals.orderedValue)}. Average cost = total cost ÷ quantity received.` })}>
                 Summary (view / print)
               </Button>
               <Button variant="secondary" disabled={!data?.lines.length} onClick={() => downloadCsv(`${name} - every purchase`, HISTORY_COLUMNS, withNames())}>
@@ -198,7 +203,7 @@ export default function PurchaseReportPage({ embedded = false }: { embedded?: bo
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Ordered" value={data.totals.orderedValue} hint="on purchase orders in the period" />
             <Stat label="Received" value={data.totals.receivedCost} hint="at cost, goods receipts in the period" />
-            <Stat label="Pieces received" value={data.totals.receivedQty} plain />
+            <Stat label="Quantity received" value={data.totals.receivedQty} plain />
             <Stat label="Different parts" value={String(data.totals.partsCount)} plain />
           </div>
           <Section title="By part">

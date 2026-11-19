@@ -97,7 +97,7 @@ export default function PartsReportPage() {
       const total = { roNo: 'TOTAL', quantity: String(sum('quantity')), totalPrice: String(sum('totalPrice')), totalCost: String(sum('totalCost')) };
       const name = `Store sale report - ${from || 'start'} to ${toM}`;
       if (as === 'csv') downloadCsv(name, SALE_COLUMNS, [...rows, total]);
-      else setPreview({ name, title: 'Store: sale report', sub: `${where} · ${label}`, cols: SALE_COLUMNS.slice(0, 10), rows: [...rows, total], foot: `Total price ${formatMoney(String(total.totalPrice))} · total cost ${formatMoney(String(total.totalCost))}` });
+      else setPreview({ name, title: 'Store: sale report', sub: `${where} · ${label}`, cols: SALE_COLUMNS.slice(0, 10), rows: [...rows, total], foot: `Total price ${formatMoney(String(total.totalPrice))} · total cost ${formatMoney(String(total.totalCost))} · total units ${total.quantity} · profit ${formatMoney(String(Math.round((Number(total.totalPrice) - Number(total.totalCost)) * 100) / 100))}` });
     } catch (e) {
       toast.error(e);
     }

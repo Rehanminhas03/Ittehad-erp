@@ -4,7 +4,7 @@ import { type SQL, and, eq, gte, inArray, lt, sql } from '../../db/sql';
 import { LineService } from '../../entity/lines';
 import type { EntityCtx, Row } from '../../entity/types';
 import { publish } from '../../events/bus';
-import { conflict, forbidden, validationError } from '../../lib/errors';
+import { conflict, forbidden, notFound, validationError } from '../../lib/errors';
 import { lessPercent, lineAmount } from '../../lib/money';
 import { type PageQuery, offsetOf } from '../../lib/pagination';
 import type { z } from '../../lib/zod';
@@ -318,14 +318,14 @@ export async function partsRequestLines(ctx: EntityCtx, requestId: number) {
   const req = await partsRequests.findVisible(ctx, requestId);
   return query<{
     id: number; partId: number; partNo: string; description: string;
-    quantity: string; issuedQty: string; returnedQty: string; acceptedQty: string; discountPercent: string; reason: string | null; onHand: string | null;
+    quantity: string; issuedQty: string; returnedQty: string; acceptedQty: string; discountPercent: string; reason: string | null; storeRemark: string | null; onHand: string | null;
   }>(
     ctx.tx,
     sql`select ${partsRequestLine.id} as "id", ${partsRequestLine.partId} as "partId", ${partsRequestLine.partNo} as "partNo",
                ${partsRequestLine.description} as "description", ${partsRequestLine.quantity}::text as "quantity",
                ${partsRequestLine.issuedQty}::text as "issuedQty", ${partsRequestLine.returnedQty}::text as "returnedQty",
                ${partsRequestLine.acceptedQty}::text as "acceptedQty",
-               ${partsRequestLine.discountPercent}::text as "discountPercent", ${partsRequestLine.reason} as "reason",
+               ${partsRequestLine.discountPercent}::text as "discountPercent", ${partsRequestLine.reason} as "reason", ${partsRequestLine.storeRemark} as "storeRemark",
                ${stockItem.quantityOnHand}::text as "onHand"
           from ${partsRequestLine}
           left join ${stockItem} on ${stockItem.partId} = ${partsRequestLine.partId} and ${stockItem.branchId} = ${req.branchId as number}
@@ -333,6 +333,19 @@ export async function partsRequestLines(ctx: EntityCtx, requestId: number) {
          order by ${partsRequestLine.id} asc
          limit 50`,
   );
+}
+
+/** The store writes a remark on a requested part it cannot give yet (e.g. "not in stock, available in 3-4 days"); an empty remark clears it. */
+export async function setRequestLineRemark(ctx: EntityCtx, requestId: number, input: { lineId: number; remark?: string | null }) {
+  const req = await partsRequests.findVisible(ctx, requestId, { lock: true });
+  const target = { dealershipId: req.dealershipId as number, branchId: (req.branchId as number | null) ?? null };
+  if (!ctx.access.canIn(P.issuesCreate, target)) throw forbidden();
+  const line = await ctx.tx.partsRequestLine.findFirst({ where: { id: input.lineId, partsRequestId: requestId }, select: { id: true } });
+  if (!line) throw notFound('Request line');
+  const remark = input.remark?.trim() || null;
+  await ctx.tx.partsRequestLine.update({ where: { id: input.lineId }, data: { storeRemark: remark }, select: { id: true } });
+  await ctx.audit({ entityType: 'parts.parts_request', entityId: requestId, action: 'remark', ...target, changes: { lineId: input.lineId, remark } });
+  return { lineId: input.lineId, storeRemark: remark };
 }
 
 /**

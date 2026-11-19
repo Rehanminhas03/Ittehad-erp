@@ -27,6 +27,8 @@ export default function NewEstimatePage() {
     customerName: '', customerMobile: '', modelId: '', variant: '', registrationNo: '', vin: '', engineNo: '', color: '', modelYear: '', validUntil: '', notes: '',
   });
   const [vehicleId, setVehicleId] = useState<number | ''>('');
+  // What the estimate is for: a general repair (GR: the parts and the labour are added), or a periodic maintenance (PM: the service is chosen next).
+  const [work, setWork] = useState<'gr' | 'pm'>('gr');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [create, { isLoading }] = useCreateStandaloneEstimateMutation();
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
@@ -72,8 +74,8 @@ export default function NewEstimatePage() {
           notes: text(v.notes),
         },
       }).unwrap();
-      toast.success(`Estimate ${e.estimateNo} created: add the parts and services`);
-      navigate(`/service/estimates/${e.id}`);
+      toast.success(`Estimate ${e.estimateNo} created: ${work === 'pm' ? 'choose the periodic service' : 'add the parts and services'}`);
+      navigate(`/service/estimates/${e.id}${work === 'pm' ? '?pm=1' : ''}`);
     } catch (err) {
       const issues = apiFieldErrors(err);
       if (issues.length) setErrors(Object.fromEntries(issues.map((i) => [i.path, i.message])));
@@ -109,6 +111,12 @@ export default function NewEstimatePage() {
           </Field>
           <Field label="Contact (mobile)" htmlFor="ne-mobile" required error={errors.customerMobile}>
             <Input id="ne-mobile" type="tel" inputMode="tel" maxLength={16} value={v.customerMobile} onChange={(e) => setV((s) => ({ ...s, customerMobile: digitsOnly(e.target.value) }))} placeholder="03001234567" invalid={!!errors.customerMobile} />
+          </Field>
+          <Field label="Estimate for" htmlFor="ne-work" hint={work === 'pm' ? 'The service (5,000 km, 10,000 km ...) is chosen on the next page' : 'Add the parts and the labour on the next page'}>
+            <Select id="ne-work" value={work} onChange={(e) => setWork(e.target.value as 'gr' | 'pm')}>
+              <option value="gr">General repair (GR)</option>
+              <option value="pm">Periodic maintenance (PM)</option>
+            </Select>
           </Field>
           <Field label="Valid until" htmlFor="ne-valid">
             <Input id="ne-valid" type="date" value={v.validUntil} onChange={set('validUntil')} />

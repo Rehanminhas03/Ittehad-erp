@@ -46,12 +46,13 @@ const ALL_SECTIONS: NavSection[] = [
       // Reports of leads (social media and salespeople's), with every follow-up remark: Excel (CSV) and PDF.
       { label: 'Leads report', to: '/sales/leads-report', any: ['sales.leads.view_social', 'sales.leads.view_team', 'sales.leads.view_all'] },
       { label: 'Duplicate customers', to: '/sales/leads?escalated=true&range=all', any: ['sales.leads.convert_escalated'] },
-      { label: 'Sales orders', to: '/sales/orders', any: ['sales.orders.view_all', 'sales.orders.view_own'] },
-      { label: 'Vehicle invoices', to: '/sales/orders?invoice=received&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
-      { label: 'Invoices not received', to: '/sales/orders?invoice=pending&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
-      { label: 'Open stock', to: '/sales/stock', any: ['sales.stock.view'] },
       // Every booked order by stage (a salesperson: their own customers' cars).
       { label: 'Deliveries', to: '/sales/delivery-status', any: ['sales.orders.view_all', 'sales.deliveries.view_all', 'sales.deliveries.view_own', 'sales.leads.convert_own'] },
+      { label: 'Open stock', to: '/sales/stock', any: ['sales.stock.view'] },
+      { label: 'Sales orders', to: '/sales/orders', any: ['sales.orders.view_all', 'sales.orders.view_own'] },
+      { label: 'Cars delivered', to: '/sales/orders?status=delivered&range=all', any: ['sales.orders.view_all', 'sales.deliveries.view_all'] },
+      { label: 'Invoices received', to: '/sales/orders?invoice=received&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
+      { label: 'Invoices not received', to: '/sales/orders?invoice=pending&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
       { label: 'Delivery report', to: '/sales/delivery-report', any: ['sales.deliveries.view_all'] },
       { label: 'Quotations', to: '/sales/quotations', any: ['sales.quotations.view_all', 'sales.quotations.view_own'] },
       { label: 'PPF vouchers', to: '/sales/ppf-forms', any: ['sales.ppf.view_all', 'sales.ppf.view_own'] },
