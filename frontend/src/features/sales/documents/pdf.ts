@@ -367,6 +367,8 @@ export async function buildQuotationPdf(q: QuotationDocument, opts: { letterhead
       [0, 0.9, 1], [0, 0.8, 1], [0, 0.7, 1], [0, 0.6, 1],
       ...[0.97, 0.94, 0.91, 0.88, 0.85, 0.82].map((k): [number, number, number] => [0, 0.6, k]),
     ];
+    // Jetour: when the page has room, the clause text is set a little larger (the largest size that still fits one page).
+    if (draw === drawJetourQuotation) steps.unshift([1, 1, 1.3], [1, 1, 1.24], [1, 1, 1.2], [1, 1, 1.16], [1, 1, 1.12], [1, 1, 1.08], [1, 1, 1.04]);
     for (const [ts, stamp, k] of steps) {
       built = await draw(q, k, letterheadPaper, ts, stamp);
       if (built.doc.getNumberOfPages() === 1) break;
@@ -687,7 +689,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   }
 
   // ---- Title, date and the quotation's note -------------------------------------------------------------
-  p.y = ruleY + 6 + 6 * ts;
+  p.y = ruleY + 11 + 6 * ts;
   p.font(16, 'bold');
   doc.text('QUOTATION', W / 2, p.y, { align: 'center' });
   p.y += 5 + 4 * ts;
@@ -715,7 +717,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   // Header: the bill-to name (e.g. the bank on the customer's account) heads the description column.
   p.font(9.5, 'bold');
   const who = doc.splitTextToSize(q.billTo || q.customer.name, cols[1]! - 4) as string[];
-  const headH = Math.max(5 + 3 * ts, 2.4 + who.length * 4.2);
+  const headH = Math.max(6.2 + 3 * ts, 3.4 + who.length * 4.2);
   rowBox(headH);
   who.forEach((l, i) => centre(l, 1, p.y + (headH - who.length * 4.2) / 2 + 3.3 + i * 4.2));
   p.font(9, 'bold');
@@ -733,7 +735,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   // A charge left empty has no row; one entered as 0 prints with 0.
   if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push([freightLabel(q), Number(q.pricing.freightInsurance)]);
   if (q.pricing.nevLevy != null && q.pricing.nevLevy !== '') items.push(['NEV LEVY', Number(q.pricing.nevLevy)]);
-  if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer) Will be paid by customer' : 'WITH HOLDING TAX (Filer) Will be paid by customer', Number(q.pricing.withholdingTax)]);
+  if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? `WITH HOLDING TAX (Non-Filer)${q.taxPaidByCustomer ? ' Will be paid by customer' : ''}` : `WITH HOLDING TAX (Filer)${q.taxPaidByCustomer ? ' Will be paid by customer' : ''}`, Number(q.pricing.withholdingTax)]);
   if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
   items.forEach(([label, unit], i) => {
     p.font(9);
@@ -742,7 +744,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     const colourLine = quotationColourLine(q);
     const sub: string[] = exFactory ? [...(colourLine ? [colourLine] : []), ...(colourLine && t.standardEquipment ? [`Standard Equipment: ${t.standardEquipment}`] : []), 'EX FACTORY'] : [];
     const n = lines.length + sub.length;
-    const h = Math.max(4.4 + 2.6 * ts, 1.2 + 1.4 * ts + n * 4);
+    const h = Math.max(5.8 + 2.6 * ts, 2.4 + 1.4 * ts + n * 4);
     rowBox(h);
     const top = p.y + h / 2 - ((n - 1) * 4) / 2 + 1.2;
     lines.forEach((l, j) => centre(l, 1, top + j * 4));
@@ -761,7 +763,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     centre(`Booking Price (${num(q.pricing.bookingAmount)})`, 1, p.y + 5.4);
     p.y += 8;
   }
-  const th = 4.6 + 2 * ts;
+  const th = 5.8 + 2 * ts;
   rowBox(th);
   p.font(10, 'bold');
   centre('TOTAL', 1, p.y + th / 2 + 1.45);
@@ -770,16 +772,17 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   p.y += th + 1.8 + 1.5 * ts;
   // The employee name and ID (when the customer asked for them), bold under the table.
   const employeeLine = quotationEmployeeLine(q);
+  let lineY = p.y + 3.6 * k;
   if (employeeLine) {
     p.font(8.6 * k, 'bold');
-    doc.text(employeeLine, M, p.y + 3.6 * k);
+    doc.text(employeeLine, M, lineY);
   }
   // Without a colour the standard equipment stays under the table; with one it is in the table.
   if (t.standardEquipment && !quotationColourLine(q)) {
     p.font(8.6 * k, 'bold');
     doc.text(`*Standard Equipment: ${t.standardEquipment}`, W - M, p.y + 3.6 * k, { align: 'right' });
   }
-  p.y += 8.5 * k;
+  p.y += (employeeLine ? 12.5 : 10) * k;
 
   // ---- Terms & conditions ------------------------------------------------------------------------------
   const issued = new Date(q.issuedAt);
@@ -801,14 +804,16 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   const withStamp = !letterheadPaper && !!(t.signatureImage || t.stampImage || fallback);
   p.y += withStamp ? 26 : 5;
   // On letterhead paper only the stamp & signature line is drawn (the rest is printed on the paper).
-  p.ensure(letterheadPaper ? 12 : withStamp ? 52 * stampScale : 30);
+  p.ensure(letterheadPaper ? 12 : withStamp ? 38 * stampScale : 30);
   const top = p.y;
   const cx = M + 22;
   // "Owned & Operated by: Ittehad Motors" is printed on the letterhead paper.
   if (group && !letterheadPaper) {
     const s = Math.min(24 / group.w, 11 / group.h);
-    doc.addImage(group.data, 'JPEG', cx - (group.w * s) / 2, top, group.w * s, group.h * s);
-    p.y = top + group.h * s + 4;
+    // A little above the stamp's line, so the logo and the sign-off sit higher than "STAMP & SIGNATURE".
+    const gTop = top - (withStamp ? 10 : 0);
+    doc.addImage(group.data, 'JPEG', cx - (group.w * s) / 2, gTop, group.w * s, group.h * s);
+    p.y = gTop + group.h * s + 4;
   }
   if (!letterheadPaper) {
     t.signOff.forEach((l, i) => {

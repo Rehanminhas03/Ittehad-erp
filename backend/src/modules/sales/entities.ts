@@ -915,6 +915,7 @@ export const quotationEntity: EntityConfig = {
     return or(
       sql`${quotation.customerName} ilike ${s.text}`,
       sql`${quotation.billTo} ilike ${s.text}`,
+      sql`${quotation.referredBy} ilike ${s.text}`,
       sql`${quotation.customerEmail} ilike ${s.text}`,
       phoneLike(quotation.customerMobile, s),
       leadMatches(quotation.leadId, s),

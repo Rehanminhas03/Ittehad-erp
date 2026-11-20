@@ -1633,6 +1633,10 @@ model Quotation {
   interiorColor          String?      @map("interior_color")
   employeeName           String?      @map("employee_name")
   employeeNo             String?      @map("employee_no")
+  /// Typed by hand when the quotation was asked for by someone who is not on the portal (e.g. the General Manager): printed and listed as "Referred by".
+  referredBy             String?      @map("referred_by")
+  /// Jetour: print "Will be paid by customer" after the withholding tax row (off by default).
+  taxPaidByCustomer      Boolean      @default(false) @map("tax_paid_by_customer")
   notes                  String?
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

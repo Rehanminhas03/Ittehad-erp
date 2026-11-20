@@ -218,6 +218,8 @@ export const QuotationSchema = z.object({
   interiorColor: z.string().nullable().optional(),
   employeeName: z.string().nullable().optional(),
   employeeNo: z.string().nullable().optional(),
+  referredBy: z.string().nullable().optional(),
+  taxPaidByCustomer: z.boolean().optional(),
   /** filer | non_filer: which tax the withholding / advance tax line is. */
   taxStatus: z.enum(TAX_STATUSES),
   quantity: z.number().int(),
@@ -315,6 +317,10 @@ const quotationTerms = {
   interiorColor: optionalText(40),
   employeeName: optionalText(120),
   employeeNo: optionalText(40),
+  /** Who asked for the quotation, typed by hand (e.g. the General Manager, who is not on the portal). */
+  referredBy: optionalText(120),
+  /** Jetour: print "Will be paid by customer" after the withholding tax row. */
+  taxPaidByCustomer: z.boolean().optional(),
 };
 /**
  * Issuing a quotation from a lead. The vehicle comes from the lead; the price is what the salesperson
@@ -533,6 +539,8 @@ export const QuotationDocumentSchema = z
     interiorColor: z.string().nullable().optional(),
     employeeName: z.string().nullable().optional(),
     employeeNo: z.string().nullable().optional(),
+    referredBy: z.string().nullable().optional(),
+    taxPaidByCustomer: z.boolean().optional(),
     /** The dealership's current quotation format. */
     template: DocumentTemplateSchema,
     ...documentParties,

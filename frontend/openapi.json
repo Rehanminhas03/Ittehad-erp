@@ -4484,6 +4484,14 @@
             "type": "string",
             "nullable": true,
             "maxLength": 40
+          },
+          "referredBy": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "taxPaidByCustomer": {
+            "type": "boolean"
           }
         }
       },
@@ -5019,6 +5027,13 @@
           "employeeNo": {
             "type": "string",
             "nullable": true
+          },
+          "referredBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "taxPaidByCustomer": {
+            "type": "boolean"
           },
           "template": {
             "$ref": "#/components/schemas/DocumentTemplate"
@@ -9936,6 +9951,13 @@
             "type": "string",
             "nullable": true
           },
+          "referredBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "taxPaidByCustomer": {
+            "type": "boolean"
+          },
           "taxStatus": {
             "type": "string",
             "enum": [
@@ -10216,6 +10238,14 @@
             "type": "string",
             "nullable": true,
             "maxLength": 40
+          },
+          "referredBy": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "taxPaidByCustomer": {
+            "type": "boolean"
           }
         }
       },
@@ -28669,6 +28699,13 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "taxPaidByCustomer": {
+                      "type": "boolean"
+                    },
                     "taxStatus": {
                       "type": "string",
                       "enum": [
@@ -31091,6 +31128,13 @@
                     "employeeNo": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "taxPaidByCustomer": {
+                      "type": "boolean"
                     },
                     "taxStatus": {
                       "type": "string",

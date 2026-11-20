@@ -35,7 +35,7 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
   const has = (v: string | null | undefined) => v != null && v !== '';
   if (has(q.pricing.freightInsurance)) items.push({ label: freightLabel(q), unit: Number(q.pricing.freightInsurance) });
   if (has(q.pricing.nevLevy)) items.push({ label: 'NEV LEVY', unit: Number(q.pricing.nevLevy) });
-  if (has(q.pricing.withholdingTax)) items.push({ label: sectioned ? (q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer) Will be paid by customer' : 'WITH HOLDING TAX (Filer) Will be paid by customer') : q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', unit: Number(q.pricing.withholdingTax) });
+  if (has(q.pricing.withholdingTax)) items.push({ label: sectioned ? (q.pricing.taxStatus === 'non_filer' ? `WITH HOLDING TAX (Non-Filer)${q.taxPaidByCustomer ? ' Will be paid by customer' : ''}` : `WITH HOLDING TAX (Filer)${q.taxPaidByCustomer ? ' Will be paid by customer' : ''}`) : q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', unit: Number(q.pricing.withholdingTax) });
   if (has(q.pricing.cvt)) items.push({ label: 'CVT (1%)', unit: Number(q.pricing.cvt) });
 
   const widths = [800, 4800, 800, 1900, 1900];

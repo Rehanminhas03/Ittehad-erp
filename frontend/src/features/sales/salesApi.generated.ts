@@ -1485,6 +1485,8 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   interiorColor?: string | null;
   employeeName?: string | null;
   employeeNo?: string | null;
+  referredBy?: string | null;
+  taxPaidByCustomer?: boolean;
   taxStatus: "filer" | "non_filer";
   quantity: number;
   unitPrice: string;
@@ -1941,6 +1943,8 @@ export type CreateStandaloneQuotationApiResponse = /** status 201 Success */ {
   interiorColor?: string | null;
   employeeName?: string | null;
   employeeNo?: string | null;
+  referredBy?: string | null;
+  taxPaidByCustomer?: boolean;
   taxStatus: "filer" | "non_filer";
   quantity: number;
   unitPrice: string;
@@ -3338,6 +3342,8 @@ export type QuotationCreate = {
   interiorColor?: string | null;
   employeeName?: string | null;
   employeeNo?: string | null;
+  referredBy?: string | null;
+  taxPaidByCustomer?: boolean;
 };
 export type LeadOrderVehicle = {
   orderNo: string | null;
@@ -3484,6 +3490,8 @@ export type QuotationDocument = {
   interiorColor?: string | null;
   employeeName?: string | null;
   employeeNo?: string | null;
+  referredBy?: string | null;
+  taxPaidByCustomer?: boolean;
   template: DocumentTemplate;
   issuedAt: string;
   dealership: {
@@ -4560,6 +4568,8 @@ export type Quotation = {
   interiorColor?: string | null;
   employeeName?: string | null;
   employeeNo?: string | null;
+  referredBy?: string | null;
+  taxPaidByCustomer?: boolean;
   taxStatus: "filer" | "non_filer";
   quantity: number;
   unitPrice: string;
@@ -4620,6 +4630,8 @@ export type QuotationUpdate = {
   interiorColor?: string | null;
   employeeName?: string | null;
   employeeNo?: string | null;
+  referredBy?: string | null;
+  taxPaidByCustomer?: boolean;
 };
 export type PpfForm = {
   id: number;

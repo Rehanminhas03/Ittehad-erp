@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Dialog, Field, Input, Select, Textarea } from '@/shared/components/ui';
+import { Button, Checkbox, Dialog, Field, Input, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { apiFieldErrors } from '@/shared/lib';
 import { digitsOnly } from '@/shared/components';
@@ -84,6 +84,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     color: lead?.preferredColor ?? '',
     interiorColor: '',
     employeeName: '',
+    referredBy: '',
+    taxPaidByCustomer: false,
     employeeNo: '',
     validDays: '7',
     deliveryDays: '',
@@ -154,6 +156,8 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             color: blank(v.color),
             interiorColor: jetour ? blank(v.interiorColor) : null,
             employeeName: jetour ? blank(v.employeeName) : null,
+            referredBy: blank(v.referredBy),
+            taxPaidByCustomer: jetour ? v.taxPaidByCustomer : false,
             employeeNo: jetour ? blank(v.employeeNo) : null,
             validDays: Number(v.validDays) || 7,
             notes: blank(v.notes),
@@ -286,6 +290,9 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
                   <option value="non_filer">Non-filer</option>
                 </Select>
               </Field>
+              <div className="mt-2">
+                <Checkbox label='Print "Will be paid by customer" after the withholding tax' checked={v.taxPaidByCustomer} onChange={(e) => setV((s) => ({ ...s, taxPaidByCustomer: e.target.checked }))} />
+              </div>
               {taxStatus === 'non_filer' && prices && !prices.advanceTaxNonFiler && <p className="mt-1 text-xs text-amber-700">The price list has no non-filer figure for this variant: enter the amount.</p>}
             </div>
           )}
@@ -338,6 +345,9 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           )}
           <Field label={csm ? 'Advance payment (PKR)' : 'Booking amount (PKR)'} htmlFor="qt-booking" error={errors.bookingAmount} hint={csm ? 'Printed in the Advance Payment row, with the advance and balance percentages in the terms. Empty: not printed' : jetour ? 'Empty by default. Enter it only if you want it printed as "Booking Price" in the table' : 'Empty by default: enter it only if there is a booking amount'}>
             <Input id="qt-booking" inputMode="decimal" value={v.bookingAmount} onChange={set('bookingAmount')} invalid={!!errors.bookingAmount} />
+          </Field>
+          <Field label="Referred by" htmlFor="qt-referred" hint="Optional: type the name when someone else asked for it, e.g. the General Manager. Printed on the quotation and shown in the list">
+            <Input id="qt-referred" value={v.referredBy} onChange={set('referredBy')} maxLength={120} />
           </Field>
           <Field label="Valid for (days)" htmlFor="qt-valid" error={errors.validDays}>
             <Input id="qt-valid" type="number" min={1} max={60} value={v.validDays} onChange={set('validDays')} />
