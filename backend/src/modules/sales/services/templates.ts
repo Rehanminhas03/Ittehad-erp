@@ -106,14 +106,14 @@ function groupQuotation(d: Dealer): Fields {
 const JETOUR_QUOTATION: Fields = {
   companyName: 'JETOUR ITTEHAD',
   refPrefix: null,
-  tagline: 'www.ittehadmotors.com',
-  address: 'Plot #. 415, off 9th Avenue, Sector I-9/3, Islamabad',
+  tagline: null,
+  address: 'Plot # 415, off 9th Avenue, Sector I-9/3, Islamabad',
   phone: '+92 (51) 111 500 100',
   email: 'info@ittehadmotors.com',
   // The clauses are all in `terms`: "# " starts a heading, "- " a bullet; {deliveryPeriod} is the delivery period as of
   // today typed on the quotation (the line is left out when it is empty) and {paymentMode} its payment mode.
   deliveryNotes: [],
-  deliveryStation: 'JETOUR ITTEHAD ISLAMABAD',
+  deliveryStation: 'JETOUR ITTEHAD, ISLAMABAD',
   defaultPaymentMode: '100 % Advance Payment',
   defaultValidityDays: 7,
   defaultDeliveryDays: null,

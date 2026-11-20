@@ -146,7 +146,7 @@ export default function DeliveryReportPage() {
               <table className="min-w-full text-sm">
                 <thead className="text-xs tracking-wide text-slate-500 uppercase">
                   <tr>
-                    <th className="px-3 py-2 text-left">Dealership</th>
+                    <th className="px-3 py-1.5 text-left">Dealership</th>
                     <th className={cell}>This month</th>
                     <th className={cell}>This year</th>
                     <th className={cell}>Last 30 days</th>
@@ -159,7 +159,7 @@ export default function DeliveryReportPage() {
                 <tbody className="divide-y divide-slate-100">
                   {data.dealerships.map((d) => (
                     <tr key={d.id}>
-                      <td className="px-3 py-2 font-medium text-slate-900">{d.name}</td>
+                      <td className="px-3 py-1.5 font-medium text-slate-900">{d.name}</td>
                       <td className={cell}>{d.thisMonth}</td>
                       <td className={cell}>{d.thisYear}</td>
                       <td className={cell}>{d.last30Days}</td>
@@ -171,7 +171,7 @@ export default function DeliveryReportPage() {
                   ))}
                   {many && (
                     <tr className="bg-slate-50/70 font-semibold">
-                      <td className="px-3 py-2 text-slate-900">All dealerships</td>
+                      <td className="px-3 py-1.5 text-slate-900">All dealerships</td>
                       <td className={cell}>{data.total.thisMonth}</td>
                       <td className={cell}>{data.total.thisYear}</td>
                       <td className={cell}>{data.total.last30Days}</td>

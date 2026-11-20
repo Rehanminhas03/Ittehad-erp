@@ -69,8 +69,8 @@ export default function TeamReportPage() {
               <table className="min-w-full text-sm">
                 <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Name</th>
-                    <th className="px-3 py-2 text-left font-medium">Role</th>
+                    <th className="px-3 py-1.5 text-left font-medium">Name</th>
+                    <th className="px-3 py-1.5 text-left font-medium">Role</th>
                     <th className={cell}>Leads</th>
                     <th className={cell}>Walk-ins</th>
                     <th className={cell}>Follow-ups</th>
@@ -83,8 +83,8 @@ export default function TeamReportPage() {
                 <tbody className="divide-y divide-slate-100">
                   {data.members.map((m) => (
                     <tr key={m.userId}>
-                      <td className="px-3 py-2 font-medium text-slate-900">{m.fullName}</td>
-                      <td className="px-3 py-2 text-slate-600">{m.roles}</td>
+                      <td className="px-3 py-1.5 font-medium text-slate-900">{m.fullName}</td>
+                      <td className="px-3 py-1.5 text-slate-600">{m.roles}</td>
                       <td className={cell}>{m.leads}</td>
                       <td className={cell}>{m.walkIns}</td>
                       <td className={cell}>{m.followUps}</td>
@@ -111,7 +111,7 @@ export default function TeamReportPage() {
               <table className="min-w-full text-sm">
                 <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Date</th>
+                    <th className="px-3 py-1.5 text-left font-medium">Date</th>
                     <th className={cell}>Walk-ins</th>
                     <th className={cell}>All leads</th>
                     <th className={cell}>Converted</th>
@@ -120,7 +120,7 @@ export default function TeamReportPage() {
                 <tbody className="divide-y divide-slate-100">
                   {data.daily.map((d) => (
                     <tr key={d.date}>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-1.5">
                         {/* The day's counts are leads logged that day: open exactly those. */}
                         <Link to={`/sales/leads?createdOn=${d.date}&range=all`} className="hover:text-brand-700">
                           {formatDate(d.date)}

@@ -29,6 +29,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
     email: lead.email ?? '',
     // The customer's address (required): saved on the customer; the PPF voucher starts from it.
     customerAddress: lead.customerAddress ?? '',
+    customerOccupation: lead.customerOccupation ?? '',
     // Partial (a booking amount) or Full payment: one must be chosen; its fields are then required.
     paymentType: '',
     // Partial payment: the total price of the car (the balance is paid before delivery).
@@ -70,6 +71,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       required('preferredColor', 'Vehicle colour'),
       required('email', 'Email'),
       required('customerAddress', 'Address'),
+      required('customerOccupation', 'Occupation'),
       v.paymentType ? null : (['paymentType', 'Tick Partial payment or Full payment'] as const),
       v.paymentType ? required('paymentAmount', v.paymentType === 'full' ? 'The full amount paid' : 'The amount paid') : null,
       v.paymentType === 'partial' ? required('vehiclePrice', 'The total amount of the car') : null,
@@ -109,6 +111,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           expectedDeliveryByMonth: !!expected.date && expected.byMonth,
           customerCnic: cnic,
           customerAddress: v.customerAddress.trim(),
+          customerOccupation: v.customerOccupation.trim(),
           customerType: v.customerType as 'individual',
           companyName: v.customerType === 'corporate' ? v.companyName.trim() : null,
           contactDesignation: v.customerType === 'corporate' ? v.contactDesignation.trim() : null,
@@ -198,6 +201,9 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           </Field>
           <Field label="Address" htmlFor="cv-address" required className="sm:col-span-2" error={errors.customerAddress} hint="House / street, sector or area, city">
             <Input id="cv-address" value={v.customerAddress} onChange={set('customerAddress')} invalid={!!errors.customerAddress} placeholder="e.g. House 12, Street 4, F-10/2, Islamabad" />
+          </Field>
+          <Field label="Occupation" htmlFor="cv-occupation" required error={errors.customerOccupation} hint="What the customer does, e.g. businessman, doctor, government employee">
+            <Input id="cv-occupation" value={v.customerOccupation} onChange={set('customerOccupation')} invalid={!!errors.customerOccupation} maxLength={120} />
           </Field>
           <Field label="Model" htmlFor="cv-model" required error={errors.interestedModelId}>
             <LeadModelSelect

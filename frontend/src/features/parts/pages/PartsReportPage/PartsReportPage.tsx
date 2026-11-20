@@ -37,7 +37,7 @@ const STOCK_COLUMNS: Column[] = [
 
 
 const Stat = ({ label, value, hint, plain }: { label: string; value: string; hint?: string; plain?: boolean }) => (
-  <div className="surface p-4">
+  <div className="surface p-3">
     <p className="text-xs font-medium tracking-wide text-slate-500">{label}</p>
     <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{plain ? Number(value).toLocaleString() : formatMoney(value)}</p>
     {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
@@ -201,13 +201,13 @@ export default function PartsReportPage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-right text-xs font-medium tracking-wide text-slate-500">
-                    <th className="py-2 pr-3 text-left font-medium">Month</th>
-                    <th className="py-2 pr-3 font-medium">Received (cost)</th>
-                    <th className="py-2 pr-3 font-medium">Issued (cost)</th>
-                    <th className="py-2 pr-3 font-medium">Taken back (cost)</th>
-                    <th className="py-2 pr-3 font-medium">Revenue</th>
-                    <th className="py-2 pr-3 font-medium">Margin</th>
-                    <th className="py-2 font-medium">Adjustments</th>
+                    <th className="py-1.5 pr-3 text-left font-medium">Month</th>
+                    <th className="py-1.5 pr-3 font-medium">Received (cost)</th>
+                    <th className="py-1.5 pr-3 font-medium">Issued (cost)</th>
+                    <th className="py-1.5 pr-3 font-medium">Taken back (cost)</th>
+                    <th className="py-1.5 pr-3 font-medium">Revenue</th>
+                    <th className="py-1.5 pr-3 font-medium">Margin</th>
+                    <th className="py-1.5 font-medium">Adjustments</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-right tabular-nums">
@@ -220,13 +220,13 @@ export default function PartsReportPage() {
                   )}
                   {data.months.map((m) => (
                     <tr key={m.month}>
-                      <td className="py-2 pr-3 text-left font-medium">{monthName(m.month)}</td>
-                      <td className="py-2 pr-3">{formatMoney(m.receivedCost)}</td>
-                      <td className="py-2 pr-3">{formatMoney(m.issuedCost)}</td>
-                      <td className="py-2 pr-3">{formatMoney(m.returnedCost)}</td>
-                      <td className="py-2 pr-3 font-medium">{formatMoney(m.netSales)}</td>
-                      <td className="py-2 pr-3">{formatMoney(m.margin)}</td>
-                      <td className="py-2">{formatMoney(m.adjustmentCost)}</td>
+                      <td className="py-1.5 pr-3 text-left font-medium">{monthName(m.month)}</td>
+                      <td className="py-1.5 pr-3">{formatMoney(m.receivedCost)}</td>
+                      <td className="py-1.5 pr-3">{formatMoney(m.issuedCost)}</td>
+                      <td className="py-1.5 pr-3">{formatMoney(m.returnedCost)}</td>
+                      <td className="py-1.5 pr-3 font-medium">{formatMoney(m.netSales)}</td>
+                      <td className="py-1.5 pr-3">{formatMoney(m.margin)}</td>
+                      <td className="py-1.5">{formatMoney(m.adjustmentCost)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -239,19 +239,19 @@ export default function PartsReportPage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-right text-xs font-medium tracking-wide text-slate-500">
-                    <th className="py-2 pr-3 text-left font-medium">Category</th>
-                    <th className="py-2 pr-3 font-medium">Received (cost)</th>
-                    <th className="py-2 pr-3 font-medium">Issued (cost)</th>
-                    <th className="py-2 font-medium">Revenue</th>
+                    <th className="py-1.5 pr-3 text-left font-medium">Category</th>
+                    <th className="py-1.5 pr-3 font-medium">Received (cost)</th>
+                    <th className="py-1.5 pr-3 font-medium">Issued (cost)</th>
+                    <th className="py-1.5 font-medium">Revenue</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-right tabular-nums">
                   {data.categories.map((c) => (
                     <tr key={c.category}>
-                      <td className="py-2 pr-3 text-left">{c.category}</td>
-                      <td className="py-2 pr-3">{formatMoney(c.receivedCost)}</td>
-                      <td className="py-2 pr-3">{formatMoney(c.netCost)}</td>
-                      <td className="py-2">{formatMoney(c.netSales)}</td>
+                      <td className="py-1.5 pr-3 text-left">{c.category}</td>
+                      <td className="py-1.5 pr-3">{formatMoney(c.receivedCost)}</td>
+                      <td className="py-1.5 pr-3">{formatMoney(c.netCost)}</td>
+                      <td className="py-1.5">{formatMoney(c.netSales)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -343,14 +343,14 @@ function EarlierSales({ dealershipId }: { dealershipId?: number }) {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-3 font-medium">RO no.</th>
-              <th className="py-2 pr-3 font-medium">Invoice no.</th>
-              <th className="py-2 pr-3 font-medium">Part code</th>
-              <th className="py-2 pr-3 font-medium">Part name</th>
-              <th className="py-2 pr-3 text-right font-medium">Qty</th>
-              <th className="py-2 pr-3 text-right font-medium">Unit price</th>
-              <th className="py-2 pr-3 text-right font-medium">Total price</th>
-              <th className="py-2 font-medium">Remarks</th>
+              <th className="py-1.5 pr-3 font-medium">RO no.</th>
+              <th className="py-1.5 pr-3 font-medium">Invoice no.</th>
+              <th className="py-1.5 pr-3 font-medium">Part code</th>
+              <th className="py-1.5 pr-3 font-medium">Part name</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Qty</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Unit price</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Total price</th>
+              <th className="py-1.5 font-medium">Remarks</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

@@ -16,32 +16,32 @@ export function StockMovementsTable({ filter, pageSize = 25 }: { filter: Omit<Li
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-            <th className="py-2 pr-2 font-medium">When</th>
-            <th className="py-2 pr-2 font-medium">Part</th>
-            <th className="py-2 pr-2 font-medium">Movement</th>
-            <th className="py-2 pr-2 font-medium">Reference</th>
-            <th className="py-2 pr-2 text-right font-medium">Qty</th>
-            <th className="py-2 pr-2 text-right font-medium">Unit cost</th>
-            <th className="py-2 pr-2 text-right font-medium">Value</th>
-            <th className="py-2 pr-2 text-right font-medium">Balance</th>
-            <th className="py-2 pr-2 font-medium">By</th>
+            <th className="py-1.5 pr-2 font-medium">When</th>
+            <th className="py-1.5 pr-2 font-medium">Part</th>
+            <th className="py-1.5 pr-2 font-medium">Movement</th>
+            <th className="py-1.5 pr-2 font-medium">Reference</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Qty</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Unit cost</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Value</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Balance</th>
+            <th className="py-1.5 pr-2 font-medium">By</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {data.items.map((m) => (
             <tr key={m.id}>
-              <td className="py-2 pr-2 whitespace-nowrap text-slate-500">{formatDateTime(m.occurredAt)}</td>
-              <td className="py-2 pr-2 font-mono text-xs">{m.partNo}</td>
-              <td className="py-2 pr-2">{MOVEMENT_LABELS[m.type] ?? m.type}</td>
-              <td className="py-2 pr-2 font-mono text-xs text-slate-500">{m.referenceNo ?? `${m.referenceType} #${m.referenceId}`}</td>
-              <td className={cn('py-2 pr-2 text-right tabular-nums', Number(m.quantity) < 0 ? 'text-red-600' : 'text-emerald-700')}>
+              <td className="py-1.5 pr-2 whitespace-nowrap text-slate-500">{formatDateTime(m.occurredAt)}</td>
+              <td className="py-1.5 pr-2 font-mono text-xs">{m.partNo}</td>
+              <td className="py-1.5 pr-2">{MOVEMENT_LABELS[m.type] ?? m.type}</td>
+              <td className="py-1.5 pr-2 font-mono text-xs text-slate-500">{m.referenceNo ?? `${m.referenceType} #${m.referenceId}`}</td>
+              <td className={cn('py-1.5 pr-2 text-right tabular-nums', Number(m.quantity) < 0 ? 'text-red-600' : 'text-emerald-700')}>
                 {Number(m.quantity) > 0 ? '+' : ''}
                 {Number(m.quantity)}
               </td>
-              <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(m.unitCost)}</td>
-              <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(m.value)}</td>
-              <td className="py-2 pr-2 text-right font-medium tabular-nums">{Number(m.balanceAfter)}</td>
-              <td className="py-2 pr-2 text-slate-500">{m.actorName}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(m.unitCost)}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(m.value)}</td>
+              <td className="py-1.5 pr-2 text-right font-medium tabular-nums">{Number(m.balanceAfter)}</td>
+              <td className="py-1.5 pr-2 text-slate-500">{m.actorName}</td>
             </tr>
           ))}
         </tbody>

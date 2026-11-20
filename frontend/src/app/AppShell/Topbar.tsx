@@ -20,8 +20,8 @@ export function Topbar() {
   };
 
   return (
-    <div className="sticky top-0 z-30 px-3 pt-3 sm:px-6 lg:px-8">
-      <header className="glass mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 rounded-2xl px-3 sm:px-4">
+    <div className="sticky top-0 z-30 px-3 pt-2 sm:px-6 lg:px-8">
+      <header className="glass mx-auto flex h-12 max-w-7xl items-center justify-between gap-3 rounded-2xl px-3 sm:px-4">
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <button
             type="button"

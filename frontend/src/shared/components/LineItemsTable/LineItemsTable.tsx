@@ -202,19 +202,19 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-            {kinds && <th className="py-2 pr-2 font-medium">Kind</th>}
-            <th className="py-2 pr-2 font-medium">Description</th>
-            <th className="py-2 pr-2 font-medium">Part no.</th>
-            <th className="py-2 pr-2 text-right font-medium">Qty</th>
+            {kinds && <th className="py-1.5 pr-2 font-medium">Kind</th>}
+            <th className="py-1.5 pr-2 font-medium">Description</th>
+            <th className="py-1.5 pr-2 font-medium">Part no.</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Qty</th>
             {priced && (
               <>
-                <th className="py-2 pr-2 text-right font-medium">{priceLabel}</th>
-                {discountable && <th className="py-2 pr-2 text-right font-medium">Disc. %</th>}
-                <th className="py-2 pr-2 text-right font-medium">Amount</th>
+                <th className="py-1.5 pr-2 text-right font-medium">{priceLabel}</th>
+                {discountable && <th className="py-1.5 pr-2 text-right font-medium">Disc. %</th>}
+                <th className="py-1.5 pr-2 text-right font-medium">Amount</th>
               </>
             )}
-            {renderExtra && <th className="py-2 pr-2 font-medium">{extraHeader}</th>}
-            {editable && <th className="py-2" />}
+            {renderExtra && <th className="py-1.5 pr-2 font-medium">{extraHeader}</th>}
+            {editable && <th className="py-1.5" />}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -238,23 +238,23 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
             }
             return (
               <tr key={l.id} className="align-top">
-                {kinds && <td className="py-2 pr-2 text-xs text-slate-500">{kinds.find((k) => k.value === l.kind)?.label ?? l.kind}</td>}
-                <td className="py-2 pr-2 text-slate-800">
+                {kinds && <td className="py-1.5 pr-2 text-xs text-slate-500">{kinds.find((k) => k.value === l.kind)?.label ?? l.kind}</td>}
+                <td className="py-1.5 pr-2 text-slate-800">
                   {l.description}
                   {rowNote?.(l) && <div className="text-xs text-slate-500">{rowNote(l)}</div>}
                 </td>
-                <td className="py-2 pr-2 font-mono text-xs text-slate-500">{l.partNo ?? ''}</td>
-                <td className="py-2 pr-2 text-right tabular-nums">{Number(l.quantity)}</td>
+                <td className="py-1.5 pr-2 font-mono text-xs text-slate-500">{l.partNo ?? ''}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{Number(l.quantity)}</td>
                 {priced && (
                   <>
-                    <td className="py-2 pr-2 text-right tabular-nums">{l.unitPrice == null ? '—' : formatMoney(l.unitPrice)}</td>
-                    {discountable && <td className="py-2 pr-2 text-right tabular-nums text-slate-600">{Number(l.discountPercent ?? 0) > 0 ? `${Number(l.discountPercent)}%` : ''}</td>}
-                    <td className="py-2 pr-2 text-right font-medium tabular-nums">{l.amount == null ? '—' : formatMoney(l.amount)}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums">{l.unitPrice == null ? '—' : formatMoney(l.unitPrice)}</td>
+                    {discountable && <td className="py-1.5 pr-2 text-right tabular-nums text-slate-600">{Number(l.discountPercent ?? 0) > 0 ? `${Number(l.discountPercent)}%` : ''}</td>}
+                    <td className="py-1.5 pr-2 text-right font-medium tabular-nums">{l.amount == null ? '—' : formatMoney(l.amount)}</td>
                   </>
                 )}
-                {renderExtra && <td className="py-2 pr-2">{renderExtra(l)}</td>}
+                {renderExtra && <td className="py-1.5 pr-2">{renderExtra(l)}</td>}
                 {editable && (
-                  <td className="py-2 whitespace-nowrap text-right">
+                  <td className="py-1.5 whitespace-nowrap text-right">
                     {locked ? (
                       <span className="text-xs text-slate-400" title={locked}>
                         Locked
@@ -307,10 +307,10 @@ export function LineItemsTable<L extends DocumentLine>(props: LineItemsTableProp
         {showTotal && (
           <tfoot>
             <tr className="border-t border-slate-200">
-              <td colSpan={(kinds ? 1 : 0) + 4 + (discountable ? 1 : 0)} className="py-2 pr-2 text-right text-xs font-medium tracking-wide text-slate-500">
+              <td colSpan={(kinds ? 1 : 0) + 4 + (discountable ? 1 : 0)} className="py-1.5 pr-2 text-right text-xs font-medium tracking-wide text-slate-500">
                 Total
               </td>
-              <td className="py-2 pr-2 text-right font-semibold tabular-nums">{formatMoney(total.toFixed(2))}</td>
+              <td className="py-1.5 pr-2 text-right font-semibold tabular-nums">{formatMoney(total.toFixed(2))}</td>
             </tr>
           </tfoot>
         )}

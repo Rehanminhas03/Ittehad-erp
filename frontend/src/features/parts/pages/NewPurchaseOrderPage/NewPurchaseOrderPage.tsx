@@ -101,12 +101,12 @@ export default function NewPurchaseOrderPage() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-2 font-medium">Type</th>
-              <th className="py-2 pr-2 font-medium">Part number</th>
-              <th className="py-2 pr-2 font-medium">Part name</th>
-              <th className="py-2 pr-2 text-right font-medium">Qty</th>
-              <th className="py-2 pr-2 text-right font-medium">Cost from supplier (each, without sales tax)</th>
-              <th className="py-2 pr-2 text-right font-medium">Amount</th>
+              <th className="py-1.5 pr-2 font-medium">Type</th>
+              <th className="py-1.5 pr-2 font-medium">Part number</th>
+              <th className="py-1.5 pr-2 font-medium">Part name</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Qty</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Cost from supplier (each, without sales tax)</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Amount</th>
               <th className="w-8" />
             </tr>
           </thead>

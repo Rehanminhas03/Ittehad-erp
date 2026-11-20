@@ -45,19 +45,19 @@ export function PartsRequestDesk({ request }: { request: PartsRequest }) {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-                <th className="py-2 pr-2 font-medium">Part</th>
-                <th className="py-2 pr-2 text-right font-medium">Quantity</th>
-                <th className="py-2 pr-2 font-medium">Why</th>
+                <th className="py-1.5 pr-2 font-medium">Part</th>
+                <th className="py-1.5 pr-2 text-right font-medium">Quantity</th>
+                <th className="py-1.5 pr-2 font-medium">Why</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {lines?.map((l) => (
                 <tr key={l.id}>
-                  <td className="py-2 pr-2">
+                  <td className="py-1.5 pr-2">
                     <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
                   </td>
-                  <td className="py-2 pr-2 text-right tabular-nums">{n(l.quantity)}</td>
-                  <td className="py-2 pr-2 text-slate-700">{l.reason ?? ''}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{n(l.quantity)}</td>
+                  <td className="py-1.5 pr-2 text-slate-700">{l.reason ?? ''}</td>
                 </tr>
               ))}
             </tbody>
@@ -75,26 +75,26 @@ export function PartsRequestDesk({ request }: { request: PartsRequest }) {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-2 font-medium">Part</th>
-              <th className="py-2 pr-2 text-right font-medium">Requested</th>
-              <th className="py-2 pr-2 text-right font-medium">Issued</th>
-              <th className="py-2 pr-2 text-right font-medium">Returned</th>
-              <th className="py-2 pr-2 text-right font-medium">In store</th>
-              {canIssue && <th className="py-2 pr-2 text-right font-medium">Quantity</th>}
+              <th className="py-1.5 pr-2 font-medium">Part</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Requested</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Issued</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Returned</th>
+              <th className="py-1.5 pr-2 text-right font-medium">In store</th>
+              {canIssue && <th className="py-1.5 pr-2 text-right font-medium">Quantity</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {lines?.map((l) => (
               <tr key={l.id}>
-                <td className="py-2 pr-2">
+                <td className="py-1.5 pr-2">
                   <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
                 </td>
-                <td className="py-2 pr-2 text-right tabular-nums">{n(l.quantity)}</td>
-                <td className="py-2 pr-2 text-right tabular-nums">{n(l.issuedQty)}</td>
-                <td className="py-2 pr-2 text-right tabular-nums">{n(l.returnedQty)}</td>
-                <td className={`py-2 pr-2 text-right tabular-nums ${n(l.onHand) < n(l.quantity) - n(l.issuedQty) ? 'text-red-600' : ''}`}>{n(l.onHand)}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{n(l.quantity)}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{n(l.issuedQty)}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{n(l.returnedQty)}</td>
+                <td className={`py-1.5 pr-2 text-right tabular-nums ${n(l.onHand) < n(l.quantity) - n(l.issuedQty) ? 'text-red-600' : ''}`}>{n(l.onHand)}</td>
                 {canIssue && (
-                  <td className="py-2 pr-2 text-right">
+                  <td className="py-1.5 pr-2 text-right">
                     <Input
                       value={qty[l.id] ?? ''}
                       onChange={(e) => setQty({ ...qty, [l.id]: e.target.value })}

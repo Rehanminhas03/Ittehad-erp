@@ -39,7 +39,7 @@ export function ReceiveGoods({ po }: { po: PurchaseOrder }) {
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-            <th className="w-10 py-2 pr-2 font-medium">
+            <th className="w-10 py-1.5 pr-2 font-medium">
               <input
                 type="checkbox"
                 checked={allTicked}
@@ -48,16 +48,16 @@ export function ReceiveGoods({ po }: { po: PurchaseOrder }) {
                 className="size-4 rounded border-slate-300"
               />
             </th>
-            <th className="py-2 pr-2 font-medium">Part</th>
-            <th className="py-2 pr-2 text-right font-medium">Ordered</th>
-            <th className="py-2 pr-2 text-right font-medium">Received</th>
-            <th className="py-2 pr-2 text-right font-medium">Received now</th>
+            <th className="py-1.5 pr-2 font-medium">Part</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Ordered</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Received</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Received now</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {open.map((l) => (
             <tr key={l.id} className={ticked[l.id] ? 'bg-emerald-50/50' : undefined}>
-              <td className="py-2 pr-2">
+              <td className="py-1.5 pr-2">
                 <input
                   type="checkbox"
                   checked={!!ticked[l.id]}
@@ -66,12 +66,12 @@ export function ReceiveGoods({ po }: { po: PurchaseOrder }) {
                   className="size-4 rounded border-slate-300"
                 />
               </td>
-              <td className="py-2 pr-2">
+              <td className="py-1.5 pr-2">
                 <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
               </td>
-              <td className="py-2 pr-2 text-right tabular-nums">{Number(l.quantity)}</td>
-              <td className="py-2 pr-2 text-right tabular-nums">{Number(l.receivedQty)}</td>
-              <td className="py-2 pr-2 text-right">
+              <td className="py-1.5 pr-2 text-right tabular-nums">{Number(l.quantity)}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{Number(l.receivedQty)}</td>
+              <td className="py-1.5 pr-2 text-right">
                 <Input
                   value={qty[l.id] ?? ''}
                   onChange={(e) => setQty({ ...qty, [l.id]: e.target.value })}

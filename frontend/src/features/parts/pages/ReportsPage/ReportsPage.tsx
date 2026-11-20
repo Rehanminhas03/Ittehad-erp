@@ -6,7 +6,7 @@ import { PurchaseReportButton } from '../../components/PurchaseReportButton';
 import { StockReportButton } from '../../components/StockReport';
 
 const Card = ({ title, text, action }: { title: string; text: string; action: ReactNode }) => (
-  <div className="surface flex flex-col justify-between gap-3 p-4">
+  <div className="surface flex flex-col justify-between gap-3 p-3">
     <div>
       <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       <p className="mt-1 text-xs text-slate-600">{text}</p>

@@ -122,6 +122,9 @@ async function issueQuotation(ctx: EntityCtx, target: Target, ownerId: number, l
     deliveryPeriod: input.deliveryPeriod ?? null,
     paymentMode: input.paymentMode ?? null,
     specs: input.specs ?? null,
+    interiorColor: input.interiorColor ?? null,
+    employeeName: input.employeeName ?? null,
+    employeeNo: input.employeeNo ?? null,
   });
 }
 
@@ -251,6 +254,9 @@ export async function quotationDocument(ctx: EntityCtx, id: number) {
     deliveryPeriod: (q.deliveryPeriod as string | null) ?? null,
     paymentMode: (q.paymentMode as string | null) ?? null,
     specs: (q.specs as string | null) ?? null,
+    interiorColor: (q.interiorColor as string | null) ?? null,
+    employeeName: (q.employeeName as string | null) ?? null,
+    employeeNo: (q.employeeNo as string | null) ?? null,
     // Always the dealership's current format, so an edited format shows on every quotation.
     template: await loadTemplate(ctx, q.dealershipId as number, 'quotation'),
     ...(await parties(ctx, q, q.modelId as number)),

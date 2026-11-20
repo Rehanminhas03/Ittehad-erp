@@ -152,21 +152,21 @@ export default function InventoryPage() {
           <span className="font-medium text-slate-900">{formatMoney(data.stockValue)}</span>
         </p>
       )}
-      <div className="surface relative overflow-x-auto p-2 sm:p-4">
+      <div className="surface relative overflow-x-auto p-2 sm:p-3">
         {isFetching && <Spinner className="absolute top-3 right-3 size-4 text-slate-400" />}
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-3 font-medium">Part no.</th>
-              <th className="py-2 pr-3 font-medium">Description</th>
-              <th className="py-2 pr-3 font-medium">Category</th>
-              <th className="py-2 pr-3 font-medium">Vehicle</th>
-              <th className="py-2 pr-3 text-right font-medium">Price (without tax)</th>
-              <th className="py-2 pr-3 text-right font-medium">Price (with tax)</th>
-              <th className="py-2 pr-3 text-right font-medium">In stock</th>
-              <th className="py-2 pr-3 text-right font-medium">Stock value (cost)</th>
-              <th className="py-2 pr-3 text-right font-medium">In this month</th>
-              <th className="py-2 pr-3 text-right font-medium">Out this month</th>
+              <th className="py-1.5 pr-3 font-medium">Part no.</th>
+              <th className="py-1.5 pr-3 font-medium">Description</th>
+              <th className="py-1.5 pr-3 font-medium">Category</th>
+              <th className="py-1.5 pr-3 font-medium">Vehicle</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Price (without tax)</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Price (with tax)</th>
+              <th className="py-1.5 pr-3 text-right font-medium">In stock</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Stock value (cost)</th>
+              <th className="py-1.5 pr-3 text-right font-medium">In this month</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Out this month</th>
               <th />
             </tr>
           </thead>
@@ -182,19 +182,19 @@ export default function InventoryPage() {
               const low = Number(r.reorderLevel) > 0 && Number(r.onHand) <= Number(r.reorderLevel);
               return (
                 <tr key={r.partId}>
-                  <td className="py-2 pr-3 font-mono text-xs">{r.partNo}</td>
-                  <td className="py-2 pr-3">{r.description}</td>
-                  <td className="py-2 pr-3 text-slate-500">{r.category}</td>
-                  <td className="py-2 pr-3 text-xs text-slate-600">{(r.modelIds ?? []).length ? (r.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(withoutTax(r.sellingPrice))}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(r.sellingPrice)}</td>
-                  <td className="py-2 pr-3 text-right font-medium tabular-nums">
+                  <td className="py-1.5 pr-3 font-mono text-xs">{r.partNo}</td>
+                  <td className="py-1.5 pr-3">{r.description}</td>
+                  <td className="py-1.5 pr-3 text-slate-500">{r.category}</td>
+                  <td className="py-1.5 pr-3 text-xs text-slate-600">{(r.modelIds ?? []).length ? (r.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{formatMoney(withoutTax(r.sellingPrice))}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{formatMoney(r.sellingPrice)}</td>
+                  <td className="py-1.5 pr-3 text-right font-medium tabular-nums">
                     {Number(r.onHand)} {low && <Badge tone="amber">Low</Badge>}
                   </td>
-                  <td className="py-2 pr-3 text-right tabular-nums text-slate-600">{formatMoney(r.stockValue)}</td>
-                  <td className="py-2 pr-3 text-right text-emerald-700 tabular-nums">{Number(r.inThisMonth) ? `+${Number(r.inThisMonth)}` : '–'}</td>
-                  <td className="py-2 pr-3 text-right text-red-600 tabular-nums">{Number(r.outThisMonth) ? `−${Number(r.outThisMonth)}` : '–'}</td>
-                  <td className="py-2 text-right whitespace-nowrap">
+                  <td className="py-1.5 pr-3 text-right tabular-nums text-slate-600">{formatMoney(r.stockValue)}</td>
+                  <td className="py-1.5 pr-3 text-right text-emerald-700 tabular-nums">{Number(r.inThisMonth) ? `+${Number(r.inThisMonth)}` : '–'}</td>
+                  <td className="py-1.5 pr-3 text-right text-red-600 tabular-nums">{Number(r.outThisMonth) ? `−${Number(r.outThisMonth)}` : '–'}</td>
+                  <td className="py-1.5 text-right whitespace-nowrap">
                     {canReceive && (
                       <Link className="mr-3 text-xs text-brand-700 hover:underline" to={`/parts/receive?partNo=${encodeURIComponent(r.partNo)}`}>
                         Stock in

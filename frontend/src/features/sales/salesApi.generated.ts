@@ -1237,6 +1237,7 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  customerOccupation?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1342,6 +1343,7 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  customerOccupation?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1434,6 +1436,7 @@ export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  customerOccupation?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1479,6 +1482,9 @@ export type CreateLeadQuotationApiResponse = /** status 201 Success */ {
   billTo: string | null;
   variant: string | null;
   color: string | null;
+  interiorColor?: string | null;
+  employeeName?: string | null;
+  employeeNo?: string | null;
   taxStatus: "filer" | "non_filer";
   quantity: number;
   unitPrice: string;
@@ -1623,6 +1629,7 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  customerOccupation?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1720,6 +1727,7 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  customerOccupation?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1812,6 +1820,7 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  customerOccupation?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1929,6 +1938,9 @@ export type CreateStandaloneQuotationApiResponse = /** status 201 Success */ {
   billTo: string | null;
   variant: string | null;
   color: string | null;
+  interiorColor?: string | null;
+  employeeName?: string | null;
+  employeeNo?: string | null;
   taxStatus: "filer" | "non_filer";
   quantity: number;
   unitPrice: string;
@@ -3281,6 +3293,7 @@ export type ConversionCorrectionRequest = {
   prospectMobile?: string;
   email?: string;
   customerAddress?: string;
+  customerOccupation?: string;
   customerCnic?: string;
   interestedModelId?: number;
   variant?: string;
@@ -3322,6 +3335,9 @@ export type QuotationCreate = {
   deliveryPeriod?: string | null;
   paymentMode?: string | null;
   specs?: string | null;
+  interiorColor?: string | null;
+  employeeName?: string | null;
+  employeeNo?: string | null;
 };
 export type LeadOrderVehicle = {
   orderNo: string | null;
@@ -3391,6 +3407,7 @@ export type ConvertLeadRequest = {
   expectedDeliveryByMonth?: boolean;
   customerCnic: string;
   customerAddress: string;
+  customerOccupation: string;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -3464,6 +3481,9 @@ export type QuotationDocument = {
   deliveryPeriod: string | null;
   paymentMode: string | null;
   specs?: string | null;
+  interiorColor?: string | null;
+  employeeName?: string | null;
+  employeeNo?: string | null;
   template: DocumentTemplate;
   issuedAt: string;
   dealership: {
@@ -4254,6 +4274,7 @@ export type Lead = {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  customerOccupation?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -4536,6 +4557,9 @@ export type Quotation = {
   billTo: string | null;
   variant: string | null;
   color: string | null;
+  interiorColor?: string | null;
+  employeeName?: string | null;
+  employeeNo?: string | null;
   taxStatus: "filer" | "non_filer";
   quantity: number;
   unitPrice: string;
@@ -4593,6 +4617,9 @@ export type QuotationUpdate = {
   deliveryPeriod?: string | null;
   paymentMode?: string | null;
   specs?: string | null;
+  interiorColor?: string | null;
+  employeeName?: string | null;
+  employeeNo?: string | null;
 };
 export type PpfForm = {
   id: number;

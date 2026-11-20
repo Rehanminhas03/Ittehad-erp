@@ -73,23 +73,23 @@ export default function AuditLogPage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-left text-xs font-medium tracking-wide text-slate-500">
-                    <th className="px-4 py-2.5 font-medium">When</th>
-                    <th className="px-4 py-2.5 font-medium">Who</th>
-                    <th className="px-4 py-2.5 font-medium">Record</th>
-                    <th className="px-4 py-2.5 font-medium">Action</th>
-                    <th className="px-4 py-2.5 font-medium">Changes</th>
+                    <th className="px-4 py-1.5 font-medium">When</th>
+                    <th className="px-4 py-1.5 font-medium">Who</th>
+                    <th className="px-4 py-1.5 font-medium">Record</th>
+                    <th className="px-4 py-1.5 font-medium">Action</th>
+                    <th className="px-4 py-1.5 font-medium">Changes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 align-top">
                   {data.items.map((e) => (
                     <tr key={e.id}>
-                      <td className="px-4 py-3 whitespace-nowrap text-slate-500">{formatDateTime(e.occurredAt)}</td>
-                      <td className="px-4 py-3">{e.actorName ?? 'system'}</td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-4 py-1.5 whitespace-nowrap text-slate-500">{formatDateTime(e.occurredAt)}</td>
+                      <td className="px-4 py-1.5">{e.actorName ?? 'system'}</td>
+                      <td className="px-4 py-1.5 text-slate-600">
                         {humanize(e.entityType.split('.')[1] ?? e.entityType)} #{e.entityId}
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-800">{humanize(e.action)}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-4 py-1.5 font-medium text-slate-800">{humanize(e.action)}</td>
+                      <td className="px-4 py-1.5 text-xs text-slate-500">
                         {describeChanges(e.changes).slice(0, 4).join('; ')}
                       </td>
                     </tr>

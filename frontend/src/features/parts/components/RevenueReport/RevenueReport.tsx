@@ -82,7 +82,7 @@ export function RevenueReport({ from, to, dealershipId, dealershipName }: { from
                   <thead className="sticky top-0 bg-slate-100 text-left text-slate-600">
                     <tr>
                       {['Date', 'RO No', 'Part', 'Qty', 'Unit price', 'Disc %', 'Revenue', 'Cost'].map((h, i) => (
-                        <th key={h} className={`px-2 py-2 font-medium ${i >= 3 ? 'text-right' : ''}`}>
+                        <th key={h} className={`px-2 py-1.5 font-medium ${i >= 3 ? 'text-right' : ''}`}>
                           {h}
                         </th>
                       ))}

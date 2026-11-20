@@ -20,7 +20,7 @@ const STAGES: { key: Stage; label: string; hint: string }[] = [
   { key: 'delivered', label: 'Delivered', hint: 'Handed over (latest first)' },
 ];
 const PAGE_SIZE = 25;
-const DEFAULT_RANGE = '30d';
+const DEFAULT_RANGE = 'all';
 
 /** Scheduled deliveries by day: overdue, today, tomorrow, the next 7 days, later. */
 function scheduleGroups(rows: Row[]) {
@@ -60,8 +60,8 @@ export default function DeliveryStatusPage() {
   const [search, setSearch] = useState(q);
   const staffDealers = [P.ordersViewAll, P.deliveriesViewAll].flatMap((c) => perm.dealershipsFor(c)).filter((d, i, all) => all.findIndex((x) => x.id === d.id) === i);
   const staff = staffDealers.length > 0;
-  // The period: booked then (delivered cars: delivered then). The last 30 days unless another range,
-  // or custom dates, are picked; links for work to do (dashboard, action needed) open "All time".
+  // The period: booked then (delivered cars: delivered then). All time unless another range,
+  // or custom dates, are picked (an order still in the pipeline shows however long ago it was booked).
   const rangeKey = params.get('range') ?? (params.get('from') ? 'custom' : DEFAULT_RANGE);
   const period =
     rangeKey === 'custom'
@@ -117,39 +117,39 @@ export default function DeliveryStatusPage() {
       <table className="min-w-full text-sm">
         <thead className="text-xs tracking-wide text-slate-500 uppercase">
           <tr>
-            <th className="px-3 py-2 text-left">Order</th>
-            <th className="px-3 py-2 text-left">Customer</th>
-            <th className="px-3 py-2 text-left">Vehicle</th>
-            {staffDealers.length > 1 && !dealershipId && <th className="px-3 py-2 text-left">Dealership</th>}
-            {staff && <th className="px-3 py-2 text-left">Salesperson</th>}
-            <th className="px-3 py-2 text-left">Chassis</th>
-            <th className="px-3 py-2 text-left">Expected delivery</th>
-            <th className="px-3 py-2 text-left">{stage === 'scheduled' ? 'Delivery date' : stage === 'delivered' ? 'Delivered on' : 'Approved'}</th>
-            {showsClearance && <th className="px-3 py-2 text-left">Payments / clearance</th>}
-            {canNote && <th className="px-3 py-2" />}
+            <th className="px-3 py-1.5 text-left">Order</th>
+            <th className="px-3 py-1.5 text-left">Customer</th>
+            <th className="px-3 py-1.5 text-left">Vehicle</th>
+            {staffDealers.length > 1 && !dealershipId && <th className="px-3 py-1.5 text-left">Dealership</th>}
+            {staff && <th className="px-3 py-1.5 text-left">Salesperson</th>}
+            <th className="px-3 py-1.5 text-left">Chassis</th>
+            <th className="px-3 py-1.5 text-left">Expected delivery</th>
+            <th className="px-3 py-1.5 text-left">{stage === 'scheduled' ? 'Delivery date' : stage === 'delivered' ? 'Delivered on' : 'Approved'}</th>
+            {showsClearance && <th className="px-3 py-1.5 text-left">Payments / clearance</th>}
+            {canNote && <th className="px-3 py-1.5" />}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((r) => (
             <tr key={r.orderId} onClick={() => open(r)} className="cursor-pointer hover:bg-brand-50/40">
-              <td className="px-3 py-2 font-mono text-xs text-slate-800">
+              <td className="px-3 py-1.5 font-mono text-xs text-slate-800">
                 {r.orderNo}
                 {r.pboNo && <div className="text-slate-500">PBO {r.pboNo}</div>}
               </td>
-              <td className="px-3 py-2 font-medium text-slate-900">{r.customerName ?? '—'}</td>
-              <td className="px-3 py-2 text-slate-700">
+              <td className="px-3 py-1.5 font-medium text-slate-900">{r.customerName ?? '—'}</td>
+              <td className="px-3 py-1.5 text-slate-700">
                 {[r.model, r.variant].filter(Boolean).join(' · ') || '—'}
                 {r.color && <span className="text-slate-500"> · {r.color}</span>}
                 {r.vehicleStatus === 'hold' && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">On hold</span>}
               </td>
-              {staffDealers.length > 1 && !dealershipId && <td className="px-3 py-2 text-slate-600">{r.dealershipName}</td>}
-              {staff && <td className="px-3 py-2 text-slate-600">{r.salespersonName ?? '—'}</td>}
-              <td className="px-3 py-2 font-mono text-xs text-slate-600">{r.chassisNo ?? <span className="text-slate-400">No car yet</span>}</td>
-              <td className={cn('px-3 py-2', late(r) ? 'font-semibold text-red-700' : 'text-slate-700')}>
+              {staffDealers.length > 1 && !dealershipId && <td className="px-3 py-1.5 text-slate-600">{r.dealershipName}</td>}
+              {staff && <td className="px-3 py-1.5 text-slate-600">{r.salespersonName ?? '—'}</td>}
+              <td className="px-3 py-1.5 font-mono text-xs text-slate-600">{r.chassisNo ?? <span className="text-slate-400">No car yet</span>}</td>
+              <td className={cn('px-3 py-1.5', late(r) ? 'font-semibold text-red-700' : 'text-slate-700')}>
                 {formatExpectedDelivery(r.expectedDeliveryDate, r.expectedDeliveryByMonth) ?? '—'}
                 {late(r) && <span className="ml-1 text-xs">(overdue)</span>}
               </td>
-              <td className="px-3 py-2 text-slate-700">
+              <td className="px-3 py-1.5 text-slate-700">
                 {stage === 'scheduled'
                   ? formatDate(r.scheduledDate)
                   : stage === 'delivered'
@@ -159,7 +159,7 @@ export default function DeliveryStatusPage() {
                       : <span className="text-amber-700">{r.orderStatus === 'draft' ? 'Draft' : 'Awaiting approval'}</span>}
               </td>
               {showsClearance && (
-                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
                   <div className="flex flex-col items-start gap-1">
                     <span className={Number(r.balanceDue) > 0 ? 'text-xs font-medium text-amber-700' : 'text-xs text-emerald-700'}>
                       {Number(r.balanceDue) > 0 ? `Balance due Rs ${Number(r.balanceDue).toLocaleString('en-PK')}` : 'Fully paid'}
@@ -185,7 +185,7 @@ export default function DeliveryStatusPage() {
                   </div>
                 </td>
               )}
-              {canNote && <td className="px-3 py-2 text-right">{r.deliveryId && <DeliveryNoteButton deliveryId={r.deliveryId} label="Note" />}</td>}
+              {canNote && <td className="px-3 py-1.5 text-right">{r.deliveryId && <DeliveryNoteButton deliveryId={r.deliveryId} label="Note" />}</td>}
             </tr>
           ))}
         </tbody>
@@ -199,7 +199,7 @@ export default function DeliveryStatusPage() {
         title="Deliveries"
         subtitle={staff ? 'Every booked order until its car is delivered, by stage.' : "Your customers' cars: where each one is, from booking to delivery."}
       />
-      <div className="surface mb-4 space-y-3 p-4">
+      <div className="surface mb-4 space-y-3 p-3">
         <div role="tablist" className="flex flex-wrap gap-1.5">
           {STAGES.map((s) => (
             <button
@@ -281,7 +281,7 @@ export default function DeliveryStatusPage() {
       ) : stage === 'scheduled' ? (
         <div className="space-y-4">
           {scheduleGroups(data.items).map((g) => (
-            <div key={g.key} className="surface p-4">
+            <div key={g.key} className="surface p-3">
               <h2 className={cn('mb-2 text-sm font-semibold', g.urgent ? 'text-red-700' : 'text-slate-900')}>
                 {g.label} <span className="font-normal text-slate-500">({g.rows.length})</span>
               </h2>
@@ -291,7 +291,7 @@ export default function DeliveryStatusPage() {
           <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPage={(p) => update({ page: p === 1 ? null : String(p) })} />
         </div>
       ) : (
-        <div className="surface p-4">
+        <div className="surface p-3">
           {table(data.items)}
           <div className="mt-3">
             <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPage={(p) => update({ page: p === 1 ? null : String(p) })} />

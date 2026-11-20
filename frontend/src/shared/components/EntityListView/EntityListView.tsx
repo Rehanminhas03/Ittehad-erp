@@ -239,7 +239,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
         )}
       </div>
 
-      {bulk && selected.length > 0 && <div className="surface relative z-10 mb-4 p-3 sm:p-4">{bulk.bar({ ids: selected, clear: () => setSelected([]) })}</div>}
+      {bulk && selected.length > 0 && <div className="surface relative z-10 mb-4 p-3 sm:p-3">{bulk.bar({ ids: selected, clear: () => setSelected([]) })}</div>}
 
       <div className="surface overflow-hidden">
         {isError ? (
@@ -275,7 +275,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-left text-xs font-medium tracking-wide text-slate-500">
                     {bulk && selectable.length > 0 && (
-                      <th className="w-px px-3 py-2" scope="col">
+                      <th className="w-px px-3 py-1.5" scope="col">
                         <input
                           type="checkbox"
                           className="size-4 rounded border-slate-300 text-brand-600"
@@ -286,7 +286,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                       </th>
                     )}
                     {columns.map((c) => (
-                      <th key={c.key} className={cn('px-3 py-2 font-medium whitespace-nowrap', c.className)} scope="col">
+                      <th key={c.key} className={cn('px-3 py-1.5 font-medium whitespace-nowrap', c.className)} scope="col">
                         {c.sortKey ? (
                           <button type="button" onClick={() => toggleSort(c.sortKey!)} className="inline-flex items-center gap-1 hover:text-slate-800">
                             {c.header}
@@ -309,7 +309,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                       onClick={() => navigate(`${config.basePath}/${row.id}`)}
                     >
                       {bulk && selectable.length > 0 && (
-                        <td className="w-px px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        <td className="w-px px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
                           {bulk.canSelect(row, perm) && (
                             <input
                               type="checkbox"
@@ -322,7 +322,7 @@ export function EntityListView<T extends { id: number }>({ config }: { config: E
                         </td>
                       )}
                       {columns.map((c) => (
-                        <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap text-slate-700', c.className)}>
+                        <td key={c.key} className={cn('px-3 py-1.5 text-[13px] whitespace-nowrap text-slate-700', c.className)}>
                           {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '—')}
                         </td>
                       ))}

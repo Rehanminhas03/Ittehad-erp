@@ -44,7 +44,7 @@ function RequestRows({ request, canIssue, qty, setQty, onLines }: { request: Par
   if (isLoading) {
     return (
       <tr>
-        <td colSpan={8} className="py-2">
+        <td colSpan={8} className="py-1.5">
           <Spinner className="size-4 text-slate-400" />
         </td>
       </tr>
@@ -54,23 +54,23 @@ function RequestRows({ request, canIssue, qty, setQty, onLines }: { request: Par
     <>
       {(lines ?? []).map((l) => (
         <tr key={l.id}>
-          <td className="py-2 pr-2">
+          <td className="py-1.5 pr-2">
             <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
           </td>
-          <td className="py-2 pr-2 text-xs whitespace-nowrap text-slate-500">
+          <td className="py-1.5 pr-2 text-xs whitespace-nowrap text-slate-500">
             <Link to={`/parts/requests/${request.id}`} className="font-mono hover:text-brand-700">
               {request.requestNo.split('-').pop()}
             </Link>{' '}
             · {formatDateTime(request.createdAt)}
           </td>
-          <td className="py-2 pr-2 text-right tabular-nums">{n(l.quantity)}</td>
-          <td className="py-2 pr-2 text-right tabular-nums">{n(l.issuedQty)}</td>
-          <td className="py-2 pr-2 text-right tabular-nums">{n(l.returnedQty)}</td>
-          <td className={`py-2 pr-2 text-right tabular-nums ${n(l.onHand) < n(l.quantity) - n(l.issuedQty) ? 'text-red-600' : ''}`}>{n(l.onHand)}</td>
-          <td className="py-2 pr-2">
+          <td className="py-1.5 pr-2 text-right tabular-nums">{n(l.quantity)}</td>
+          <td className="py-1.5 pr-2 text-right tabular-nums">{n(l.issuedQty)}</td>
+          <td className="py-1.5 pr-2 text-right tabular-nums">{n(l.returnedQty)}</td>
+          <td className={`py-1.5 pr-2 text-right tabular-nums ${n(l.onHand) < n(l.quantity) - n(l.issuedQty) ? 'text-red-600' : ''}`}>{n(l.onHand)}</td>
+          <td className="py-1.5 pr-2">
             <RemarkCell requestId={request.id} line={l} editable={canIssue} />
           </td>
-          <td className="py-2 text-right">
+          <td className="py-1.5 text-right">
             {canIssue ? (
               <Input
                 value={qty[l.id] ?? ''}
@@ -145,14 +145,14 @@ export function JobCardPartsDesk({ requests }: { requests: PartsRequest[] }) {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-2 font-medium">Part</th>
-              <th className="py-2 pr-2 font-medium">Request</th>
-              <th className="py-2 pr-2 text-right font-medium">Requested</th>
-              <th className="py-2 pr-2 text-right font-medium">Issued</th>
-              <th className="py-2 pr-2 text-right font-medium">Returned</th>
-              <th className="py-2 pr-2 text-right font-medium">In store</th>
-              <th className="py-2 pr-2 font-medium">Remark</th>
-              <th className="py-2 text-right font-medium">{canIssue ? 'Quantity' : ''}</th>
+              <th className="py-1.5 pr-2 font-medium">Part</th>
+              <th className="py-1.5 pr-2 font-medium">Request</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Requested</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Issued</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Returned</th>
+              <th className="py-1.5 pr-2 text-right font-medium">In store</th>
+              <th className="py-1.5 pr-2 font-medium">Remark</th>
+              <th className="py-1.5 text-right font-medium">{canIssue ? 'Quantity' : ''}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

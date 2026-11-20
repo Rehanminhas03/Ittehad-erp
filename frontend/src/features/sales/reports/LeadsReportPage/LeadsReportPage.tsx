@@ -137,7 +137,7 @@ export default function LeadsReportPage() {
         </div>
       ) : (
         <>
-          <div className="surface mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 p-4 text-sm">
+          <div className="surface mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 p-3 text-sm">
             <span>
               <span className="text-2xl font-semibold text-slate-900">{rows.length}</span> leads {periodText}
             </span>
@@ -161,7 +161,7 @@ export default function LeadsReportPage() {
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-left text-xs font-medium tracking-wide text-slate-500">
                     {['Logged', 'Customer', 'Source', 'Salesperson / CRO', 'Interest', 'Status', 'Remarks'].map((h) => (
-                      <th key={h} className="px-4 py-2.5 font-medium whitespace-nowrap">
+                      <th key={h} className="px-4 py-1.5 font-medium whitespace-nowrap">
                         {h}
                       </th>
                     ))}
@@ -172,19 +172,19 @@ export default function LeadsReportPage() {
                     const t = LEAD_TEMPERATURES.find((x) => x.value === r.interest);
                     return (
                       <tr key={String(r.leadId)} className="align-top">
-                        <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">{String(r.loggedOn ?? '')}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-1.5 whitespace-nowrap text-slate-600">{String(r.loggedOn ?? '')}</td>
+                        <td className="px-4 py-1.5">
                           <div className="font-medium text-slate-900">{String(r.customerName ?? '')}</div>
                           <div className="text-xs text-slate-500">{String(r.phone ?? '')}</div>
                         </td>
-                        <td className="px-4 py-2.5 text-slate-700">
+                        <td className="px-4 py-1.5 text-slate-700">
                           {humanize(String(r.source))}
                           {r.campaign ? <div className="max-w-56 truncate text-xs text-slate-500">{String(r.campaign)}{r.city ? ` · ${String(r.city)}` : ''}</div> : null}
                         </td>
-                        <td className="px-4 py-2.5 text-slate-700">{String(r.salesperson ?? '')}</td>
-                        <td className="px-4 py-2.5">{t ? <Badge tone={t.tone} dot>{t.label}</Badge> : null}</td>
-                        <td className="px-4 py-2.5 text-slate-700">{humanize(String(r.status))}</td>
-                        <td className="max-w-md px-4 py-2.5 text-xs whitespace-pre-line text-slate-700">{String(r.remarks ?? '')}</td>
+                        <td className="px-4 py-1.5 text-slate-700">{String(r.salesperson ?? '')}</td>
+                        <td className="px-4 py-1.5">{t ? <Badge tone={t.tone} dot>{t.label}</Badge> : null}</td>
+                        <td className="px-4 py-1.5 text-slate-700">{humanize(String(r.status))}</td>
+                        <td className="max-w-md px-4 py-1.5 text-xs whitespace-pre-line text-slate-700">{String(r.remarks ?? '')}</td>
                       </tr>
                     );
                   })}

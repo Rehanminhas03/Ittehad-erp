@@ -45,21 +45,21 @@ function Row({ variant }: { variant: VariantCode }) {
 
   return (
     <tr className="align-top">
-      <td className="min-w-52 px-3 py-2.5">
+      <td className="min-w-52 px-3 py-1.5">
         <div className="font-mono text-xs font-semibold text-slate-900">{variant.code}</div>
         <div className="text-xs text-slate-500">{variant.description}</div>
       </td>
       {FIELDS.map(([k, label]) => (
-        <td key={k} className="px-2 py-2">
+        <td key={k} className="px-2 py-1.5">
           <Input inputMode="decimal" aria-label={`${label} of ${variant.code}`} value={v[k]} onChange={(e) => setV((s) => ({ ...s, [k]: e.target.value }))} className="min-w-28 text-right tabular-nums" placeholder="—" />
         </td>
       ))}
-      <td className="px-2 py-2">
+      <td className="px-2 py-1.5">
         <Textarea rows={2} aria-label={`Specifications of ${variant.code}`} value={specs} onChange={(e) => setSpecs(e.target.value)} className="min-w-56 text-xs" placeholder="CSM: Battery Capacity: 66 kWh" />
       </td>
-      <td className="px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums text-slate-900">{net(false) === null ? '—' : formatMoney(String(net(false)))}</td>
-      <td className="px-3 py-2.5 text-right text-sm whitespace-nowrap tabular-nums text-slate-700">{nf === null || !plain(v.advanceTaxNonFiler) ? '—' : formatMoney(String(nf))}</td>
-      <td className="px-3 py-2.5 text-right">
+      <td className="px-3 py-1.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums text-slate-900">{net(false) === null ? '—' : formatMoney(String(net(false)))}</td>
+      <td className="px-3 py-1.5 text-right text-sm whitespace-nowrap tabular-nums text-slate-700">{nf === null || !plain(v.advanceTaxNonFiler) ? '—' : formatMoney(String(nf))}</td>
+      <td className="px-3 py-1.5 text-right">
         <Button size="sm" disabled={!dirty} loading={isLoading} onClick={save}>
           Save
         </Button>
@@ -92,16 +92,16 @@ export function PriceListEditor({ dealershipId, brand }: { dealershipId: number;
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-                <th className="px-3 py-2 font-medium">Variant</th>
+                <th className="px-3 py-1.5 font-medium">Variant</th>
                 {FIELDS.map(([k, label]) => (
-                  <th key={k} className="px-2 py-2 text-right font-medium whitespace-nowrap">
+                  <th key={k} className="px-2 py-1.5 text-right font-medium whitespace-nowrap">
                     {label}
                   </th>
                 ))}
-                <th className="px-2 py-2 text-left font-medium whitespace-nowrap">Specifications</th>
-                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Net price (filer)</th>
-                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Net price (non-filer)</th>
-                <th className="px-3 py-2" />
+                <th className="px-2 py-1.5 text-left font-medium whitespace-nowrap">Specifications</th>
+                <th className="px-3 py-1.5 text-right font-medium whitespace-nowrap">Net price (filer)</th>
+                <th className="px-3 py-1.5 text-right font-medium whitespace-nowrap">Net price (non-filer)</th>
+                <th className="px-3 py-1.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

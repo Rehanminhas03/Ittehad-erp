@@ -13,9 +13,9 @@ export interface SectionProps {
 /** A titled card of a page. Sections stack with a gap; each is its own visual block. */
 export function Section({ title, actions, children, className, compact }: SectionProps) {
   return (
-    <section className={cn('surface', compact ? 'mb-4 p-3 sm:p-4' : 'mb-4 p-3.5 sm:p-4', className)}>
+    <section className={cn('surface', compact ? 'mb-3 p-3' : 'mb-3 p-3', className)}>
       {(title || actions) && (
-        <div className={cn('flex items-center justify-between gap-3', compact ? 'mb-2' : 'mb-3')}>
+        <div className={cn('flex items-center justify-between gap-3', 'mb-2')}>
           {title && <h2 className="text-sm font-semibold text-slate-900">{title}</h2>}
           {actions}
         </div>

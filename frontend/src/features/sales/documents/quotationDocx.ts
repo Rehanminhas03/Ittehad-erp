@@ -1,5 +1,5 @@
 import type { QuotationDocument } from '../salesApi';
-import { fillTemplateLine, freightLabel, hasSectionedTerms, quotationVehicleLine, type TemplateContext } from './pdf';
+import { fillTemplateLine, freightLabel, hasSectionedTerms, quotationColourLine, quotationEmployeeLine, quotationVehicleLine, type TemplateContext } from './pdf';
 
 const num = (v: string | number | null | undefined) => Number(v ?? 0).toLocaleString('en-PK', { maximumFractionDigits: 2 });
 const longDate = (d: string | Date) => {
@@ -30,12 +30,12 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
   const sectioned = hasSectionedTerms(q);
   const vehicleLine = quotationVehicleLine(q);
   const qty = q.pricing.quantity;
-  const items: { label: string; unit: number; sub?: string }[] = [{ label: vehicleLine, unit: Number(q.pricing.unitPrice), sub: `EX FACTORY${q.vehicle.color ? ` (${q.vehicle.color})` : ''}` }];
+  const items: { label: string; unit: number; sub?: string }[] = [{ label: vehicleLine, unit: Number(q.pricing.unitPrice), sub: [quotationColourLine(q), quotationColourLine(q) && t.standardEquipment ? `Standard Equipment: ${t.standardEquipment}` : null, 'EX FACTORY'].filter(Boolean).join('\n') }];
   if (Number(q.pricing.discount) > 0) items.push({ label: 'LESS: DISCOUNT', unit: -Number(q.pricing.discount) });
   const has = (v: string | null | undefined) => v != null && v !== '';
   if (has(q.pricing.freightInsurance)) items.push({ label: freightLabel(q), unit: Number(q.pricing.freightInsurance) });
   if (has(q.pricing.nevLevy)) items.push({ label: 'NEV LEVY', unit: Number(q.pricing.nevLevy) });
-  if (has(q.pricing.withholdingTax)) items.push({ label: sectioned ? (q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer)' : 'WITH HOLDING TAX (Filer)') : q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', unit: Number(q.pricing.withholdingTax) });
+  if (has(q.pricing.withholdingTax)) items.push({ label: sectioned ? (q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer) Will be paid by customer' : 'WITH HOLDING TAX (Filer) Will be paid by customer') : q.pricing.taxStatus === 'non_filer' ? 'Withholding Tax (Non-Filer)' : 'Withholding Tax (Filer)', unit: Number(q.pricing.withholdingTax) });
   if (has(q.pricing.cvt)) items.push({ label: 'CVT (1%)', unit: Number(q.pricing.cvt) });
 
   const widths = [800, 4800, 800, 1900, 1900];
@@ -65,7 +65,7 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
         new TableRow({ cantSplit: true,
           children: [
             cell([centred(String(i + 1))], 0),
-            cell([centred(it.label), ...(it.sub ? [centred(it.sub)] : [])], 1),
+            cell([centred(it.label), ...(it.sub ? it.sub.split('\n').map((s) => centred(s)) : [])], 1),
             cell([centred(String(qty))], 2),
             cell([centred(num(it.unit))], 3),
             cell([centred(num(it.unit * qty))], 4),
@@ -165,7 +165,8 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
           para([run(`Date: ${longDate(q.issuedAt)}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, after: 60 }),
           ...(q.notes ? [para([run(`Note: ${q.notes}`, { size: 11 })], { align: AlignmentType.CENTER, before: 80, after: 120 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
           priceTable,
-          ...(sectioned && t.standardEquipment ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
+          ...(quotationEmployeeLine(q) ? [para([run(quotationEmployeeLine(q)!, { bold: true, size: 9 })], { before: 80, after: 40 })] : []),
+          ...(sectioned && t.standardEquipment && !quotationColourLine(q) ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
           ...terms,
           new Paragraph({ spacing: { after: 60 }, children: [] }),
           sign,

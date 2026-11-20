@@ -264,13 +264,13 @@ export function InOutReportButton({ only, label, variant = 'secondary' }: { only
                       <table className="min-w-full text-sm">
                         <thead className="sticky top-0 bg-white">
                           <tr className="border-b border-slate-200 text-right text-xs font-medium tracking-wide text-slate-500">
-                            <th className="py-2 pr-3 text-left font-medium">Date and time</th>
-                            <th className="py-2 pr-3 text-left font-medium">Part</th>
-                            <th className="py-2 pr-3 text-left font-medium">{out ? 'How it went out' : 'How it came in'}</th>
-                            <th className="py-2 pr-3 font-medium">{out ? 'Quantity out' : 'Quantity in'}</th>
-                            <th className="py-2 pr-3 font-medium">{out ? 'Cost out (no tax)' : 'Cost in (no tax)'}</th>
-                            <th className={`py-2 font-medium ${out ? 'pr-3' : ''}`}>{out ? 'Cost out (with tax)' : 'Cost in (with tax)'}</th>
-                            {out && <th className="py-2 font-medium">Price charged</th>}
+                            <th className="py-1.5 pr-3 text-left font-medium">Date and time</th>
+                            <th className="py-1.5 pr-3 text-left font-medium">Part</th>
+                            <th className="py-1.5 pr-3 text-left font-medium">{out ? 'How it went out' : 'How it came in'}</th>
+                            <th className="py-1.5 pr-3 font-medium">{out ? 'Quantity out' : 'Quantity in'}</th>
+                            <th className="py-1.5 pr-3 font-medium">{out ? 'Cost out (no tax)' : 'Cost in (no tax)'}</th>
+                            <th className={`py-1.5 font-medium ${out ? 'pr-3' : ''}`}>{out ? 'Cost out (with tax)' : 'Cost in (with tax)'}</th>
+                            {out && <th className="py-1.5 font-medium">Price charged</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 tabular-nums">

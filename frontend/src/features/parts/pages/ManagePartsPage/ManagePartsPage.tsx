@@ -85,17 +85,17 @@ export default function ManagePartsPage() {
           </Select>
         </Field>
       </div>
-      <div className="surface relative overflow-x-auto p-2 sm:p-4">
+      <div className="surface relative overflow-x-auto p-2 sm:p-3">
         {isFetching && <Spinner className="absolute top-3 right-3 size-4 text-slate-400" />}
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-3 font-medium">Part no.</th>
-              <th className="py-2 pr-3 font-medium">Description</th>
-              <th className="py-2 pr-3 font-medium">Category</th>
-              <th className="py-2 pr-3 font-medium">Vehicle</th>
-              <th className="py-2 pr-3 text-right font-medium">Retail price (PKR)</th>
-              <th className="py-2 pr-3 text-right font-medium">Customer price (PKR)</th>
+              <th className="py-1.5 pr-3 font-medium">Part no.</th>
+              <th className="py-1.5 pr-3 font-medium">Description</th>
+              <th className="py-1.5 pr-3 font-medium">Category</th>
+              <th className="py-1.5 pr-3 font-medium">Vehicle</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Retail price (PKR)</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Customer price (PKR)</th>
               <th />
             </tr>
           </thead>
@@ -109,13 +109,13 @@ export default function ManagePartsPage() {
             )}
             {data?.items.map((p) => (
               <tr key={p.id} className={p.isActive ? '' : 'opacity-50'}>
-                <td className="py-2 pr-3 font-mono text-xs">{p.partNo}</td>
-                <td className="py-2 pr-3">{p.description}</td>
-                <td className="py-2 pr-3 text-slate-500">{p.category}</td>
-                <td className="py-2 pr-3 text-xs text-slate-600">{(p.modelIds ?? []).length ? (p.modelIds ?? []).map((id) => models.find((m) => m.value === String(id))?.label.replace(`${brand} `, '') ?? id).join(', ') : 'Not set'}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{p.purchasePrice == null ? <span className="text-slate-400">not set</span> : formatMoney(p.purchasePrice)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(p.sellingPrice)}</td>
-                <td className="py-2 text-right">
+                <td className="py-1.5 pr-3 font-mono text-xs">{p.partNo}</td>
+                <td className="py-1.5 pr-3">{p.description}</td>
+                <td className="py-1.5 pr-3 text-slate-500">{p.category}</td>
+                <td className="py-1.5 pr-3 text-xs text-slate-600">{(p.modelIds ?? []).length ? (p.modelIds ?? []).map((id) => models.find((m) => m.value === String(id))?.label.replace(`${brand} `, '') ?? id).join(', ') : 'Not set'}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums">{p.purchasePrice == null ? <span className="text-slate-400">not set</span> : formatMoney(p.purchasePrice)}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums">{formatMoney(p.sellingPrice)}</td>
+                <td className="py-1.5 text-right">
                   <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => setEditing(p)}>
                     Edit
                   </button>
@@ -326,10 +326,10 @@ function FitsDialog({ brand, models, onClose, toast }: { brand: string; models: 
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-50">
               <tr className="text-left text-xs font-medium tracking-wide text-slate-500">
-                <th className="px-3 py-2 font-medium">Starts with</th>
-                <th className="px-3 py-2 font-medium">Parts</th>
-                <th className="px-3 py-2 font-medium">Example</th>
-                <th className="px-3 py-2 font-medium">Vehicle</th>
+                <th className="px-3 py-1.5 font-medium">Starts with</th>
+                <th className="px-3 py-1.5 font-medium">Parts</th>
+                <th className="px-3 py-1.5 font-medium">Example</th>
+                <th className="px-3 py-1.5 font-medium">Vehicle</th>
                 <th />
               </tr>
             </thead>
@@ -346,13 +346,13 @@ function FitsDialog({ brand, models, onClose, toast }: { brand: string; models: 
                 const changed = pick[g.prefix] !== undefined;
                 return (
                   <tr key={g.prefix}>
-                    <td className="px-3 py-2 font-mono text-xs">{g.prefix}</td>
-                    <td className="px-3 py-2 tabular-nums">
+                    <td className="px-3 py-1.5 font-mono text-xs">{g.prefix}</td>
+                    <td className="px-3 py-1.5 tabular-nums">
                       {g.parts}
                       {g.assigned > 0 && g.assigned < g.parts && <span className="ml-1 text-xs text-amber-700">({g.assigned} set)</span>}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{g.sample}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-1.5 text-slate-600">{g.sample}</td>
+                    <td className="px-3 py-1.5">
                       <div className="flex flex-wrap gap-x-3 gap-y-1">
                         {models.map((m) => (
                           <label key={m.value} className="flex items-center gap-1 text-xs">
@@ -366,7 +366,7 @@ function FitsDialog({ brand, models, onClose, toast }: { brand: string; models: 
                         ))}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3 py-1.5 text-right">
                       <Button size="sm" disabled={!changed} loading={isLoading} onClick={() => save(g.prefix, ids)}>
                         Save
                       </Button>

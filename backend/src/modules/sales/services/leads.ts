@@ -222,7 +222,7 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
   // The customer's CNIC (required at conversion): the Admin checks it against the copy when raising the order.
   await ensureCustomerCnic(ctx, customerId, dealershipId, input.customerCnic);
   // The customer's address (required at conversion): kept on the customer (orders, PPF vouchers, delivery).
-  await ctx.tx.customer.update({ where: { id: customerId }, data: { address: input.customerAddress, updatedById: ctx.access.userId } });
+  await ctx.tx.customer.update({ where: { id: customerId }, data: { address: input.customerAddress, occupation: input.customerOccupation, updatedById: ctx.access.userId } });
 
   await ctx.tx.lead.update({
     where: { id: leadId },
@@ -307,6 +307,7 @@ export async function correctLeadConversion(ctx: EntityCtx, leadId: number, inpu
   if (input.prospectName !== undefined) customerPatch.fullName = input.prospectName;
   if (input.email !== undefined) customerPatch.email = input.email;
   if (input.customerAddress !== undefined) customerPatch.address = input.customerAddress;
+  if (input.customerOccupation !== undefined) customerPatch.occupation = input.customerOccupation;
   const leadPatch: Record<string, unknown> = {};
   if (input.prospectName !== undefined) leadPatch.prospectName = input.prospectName;
   if (input.email !== undefined) leadPatch.email = input.email;
@@ -342,6 +343,7 @@ export async function correctLeadConversion(ctx: EntityCtx, leadId: number, inpu
   const changes = diffChanges(l, leadPatch);
   delete changes.prospectMobileNormalized;
   if (customerPatch.address !== undefined) changes.customerAddress = { from: null, to: customerPatch.address };
+  if (customerPatch.occupation !== undefined) changes.customerOccupation = { from: null, to: customerPatch.occupation };
   if (input.customerCnic) changes.customerCnic = { from: null, to: input.customerCnic };
   if (!Object.keys(changes).length) return leads.get(ctx, leadId);
 

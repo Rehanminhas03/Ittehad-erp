@@ -57,20 +57,20 @@ export default function JobCardRequestsPage() {
           </Select>
         }
       />
-      <div className="surface relative overflow-x-auto p-2 sm:p-4">
+      <div className="surface relative overflow-x-auto p-2 sm:p-3">
         {isFetching && <Spinner className="absolute top-3 right-3 size-4 text-slate-400" />}
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-3 font-medium">Job card</th>
-              <th className="py-2 pr-3 font-medium">Customer</th>
-              <th className="py-2 pr-3 font-medium">Registration no.</th>
-              <th className="py-2 pr-3 font-medium">Chassis no.</th>
-              <th className="py-2 pr-3 text-right font-medium">Requests</th>
-              <th className="py-2 pr-3 font-medium">Requested by</th>
-              <th className="py-2 pr-3 font-medium">Last requested</th>
-              <th className="py-2 pr-3 text-right font-medium">Total (PKR)</th>
-              <th className="py-2 font-medium">Status</th>
+              <th className="py-1.5 pr-3 font-medium">Job card</th>
+              <th className="py-1.5 pr-3 font-medium">Customer</th>
+              <th className="py-1.5 pr-3 font-medium">Registration no.</th>
+              <th className="py-1.5 pr-3 font-medium">Chassis no.</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Requests</th>
+              <th className="py-1.5 pr-3 font-medium">Requested by</th>
+              <th className="py-1.5 pr-3 font-medium">Last requested</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Total (PKR)</th>
+              <th className="py-1.5 font-medium">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -85,19 +85,19 @@ export default function JobCardRequestsPage() {
               const c = cardOf.get(g.jobCardId);
               return (
                 <tr key={g.jobCardId} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/parts/requests/job-card/${g.jobCardId}`)}>
-                  <td className="py-2 pr-3">
+                  <td className="py-1.5 pr-3">
                     <Link to={`/parts/requests/job-card/${g.jobCardId}`} className="font-mono text-xs font-semibold text-brand-700 hover:underline">
                       {g.jobCardNo}
                     </Link>
                   </td>
-                  <td className="py-2 pr-3">{c?.customerName ?? '—'}</td>
-                  <td className="py-2 pr-3">{c?.registrationNo ?? '—'}</td>
-                  <td className="py-2 pr-3 font-mono text-xs">{c?.vin ?? '—'}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{g.requests.length}</td>
-                  <td className="py-2 pr-3 text-xs text-slate-600">{g.requestedBy.join(', ') || '—'}</td>
-                  <td className="py-2 pr-3 text-xs whitespace-nowrap text-slate-600">{formatDateTime(g.last)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{c?.totalAmount ? formatMoney(c.totalAmount) : '—'}</td>
-                  <td className="py-2">{g.waiting > 0 ? <StatusBadge status="open" /> : <StatusBadge status="issued" />}</td>
+                  <td className="py-1.5 pr-3">{c?.customerName ?? '—'}</td>
+                  <td className="py-1.5 pr-3">{c?.registrationNo ?? '—'}</td>
+                  <td className="py-1.5 pr-3 font-mono text-xs">{c?.vin ?? '—'}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{g.requests.length}</td>
+                  <td className="py-1.5 pr-3 text-xs text-slate-600">{g.requestedBy.join(', ') || '—'}</td>
+                  <td className="py-1.5 pr-3 text-xs whitespace-nowrap text-slate-600">{formatDateTime(g.last)}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{c?.totalAmount ? formatMoney(c.totalAmount) : '—'}</td>
+                  <td className="py-1.5">{g.waiting > 0 ? <StatusBadge status="open" /> : <StatusBadge status="issued" />}</td>
                 </tr>
               );
             })}

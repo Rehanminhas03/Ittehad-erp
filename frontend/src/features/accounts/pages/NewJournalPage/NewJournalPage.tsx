@@ -78,10 +78,10 @@ export default function NewJournalPage() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-2 font-medium">Account</th>
-              <th className="py-2 pr-2 font-medium">Description</th>
-              <th className="py-2 pr-2 text-right font-medium">Debit</th>
-              <th className="py-2 pr-2 text-right font-medium">Credit</th>
+              <th className="py-1.5 pr-2 font-medium">Account</th>
+              <th className="py-1.5 pr-2 font-medium">Description</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Debit</th>
+              <th className="py-1.5 pr-2 text-right font-medium">Credit</th>
               <th />
             </tr>
           </thead>
@@ -119,16 +119,16 @@ export default function NewJournalPage() {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-semibold">
-              <td className="py-2 pr-2">
+              <td className="py-1.5 pr-2">
                 <Button size="sm" variant="ghost" onClick={() => setRows([...rows, blank()])}>
                   + Add line
                 </Button>
               </td>
-              <td className={cn('py-2 pr-2 text-right text-xs', dr === cr ? 'text-emerald-700' : 'text-red-600')}>
+              <td className={cn('py-1.5 pr-2 text-right text-xs', dr === cr ? 'text-emerald-700' : 'text-red-600')}>
                 {dr === cr ? (dr > 0 ? 'Balanced' : '') : `Difference ${formatMoney(Math.abs(dr - cr) / 100)}`}
               </td>
-              <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(dr / 100)}</td>
-              <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(cr / 100)}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(dr / 100)}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(cr / 100)}</td>
               <td />
             </tr>
           </tfoot>

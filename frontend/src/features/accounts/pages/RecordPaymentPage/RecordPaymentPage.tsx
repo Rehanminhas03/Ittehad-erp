@@ -186,19 +186,19 @@ export default function RecordPaymentPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-                  <th className="py-2 pr-3 font-medium">Invoice</th>
-                  <th className="py-2 pr-3 font-medium">Due</th>
-                  <th className="py-2 pr-3 text-right font-medium">Outstanding</th>
-                  <th className="py-2 text-right font-medium">Apply</th>
+                  <th className="py-1.5 pr-3 font-medium">Invoice</th>
+                  <th className="py-1.5 pr-3 font-medium">Due</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">Outstanding</th>
+                  <th className="py-1.5 text-right font-medium">Apply</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {open.map((i) => (
                   <tr key={i.id}>
-                    <td className="py-2 pr-3 font-mono text-xs">{i.invoiceNo}</td>
-                    <td className="py-2 pr-3">{formatDate(i.dueDate)}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(outstanding(i))}</td>
-                    <td className="py-2 text-right">
+                    <td className="py-1.5 pr-3 font-mono text-xs">{i.invoiceNo}</td>
+                    <td className="py-1.5 pr-3">{formatDate(i.dueDate)}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{formatMoney(outstanding(i))}</td>
+                    <td className="py-1.5 text-right">
                       <Input
                         value={alloc[i.id] ?? ''}
                         onChange={(e) => setAlloc({ ...alloc, [i.id]: e.target.value })}

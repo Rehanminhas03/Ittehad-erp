@@ -4268,6 +4268,11 @@
             "minLength": 1,
             "maxLength": 300
           },
+          "customerOccupation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
           "customerCnic": {
             "type": "string",
             "maxLength": 20
@@ -4464,6 +4469,21 @@
             "type": "string",
             "nullable": true,
             "maxLength": 600
+          },
+          "interiorColor": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "employeeNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
           }
         }
       },
@@ -4796,6 +4816,11 @@
             "minLength": 1,
             "maxLength": 300
           },
+          "customerOccupation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
           "customerType": {
             "type": "string",
             "enum": [
@@ -4834,7 +4859,8 @@
           "paymentInstrument",
           "paymentAmount",
           "customerCnic",
-          "customerAddress"
+          "customerAddress",
+          "customerOccupation"
         ]
       },
       "RaiseOrderRequest": {
@@ -4979,6 +5005,18 @@
             "nullable": true
           },
           "specs": {
+            "type": "string",
+            "nullable": true
+          },
+          "interiorColor": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeNo": {
             "type": "string",
             "nullable": true
           },
@@ -8741,6 +8779,10 @@
             "type": "string",
             "nullable": true
           },
+          "customerOccupation": {
+            "type": "string",
+            "nullable": true
+          },
           "previousPurchases": {
             "type": "integer"
           },
@@ -9882,6 +9924,18 @@
             "type": "string",
             "nullable": true
           },
+          "interiorColor": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeNo": {
+            "type": "string",
+            "nullable": true
+          },
           "taxStatus": {
             "type": "string",
             "enum": [
@@ -10147,6 +10201,21 @@
             "type": "string",
             "nullable": true,
             "maxLength": 600
+          },
+          "interiorColor": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "employeeNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
           }
         }
       },
@@ -27245,6 +27314,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -27866,6 +27939,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -28315,6 +28392,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -28573,6 +28654,18 @@
                       "nullable": true
                     },
                     "color": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "interiorColor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "employeeName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "employeeNo": {
                       "type": "string",
                       "nullable": true
                     },
@@ -29398,6 +29491,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -29913,6 +30010,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -30359,6 +30460,10 @@
                       "nullable": true
                     },
                     "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
                       "type": "string",
                       "nullable": true
                     },
@@ -30972,6 +31077,18 @@
                       "nullable": true
                     },
                     "color": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "interiorColor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "employeeName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "employeeNo": {
                       "type": "string",
                       "nullable": true
                     },

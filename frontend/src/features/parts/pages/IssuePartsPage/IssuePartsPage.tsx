@@ -205,31 +205,31 @@ export default function IssuePartsPage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-                    <th className="py-2 pr-2 font-medium">Part</th>
-                    <th className="py-2 pr-2 text-right font-medium">Quantity</th>
-                    <th className="py-2 pr-2 text-right font-medium">Price charged (PKR)</th>
-                    <th className="py-2 pr-2 text-right font-medium">Discount %</th>
-                    <th className="py-2 pr-2 text-right font-medium">Amount</th>
+                    <th className="py-1.5 pr-2 font-medium">Part</th>
+                    <th className="py-1.5 pr-2 text-right font-medium">Quantity</th>
+                    <th className="py-1.5 pr-2 text-right font-medium">Price charged (PKR)</th>
+                    <th className="py-1.5 pr-2 text-right font-medium">Discount %</th>
+                    <th className="py-1.5 pr-2 text-right font-medium">Amount</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {lines.map((l, i) => (
                     <tr key={l.partNo}>
-                      <td className="py-2 pr-2">
+                      <td className="py-1.5 pr-2">
                         <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
                       </td>
-                      <td className="py-2 pr-2 text-right">
+                      <td className="py-1.5 pr-2 text-right">
                         <Input value={l.quantity} onChange={(e) => set(i, { quantity: e.target.value })} className="ml-auto w-20 py-1 text-right text-xs" inputMode="decimal" aria-label={`Quantity of ${l.partNo}`} />
                       </td>
-                      <td className="py-2 pr-2 text-right">
+                      <td className="py-1.5 pr-2 text-right">
                         <Input value={l.unitPrice} onChange={(e) => set(i, { unitPrice: e.target.value })} className="ml-auto w-32 py-1 text-right text-xs" inputMode="decimal" aria-label={`Price of ${l.partNo}`} />
                       </td>
-                      <td className="py-2 pr-2 text-right">
+                      <td className="py-1.5 pr-2 text-right">
                         <Input value={l.discountPercent} onChange={(e) => set(i, { discountPercent: e.target.value })} className="ml-auto w-20 py-1 text-right text-xs" inputMode="decimal" placeholder="%" aria-label={`Discount of ${l.partNo} in percent`} />
                       </td>
-                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(String(Math.round(net(l) * 100) / 100))}</td>
-                      <td className="py-2 text-right">
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(String(Math.round(net(l) * 100) / 100))}</td>
+                      <td className="py-1.5 text-right">
                         <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => setLines((ls) => ls.filter((_, k) => k !== i))}>
                           Remove
                         </button>
@@ -239,10 +239,10 @@ export default function IssuePartsPage() {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={4} className="py-2 pr-2 text-right text-sm font-medium">
+                    <td colSpan={4} className="py-1.5 pr-2 text-right text-sm font-medium">
                       {gross - total > 0.005 ? `Total (discount given ${formatMoney(String(Math.round((gross - total) * 100) / 100))})` : 'Total'}
                     </td>
-                    <td className="py-2 pr-2 text-right font-semibold tabular-nums">{formatMoney(String(Math.round(total * 100) / 100))}</td>
+                    <td className="py-1.5 pr-2 text-right font-semibold tabular-nums">{formatMoney(String(Math.round(total * 100) / 100))}</td>
                     <td />
                   </tr>
                 </tfoot>

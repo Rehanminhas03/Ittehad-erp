@@ -130,28 +130,28 @@ export default function ReceiveStockPage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-                    <th className="py-2 pr-2 font-medium">Part</th>
-                    <th className="py-2 pr-2 text-right font-medium">Quantity</th>
-                    <th className="py-2 pr-2 text-right font-medium">Price received (PKR per piece, without sales tax)<span className="block text-[10px] font-normal normal-case text-slate-400">what you paid head office, without the sales tax, not the customer price</span></th>
-                    <th className="py-2 pr-2 text-right font-medium">Amount</th>
+                    <th className="py-1.5 pr-2 font-medium">Part</th>
+                    <th className="py-1.5 pr-2 text-right font-medium">Quantity</th>
+                    <th className="py-1.5 pr-2 text-right font-medium">Price received (PKR per piece, without sales tax)<span className="block text-[10px] font-normal normal-case text-slate-400">what you paid head office, without the sales tax, not the customer price</span></th>
+                    <th className="py-1.5 pr-2 text-right font-medium">Amount</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {lines.map((l, i) => (
                     <tr key={l.partNo}>
-                      <td className="py-2 pr-2">
+                      <td className="py-1.5 pr-2">
                         <span className="font-mono text-xs">{l.partNo}</span> <span className="text-slate-600">{l.description}</span>
                         {l.newPart && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">New part</span>}
                       </td>
-                      <td className="py-2 pr-2 text-right">
+                      <td className="py-1.5 pr-2 text-right">
                         <Input value={l.quantity} onChange={(e) => set(i, { quantity: e.target.value })} className="ml-auto w-20 py-1 text-right text-xs" inputMode="decimal" aria-label={`Quantity of ${l.partNo}`} />
                       </td>
-                      <td className="py-2 pr-2 text-right">
+                      <td className="py-1.5 pr-2 text-right">
                         <Input value={l.unitCost} onChange={(e) => set(i, { unitCost: e.target.value })} className="ml-auto w-32 py-1 text-right text-xs" inputMode="decimal" aria-label={`Price of ${l.partNo}`} />
                       </td>
-                      <td className="py-2 pr-2 text-right tabular-nums">{formatMoney(String(amountNumber(l.quantity) * amountNumber(l.unitCost)))}</td>
-                      <td className="py-2 text-right">
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{formatMoney(String(amountNumber(l.quantity) * amountNumber(l.unitCost)))}</td>
+                      <td className="py-1.5 text-right">
                         <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => setLines((ls) => ls.filter((_, k) => k !== i))}>
                           Remove
                         </button>
@@ -161,10 +161,10 @@ export default function ReceiveStockPage() {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={3} className="py-2 pr-2 text-right text-sm font-medium">
+                    <td colSpan={3} className="py-1.5 pr-2 text-right text-sm font-medium">
                       Total value received
                     </td>
-                    <td className="py-2 pr-2 text-right font-semibold tabular-nums">{formatMoney(String(total))}</td>
+                    <td className="py-1.5 pr-2 text-right font-semibold tabular-nums">{formatMoney(String(total))}</td>
                     <td />
                   </tr>
                 </tfoot>

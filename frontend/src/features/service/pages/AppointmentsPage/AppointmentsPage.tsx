@@ -74,22 +74,22 @@ export default function AppointmentsPage() {
                   .filter((a) => a.date === d)
                   .map((a) => (
                     <tr key={a.scheduleId}>
-                      <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{a.time ?? '—'}</td>
-                      <td className="py-2 pr-3">
+                      <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">{a.time ?? '—'}</td>
+                      <td className="py-1.5 pr-3">
                         <span className="font-medium text-slate-900">{a.customerName}</span>
                         <a href={`tel:${a.mobile}`} className="block text-xs text-brand-700 hover:underline">
                           {a.mobile}
                         </a>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td className="py-1.5 pr-3">
                         <Link to={`/crm/vehicles/${a.vehicleId}`} className="hover:text-brand-700">
                           {a.registrationNo ?? 'Unregistered'}
                         </Link>
                         <span className="block text-xs text-slate-500">{a.modelName}</span>
                       </td>
-                      <td className="py-2 pr-3">{a.service}</td>
-                      <td className="py-2 pr-3 text-slate-600">{a.bookedBy ?? '—'}</td>
-                      <td className="py-2 text-slate-600">{a.remarks ?? ''}</td>
+                      <td className="py-1.5 pr-3">{a.service}</td>
+                      <td className="py-1.5 pr-3 text-slate-600">{a.bookedBy ?? '—'}</td>
+                      <td className="py-1.5 text-slate-600">{a.remarks ?? ''}</td>
                     </tr>
                   ))}
               </tbody>

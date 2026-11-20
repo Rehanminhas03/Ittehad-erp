@@ -139,7 +139,7 @@ export default function ActivityPage() {
       )}
 
       {/* Search across the full width (team), every filter on one row beneath it. */}
-      <div className="surface mb-4 space-y-3 p-3 sm:p-4">
+      <div className="surface mb-4 space-y-3 p-3 sm:p-3">
         {view === 'team' && (
           <Input
             type="search"

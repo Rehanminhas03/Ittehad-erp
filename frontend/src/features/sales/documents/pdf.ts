@@ -579,6 +579,19 @@ export function quotationVehicleLine(q: QuotationDocument) {
   const brand = q.dealership.brand.toUpperCase();
   return text.startsWith(brand) ? text : `${brand} ${text}`;
 }
+/**
+ * Jetour: "Exterior: White, Interior: Black" when a colour was entered (either or both), else null. With a colour the
+ * "Standard Equipment" line moves into the vehicle cell of the table; without one it stays under the table.
+ */
+export function quotationColourLine(q: Pick<QuotationDocument, 'vehicle' | 'interiorColor'>) {
+  const parts = [q.vehicle.color && `Exterior: ${q.vehicle.color}`, q.interiorColor && `Interior: ${q.interiorColor}`].filter(Boolean) as string[];
+  return parts.length ? parts.join(', ') : null;
+}
+/** "Employee Name: X | Employee ID: Y" for a customer who asked for it on the quotation (either part may be missing); else null. */
+export function quotationEmployeeLine(q: Pick<QuotationDocument, 'employeeName' | 'employeeNo'>) {
+  const parts = [q.employeeName && `Employee Name: ${q.employeeName}`, q.employeeNo && `Employee ID: ${q.employeeNo}`].filter(Boolean) as string[];
+  return parts.length ? parts.join('   |   ') : null;
+}
 /** The freight row: a truck's is its transportation charges. */
 export const freightLabel = (q: QuotationDocument) => (/porter/i.test(q.vehicle.model) ? 'TRANSPORTATION CHARGES' : 'FREIGHT AND TRANSIT INSURANCE');
 /**
@@ -720,34 +733,21 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   // A charge left empty has no row; one entered as 0 prints with 0.
   if (q.pricing.freightInsurance != null && q.pricing.freightInsurance !== '') items.push([freightLabel(q), Number(q.pricing.freightInsurance)]);
   if (q.pricing.nevLevy != null && q.pricing.nevLevy !== '') items.push(['NEV LEVY', Number(q.pricing.nevLevy)]);
-  if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer)' : 'WITH HOLDING TAX (Filer)', Number(q.pricing.withholdingTax)]);
+  if (q.pricing.withholdingTax != null && q.pricing.withholdingTax !== '') items.push([q.pricing.taxStatus === 'non_filer' ? 'WITH HOLDING TAX (Non-Filer) Will be paid by customer' : 'WITH HOLDING TAX (Filer) Will be paid by customer', Number(q.pricing.withholdingTax)]);
   if (q.pricing.cvt != null && q.pricing.cvt !== '') items.push(['CVT (1%)', Number(q.pricing.cvt)]);
   items.forEach(([label, unit], i) => {
     p.font(9);
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
-    const exFactory = i === 0; // "EX FACTORY (Black)" under the vehicle
-    const n = lines.length + (exFactory ? 1 : 0);
+    const exFactory = i === 0; // the colours, the standard equipment and "EX FACTORY" under the vehicle
+    const colourLine = quotationColourLine(q);
+    const sub: string[] = exFactory ? [...(colourLine ? [colourLine] : []), ...(colourLine && t.standardEquipment ? [`Standard Equipment: ${t.standardEquipment}`] : []), 'EX FACTORY'] : [];
+    const n = lines.length + sub.length;
     const h = Math.max(4.4 + 2.6 * ts, 1.2 + 1.4 * ts + n * 4);
     rowBox(h);
     const top = p.y + h / 2 - ((n - 1) * 4) / 2 + 1.2;
     lines.forEach((l, j) => centre(l, 1, top + j * 4));
-    if (exFactory) {
-      const yy = top + lines.length * 4;
-      const plain = 'EX FACTORY';
-      const colour = q.vehicle.color ? ` (${q.vehicle.color})` : '';
-      p.font(9.5);
-      const w1 = doc.getTextWidth(plain);
-      p.font(9.5, 'bold');
-      const w2 = doc.getTextWidth(colour);
-      const x0 = (xs[1]! + xs[2]!) / 2 - (w1 + w2) / 2;
-      p.font(9.5);
-      doc.text(plain, x0, yy);
-      if (colour) {
-        p.font(9.5, 'bold');
-        doc.text(colour, x0 + w1, yy);
-      }
-      p.font(9.5);
-    }
+    p.font(9.5);
+    sub.forEach((l, j) => centre(l, 1, top + (lines.length + j) * 4));
     const mid = p.y + h / 2 + 1.2;
     centre(String(i + 1), 0, mid);
     centre(String(qty), 2, mid);
@@ -768,7 +768,14 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   centre(num(items.reduce((s, [, u]) => s + u, 0)), 3, p.y + th / 2 + 1.45);
   centre(num(q.pricing.total), 4, p.y + th / 2 + 1.45);
   p.y += th + 1.8 + 1.5 * ts;
-  if (t.standardEquipment) {
+  // The employee name and ID (when the customer asked for them), bold under the table.
+  const employeeLine = quotationEmployeeLine(q);
+  if (employeeLine) {
+    p.font(8.6 * k, 'bold');
+    doc.text(employeeLine, M, p.y + 3.6 * k);
+  }
+  // Without a colour the standard equipment stays under the table; with one it is in the table.
+  if (t.standardEquipment && !quotationColourLine(q)) {
     p.font(8.6 * k, 'bold');
     doc.text(`*Standard Equipment: ${t.standardEquipment}`, W - M, p.y + 3.6 * k, { align: 'right' });
   }

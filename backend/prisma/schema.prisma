@@ -340,6 +340,7 @@ model Customer {
   altPhone          String?            @map("alt_phone")
   email             String?
   cnic              String?
+  occupation        String?
   ntn               String?
   address           String?
   city              String?
@@ -1628,6 +1629,10 @@ model Quotation {
   paymentMode            String?      @map("payment_mode")
   /// filer | non_filer: which advance / withholding tax the quotation uses.
   taxStatus              String       @default("filer") @map("tax_status")
+  /// Jetour: the interior colour (the exterior is `color`), and the customer's employee name and ID when they ask for them on the quotation.
+  interiorColor          String?      @map("interior_color")
+  employeeName           String?      @map("employee_name")
+  employeeNo             String?      @map("employee_no")
   notes                  String?
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

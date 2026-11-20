@@ -42,7 +42,7 @@ const HISTORY_COLUMNS: Column[] = [
 ];
 
 const Stat = ({ label, value, hint, plain }: { label: string; value: string; hint?: string; plain?: boolean }) => (
-  <div className="surface p-4">
+  <div className="surface p-3">
     <p className="text-xs font-medium tracking-wide text-slate-500">{label}</p>
     <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{plain ? qty(value) : formatMoney(value)}</p>
     {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
@@ -214,15 +214,15 @@ export default function PurchaseReportPage({ embedded = false }: { embedded?: bo
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-right text-xs font-medium tracking-wide text-slate-500">
-                      <th className="py-2 pr-3 text-left font-medium">Part</th>
-                      <th className="py-2 pr-3 font-medium">Ordered</th>
-                      <th className="py-2 pr-3 font-medium">Received</th>
-                      <th className="py-2 pr-3 font-medium">Received cost</th>
-                      <th className="py-2 pr-3 font-medium">Average cost</th>
-                      <th className="py-2 pr-3 font-medium">Lowest</th>
-                      <th className="py-2 pr-3 font-medium">Highest</th>
-                      <th className="py-2 pr-3 font-medium">Last</th>
-                      <th className="py-2 font-medium">Average, all time</th>
+                      <th className="py-1.5 pr-3 text-left font-medium">Part</th>
+                      <th className="py-1.5 pr-3 font-medium">Ordered</th>
+                      <th className="py-1.5 pr-3 font-medium">Received</th>
+                      <th className="py-1.5 pr-3 font-medium">Received cost</th>
+                      <th className="py-1.5 pr-3 font-medium">Average cost</th>
+                      <th className="py-1.5 pr-3 font-medium">Lowest</th>
+                      <th className="py-1.5 pr-3 font-medium">Highest</th>
+                      <th className="py-1.5 pr-3 font-medium">Last</th>
+                      <th className="py-1.5 font-medium">Average, all time</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -232,14 +232,14 @@ export default function PurchaseReportPage({ embedded = false }: { embedded?: bo
                       return (
                         <Fragment key={p.partId}>
                           <tr className={`text-right tabular-nums ${ls.length ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={() => ls.length && setOpen(open === p.partId ? null : p.partId)}>
-                            <td className="py-2 pr-3 text-left">
+                            <td className="py-1.5 pr-3 text-left">
                               <span className="block font-mono text-xs text-slate-900">{p.partNo}</span>
                               <span className="block max-w-xs truncate text-slate-600">{p.description}</span>
                             </td>
-                            <td className="py-2 pr-3">{qty(p.orderedQty)}</td>
-                            <td className="py-2 pr-3">{qty(p.receivedQty)}</td>
-                            <td className="py-2 pr-3">{formatMoney(p.receivedCost)}</td>
-                            <td className="py-2 pr-3 font-semibold">
+                            <td className="py-1.5 pr-3">{qty(p.orderedQty)}</td>
+                            <td className="py-1.5 pr-3">{qty(p.receivedQty)}</td>
+                            <td className="py-1.5 pr-3">{formatMoney(p.receivedCost)}</td>
+                            <td className="py-1.5 pr-3 font-semibold">
                               {formatMoney(p.averageCost)}
                               {varies && (
                                 <span className="ml-1 text-xs font-normal text-amber-600" title="Bought at different prices">
@@ -247,14 +247,14 @@ export default function PurchaseReportPage({ embedded = false }: { embedded?: bo
                                 </span>
                               )}
                             </td>
-                            <td className="py-2 pr-3">{p.minCost == null ? '–' : formatMoney(p.minCost)}</td>
-                            <td className="py-2 pr-3">{p.maxCost == null ? '–' : formatMoney(p.maxCost)}</td>
-                            <td className="py-2 pr-3">{p.lastCost == null ? '–' : formatMoney(p.lastCost)}</td>
-                            <td className="py-2">{p.allTimeAverage == null ? '–' : formatMoney(p.allTimeAverage)}</td>
+                            <td className="py-1.5 pr-3">{p.minCost == null ? '–' : formatMoney(p.minCost)}</td>
+                            <td className="py-1.5 pr-3">{p.maxCost == null ? '–' : formatMoney(p.maxCost)}</td>
+                            <td className="py-1.5 pr-3">{p.lastCost == null ? '–' : formatMoney(p.lastCost)}</td>
+                            <td className="py-1.5">{p.allTimeAverage == null ? '–' : formatMoney(p.allTimeAverage)}</td>
                           </tr>
                           {open === p.partId && (
                             <tr>
-                              <td colSpan={9} className="bg-slate-50 px-3 py-3">
+                              <td colSpan={9} className="bg-slate-50 px-3 py-1.5">
                                 <table className="min-w-full text-xs">
                                   <thead>
                                     <tr className="text-left font-medium text-slate-500">

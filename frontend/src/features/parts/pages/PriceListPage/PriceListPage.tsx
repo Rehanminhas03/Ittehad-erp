@@ -134,19 +134,19 @@ export default function PriceListPage() {
         </Field>
       </div>
       {data && <p className="mb-3 text-sm text-slate-600">{data.total.toLocaleString()} parts</p>}
-      <div className="surface relative overflow-x-auto p-2 sm:p-4">
+      <div className="surface relative overflow-x-auto p-2 sm:p-3">
         {isFetching && <Spinner className="absolute top-3 right-3 size-4 text-slate-400" />}
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-3 font-medium">Part code</th>
-              <th className="py-2 pr-3 font-medium">Part name</th>
-              <th className="py-2 pr-3 font-medium">Category</th>
-              <th className="py-2 pr-3 font-medium">Vehicle</th>
-              <th className="py-2 pr-3 text-right font-medium">Retail price</th>
-              <th className="py-2 pr-3 text-right font-medium">MRP without sales tax</th>
-              <th className="py-2 pr-3 text-right font-medium">Sales tax @ 18%</th>
-              <th className="py-2 text-right font-medium">Customer price (with sales tax)</th>
+              <th className="py-1.5 pr-3 font-medium">Part code</th>
+              <th className="py-1.5 pr-3 font-medium">Part name</th>
+              <th className="py-1.5 pr-3 font-medium">Category</th>
+              <th className="py-1.5 pr-3 font-medium">Vehicle</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Retail price</th>
+              <th className="py-1.5 pr-3 text-right font-medium">MRP without sales tax</th>
+              <th className="py-1.5 pr-3 text-right font-medium">Sales tax @ 18%</th>
+              <th className="py-1.5 text-right font-medium">Customer price (with sales tax)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -161,14 +161,14 @@ export default function PriceListPage() {
               const s = split(p.sellingPrice);
               return (
                 <tr key={p.id}>
-                  <td className="py-2 pr-3 font-mono text-xs">{p.partNo}</td>
-                  <td className="py-2 pr-3">{p.description}</td>
-                  <td className="py-2 pr-3 text-slate-500">{p.category}</td>
-                  <td className="py-2 pr-3 text-xs text-slate-600">{(p.modelIds ?? []).length ? (p.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{p.purchasePrice == null ? <span className="text-slate-400">not set</span> : formatMoney(p.purchasePrice)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(String(s.ex))}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(String(s.tax))}</td>
-                  <td className="py-2 text-right font-semibold tabular-nums">{formatMoney(String(s.final))}</td>
+                  <td className="py-1.5 pr-3 font-mono text-xs">{p.partNo}</td>
+                  <td className="py-1.5 pr-3">{p.description}</td>
+                  <td className="py-1.5 pr-3 text-slate-500">{p.category}</td>
+                  <td className="py-1.5 pr-3 text-xs text-slate-600">{(p.modelIds ?? []).length ? (p.modelIds ?? []).map(modelName).join(', ') : 'Not set'}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{p.purchasePrice == null ? <span className="text-slate-400">not set</span> : formatMoney(p.purchasePrice)}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{formatMoney(String(s.ex))}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{formatMoney(String(s.tax))}</td>
+                  <td className="py-1.5 text-right font-semibold tabular-nums">{formatMoney(String(s.final))}</td>
                 </tr>
               );
             })}

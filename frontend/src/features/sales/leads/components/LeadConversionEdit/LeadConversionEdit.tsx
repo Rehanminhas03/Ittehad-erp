@@ -41,6 +41,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
     prospectMobile: digitsOnly(lead.prospectMobile),
     email: lead.email ?? '',
     customerAddress: lead.customerAddress ?? '',
+    customerOccupation: lead.customerOccupation ?? '',
     interestedModelId: lead.interestedModelId ? String(lead.interestedModelId) : '',
     variant: lead.variant ?? '',
     preferredColor: lead.preferredColor ?? '',
@@ -77,7 +78,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
 
   const submit = async () => {
     const missing: Record<string, string> = {};
-    for (const [k, label] of [['prospectName', 'Customer name'], ['prospectMobile', 'Phone'], ['email', 'Email'], ['customerAddress', 'Address'], ['interestedModelId', 'Model'], ['variant', 'Variant'], ['preferredColor', 'Colour'], ['paymentType', 'Payment type'], ['paymentInstrument', 'Payment instrument'], ['paymentAmount', 'The amount paid']] as const) {
+    for (const [k, label] of [['prospectName', 'Customer name'], ['prospectMobile', 'Phone'], ['email', 'Email'], ['customerAddress', 'Address'], ['customerOccupation', 'Occupation'], ['interestedModelId', 'Model'], ['variant', 'Variant'], ['preferredColor', 'Colour'], ['paymentType', 'Payment type'], ['paymentInstrument', 'Payment instrument'], ['paymentAmount', 'The amount paid']] as const) {
       if (!v[k].trim()) missing[k] = `${label} is required`;
     }
     if (v.paymentType === 'partial' && !v.vehiclePrice.trim()) missing.vehiclePrice = 'Enter the total amount of the car';
@@ -92,6 +93,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
           prospectMobile: v.prospectMobile,
           email: v.email.trim(),
           customerAddress: v.customerAddress.trim(),
+          customerOccupation: v.customerOccupation.trim(),
           ...(cnic ? { customerCnic: cnic } : {}),
           interestedModelId: Number(v.interestedModelId),
           variant: v.variant.trim(),
@@ -161,6 +163,9 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
           </Field>
           <Field label="Address" htmlFor="ce-address" required className="sm:col-span-2" error={err('customerAddress')}>
             <Input id="ce-address" value={v.customerAddress} onChange={set('customerAddress')} invalid={!!err('customerAddress')} />
+          </Field>
+          <Field label="Occupation" htmlFor="ce-occupation" required error={err('customerOccupation')}>
+            <Input id="ce-occupation" value={v.customerOccupation} onChange={set('customerOccupation')} invalid={!!err('customerOccupation')} maxLength={120} />
           </Field>
           <Field label="Model" htmlFor="ce-model" required error={err('interestedModelId')}>
             <LeadModelSelect id="ce-model" value={v.interestedModelId} onChange={(interestedModelId) => setV((s) => ({ ...s, interestedModelId }))} invalid={!!err('interestedModelId')} dealershipId={lead.dealershipId} />

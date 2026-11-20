@@ -13,7 +13,7 @@ import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
 import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
-import { CUSTOMER_ADDRESS, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
+import { CUSTOMER_ADDRESS, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
 import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, LEAD_TEMPERATURES, nextFollowUpAfter, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
@@ -351,6 +351,7 @@ export const leadEntity: EntityConfig = {
         appointmentSetByName: { key: 'appointmentSetById', source: USER_NAME },
         lostByName: { key: 'lostById', source: USER_NAME },
         customerAddress: { key: 'customerId', source: CUSTOMER_ADDRESS },
+        customerOccupation: { key: 'customerId', source: CUSTOMER_OCCUPATION },
         createdByName: { key: 'createdById', source: USER_NAME },
         dealtByName: { key: 'dealtById', source: USER_NAME },
         orderNo: { key: 'salesOrderId', source: ORDER_NO },

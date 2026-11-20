@@ -188,7 +188,7 @@ export function SalesReportButton() {
                   <thead className="sticky top-0 bg-slate-100 text-left text-slate-600">
                     <tr>
                       {columns.map((c) => (
-                        <th key={c.header} className={`px-2 py-2 font-medium ${c.right ? 'text-right' : ''}`}>
+                        <th key={c.header} className={`px-2 py-1.5 font-medium ${c.right ? 'text-right' : ''}`}>
                           {c.header}
                         </th>
                       ))}
@@ -208,7 +208,7 @@ export function SalesReportButton() {
                   <tfoot className="bg-slate-50 font-semibold">
                     <tr>
                       {columns.map((c, i) => (
-                        <td key={c.header} className={`px-2 py-2 ${c.right ? 'text-right tabular-nums' : ''}`}>
+                        <td key={c.header} className={`px-2 py-1.5 ${c.right ? 'text-right tabular-nums' : ''}`}>
                           {c.right ? money(c.value(totalRow)) : i === (multiDay ? 1 : 0) ? 'TOTAL' : ''}
                         </td>
                       ))}

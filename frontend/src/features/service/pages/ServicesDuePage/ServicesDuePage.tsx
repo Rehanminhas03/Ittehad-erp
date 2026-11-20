@@ -74,17 +74,17 @@ export default function ServicesDuePage() {
           <span className="font-medium text-slate-900">{data.total}</span> customers to call, <span className="font-medium text-red-700">{data.overdue}</span> overdue
         </p>
       )}
-      <div className="surface relative overflow-x-auto p-2 sm:p-4">
+      <div className="surface relative overflow-x-auto p-2 sm:p-3">
         {isFetching && <Spinner className="absolute top-3 right-3 size-4 text-slate-400" />}
         {isError && <p className="py-8 text-center text-sm text-red-600">The list could not be loaded.</p>}
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs font-medium tracking-wide text-slate-500">
-              <th className="py-2 pr-3 font-medium">Due</th>
-              <th className="py-2 pr-3 font-medium">Service</th>
-              <th className="py-2 pr-3 font-medium">Car</th>
-              <th className="py-2 pr-3 font-medium">Customer</th>
-              <th className="py-2 pr-3 font-medium">Last call</th>
+              <th className="py-1.5 pr-3 font-medium">Due</th>
+              <th className="py-1.5 pr-3 font-medium">Service</th>
+              <th className="py-1.5 pr-3 font-medium">Car</th>
+              <th className="py-1.5 pr-3 font-medium">Customer</th>
+              <th className="py-1.5 pr-3 font-medium">Last call</th>
               <th />
             </tr>
           </thead>
@@ -98,21 +98,21 @@ export default function ServicesDuePage() {
             )}
             {data?.items.map((r) => (
               <tr key={r.scheduleId} className="align-top">
-                <td className="py-2 pr-3 whitespace-nowrap">
+                <td className="py-1.5 pr-3 whitespace-nowrap">
                   <span className={r.overdue ? 'font-semibold text-red-700' : ''}>{formatDate(r.dueDate)}</span>
                   {r.overdue && <span className="ml-1 text-xs text-red-700">overdue</span>}
                 </td>
-                <td className="py-2 pr-3">
+                <td className="py-1.5 pr-3">
                   {r.service} {r.isFree && <Badge tone="green">Free</Badge>}
                   <div className="text-xs text-slate-500">at {formatNumber(r.dueKm)} km</div>
                 </td>
-                <td className="py-2 pr-3">
+                <td className="py-1.5 pr-3">
                   <div className="font-medium text-slate-900">{r.registrationNo ?? 'Unregistered'}</div>
                   <div className="text-xs text-slate-500">
                     {r.modelName} {r.lastOdometerKm != null && `· last ${formatNumber(r.lastOdometerKm)} km`}
                   </div>
                 </td>
-                <td className="py-2 pr-3">
+                <td className="py-1.5 pr-3">
                   <div className="font-medium text-slate-900">{r.customerName}</div>
                   <a className="text-xs text-brand-700 hover:underline" href={`tel:${r.mobile}`}>
                     {r.mobile}
@@ -123,7 +123,7 @@ export default function ServicesDuePage() {
                   </a>
                   <div className="text-xs text-slate-400">{r.dealershipName}</div>
                 </td>
-                <td className="py-2 pr-3">
+                <td className="py-1.5 pr-3">
                   {r.lastCall ? (
                     <div className="space-y-0.5">
                       <Badge tone={tone(r.lastCall.outcome)}>{label(r.lastCall.outcome)}</Badge>
@@ -142,7 +142,7 @@ export default function ServicesDuePage() {
                     <span className="text-xs text-slate-400">Not called yet</span>
                   )}
                 </td>
-                <td className="py-2 text-right">
+                <td className="py-1.5 text-right">
                   {canCall && (
                     <Button size="sm" onClick={() => setCalling(r)}>
                       Record call

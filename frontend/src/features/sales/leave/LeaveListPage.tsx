@@ -86,29 +86,29 @@ export default function LeaveListPage() {
           <table className="min-w-full text-sm">
             <thead className="text-xs tracking-wide text-slate-500 uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Application</th>
-                {approver && <th className="px-4 py-3 text-left">Employee</th>}
-                <th className="px-4 py-3 text-left">Leave</th>
-                <th className="px-4 py-3 text-left">From – to</th>
-                <th className="px-4 py-3 text-right">Days</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-1.5 text-left">Application</th>
+                {approver && <th className="px-4 py-1.5 text-left">Employee</th>}
+                <th className="px-4 py-1.5 text-left">Leave</th>
+                <th className="px-4 py-1.5 text-left">From – to</th>
+                <th className="px-4 py-1.5 text-right">Days</th>
+                <th className="px-4 py-1.5 text-left">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.items.map((l) => (
                 <tr key={l.id} onClick={() => navigate(`/sales/leave/${l.id}`)} className="cursor-pointer hover:bg-brand-50/40">
-                  <td className="px-4 py-3 font-mono text-xs">
+                  <td className="px-4 py-1.5 font-mono text-xs">
                     <Link to={`/sales/leave/${l.id}`} className="text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
                       {l.applicationNo}
                     </Link>
                   </td>
-                  {approver && <td className="px-4 py-3 font-medium text-slate-900">{l.employeeName}</td>}
-                  <td className="px-4 py-3">{labelOf(LEAVE_TYPES, l.leaveType)}</td>
-                  <td className="px-4 py-3 text-slate-700">
+                  {approver && <td className="px-4 py-1.5 font-medium text-slate-900">{l.employeeName}</td>}
+                  <td className="px-4 py-1.5">{labelOf(LEAVE_TYPES, l.leaveType)}</td>
+                  <td className="px-4 py-1.5 text-slate-700">
                     {formatDate(l.fromDate)} – {formatDate(l.toDate)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{l.days}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1.5 text-right tabular-nums">{l.days}</td>
+                  <td className="px-4 py-1.5">
                     <Badge tone={LEAVE_STATUS[l.status]!.tone}>{LEAVE_STATUS[l.status]!.label}</Badge>
                   </td>
                 </tr>

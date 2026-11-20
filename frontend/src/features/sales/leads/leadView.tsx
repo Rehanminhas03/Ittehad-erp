@@ -234,6 +234,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Phone', value: (l) => l.prospectMobile },
       { label: 'Email', value: (l) => l.email },
       { label: 'Address', value: (l) => l.customerAddress },
+      { label: 'Occupation', value: (l) => l.customerOccupation },
       {
         label: 'Payment',
         value: (l) =>

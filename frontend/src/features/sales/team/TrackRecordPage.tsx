@@ -284,29 +284,29 @@ export default function TrackRecordPage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200/80 text-xs font-medium text-slate-500">
-                    <th scope="col" className="px-4 py-2 text-left font-medium sm:pl-5">Salesperson</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Leads logged</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Converted</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Cars booked</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Cars delivered</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">PPF sold</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">PPF amount</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Advance received</th>
-                    <th scope="col" className="px-4 py-2 text-right font-medium sm:pr-5">Quotations</th>
+                    <th scope="col" className="px-4 py-1.5 text-left font-medium sm:pl-5">Salesperson</th>
+                    <th scope="col" className="px-3 py-1.5 text-right font-medium">Leads logged</th>
+                    <th scope="col" className="px-3 py-1.5 text-right font-medium">Converted</th>
+                    <th scope="col" className="px-3 py-1.5 text-right font-medium">Cars booked</th>
+                    <th scope="col" className="px-3 py-1.5 text-right font-medium">Cars delivered</th>
+                    <th scope="col" className="px-3 py-1.5 text-right font-medium">PPF sold</th>
+                    <th scope="col" className="px-3 py-1.5 text-right font-medium">PPF amount</th>
+                    <th scope="col" className="px-3 py-1.5 text-right font-medium">Advance received</th>
+                    <th scope="col" className="px-4 py-1.5 text-right font-medium sm:pr-5">Quotations</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {data.members.map((m) => (
                     <tr key={m.userId} className="tabular-nums">
-                      <td className="px-4 py-2.5 text-left font-medium whitespace-nowrap text-slate-900 sm:pl-5">
+                      <td className="px-4 py-1.5 text-left font-medium whitespace-nowrap text-slate-900 sm:pl-5">
                         {m.fullName}
                         {!m.isActive && <span className="ml-2 text-xs font-normal text-slate-500">(left)</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right">{m.leadsLogged}</td>
-                      <td className="px-3 py-2.5 text-right">{m.converted}</td>
-                      <td className="px-3 py-2.5 text-right">{m.carsBooked}</td>
-                      <td className="px-3 py-2.5 text-right">{m.carsDelivered}</td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="px-3 py-1.5 text-right">{m.leadsLogged}</td>
+                      <td className="px-3 py-1.5 text-right">{m.converted}</td>
+                      <td className="px-3 py-1.5 text-right">{m.carsBooked}</td>
+                      <td className="px-3 py-1.5 text-right">{m.carsDelivered}</td>
+                      <td className="px-3 py-1.5 text-right">
                         {m.ppfSold ? (
                           <Link to={ppfLink(m.userId)} className="text-brand-700 hover:underline">
                             {m.ppfSold}
@@ -315,24 +315,24 @@ export default function TrackRecordPage() {
                           0
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatMoney(m.ppfAmount)}</td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap text-slate-600">{formatMoney(m.ppfAdvance)}</td>
-                      <td className="px-4 py-2.5 text-right sm:pr-5">{m.quotations}</td>
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap">{formatMoney(m.ppfAmount)}</td>
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap text-slate-600">{formatMoney(m.ppfAdvance)}</td>
+                      <td className="px-4 py-1.5 text-right sm:pr-5">{m.quotations}</td>
                     </tr>
                   ))}
                 </tbody>
                 {team && data.members.length > 1 && (
                   <tfoot>
                     <tr className="border-t border-slate-200 font-semibold text-slate-900 tabular-nums">
-                      <td className="px-4 py-2.5 text-left sm:pl-5">Total</td>
-                      <td className="px-3 py-2.5 text-right">{data.totals.leadsLogged}</td>
-                      <td className="px-3 py-2.5 text-right">{data.totals.converted}</td>
-                      <td className="px-3 py-2.5 text-right">{data.totals.carsBooked}</td>
-                      <td className="px-3 py-2.5 text-right">{data.totals.carsDelivered}</td>
-                      <td className="px-3 py-2.5 text-right">{data.totals.ppfSold}</td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatMoney(data.totals.ppfAmount)}</td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatMoney(data.totals.ppfAdvance)}</td>
-                      <td className="px-4 py-2.5 text-right sm:pr-5">{data.totals.quotations}</td>
+                      <td className="px-4 py-1.5 text-left sm:pl-5">Total</td>
+                      <td className="px-3 py-1.5 text-right">{data.totals.leadsLogged}</td>
+                      <td className="px-3 py-1.5 text-right">{data.totals.converted}</td>
+                      <td className="px-3 py-1.5 text-right">{data.totals.carsBooked}</td>
+                      <td className="px-3 py-1.5 text-right">{data.totals.carsDelivered}</td>
+                      <td className="px-3 py-1.5 text-right">{data.totals.ppfSold}</td>
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap">{formatMoney(data.totals.ppfAmount)}</td>
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap">{formatMoney(data.totals.ppfAdvance)}</td>
+                      <td className="px-4 py-1.5 text-right sm:pr-5">{data.totals.quotations}</td>
                     </tr>
                   </tfoot>
                 )}

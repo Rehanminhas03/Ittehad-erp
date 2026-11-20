@@ -82,6 +82,9 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
     bookingAmount: '',
     variant: lead?.variant ?? '',
     color: lead?.preferredColor ?? '',
+    interiorColor: '',
+    employeeName: '',
+    employeeNo: '',
     validDays: '7',
     deliveryDays: '',
     deliveryPeriod: '',
@@ -149,6 +152,9 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
             // The printed description: the picked code's, as the salesperson edited it, or the typed variant.
             variant: blank(v.variant),
             color: blank(v.color),
+            interiorColor: jetour ? blank(v.interiorColor) : null,
+            employeeName: jetour ? blank(v.employeeName) : null,
+            employeeNo: jetour ? blank(v.employeeNo) : null,
             validDays: Number(v.validDays) || 7,
             notes: blank(v.notes),
             variantCode: blank(v.variantCode),
@@ -266,29 +272,20 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
           {/* Jetour: the advance tax is the filer's (default) or the non-filer's. */}
           {jetour && (
             <div className="sm:col-span-2">
-              <p className="mb-1.5 text-sm font-medium text-slate-700">Withholding / advance tax</p>
-              <div className="inline-flex rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Tax status">
-                {(
-                  [
-                    ['filer', 'Filer'],
-                    ['non_filer', 'Non-filer'],
-                  ] as const
-                ).map(([value, text]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={taxStatus === value}
-                    onClick={() => {
-                      setTaxStatus(value);
-                      if (prices) applyPrices(prices, value);
-                    }}
-                    className={taxStatus === value ? 'rounded-lg bg-white px-4 py-1.5 text-sm font-semibold text-brand-700 shadow-sm' : 'rounded-lg px-4 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900'}
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
+              <Field label="Withholding tax" htmlFor="qt-taxstatus" hint="Printed as WITH HOLDING TAX (Filer / Non-Filer) Will be paid by customer">
+                <Select
+                  id="qt-taxstatus"
+                  value={taxStatus}
+                  onChange={(e) => {
+                    const value = e.target.value as 'filer' | 'non_filer';
+                    setTaxStatus(value);
+                    if (prices) applyPrices(prices, value);
+                  }}
+                >
+                  <option value="filer">Filer</option>
+                  <option value="non_filer">Non-filer</option>
+                </Select>
+              </Field>
               {taxStatus === 'non_filer' && prices && !prices.advanceTaxNonFiler && <p className="mt-1 text-xs text-amber-700">The price list has no non-filer figure for this variant: enter the amount.</p>}
             </div>
           )}
@@ -323,9 +320,22 @@ export function QuotationDialog({ lead, dealershipId: dealer, open, onClose, onC
               <Input id="qt-wht-nf" inputMode="decimal" value={v.withholdingTaxNonFiler} onChange={set('withholdingTaxNonFiler')} invalid={!!errors.withholdingTaxNonFiler} placeholder="e.g. 1311450" />
             </Field>
           )}
-          <Field label="Colour" htmlFor="qt-color">
+          <Field label={jetour ? 'Exterior colour' : 'Colour'} htmlFor="qt-color" hint={jetour ? 'Optional. With a colour, "Standard Equipment: As per Brochure" is printed inside the table; without one it stays under the table' : undefined}>
             <Input id="qt-color" value={v.color} onChange={set('color')} />
           </Field>
+          {jetour && (
+            <>
+              <Field label="Interior colour" htmlFor="qt-icolor" hint="Optional: only if the customer wants a specific interior colour">
+                <Input id="qt-icolor" value={v.interiorColor} onChange={set('interiorColor')} />
+              </Field>
+              <Field label="Employee name" htmlFor="qt-ename" hint="Optional: only when the customer wants it on the quotation">
+                <Input id="qt-ename" value={v.employeeName} onChange={set('employeeName')} maxLength={120} />
+              </Field>
+              <Field label="Employee ID" htmlFor="qt-eno" hint="Optional">
+                <Input id="qt-eno" value={v.employeeNo} onChange={set('employeeNo')} maxLength={40} />
+              </Field>
+            </>
+          )}
           <Field label={csm ? 'Advance payment (PKR)' : 'Booking amount (PKR)'} htmlFor="qt-booking" error={errors.bookingAmount} hint={csm ? 'Printed in the Advance Payment row, with the advance and balance percentages in the terms. Empty: not printed' : jetour ? 'Empty by default. Enter it only if you want it printed as "Booking Price" in the table' : 'Empty by default: enter it only if there is a booking amount'}>
             <Input id="qt-booking" inputMode="decimal" value={v.bookingAmount} onChange={set('bookingAmount')} invalid={!!errors.bookingAmount} />
           </Field>

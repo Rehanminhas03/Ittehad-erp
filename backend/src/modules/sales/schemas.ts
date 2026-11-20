@@ -108,6 +108,7 @@ export const LeadSchema = z.object({
   purchaseOrderNo: z.string().nullable().optional(),
   /** The customer's address (from the customer record; captured at conversion). */
   customerAddress: z.string().nullable().optional(),
+  customerOccupation: z.string().nullable().optional(),
   /** A returning customer: cars bought before (delivered orders of the same customer / phone at the dealership). */
   previousPurchases: z.number().int().optional(),
   convertedAt: Timestamp.nullable(),
@@ -214,6 +215,9 @@ export const QuotationSchema = z.object({
   billTo: z.string().nullable(),
   variant: z.string().nullable(),
   color: z.string().nullable(),
+  interiorColor: z.string().nullable().optional(),
+  employeeName: z.string().nullable().optional(),
+  employeeNo: z.string().nullable().optional(),
   /** filer | non_filer: which tax the withholding / advance tax line is. */
   taxStatus: z.enum(TAX_STATUSES),
   quantity: z.number().int(),
@@ -307,6 +311,10 @@ const quotationTerms = {
   deliveryPeriod: optionalText(120),
   paymentMode: optionalText(80),
   specs: optionalText(600),
+  /** Jetour: the interior colour, and the customer's employee name and ID (all optional). */
+  interiorColor: optionalText(40),
+  employeeName: optionalText(120),
+  employeeNo: optionalText(40),
 };
 /**
  * Issuing a quotation from a lead. The vehicle comes from the lead; the price is what the salesperson
@@ -522,6 +530,9 @@ export const QuotationDocumentSchema = z
     deliveryPeriod: z.string().nullable(),
     paymentMode: z.string().nullable(),
     specs: z.string().nullable().optional(),
+    interiorColor: z.string().nullable().optional(),
+    employeeName: z.string().nullable().optional(),
+    employeeNo: z.string().nullable().optional(),
     /** The dealership's current quotation format. */
     template: DocumentTemplateSchema,
     ...documentParties,
@@ -628,6 +639,8 @@ export const ConvertLeadBody = z
       .refine((v) => normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
     /** The customer's address (required): saved on the customer. */
     customerAddress: requiredText('Address', 300),
+    /** The customer's occupation (required): saved on the customer. */
+    customerOccupation: requiredText('Occupation', 120),
     /** Individual, or corporate: the company (billing name), the contact's designation, and a purchase order if they brought one. */
     customerType: z.enum(CUSTOMER_TYPES).default('individual'),
     companyName: optionalText(160),
@@ -660,6 +673,7 @@ export const ConversionCorrectionBody = z
     prospectMobile: mobile,
     email,
     customerAddress: requiredText('Address', 300),
+    customerOccupation: requiredText('Occupation', 120),
     customerCnic: z
       .string()
       .trim()

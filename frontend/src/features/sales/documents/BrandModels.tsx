@@ -36,7 +36,7 @@ export function BrandModels() {
   const models = data?.items ?? [];
 
   return (
-    <div className="surface mb-4 space-y-3 p-4">
+    <div className="surface mb-4 space-y-3 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">{dealership.brand} models</h2>
