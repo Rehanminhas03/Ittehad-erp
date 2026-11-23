@@ -735,10 +735,21 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   doc.text(label, M + 1, nameY);
   doc.setTextColor(...ink);
   const nameX = M + 1 + doc.getTextWidth(label);
-  doc.text(q.customer.name, nameX, nameY);
+  // A long name never runs into the date or off the page: the first line stops before the date, the rest wrap below.
+  const nameLines = (() => {
+    const first = (doc.splitTextToSize(q.customer.name, W - M - 40 - nameX) as string[])[0] ?? '';
+    const rest = q.customer.name.slice(first.length).trim();
+    return [first, ...(rest ? (doc.splitTextToSize(rest, CW - 2) as string[]) : [])];
+  })();
   doc.setLineWidth(0.3);
-  doc.line(nameX, nameY + 1, nameX + doc.getTextWidth(q.customer.name), nameY + 1);
+  nameLines.forEach((line, i) => {
+    const x = i === 0 ? nameX : M + 1;
+    const y = nameY + i * 5;
+    doc.text(line, x, y);
+    doc.line(x, y + 1, x + doc.getTextWidth(line), y + 1);
+  });
   doc.setLineWidth(0.25);
+  p.y += (nameLines.length - 1) * 5;
   if (q.billTo && q.billTo.trim() && q.billTo.trim() !== q.customer.name.trim()) {
     p.y += 5;
     const forLabel = 'Quotation required for: ';
