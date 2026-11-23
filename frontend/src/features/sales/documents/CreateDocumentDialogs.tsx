@@ -23,7 +23,7 @@ import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } fro
 /** Jetour's usual tentative delivery period (its quotations print a sentence, not a number of days). */
 const P_QUOTATIONS_CREATE = 'sales.quotations.create';
 
-export const JETOUR_DELIVERY_PERIOD = 'ONE MONTH AFTER FULL PAYMENT.';
+export const JETOUR_DELIVERY_PERIOD = '45-60 DAYS AFTER PAYMENT.';
 /** CSM's usual delivery time (its quotation prints "The vehicle delivery time is ... from the date of Advance Payment Clearing"). */
 export const CSM_DELIVERY_PERIOD = '90 to 120 days';
 
