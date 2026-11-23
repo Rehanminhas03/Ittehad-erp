@@ -208,7 +208,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { name: 'employeeNo', label: 'Employee ID', type: 'text', hint: 'Optional', visible: isJetourStaff },
       { name: 'bookingAmount', label: 'Booking / advance payment (PKR)', type: 'money' },
       { name: 'issuedOn', label: 'Quotation date', type: 'date', required: true, hint: 'The date printed on the quotation: change it to send the quotation again' },
-      { name: 'validUntil', label: 'Valid until', type: 'date', required: true },
+      { name: 'validDays', label: 'Valid for (days)', type: 'number', required: true, hint: 'e.g. 7, 10, 15: the valid-until date is worked out from the quotation date' },
       { name: 'deliveryDays', label: 'Tentative delivery (days)', type: 'number', visible: (perm) => !isJetourStaff(perm) && !isCsmStaff(perm) },
       { name: 'deliveryPeriod', label: 'Tentative delivery period', type: 'text', hint: 'e.g. ONE MONTH AFTER FULL PAYMENT. (CSM: 60 to 90 days)', visible: (perm) => isJetourStaff(perm) || isCsmStaff(perm) },
       { name: 'paymentMode', label: 'Payment mode', type: 'text', visible: (perm) => !isCsmStaff(perm) },
@@ -216,6 +216,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       { name: 'notes', label: 'Notes on the quotation', type: 'textarea', span: 2 },
     ],
     createSchema: z.object({}),
+    toFormValues: (q) => ({ ...q, validDays: Math.max(1, daysBetween(q.issuedOn ?? q.createdAt.slice(0, 10), q.validUntil)) }),
     updateSchema: z.object({
       // Shown only for a quotation without a lead.
       customerName: z.string().trim().transform((v) => v || undefined).optional(),
@@ -246,7 +247,7 @@ export const quotationView: EntityViewConfig<Quotation> = {
       employeeNo: optionalText(40),
       bookingAmount: optionalMoney('Booking amount'),
       issuedOn: z.string().min(1, 'Choose a date'),
-      validUntil: z.string().min(1, 'Choose a date'),
+      validDays: z.coerce.number().int().min(1, 'At least 1 day').max(365),
       notes: optionalText(1000),
     }),
   },
@@ -254,9 +255,20 @@ export const quotationView: EntityViewConfig<Quotation> = {
     useList: useListQuotationsQuery,
     useGet: useGetQuotationQuery,
     useHistory: useGetQuotationHistoryQuery,
-    update: { useMutation: useUpdateQuotationMutation, toArg: (id, v) => ({ id, quotationUpdate: v }) },
+    update: {
+      useMutation: useUpdateQuotationMutation,
+      // The form asks for the number of days; the valid-until date follows from the quotation date.
+      toArg: (id, v) => {
+        const { validDays, ...rest } = v as { validDays: number; issuedOn: string } & Record<string, unknown>;
+        return { id, quotationUpdate: { ...rest, validUntil: plusDays(rest.issuedOn, validDays) } as never };
+      },
+    },
   },
 };
+
+/** Calendar-day arithmetic on yyyy-mm-dd strings (no time zones involved). */
+const plusDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 /** The dealership's own voucher fields (PPF format), for correcting a voucher. */
 function ExtraFieldsInput({ id, value, onChange }: CustomFieldProps) {
