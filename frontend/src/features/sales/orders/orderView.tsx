@@ -39,6 +39,9 @@ import {
 } from '../salesApi';
 
 /** Raised and not yet delivered: the lead shows "Processing" for these orders. */
+/** An order is booked the moment the Sales Admin raises it: "Ordered" when the customer paid in full, "Booked" for a partial payment. */
+const orderStatusLabel = (o: { status: string; paymentType?: string | null }) => (o.status === 'approved' ? (o.paymentType === 'full' ? 'Ordered' : 'Booked') : undefined);
+
 const ProcessingBadge = ({ status }: { status: string }) => (['draft', 'submitted', 'approved'].includes(status) ? <Badge tone="amber">Processing</Badge> : null);
 
 const commercial = {
@@ -79,7 +82,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
         <ExportButtons kind="orders" query={query} periodLabel={periodLabel} />
       </div>
     ),
-    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Processing (not delivered)', type: 'boolean' }, { param: 'awaitingApproval', label: 'Awaiting approval', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, { param: 'invoice', label: 'Vehicle invoice', type: 'select', options: [{ value: 'received', label: 'Received' }, { value: 'pending', label: 'Not received yet' }] }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
+    filters: [statusFilter(ORDER_STATES), { param: 'live', label: 'Processing (not delivered)', type: 'boolean' }, { param: 'hasVehicle', label: 'Vehicle allocated', type: 'boolean' }, { param: 'vehicleStage', label: 'Car', type: 'select', options: [...VEHICLE_STATUSES] }, { param: 'orderType', label: 'Type', type: 'select', options: ORDER_TYPES }, { param: 'invoice', label: 'Vehicle invoice', type: 'select', options: [{ value: 'received', label: 'Received' }, { value: 'pending', label: 'Not received yet' }] }, dealershipFilter, { param: 'clearanceStatus', label: 'Delivery clearance', type: 'hidden', chip: (v) => CLEARANCE_LABELS[v]?.label ?? v }],
     columns: [
       { key: 'orderNo', header: 'Order', sortKey: 'orderNo', render: (o) => mono(o.orderNo) },
       { key: 'pboNo', header: 'PBO', render: (o) => mono(o.pboNo) },
@@ -96,7 +99,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
         sortKey: 'status',
         render: (o) => (
           <span className="inline-flex flex-wrap gap-1">
-            <StatusBadge status={o.status} />
+            <StatusBadge status={o.status} label={orderStatusLabel(o)} />
             <ProcessingBadge status={o.status} />
             <PaymentTypeBadge type={o.paymentType} />
             {o.clearanceStatus && o.clearanceStatus !== 'none' && <Badge tone={CLEARANCE_LABELS[o.clearanceStatus]!.tone}>{CLEARANCE_LABELS[o.clearanceStatus]!.label}</Badge>}
@@ -110,7 +113,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
     title: (o) => o.orderNo,
     subtitle: (o) => `${o.customerName ?? ''} · ${o.modelName ?? ''}`,
     fields: [
-      { label: 'Status', value: (o) => <span className="inline-flex flex-wrap gap-1"><StatusBadge status={o.status} /><ProcessingBadge status={o.status} /></span> },
+      { label: 'Status', value: (o) => <span className="inline-flex flex-wrap gap-1"><StatusBadge status={o.status} label={orderStatusLabel(o)} /><ProcessingBadge status={o.status} /></span> },
       { label: 'PBO number', value: (o) => o.pboNo },
       { label: 'Order type', value: (o) => labelOf(ORDER_TYPES, o.orderType) },
       { label: 'Customer', value: (o) => o.customerName },

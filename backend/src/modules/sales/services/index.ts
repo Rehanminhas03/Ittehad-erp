@@ -11,6 +11,7 @@
 //   variants.ts    Variant codes pasted from Excel (Hyundai)
 //   trackRecord.ts Monthly cars booked / delivered, PPF sold (count and amount), quotations; per salesperson
 // Plain CRUD (list / get / create / update / workflow actions) comes from the entity configs in ../entities.ts.
+export { bookPpfSlot, cancelPpfSlot, finishPpfSlot, listPpfSlots, receivePpfSlot, updatePpfSlot } from './ppfSlots';
 export { deliveries, leads, orders, ppfForms, quotations, stock, variants } from '../entities';
 export * from './actionItems';
 export * from './dashboard';

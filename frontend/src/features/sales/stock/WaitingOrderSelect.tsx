@@ -145,7 +145,7 @@ export function WaitingOrderSelect({ id, value, onChange, setValues, dealershipI
                   <button type="button" onClick={() => pick(o)} className={cn('flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-brand-50', String(o.id) === value && 'bg-brand-50')}>
                     <span className="font-medium text-slate-900">{describe(o)}</span>
                     <span className="text-xs text-slate-500">
-                      Allocate to this order · {o.status === 'approved' ? 'approved' : `${humanize(o.status)} (awaiting approval)`}
+                      Allocate to this order · {o.status === 'approved' ? 'booked' : humanize(o.status)}
                       {o.expectedDeliveryDate ? ` · expected ${o.expectedDeliveryDate.slice(0, 7)}` : ''}
                     </span>
                   </button>

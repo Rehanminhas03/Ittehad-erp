@@ -408,6 +408,12 @@ export const PpfFormSchema = z.object({
   discount: z.string(),
   totalAmount: z.string(),
   advancePaid: z.string(),
+  /** The day the car comes to the PPF bay (its slot). */
+  startDate: z.string().nullable().optional(),
+  /** Where the car is in the PPF bay: booked, received (the PPF team has it) or done. */
+  bayStatus: z.enum(['booked', 'received', 'done']).nullable().optional(),
+  receivedOn: z.string().nullable().optional(),
+  finishedOn: z.string().nullable().optional(),
   installationDate: z.string().nullable(),
   notes: z.string().nullable(),
   /** The dealership's own voucher fields, by name. */
@@ -439,9 +445,110 @@ const ppfFields = {
   /** Values for the dealership's own voucher fields (PPF format), by field name. */
   extraFields: z.record(z.string().trim().max(40), z.string().trim().max(200)).optional(),
 };
+/** The PPF bay calendar: the days from today, free or booked. */
+export const PpfSlotsQuery = z.object({
+  /** The dealership the caller acts for (the calendar itself is shared by every dealership). */
+  dealershipId: z.coerce.number().int().positive(),
+  from: isoDate.optional(),
+  days: z.coerce.number().int().min(1).max(90).default(21),
+  /** Also the cars that started up to this many days ago and are still in the bay (their estimate date has not passed). */
+  back: z.coerce.number().int().min(0).max(14).default(0),
+});
+export const PpfSlotExtraSchema = z.object({
+  bookingId: Id,
+  customerName: z.string(),
+  customerMobile: z.string().nullable(),
+  vehicle: z.string().nullable(),
+  salespersonName: z.string().nullable(),
+  chassisNo: z.string().nullable(),
+  engineNo: z.string().nullable(),
+  registrationNo: z.string().nullable(),
+  amount: z.string().nullable(),
+  dealershipName: z.string().nullable(),
+});
+export const PpfSlotDaySchema = z.object({
+  date: z.string(),
+  booked: z.boolean(),
+  /** Booked by the caller (a salesperson sees their own bookings). */
+  mine: z.boolean(),
+  /** The estimate date of a car starting that day. */
+  estimateDate: z.string(),
+  /** Details of a booked day: for the PPF team (and the booker's own days). */
+  bookingId: Id.nullable(),
+  customerName: z.string().nullable(),
+  customerMobile: z.string().nullable(),
+  vehicle: z.string().nullable(),
+  formNo: z.string().nullable(),
+  dealershipName: z.string().nullable(),
+  bookedByName: z.string().nullable(),
+  /** A day the PPF team closed; and the day the work was finished (marked by the PPF team). */
+  blocked: z.boolean(),
+  receivedOn: z.string().nullable(),
+  finishedOn: z.string().nullable(),
+  /** The PPF team may book this past day (a car already in the bay). */
+  past: z.boolean(),
+  /** The salesperson of the voucher, and the car's numbers from it. */
+  salespersonName: z.string().nullable(),
+  chassisNo: z.string().nullable(),
+  engineNo: z.string().nullable(),
+  registrationNo: z.string().nullable(),
+  amount: z.string().nullable(),
+  /** Extra cars the PPF team added on this day (PPF team only). */
+  extras: z.array(PpfSlotExtraSchema),
+});
+export const PpfSlotsSchema = z.object({ canManage: z.boolean(), days: z.array(PpfSlotDaySchema) }).openapi('PpfSlots');
+/** The PPF team books a car into the bay directly (a car from our own reference). */
+export const PpfSlotBookBody = z
+  .object({
+    dealershipId: Id,
+    slotDate: isoDate,
+    /** Optional: a car can be booked without any details (shown as "PPF car"). */
+    customerName: optionalText(120),
+    customerMobile: optionalText(25),
+    vehicle: optionalText(160),
+    notes: optionalText(300),
+    /** The car: model and variant (the vehicle line is built from them), engine, chassis and registration numbers. */
+    modelId: Id.optional(),
+    variant: optionalText(160),
+    chassisNo: optionalText(40),
+    engineNo: optionalText(40),
+    registrationNo: optionalText(40),
+    /** Who pitched the PPF and is responsible for it (optional; typed). */
+    salespersonName: optionalText(120),
+    /** The agreed amount (PKR), optional. */
+    amount: Money.nullish(),
+    /** An extra car on a day that is already booked or closed. */
+    extra: z.boolean().optional(),
+    /** Close the day instead of booking a car on it (reopen it by cancelling). */
+    blocked: z.boolean().optional(),
+  })
+  .openapi('PpfSlotBook');
+/** Correct a booking: only what is sent changes (an empty text clears it). */
+export const PpfSlotUpdateBody = z
+  .object({
+    customerName: optionalText(120),
+    customerMobile: optionalText(25),
+    vehicle: optionalText(160),
+    chassisNo: optionalText(40),
+    engineNo: optionalText(40),
+    registrationNo: optionalText(40),
+    salespersonName: optionalText(120),
+    amount: Money.nullish(),
+    notes: optionalText(300),
+  })
+  .partial()
+  .openapi('PpfSlotUpdate');
+export const PpfSlotBookedSchema = z.object({ id: Id, slotDate: z.string(), estimateDate: z.string() }).openapi('PpfSlotBooked');
 /** The customer agreed to Paint Protection Film: what is covered and what it costs. */
 export const PpfFormCreate = z
-  .object({ ...ppfFields, finish: ppfFields.finish.default('gloss'), discount: Money.default('0'), advancePaid: Money.default('0') })
+  .object({
+    ...ppfFields,
+    finish: ppfFields.finish.default('gloss'),
+    discount: Money.default('0'),
+    advancePaid: Money.default('0'),
+    /** The bay day the car comes (a free day of the PPF slots); the estimate date is set 4 working days after it. */
+    slotDate: isoDate.optional(),
+  })
   .openapi('PpfFormCreate');
 export const PpfFormUpdate = z.object(ppfFields).partial().openapi('PpfFormUpdate');
 /** A PPF voucher without a lead: the dealership, the customer's phone and the vehicle (model, variant, colour). */
@@ -576,6 +683,7 @@ export const PpfDocumentSchema = z
     filmBrand: z.string().nullable(),
     finish: z.enum(PPF_FINISHES),
     warrantyYears: z.number().int().nullable(),
+    startDate: z.string().nullable().optional(),
     installationDate: z.string().nullable(),
     pricing: z.object({ amount: z.string(), discount: z.string(), total: z.string(), advancePaid: z.string(), balance: z.string() }),
   })

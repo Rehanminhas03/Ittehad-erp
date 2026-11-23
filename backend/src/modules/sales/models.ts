@@ -58,9 +58,9 @@ export const PPF_FINISHES = ['gloss', 'matte'] as const;
 /** Protection packages (film products) offered: Nenotek Prime, ProSkin (Platinum). */
 export const PPF_PACKAGES = ['nenotek_prime', 'proskin_platinum'] as const;
 /** The PPF voucher's printed fields (in order). Labels can be renamed in the dealership's PPF format. */
-export const PPF_VOUCHER_FIELDS = ['pbo', 'customerName', 'email', 'address', 'phone', 'chassis', 'engine', 'vehicle', 'salesExecutive', 'promiseDate', 'ppf', 'price', 'paid', 'unpaid', 'notes'] as const;
+export const PPF_VOUCHER_FIELDS = ['pbo', 'customerName', 'email', 'address', 'phone', 'chassis', 'engine', 'vehicle', 'salesExecutive', 'startDate', 'promiseDate', 'ppf', 'price', 'paid', 'unpaid', 'notes'] as const;
 /** Fields the format may leave off the voucher (PBO, customer, chassis, engine and the amounts always print). */
-export const PPF_HIDEABLE_FIELDS = ['email', 'phone', 'vehicle', 'salesExecutive', 'promiseDate', 'ppf', 'notes'] as const;
+export const PPF_HIDEABLE_FIELDS = ['email', 'phone', 'vehicle', 'salesExecutive', 'startDate', 'promiseDate', 'ppf', 'notes'] as const;
 // ---- Document formats (letterhead, terms) per dealership ---------------------------------------
 /** Documents whose printed format a dealership can edit.  */
 export const DOCUMENT_KINDS = ['quotation', 'ppf', 'leave'] as const;

@@ -133,7 +133,7 @@ export async function recordBookingPayment(
 export async function requestClearance(ctx: EntityCtx, orderId: number, input: z.output<typeof ClearanceRequestBody>) {
   const o = await orders.findVisible(ctx, orderId, { lock: true });
   if (!ctx.access.canIn(P.deliveriesComplete, targetOf(o)) && !ctx.access.canIn(P.deliveriesSchedule, targetOf(o))) throw forbidden();
-  if (o.status !== 'approved') throw conflict('The Manager has to approve the order first');
+  if (o.status !== 'approved') throw conflict('The order has to be booked first');
   if (o.clearanceStatus === 'requested') throw conflict('Clearance is already requested; the Sales Admin will check it');
   if (o.clearanceStatus === 'approved') throw conflict('This car is already cleared for delivery');
   const car = o.vehicleId ? await ctx.tx.vehicle.findFirst({ where: { id: o.vehicleId as number }, select: { status: true } }) : null;

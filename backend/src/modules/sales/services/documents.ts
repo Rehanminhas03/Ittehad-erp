@@ -18,6 +18,7 @@ import { SalesPerm as P } from '../permissions';
 import type { PpfFormCreate, QuotationCreate, StandalonePpfCreate, StandaloneQuotationCreate } from '../schemas';
 import { loadTemplate } from './templates';
 import { pakistanToday } from '../../../lib/dates';
+import { bookPpfDay, ppfEstimateDate } from './ppfSlots';
 
 const karachiDay = (plusDays = 0) => pakistanToday(plusDays);
 /** Brands whose quotations must state the freight & transit insurance and the withholding tax. */
@@ -167,7 +168,23 @@ async function issuePpf(
   ].filter((x) => !!x);
   if (missing.length) throw validationError(missing);
   const priced = pricePpf({ amount: money2(input.amount), discount: money2(input.discount), advancePaid: money2(input.advancePaid) });
-  return ppfForms.create(ctx, {
+  // The bay day the salesperson picked is booked for the whole group (a day taken meanwhile is refused); the estimate
+  // date is set 4 working days after it.
+  let slotId: number | null = null;
+  if (input.slotDate) {
+    const modelId = standalone?.modelId ?? (l?.interestedModelId as number | null | undefined) ?? null;
+    const model = modelId ? await ctx.tx.vehicleModel.findUnique({ where: { id: modelId }, select: { name: true } }) : null;
+    const vehicle = [model?.name, standalone ? standalone.variant : (l?.variant as string | null), standalone ? standalone.color : (l?.preferredColor as string | null), chassisNo && `Chassis ${chassisNo}`]
+      .filter(Boolean)
+      .join(' · ');
+    const slot = await bookPpfDay(ctx, target.dealershipId, input.slotDate, {
+      customerName: input.customerName,
+      customerMobile: standalone?.customerMobile ?? (l?.prospectMobile as string | null) ?? null,
+      vehicle: vehicle || null,
+    });
+    slotId = slot.id;
+  }
+  const form = await ppfForms.create(ctx, {
     ...target,
     ...priced,
     formNo: await nextDocumentNumber(ctx.tx, target.dealershipId, DocType.ppfForm),
@@ -187,10 +204,14 @@ async function issuePpf(
     filmBrand: input.filmBrand ?? null,
     finish: input.finish,
     warrantyYears: input.warrantyYears ?? null,
-    installationDate: input.installationDate ?? null,
+    startDate: input.slotDate ?? null,
+    bayStatus: input.slotDate ? 'booked' : null,
+    installationDate: input.installationDate ?? (input.slotDate ? ppfEstimateDate(input.slotDate) : null),
     notes: input.notes ?? null,
     extraFields: cleanExtraFields(input.extraFields),
   });
+  if (slotId) await ctx.tx.ppfSlot.update({ where: { id: slotId }, data: { ppfFormId: form.id as number } });
+  return form;
 }
 
 /** The dealership's own voucher fields: filled-in values only. */
@@ -309,6 +330,7 @@ export async function ppfDocument(ctx: EntityCtx, id: number) {
     filmBrand: (f.filmBrand as string | null) ?? null,
     finish: f.finish as 'gloss',
     warrantyYears: (f.warrantyYears as number | null) ?? null,
+    startDate: (f.startDate as string | null) ?? null,
     installationDate: (f.installationDate as string | null) ?? null,
     pricing: {
       amount: f.amount as string,

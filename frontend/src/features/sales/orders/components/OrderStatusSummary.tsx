@@ -4,10 +4,10 @@ import { useGetOrderSummaryQuery } from '../../salesApi';
 
 /** The strip's chips: Processing (raised, not yet delivered, as the lead shows it), then each status. */
 const CHIPS = [
-  { key: 'processing', label: 'Processing', hint: 'Raised and not yet delivered (draft, submitted or approved)' },
-  { key: 'draft', label: 'Draft', hint: 'Raised by the Admin, not yet submitted' },
-  { key: 'submitted', label: 'Awaiting approval', hint: "Submitted for the Manager's approval" },
-  { key: 'approved', label: 'Approved', hint: 'Approved by the Manager: the car is on its way to delivery' },
+  { key: 'processing', label: 'Processing', hint: 'Raised and not yet delivered' },
+  { key: 'draft', label: 'Draft', hint: 'Raised before orders were booked directly' },
+  { key: 'submitted', label: 'Submitted', hint: 'Raised before orders were booked directly' },
+  { key: 'approved', label: 'Booked', hint: 'Booked (partial payment) or ordered (full payment): the car is on its way to delivery' },
   { key: 'delivered', label: 'Delivered', hint: 'Handed over to the customer' },
   { key: 'cancelled', label: 'Cancelled', hint: 'Cancelled orders' },
 ] as const;
@@ -51,7 +51,7 @@ export function OrderStatusSummary({ query, periodLabel }: { query: Record<strin
         <span className="text-[13px] whitespace-nowrap text-slate-600">total orders · {periodLabel}</span>
       </button>
       <span className="mx-1 h-6 w-px shrink-0 bg-slate-300/70" aria-hidden />
-      {CHIPS.filter((c) => c.key === 'processing' || c.key === 'submitted' || c.key === 'approved' || (data.byStatus[c.key] ?? 0) > 0).map((c) => {
+      {CHIPS.filter((c) => c.key === 'processing' || c.key === 'approved' || (data.byStatus[c.key] ?? 0) > 0).map((c) => {
         const n = c.key === 'processing' ? data.processing : (data.byStatus[c.key] ?? 0);
         return (
           <button key={c.key} type="button" onClick={() => choose(c.key)} className={chip(active === c.key)} aria-pressed={active === c.key} title={c.hint}>

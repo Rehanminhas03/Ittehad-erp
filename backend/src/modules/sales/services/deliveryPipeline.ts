@@ -40,8 +40,8 @@ const STAGE = sql`case
   else 'waiting' end`;
 
 /** When the Manager approved the order (its latest approval). */
-const APPROVED_AT = sql`(select max(wt.occurred_at) from core.workflow_transition wt
-  where wt.entity_type = 'sales.order' and wt.entity_id = ${salesOrder.id} and wt.to_state = 'approved')`;
+const APPROVED_AT = sql`coalesce((select max(wt.occurred_at) from core.workflow_transition wt
+  where wt.entity_type = 'sales.order' and wt.entity_id = ${salesOrder.id} and wt.to_state = 'approved'), ${salesOrder.createdAt})`;
 
 const FROM = sql`${salesOrder}
   join ${dealership} on ${dealership.id} = ${salesOrder.dealershipId}

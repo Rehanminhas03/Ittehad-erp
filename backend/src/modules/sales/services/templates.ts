@@ -120,7 +120,7 @@ const JETOUR_QUOTATION: Fields = {
   highlightLine: null,
   standardEquipment: 'As per Brochure',
   terms: [
-    '**VALIDITY:** This Quotation is valid for {validityDays} Working Days',
+    '**VALIDITY:** This Quotation is valid for {validityDaysPlain} Days',
     '# DELIVERY',
     '- Delivery Times are only Tentative and as communicated by JETOUR Pakistan',
     '- Delivery Period as of Today (Tentative)**:** {deliveryPeriod}',

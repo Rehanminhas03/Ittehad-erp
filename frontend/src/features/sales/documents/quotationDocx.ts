@@ -1,5 +1,5 @@
 import type { QuotationDocument } from '../salesApi';
-import { fillTemplateLine, freightLabel, hasSectionedTerms, quotationColourLine, quotationEmployeeLine, quotationVehicleLine, type TemplateContext } from './pdf';
+import { fillTemplateLine, freightLabel, hasSectionedTerms, quotationColourLine, quotationEmployeeLine, quotationVehicleLine, standardEquipmentInTable, type TemplateContext } from './pdf';
 
 const num = (v: string | number | null | undefined) => Number(v ?? 0).toLocaleString('en-PK', { maximumFractionDigits: 2 });
 const longDate = (d: string | Date) => {
@@ -18,7 +18,7 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
   // Jetour's and Hyundai's quotations are in the same format: the clauses are sections of the template.
 
   const FONT = 'Arial';
-  const run = (text: string, o: { bold?: boolean; size?: number; italics?: boolean; color?: string } = {}) => new TextRun({ text, font: FONT, size: (o.size ?? 10) * 2, bold: o.bold, italics: o.italics, color: o.color });
+  const run = (text: string, o: { bold?: boolean; size?: number; italics?: boolean; color?: string; underline?: boolean } = {}) => new TextRun({ text, font: FONT, size: (o.size ?? 10) * 2, bold: o.bold, italics: o.italics, color: o.color, underline: o.underline ? {} : undefined });
   const para = (children: InstanceType<typeof TextRun>[], o: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; after?: number; before?: number; indent?: number } = {}) =>
     new Paragraph({ children, alignment: o.align, spacing: { after: o.after ?? 60, before: o.before ?? 0 }, indent: o.indent ? { left: o.indent } : undefined });
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
@@ -30,7 +30,7 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
   const sectioned = hasSectionedTerms(q);
   const vehicleLine = quotationVehicleLine(q);
   const qty = q.pricing.quantity;
-  const items: { label: string; unit: number; sub?: string }[] = [{ label: vehicleLine, unit: Number(q.pricing.unitPrice), sub: [quotationColourLine(q), quotationColourLine(q) && t.standardEquipment ? `Standard Equipment: ${t.standardEquipment}` : null, 'EX FACTORY'].filter(Boolean).join('\n') }];
+  const items: { label: string; unit: number; sub?: string }[] = [{ label: vehicleLine, unit: Number(q.pricing.unitPrice), sub: [quotationColourLine(q), quotationColourLine(q) && standardEquipmentInTable(q) && t.standardEquipment ? `Standard Equipment: ${t.standardEquipment}` : null, 'EX FACTORY'].filter(Boolean).join('\n') }];
   if (Number(q.pricing.discount) > 0) items.push({ label: 'LESS: DISCOUNT', unit: -Number(q.pricing.discount) });
   const has = (v: string | null | undefined) => v != null && v !== '';
   if (has(q.pricing.freightInsurance)) items.push({ label: freightLabel(q), unit: Number(q.pricing.freightInsurance) });
@@ -49,12 +49,15 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
       children,
     });
   const centred = (text: string, o: { bold?: boolean; size?: number } = {}) => para([run(text, { bold: o.bold, size: o.size ?? 9.5 })], { align: AlignmentType.CENTER, after: 0 });
+  // These table changes are Jetour's only (Hyundai's quotation keeps its layout).
+  const jet = q.dealership.brand === 'Jetour' || q.dealership.code.startsWith('JET');
+  const leftAligned = (text: string) => (jet ? para([run(text, { size: 9.5 })], { align: AlignmentType.LEFT, after: 0 }) : centred(text));
   const rows: InstanceType<typeof TableRow>[] = [
     new TableRow({
       tableHeader: true,
       children: [
         cell([centred('SR', { bold: true, size: 9 })], 0, { shade: true }),
-        cell([centred(q.billTo || q.customer.name, { bold: true, size: 10 })], 1, { shade: true }),
+        cell([centred(jet ? 'VEHICLE DESCRIPTION' : q.billTo || q.customer.name, { bold: true, size: jet ? 9 : 10 })], 1, { shade: true }),
         cell([centred('QTY', { bold: true, size: 9 })], 2, { shade: true }),
         cell([centred('UNIT PRICE (Rs.)', { bold: true, size: 9 })], 3, { shade: true }),
         cell([centred('TOTAL PRICE (Rs.)', { bold: true, size: 9 })], 4, { shade: true }),
@@ -65,10 +68,10 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
         new TableRow({ cantSplit: true,
           children: [
             cell([centred(String(i + 1))], 0),
-            cell([centred(it.label), ...(it.sub ? it.sub.split('\n').map((s) => centred(s)) : [])], 1),
+            cell([leftAligned(it.label), ...(it.sub ? it.sub.split('\n').map((s) => leftAligned(s)) : [])], 1),
             cell([centred(String(qty))], 2),
-            cell([centred(num(it.unit))], 3),
-            cell([centred(num(it.unit * qty))], 4),
+            cell([centred(num(it.unit)), ...(jet && i === 0 ? [para([run('(ex factory)', { size: 7, color: '666666' })], { align: AlignmentType.CENTER, after: 0 })] : [])], 3),
+            cell([centred(num(it.unit * qty)), ...(jet && i === 0 ? [para([run('(ex factory)', { size: 7, color: '666666' })], { align: AlignmentType.CENTER, after: 0 })] : [])], 4),
           ],
         }),
     ),
@@ -163,10 +166,12 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
         children: [
           para([run('QUOTATION', { bold: true, size: 16 })], { align: AlignmentType.CENTER, after: 80 }),
           para([run(`Date: ${longDate(q.issuedAt)}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, after: 60 }),
+          ...(jet ? [para([run('Customer Name: ', { bold: true, size: 10.5, color: '555555' }), run(q.customer.name, { bold: true, size: 10.5, underline: true })], { after: q.billTo && q.billTo.trim() !== q.customer.name.trim() ? 0 : 60 })] : []),
+          ...(jet && q.billTo && q.billTo.trim() && q.billTo.trim() !== q.customer.name.trim() ? [para([run('Quotation required for: ', { bold: true, size: 10.5, color: '555555' }), run(q.billTo.trim(), { bold: true, size: 10.5 })], { after: 60 })] : []),
           ...(q.notes ? [para([run(`Note: ${q.notes}`, { size: 11 })], { align: AlignmentType.CENTER, before: 80, after: 120 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
           priceTable,
           ...(quotationEmployeeLine(q) ? [para([run(quotationEmployeeLine(q)!, { bold: true, size: 9 })], { before: 80, after: 40 })] : []),
-          ...(sectioned && t.standardEquipment && !quotationColourLine(q) ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
+          ...(sectioned && t.standardEquipment && !standardEquipmentInTable(q) ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
           ...terms,
           new Paragraph({ spacing: { after: 60 }, children: [] }),
           sign,

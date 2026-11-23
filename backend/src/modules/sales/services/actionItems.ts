@@ -35,35 +35,14 @@ export async function actionItems(ctx: EntityCtx): Promise<ActionItem[]> {
   const add = (item: Omit<ActionItem, 'count'>, n: number) => {
     if (n > 0) items.push({ ...item, count: n });
   };
-  const awaitingApproval = sql`${salesOrder.status} in ('draft', 'submitted')`;
 
-  // ---- Sales Manager: approvals ----
-  if (access.hasAny([P.ordersApprove])) {
-    const scope = orders.viewCondition(access);
-    add(
-      { key: 'approve-ready', title: 'Cars are ready for delivery but the order still needs your approval', to: '/sales/orders?awaitingApproval=true&vehicleStage=ready_for_delivery', urgent: true },
-      await countOf(salesOrder, and(scope, awaitingApproval, carIs('ready_for_delivery', salesOrder.vehicleId))),
-    );
-    add(
-      { key: 'approve', title: 'Sales orders waiting for your approval', to: '/sales/orders?awaitingApproval=true', urgent: false },
-      await countOf(salesOrder, and(scope, awaitingApproval)),
-    );
-  }
-
-  // ---- Sales Admin: orders to raise / submit ----
+  // ---- Sales Admin: orders to raise ----
   if (access.hasAny([P.ordersCreate])) {
     add(
       { key: 'raise-order', title: 'Converted leads need a sales order', to: '/sales/leads?status=converted&range=all', urgent: false },
       await countOf(lead, and(leads.viewCondition(access), eq(lead.status, 'converted'))),
     );
   }
-  if (access.hasAny([P.ordersSubmit])) {
-    add(
-      { key: 'submit-order', title: 'Draft sales orders to submit for approval', to: '/sales/orders?status=draft', urgent: false },
-      await countOf(salesOrder, and(orders.viewCondition(access), eq(salesOrder.status, 'draft'))),
-    );
-  }
-
   // ---- Delivery Team: cars to hand over / find ----
   if (access.hasAny([P.ordersAllocate])) {
     const scope = orders.viewCondition(access);

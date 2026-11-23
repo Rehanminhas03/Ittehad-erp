@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { NewServiceButton, ServicePermissions as SvcP } from '@/features/service';
-import { SalesDashboard, SalesPermissions as SP } from '@/features/sales';
+import { PpfDashboard, SalesDashboard, SalesPermissions as SP } from '@/features/sales';
 import { Button, PageHeader } from '@/shared/components/ui';
 import { isModuleEnabled } from '@/shared/config';
 import { useAuth, usePermission } from '@/shared/hooks';
@@ -28,6 +28,8 @@ const SALES_VIEWS = [
  */
 export default function DashboardPage() {
   const perm = usePermission();
+  // The PPF team's home: the bay dashboard (cars in the bay, booked ahead, free days).
+  if (isModuleEnabled('sales') && perm.can(SP.ppfSlots)) return <PpfDashboard />;
   if (isModuleEnabled('sales') && perm.can(SALES_VIEWS)) return <SalesDashboard />;
   return <GeneralDashboard />;
 }

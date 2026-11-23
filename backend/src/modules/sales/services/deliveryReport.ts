@@ -30,9 +30,10 @@ interface Counts {
 }
 const ZERO: Counts = { thisMonth: 0, thisYear: 0, last30Days: 0, allTime: 0, inPeriod: 0, scheduled: 0, avgDaysToDeliver: null };
 
-/** The day the order was approved (its latest approval), in Pakistan time. */
-const APPROVED_ON = sql`((select max(wt.occurred_at) from core.workflow_transition wt
-  where wt.entity_type = 'sales.order' and wt.entity_id = ${delivery.salesOrderId} and wt.to_state = 'approved') at time zone 'Asia/Karachi')::date`;
+/** The day the order was booked (its latest approval, else when it was raised), in Pakistan time. */
+const APPROVED_ON = sql`(coalesce((select max(wt.occurred_at) from core.workflow_transition wt
+  where wt.entity_type = 'sales.order' and wt.entity_id = ${delivery.salesOrderId} and wt.to_state = 'approved'),
+  (select so.created_at from sales.sales_order so where so.id = ${delivery.salesOrderId})) at time zone 'Asia/Karachi')::date`;
 const AVG_DAYS = sql`round(avg(${delivery.deliveredOn} - ${APPROVED_ON})::numeric, 1)::float8`;
 
 export async function deliveryReport(ctx: EntityCtx, q: z.output<typeof DeliveryReportQuery>) {

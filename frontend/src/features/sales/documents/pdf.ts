@@ -86,6 +86,7 @@ export function fillTemplateLine(line: string, c: TemplateContext): string | nul
     .replaceAll('{vehicle}', c.vehicle)
     .replaceAll('{nonFilerTax}', c.nonFilerTax ?? '')
     .replaceAll('{validityDays}', String(c.validityDays).padStart(2, '0'))
+    .replaceAll('{validityDaysPlain}', String(c.validityDays))
     .replaceAll('{deliveryStation}', c.deliveryStation)
     .replaceAll('{dealership}', c.dealership)
     .replaceAll('{advancePercent}', c.advancePercent ?? '')
@@ -581,10 +582,10 @@ export function quotationVehicleLine(q: QuotationDocument) {
   const brand = q.dealership.brand.toUpperCase();
   return text.startsWith(brand) ? text : `${brand} ${text}`;
 }
-/**
- * Jetour: "Exterior: White, Interior: Black" when a colour was entered (either or both), else null. With a colour the
- * "Standard Equipment" line moves into the vehicle cell of the table; without one it stays under the table.
- */
+/** Jetour: the "Standard Equipment" line goes inside the vehicle cell only when an interior colour is entered; otherwise it stays under the table, on the right. */
+export const standardEquipmentInTable = (q: Pick<QuotationDocument, 'interiorColor'>) => !!q.interiorColor;
+
+/** Jetour: "Exterior: White, Interior: Black" when a colour was entered (either or both), else null. */
 export function quotationColourLine(q: Pick<QuotationDocument, 'vehicle' | 'interiorColor'>) {
   const parts = [q.vehicle.color && `Exterior: ${q.vehicle.color}`, q.interiorColor && `Interior: ${q.interiorColor}`].filter(Boolean) as string[];
   return parts.length ? parts.join(', ') : null;
@@ -647,6 +648,34 @@ export function jetourVehicleLine(model: string, variant: string | null | undefi
   return `JETOUR ${base.toUpperCase().replace(/\bI-DM\b/g, 'i-DM')}`;
 }
 
+/** The small dark icons before the letterhead's address, phone and e-mail lines (drawn with shapes, about 3.4 mm). */
+function jetourIcon(doc: Page['doc'], kind: 'pin' | 'phone' | 'mail' | 'dot', cx: number, cy: number) {
+  doc.setFillColor(70, 70, 70);
+  doc.setDrawColor(70, 70, 70);
+  if (kind === 'pin') {
+    doc.circle(cx, cy - 0.5, 1.35, 'F');
+    doc.triangle(cx - 1.2, cy + 0.25, cx + 1.2, cy + 0.25, cx, cy + 1.95, 'F');
+    doc.setFillColor(255, 255, 255);
+    doc.circle(cx, cy - 0.5, 0.5, 'F');
+  } else if (kind === 'phone') {
+    doc.roundedRect(cx - 1, cy - 1.6, 2, 3.2, 0.4, 0.4, 'F');
+    doc.setFillColor(255, 255, 255);
+    doc.rect(cx - 0.7, cy - 1.15, 1.4, 1.9, 'F');
+    doc.circle(cx, cy + 1.05, 0.2, 'F');
+  } else if (kind === 'mail') {
+    doc.rect(cx - 1.6, cy - 1.05, 3.2, 2.1, 'F');
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.25);
+    doc.line(cx - 1.6, cy - 1.05, cx, cy + 0.25);
+    doc.line(cx + 1.6, cy - 1.05, cx, cy + 0.25);
+    doc.setLineWidth(0.25);
+  } else {
+    doc.circle(cx, cy, 1.5, 'F');
+  }
+  doc.setFillColor(0, 0, 0);
+  doc.setDrawColor(0, 0, 0);
+}
+
 /**
  * Jetour Ittehad's layout (its Dashing / X70 and T2 i-DM quotations): letterhead with the contact
  * lines and the JETOUR logo, QUOTATION with the date, the quotation's note under it, the bill-to name
@@ -669,8 +698,8 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   let y = 23;
   const contact = [t.address, t.phone, t.email, t.tagline].filter(Boolean) as string[];
   for (const line of contact) {
-    doc.setFillColor(70, 70, 70);
-    doc.circle(M + 2.6, y - 1.1, 1.5, 'F');
+    // An icon for the address (location pin), the phone and the e-mail; any other line keeps the dot.
+    jetourIcon(doc, line === t.address ? 'pin' : line === t.phone ? 'phone' : line === t.email ? 'mail' : 'dot', M + 2.6, y - 1.1);
     p.font(8.5, 'bold');
     const parts = doc.splitTextToSize(line, 72) as string[];
     parts.forEach((part, i) => doc.text(part, M + 6, y + i * 3.9));
@@ -689,13 +718,36 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   }
 
   // ---- Title, date and the quotation's note -------------------------------------------------------------
-  p.y = ruleY + 11 + 6 * ts;
+  p.y = ruleY + 8 + 6 * ts;
   p.font(16, 'bold');
   doc.text('QUOTATION', W / 2, p.y, { align: 'center' });
-  p.y += 5 + 4 * ts;
+  p.y += 8 + 4 * ts;
   p.font(9, 'bold');
-  doc.text(`Date: ${longDate(q.issuedAt)}`, W - M - 2, p.y, { align: 'right' });
-  p.y += 3 + 3 * ts;
+  // The date sits a little lower than the customer name line, nearer the table.
+  doc.text(`Date: ${longDate(q.issuedAt)}`, W - M - 2, p.y + 3.5, { align: 'right' });
+  // Left, level with the date: the customer, and the name the quotation is required for (when typed).
+  // "Customer Name:" in dark grey, the name itself in black and underlined.
+  p.font(10.5, 'bold');
+  const label = 'Customer Name: ';
+  doc.setTextColor(85, 85, 85);
+  // A little lower than the date line's start, so the name sits further from the QUOTATION title.
+  const nameY = p.y + 2;
+  doc.text(label, M + 1, nameY);
+  doc.setTextColor(...ink);
+  const nameX = M + 1 + doc.getTextWidth(label);
+  doc.text(q.customer.name, nameX, nameY);
+  doc.setLineWidth(0.3);
+  doc.line(nameX, nameY + 1, nameX + doc.getTextWidth(q.customer.name), nameY + 1);
+  doc.setLineWidth(0.25);
+  if (q.billTo && q.billTo.trim() && q.billTo.trim() !== q.customer.name.trim()) {
+    p.y += 5;
+    const forLabel = 'Quotation required for: ';
+    doc.setTextColor(85, 85, 85);
+    doc.text(forLabel, M + 1, p.y + 2);
+    doc.setTextColor(...ink);
+    doc.text(q.billTo.trim(), M + 1 + doc.getTextWidth(forLabel), p.y + 2);
+  }
+  p.y += 6 + 3 * ts;
   if (q.notes) {
     p.font(11.5);
     for (const l of doc.splitTextToSize(`Note: ${q.notes}`, CW - 20) as string[]) {
@@ -715,14 +767,14 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   };
 
   // Header: the bill-to name (e.g. the bank on the customer's account) heads the description column.
-  p.font(9.5, 'bold');
-  const who = doc.splitTextToSize(q.billTo || q.customer.name, cols[1]! - 4) as string[];
-  const headH = Math.max(6.2 + 3 * ts, 3.4 + who.length * 4.2);
+  // A larger text size (k above 1) also makes the table rows a little taller.
+  const grow = Math.max(1, k);
+  const headH = (6.2 + 3 * ts) * grow;
   rowBox(headH);
-  who.forEach((l, i) => centre(l, 1, p.y + (headH - who.length * 4.2) / 2 + 3.3 + i * 4.2));
   p.font(9, 'bold');
   const hMid = p.y + headH / 2 + 1.4;
   centre('SR', 0, hMid);
+  centre('VEHICLE DESCRIPTION', 1, hMid);
   centre('QTY', 2, hMid);
   centre('UNIT PRICE (Rs.)', 3, hMid);
   centre('TOTAL PRICE (Rs.)', 4, hMid);
@@ -742,19 +794,27 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     const lines = doc.splitTextToSize(label, cols[1]! - 4) as string[];
     const exFactory = i === 0; // the colours, the standard equipment and "EX FACTORY" under the vehicle
     const colourLine = quotationColourLine(q);
-    const sub: string[] = exFactory ? [...(colourLine ? [colourLine] : []), ...(colourLine && t.standardEquipment ? [`Standard Equipment: ${t.standardEquipment}`] : []), 'EX FACTORY'] : [];
+    const sub: string[] = exFactory ? [...(colourLine ? [colourLine] : []), ...(colourLine && standardEquipmentInTable(q) && t.standardEquipment ? [`Standard Equipment: ${t.standardEquipment}`] : []), 'EX FACTORY'] : [];
     const n = lines.length + sub.length;
-    const h = Math.max(5.8 + 2.6 * ts, 2.4 + 1.4 * ts + n * 4);
+    const h = Math.max((5.8 + 2.6 * ts) * grow, 2.4 + 1.4 * ts + n * 4);
     rowBox(h);
     const top = p.y + h / 2 - ((n - 1) * 4) / 2 + 1.2;
-    lines.forEach((l, j) => centre(l, 1, top + j * 4));
+    lines.forEach((l, j) => doc.text(l, xs[1]! + 3, top + j * 4));
     p.font(9.5);
-    sub.forEach((l, j) => centre(l, 1, top + (lines.length + j) * 4));
+    sub.forEach((l, j) => doc.text(l, xs[1]! + 3, top + (lines.length + j) * 4));
     const mid = p.y + h / 2 + 1.2;
     centre(String(i + 1), 0, mid);
     centre(String(qty), 2, mid);
-    centre(num(unit), 3, mid);
-    centre(num(unit * qty), 4, mid);
+    centre(num(unit), 3, mid - (exFactory ? 1.6 : 0));
+    centre(num(unit * qty), 4, mid - (exFactory ? 1.6 : 0));
+    if (exFactory) {
+      p.font(7);
+      doc.setTextColor(...muted);
+      centre('(ex factory)', 3, mid + 2.4);
+      centre('(ex factory)', 4, mid + 2.4);
+      doc.setTextColor(...ink);
+      p.font(9);
+    }
     p.y += h;
   });
   if (q.pricing.bookingAmount && Number(q.pricing.bookingAmount) > 0) {
@@ -763,7 +823,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     centre(`Booking Price (${num(q.pricing.bookingAmount)})`, 1, p.y + 5.4);
     p.y += 8;
   }
-  const th = 5.8 + 2 * ts;
+  const th = (5.8 + 2 * ts) * grow;
   rowBox(th);
   p.font(10, 'bold');
   centre('TOTAL', 1, p.y + th / 2 + 1.45);
@@ -777,8 +837,8 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
     p.font(8.6 * k, 'bold');
     doc.text(employeeLine, M, lineY);
   }
-  // Without a colour the standard equipment stays under the table; with one it is in the table.
-  if (t.standardEquipment && !quotationColourLine(q)) {
+  // The standard equipment is in the table only with an interior colour; otherwise it stays under the table.
+  if (t.standardEquipment && !standardEquipmentInTable(q)) {
     p.font(8.6 * k, 'bold');
     doc.text(`*Standard Equipment: ${t.standardEquipment}`, W - M, p.y + 3.6 * k, { align: 'right' });
   }
@@ -804,7 +864,7 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   const withStamp = !letterheadPaper && !!(t.signatureImage || t.stampImage || fallback);
   p.y += withStamp ? 26 : 5;
   // On letterhead paper only the stamp & signature line is drawn (the rest is printed on the paper).
-  p.ensure(letterheadPaper ? 12 : withStamp ? 38 * stampScale : 30);
+  p.ensure(letterheadPaper ? 1 : withStamp ? 38 * stampScale : 30);
   const top = p.y;
   const cx = M + 22;
   // "Owned & Operated by: Ittehad Motors" is printed on the letterhead paper.
@@ -825,7 +885,8 @@ async function drawJetourQuotation(q: QuotationDocument, k: number, letterheadPa
   // Full page: the stamp and the Manager's signature just above "STAMP & SIGNATURE", as signed by hand.
   if (withStamp) await stampAndSignature(p, t, W - M - 4, top + 14, 'right', fallback, true, stampScale * 1.45);
   p.font(12);
-  doc.text('STAMP & SIGNATURE', W - M - 8, top + (letterheadPaper ? 10 : 16), { align: 'right' });
+  // On letterhead paper the line sits in the footer area of the page (right side, beside the printed Owned & Operated by), with the blank page above it to sign and stamp; the text above it keeps its size.
+  doc.text('STAMP & SIGNATURE', W - M - 8, letterheadPaper ? Math.max(top + 10, LETTERHEAD_BOTTOM + 22) : top + 16, { align: 'right' });
 
   if (!letterheadPaper) footer(p, q.quotationNo);
   doc.setProperties({ title: `Quotation ${q.quotationNo}`, subject: `${vehicleLine} for ${q.billTo || q.customer.name}`, author: t.companyName });
@@ -1070,7 +1131,7 @@ const PPF_STANDARD_TERMS = [
   'WITH REGARDS TO WINDOWFILM, 10% MARGIN OF CONTAMINATION IS ACCEPTED. THIS PRIMARILY INCLUDES DUST BUBBLES.',
 ];
 
-/** The PPF voucher: customer, vehicle, sales executive, promise date, price / paid / un-paid, manager sign. */
+/** The PPF voucher: customer, vehicle, sales executive, estimate date, price / paid / un-paid, manager sign. */
 export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   const p = await newPage();
   const { doc } = p;
@@ -1112,6 +1173,7 @@ export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
     engine: [f.vehicle.engineNo],
     vehicle: [[f.vehicle.model, f.vehicle.variant, f.vehicle.color].filter(Boolean).join(' · ')],
     salesExecutive: [[f.salesperson.name, f.salesperson.phone].filter(Boolean).join('  ·  ')],
+    startDate: [f.startDate ? shortDate(f.startDate) : null],
     promiseDate: [f.installationDate ? shortDate(f.installationDate) : null],
     ppf: [film],
     price: [`${pkr(f.pricing.total)}${discount}`, true],
@@ -1122,7 +1184,7 @@ export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   // Rows in print order; the dealership's own fields come after the PPF details, before the amounts.
   const rows: { label: string; value: string | null; bold?: boolean; gapBefore?: number }[] = [];
   for (const { key } of PPF_VOUCHER_FIELDS) {
-    if (hidden.has(key) || (key === 'notes' && !f.notes)) continue;
+    if (hidden.has(key) || (key === 'notes' && !f.notes) || (key === 'startDate' && !f.startDate)) continue;
     if (key === 'price') for (const name of t.customFields ?? []) rows.push({ label: name, value: f.extraFields[name] ?? null });
     const [value, bold] = values[key];
     rows.push({ label: label(key), value, bold, gapBefore: key === 'customerName' ? 2 : key === 'price' ? 3 : 0 });
@@ -1152,7 +1214,6 @@ export async function buildPpfPdf(f: PpfDocument): Promise<BuiltPdf> {
   // The manager's signature at the foot of the first page.
   p.y = Math.max(p.y + 10, 284 - t.signOff.length * (step + 3));
   for (const sign of t.signOff) field(sign, null);
-  footer(p, f.formNo);
 
   // Page 2: the terms and conditions (the format's own, else the standard PPF ones) and the signatures.
   doc.addPage();

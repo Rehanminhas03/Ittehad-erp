@@ -114,7 +114,7 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
 
   const status = order.vehicleStatus;
   const step = status ? VEHICLE_PIPELINE.indexOf(status as (typeof VEHICLE_PIPELINE)[number]) : -1;
-  // In transit comes after the Manager's approval.
+  // In transit needs a booked order.
   const nextStep = step >= 0 && step < VEHICLE_PIPELINE.length - 1 ? VEHICLE_PIPELINE[step + 1] : null;
   const next = nextStep === 'in_transit' && order.status !== 'approved' ? null : nextStep;
 
@@ -137,15 +137,10 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
 
   return (
     <Section compact title="Logistics">
-      {order.status !== 'approved' && (
-        <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Booked, waiting for the Manager's approval. You can already allocate the car; it goes in transit and is handed over after approval.
-        </p>
-      )}
       {order.vehicleId ? (
         <div className="space-y-4 text-sm">
           <Pipeline status={status} />
-          {/* Ready: hand the car over (after the Manager's approval). */}
+          {/* Ready: hand the car over. */}
           {status === 'ready_for_delivery' &&
             (order.status === 'approved' ? (
               perm.canIn(P.deliveriesComplete, order.dealershipId, order.branchId) && (
@@ -158,7 +153,7 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
               )
             ) : (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
-                The car is ready. It can be handed over once the Manager approves the order.
+                The car is ready, but this order is not booked.
               </p>
             ))}
           <div className="flex flex-wrap items-center gap-2">

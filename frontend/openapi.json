@@ -4628,6 +4628,10 @@
               "type": "string",
               "maxLength": 200
             }
+          },
+          "slotDate": {
+            "type": "string",
+            "format": "date"
           }
         },
         "required": [
@@ -5393,12 +5397,13 @@
                 "phone",
                 "vehicle",
                 "salesExecutive",
+                "startDate",
                 "promiseDate",
                 "ppf",
                 "notes"
               ]
             },
-            "maxItems": 7,
+            "maxItems": 8,
             "default": []
           },
           "customFields": {
@@ -5687,6 +5692,10 @@
             "type": "integer",
             "nullable": true
           },
+          "startDate": {
+            "type": "string",
+            "nullable": true
+          },
           "installationDate": {
             "type": "string",
             "nullable": true
@@ -5744,6 +5753,333 @@
           "installationDate",
           "pricing"
         ]
+      },
+      "PpfSlots": {
+        "type": "object",
+        "properties": {
+          "canManage": {
+            "type": "boolean"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "booked": {
+                  "type": "boolean"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "estimateDate": {
+                  "type": "string"
+                },
+                "bookingId": {
+                  "type": "integer",
+                  "nullable": true,
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                },
+                "customerName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "customerMobile": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "vehicle": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "formNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "dealershipName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "bookedByName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "blocked": {
+                  "type": "boolean"
+                },
+                "receivedOn": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "finishedOn": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "past": {
+                  "type": "boolean"
+                },
+                "salespersonName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "chassisNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "engineNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "registrationNo": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "amount": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "extras": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "bookingId": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "exclusiveMinimum": true
+                      },
+                      "customerName": {
+                        "type": "string"
+                      },
+                      "customerMobile": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "vehicle": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "salespersonName": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "chassisNo": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "engineNo": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "registrationNo": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "amount": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "dealershipName": {
+                        "type": "string",
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "bookingId",
+                      "customerName",
+                      "customerMobile",
+                      "vehicle",
+                      "salespersonName",
+                      "chassisNo",
+                      "engineNo",
+                      "registrationNo",
+                      "amount",
+                      "dealershipName"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "date",
+                "booked",
+                "mine",
+                "estimateDate",
+                "bookingId",
+                "customerName",
+                "customerMobile",
+                "vehicle",
+                "formNo",
+                "dealershipName",
+                "bookedByName",
+                "blocked",
+                "receivedOn",
+                "finishedOn",
+                "past",
+                "salespersonName",
+                "chassisNo",
+                "engineNo",
+                "registrationNo",
+                "amount",
+                "extras"
+              ]
+            }
+          }
+        },
+        "required": [
+          "canManage",
+          "days"
+        ]
+      },
+      "PpfSlotBooked": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "slotDate": {
+            "type": "string"
+          },
+          "estimateDate": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slotDate",
+          "estimateDate"
+        ]
+      },
+      "PpfSlotBook": {
+        "type": "object",
+        "properties": {
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "slotDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "customerMobile": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 25
+          },
+          "vehicle": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "modelId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "variant": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "chassisNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "engineNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "registrationNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "salespersonName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "amount": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "extra": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dealershipId",
+          "slotDate"
+        ]
+      },
+      "PpfSlotUpdate": {
+        "type": "object",
+        "properties": {
+          "customerName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "customerMobile": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 25
+          },
+          "vehicle": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "chassisNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "engineNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "registrationNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "salespersonName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "amount": {
+            "type": "string",
+            "example": "1250000.00"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          }
+        }
       },
       "DocumentTemplateUpdate": {
         "type": "object",
@@ -5873,12 +6209,13 @@
                 "phone",
                 "vehicle",
                 "salesExecutive",
+                "startDate",
                 "promiseDate",
                 "ppf",
                 "notes"
               ]
             },
-            "maxItems": 7,
+            "maxItems": 8,
             "default": []
           },
           "customFields": {
@@ -10410,6 +10747,28 @@
           },
           "advancePaid": {
             "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "bayStatus": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "booked",
+              "received",
+              "done",
+              null
+            ]
+          },
+          "receivedOn": {
+            "type": "string",
+            "nullable": true
+          },
+          "finishedOn": {
+            "type": "string",
+            "nullable": true
           },
           "installationDate": {
             "type": "string",
@@ -29117,6 +29476,28 @@
                     "advancePaid": {
                       "type": "string"
                     },
+                    "startDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "bayStatus": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "booked",
+                        "received",
+                        "done",
+                        null
+                      ]
+                    },
+                    "receivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "finishedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "installationDate": {
                       "type": "string",
                       "nullable": true
@@ -31535,6 +31916,28 @@
                     "advancePaid": {
                       "type": "string"
                     },
+                    "startDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "bayStatus": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "booked",
+                        "received",
+                        "done",
+                        null
+                      ]
+                    },
+                    "receivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "finishedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "installationDate": {
                       "type": "string",
                       "nullable": true
@@ -31677,6 +32080,498 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PpfDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/ppf-slots": {
+      "get": {
+        "operationId": "listPpfSlots",
+        "summary": "The bay days from today: free or booked (who booked it only for the PPF team), with the estimate date of a car starting that day",
+        "description": "Requires: sales.ppf.view_all | sales.ppf.view_own | sales.ppf.create | sales.ppf.slots",
+        "tags": [
+          "PpfSlot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "dealershipId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90,
+              "default": 21
+            },
+            "required": false,
+            "name": "days",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0,
+              "maximum": 14,
+              "default": 0
+            },
+            "required": false,
+            "name": "back",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpfSlots"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "bookPpfSlot",
+        "summary": "Book a car into the bay directly (a car from our own reference) on a free day",
+        "description": "Requires: sales.ppf.slots",
+        "tags": [
+          "PpfSlot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PpfSlotBook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpfSlotBooked"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/ppf-slots/{id}": {
+      "patch": {
+        "operationId": "updatePpfSlot",
+        "summary": "Correct the details of a booking (customer, car, numbers, salesperson, amount)",
+        "description": "Requires: sales.ppf.slots",
+        "tags": [
+          "PpfSlot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PpfSlotUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "cancelPpfSlot",
+        "summary": "Cancel a booking and free the day",
+        "description": "Requires: sales.ppf.slots",
+        "tags": [
+          "PpfSlot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/ppf-slots/{id}/receive": {
+      "post": {
+        "operationId": "receivePpfSlot",
+        "summary": "The PPF team marks that the car has come to the bay; the salesperson of its voucher sees the status",
+        "description": "Requires: sales.ppf.slots",
+        "tags": [
+          "PpfSlot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/ppf-slots/{id}/finish": {
+      "post": {
+        "operationId": "finishPpfSlot",
+        "summary": "The PPF team marks the work on a booked car as finished today (before its estimate date, if so); the estimate date of its voucher follows",
+        "description": "Requires: sales.ppf.slots",
+        "tags": [
+          "PpfSlot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
                 }
               }
             }

@@ -124,7 +124,7 @@ export default function DeliveryStatusPage() {
             {staff && <th className="px-3 py-1.5 text-left">Salesperson</th>}
             <th className="px-3 py-1.5 text-left">Chassis</th>
             <th className="px-3 py-1.5 text-left">Expected delivery</th>
-            <th className="px-3 py-1.5 text-left">{stage === 'scheduled' ? 'Delivery date' : stage === 'delivered' ? 'Delivered on' : 'Approved'}</th>
+            <th className="px-3 py-1.5 text-left">{stage === 'scheduled' ? 'Delivery date' : stage === 'delivered' ? 'Delivered on' : 'Booked'}</th>
             {showsClearance && <th className="px-3 py-1.5 text-left">Payments / clearance</th>}
             {canNote && <th className="px-3 py-1.5" />}
           </tr>
@@ -156,7 +156,7 @@ export default function DeliveryStatusPage() {
                     ? formatDate(r.deliveredOn)
                     : r.approvedAt
                       ? formatDate(r.approvedAt)
-                      : <span className="text-amber-700">{r.orderStatus === 'draft' ? 'Draft' : 'Awaiting approval'}</span>}
+                      : <span className="text-amber-700">—</span>}
               </td>
               {showsClearance && (
                 <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>

@@ -7,6 +7,7 @@ import { query } from '../../../db/client';
 import { and, eq, isNull, sql } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import { expectedDelivery } from '../../../lib/dates';
+import { cmpMoney } from '../../../lib/money';
 import { conflict, forbidden, notFound, validationError } from '../../../lib/errors';
 import type { z } from '../../../lib/zod';
 import { vehicle, vehicleDealership, VEHICLE_STATUSES } from '../../master/models';
@@ -55,6 +56,7 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
   if (l.status !== 'converted') {
     throw conflict(l.status === 'processing' ? 'A sales order is already raised for this lead' : 'Only converted leads can be ordered');
   }
+  if (cmpMoney(input.unitPrice, '0') <= 0) throw validationError([{ in: 'body', path: 'unitPrice', message: 'Enter the vehicle price: the order is booked as soon as it is raised' }]);
   await ensureCustomerCnic(ctx, l.customerId as number, dealershipId, input.customerCnic);
   await assertNewPbo(ctx, dealershipId, input.pboNo);
 
@@ -306,7 +308,7 @@ export async function advanceVehicleStatus(ctx: EntityCtx, orderId: number, inpu
     }
   }
   if (target === 'in_transit' && v.status === 'booked' && o.status !== 'approved') {
-    throw conflict("The Manager has to approve the order before the car is marked in transit");
+    throw conflict("The order has to be booked before the car is marked in transit");
   }
 
   const ladder = [...VEHICLE_PIPELINE] as string[];

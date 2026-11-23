@@ -139,7 +139,7 @@ export async function completeDelivery(ctx: EntityCtx, deliveryId: number, input
 export async function deliverOrder(ctx: EntityCtx, orderId: number, input: z.output<typeof CompleteDeliveryBody>) {
   const o = await orders.findVisible(ctx, orderId, { lock: true });
   if (!ctx.access.canIn(P.deliveriesComplete, { dealershipId: o.dealershipId as number, branchId: (o.branchId as number | null) ?? null })) throw forbidden();
-  if (o.status !== 'approved') throw conflict("The Manager has to approve the order before the car is handed over");
+  if (o.status !== 'approved') throw conflict("The order has to be booked before the car is handed over");
   if (!o.vehicleId) throw conflict('Allocate the car to the order first');
   const v = await ctx.tx.vehicle.findFirst({ where: { id: o.vehicleId as number }, select: { status: true } });
   if (v?.status !== 'ready_for_delivery') throw conflict('Mark the car ready for delivery first');

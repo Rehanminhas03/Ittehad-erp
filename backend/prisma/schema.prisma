@@ -1532,6 +1532,40 @@ model LeadFollowUp {
   @@schema("sales")
 }
 
+/// The PPF bay calendar, shared by every dealership: one car starts per day (the partial unique index on slot_date).
+model PpfSlot {
+  id             BigInt    @id @default(autoincrement())
+  /// The dealership that booked the day.
+  dealershipId   BigInt    @map("dealership_id")
+  slotDate       DateTime  @map("slot_date") @db.Date
+  ppfFormId      BigInt?   @map("ppf_form_id")
+  customerName   String    @map("customer_name")
+  customerMobile String?   @map("customer_mobile")
+  vehicle        String?
+  notes          String?
+  cancelledAt    DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  /// The car's numbers and the salesperson who pitched the PPF (typed by the PPF team for a car booked directly), and the agreed amount.
+  chassisNo      String?   @map("chassis_no")
+  engineNo       String?   @map("engine_no")
+  registrationNo String?   @map("registration_no")
+  salespersonName String?  @map("salesperson_name")
+  amount         Decimal?  @db.Decimal(14, 2)
+  /// An extra car the PPF team added on a day that was already booked or closed.
+  extra          Boolean   @default(false)
+  /// A day the PPF team closed (a holiday, the bay is busy): taken for everyone until reopened.
+  blocked        Boolean   @default(false)
+  /// The day the work on the car was finished (the PPF team marks it, possibly before the estimate date).
+  finishedOn     DateTime? @map("finished_on") @db.Date
+  /// The day the PPF team received the car.
+  receivedOn     DateTime? @map("received_on") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById    BigInt?   @map("created_by_id")
+
+  @@index([dealershipId, slotDate], map: "ppf_slot_dealership_id_slot_date_index")
+  @@map("ppf_slot")
+  @@schema("sales")
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model PpfForm {
@@ -1565,6 +1599,12 @@ model PpfForm {
   discount          Decimal    @default(0) @db.Decimal(14, 2)
   totalAmount       Decimal    @map("total_amount") @db.Decimal(14, 2)
   advancePaid       Decimal    @default(0) @map("advance_paid") @db.Decimal(14, 2)
+  /// The day the car comes to the PPF bay (its slot); the estimate date (installationDate) is 4 working days after it.
+  startDate         DateTime?  @map("start_date") @db.Date
+  /// Where the car is in the PPF bay: booked, received (the PPF team has the car) or done; null for a voucher with no bay day.
+  bayStatus         String?    @map("bay_status")
+  receivedOn        DateTime?  @map("received_on") @db.Date
+  finishedOn        DateTime?  @map("finished_on") @db.Date
   installationDate  DateTime?  @map("installation_date") @db.Date
   notes             String?
   extraFields       Json       @default("{}") @map("extra_fields")

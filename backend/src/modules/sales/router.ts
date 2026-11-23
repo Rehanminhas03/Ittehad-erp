@@ -64,6 +64,11 @@ import {
   PdiCommentBody,
   PdiSchema,
   PpfDocumentSchema,
+  PpfSlotBookBody,
+  PpfSlotUpdateBody,
+  PpfSlotBookedSchema,
+  PpfSlotsQuery,
+  PpfSlotsSchema,
   PpfFormCreate,
   PpfFormSchema,
   QuotationCreate,
@@ -330,6 +335,71 @@ const ppfActions = new ApiRouter('/sales/ppf-forms', 'PPF form')
   params: IdParam,
   response: PpfDocumentSchema,
   handler: (ctx) => svc.ppfDocument(ctx, ctx.params.id),
+  });
+
+// ---- PPF bay slots: one car starts per day; the salesperson sees the free days, the PPF team books and cancels ----
+const ppfSlotActions = new ApiRouter('/sales/ppf-slots', 'PpfSlot')
+  .route({
+    method: 'get',
+    path: '/',
+    operationId: 'listPpfSlots',
+    summary: 'The bay days from today: free or booked (who booked it only for the PPF team), with the estimate date of a car starting that day',
+    permission: [P.ppfViewAll, P.ppfViewOwn, P.ppfCreate, P.ppfSlots],
+    query: PpfSlotsQuery,
+    response: PpfSlotsSchema,
+    handler: (ctx) => svc.listPpfSlots(ctx, ctx.query),
+  })
+  .route({
+    method: 'post',
+    path: '/',
+    operationId: 'bookPpfSlot',
+    summary: 'Book a car into the bay directly (a car from our own reference) on a free day',
+    permission: P.ppfSlots,
+    body: PpfSlotBookBody,
+    response: PpfSlotBookedSchema,
+    status: 201,
+    handler: (ctx) => svc.bookPpfSlot(ctx, ctx.body),
+  })
+  .route({
+    method: 'patch',
+    path: '/:id',
+    operationId: 'updatePpfSlot',
+    summary: 'Correct the details of a booking (customer, car, numbers, salesperson, amount)',
+    permission: P.ppfSlots,
+    params: IdParam,
+    body: PpfSlotUpdateBody,
+    response: z.object({ ok: z.literal(true) }),
+    handler: (ctx) => svc.updatePpfSlot(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/receive',
+    operationId: 'receivePpfSlot',
+    summary: 'The PPF team marks that the car has come to the bay; the salesperson of its voucher sees the status',
+    permission: P.ppfSlots,
+    params: IdParam,
+    response: z.object({ ok: z.literal(true) }),
+    handler: (ctx) => svc.receivePpfSlot(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'post',
+    path: '/:id/finish',
+    operationId: 'finishPpfSlot',
+    summary: 'The PPF team marks the work on a booked car as finished today (before its estimate date, if so); the estimate date of its voucher follows',
+    permission: P.ppfSlots,
+    params: IdParam,
+    response: z.object({ ok: z.literal(true) }),
+    handler: (ctx) => svc.finishPpfSlot(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'delete',
+    path: '/:id',
+    operationId: 'cancelPpfSlot',
+    summary: 'Cancel a booking and free the day',
+    permission: P.ppfSlots,
+    params: IdParam,
+    response: z.object({ ok: z.literal(true) }),
+    handler: (ctx) => svc.cancelPpfSlot(ctx, ctx.params.id),
   });
 
 // ---- Document formats (letterhead, terms, sign-off) per dealership ----
@@ -822,6 +892,7 @@ export const salesRouters = [
   templateActions,
   variantActions,
   ppfActions,
+  ppfSlotActions,
   buildEntityRouter(leadEntity, svc.leads).router,
   buildEntityRouter(salesOrderEntity, svc.orders).router,
   buildEntityRouter(deliveryEntity, svc.deliveries).router,

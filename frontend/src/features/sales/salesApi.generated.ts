@@ -3,6 +3,7 @@ export const addTagTypes = [
   "Lead",
   "Quotation",
   "PPF form",
+  "PpfSlot",
   "DocumentTemplate",
   "Variant code",
   "SalesDashboard",
@@ -247,6 +248,67 @@ const injectedRtkApi = api
           url: `/api/sales/ppf-forms/${queryArg.id}/document`,
         }),
         providesTags: ["PPF form"],
+      }),
+      listPpfSlots: build.query<ListPpfSlotsApiResponse, ListPpfSlotsApiArg>({
+        query: (queryArg) => ({
+          url: `/api/sales/ppf-slots`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+            from: queryArg["from"],
+            days: queryArg.days,
+            back: queryArg.back,
+          },
+        }),
+        providesTags: ["PpfSlot"],
+      }),
+      bookPpfSlot: build.mutation<BookPpfSlotApiResponse, BookPpfSlotApiArg>({
+        query: (queryArg) => ({
+          url: `/api/sales/ppf-slots`,
+          method: "POST",
+          body: queryArg.ppfSlotBook,
+        }),
+        invalidatesTags: ["PpfSlot"],
+      }),
+      updatePpfSlot: build.mutation<
+        UpdatePpfSlotApiResponse,
+        UpdatePpfSlotApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/ppf-slots/${queryArg.id}`,
+          method: "PATCH",
+          body: queryArg.ppfSlotUpdate,
+        }),
+        invalidatesTags: ["PpfSlot"],
+      }),
+      cancelPpfSlot: build.mutation<
+        CancelPpfSlotApiResponse,
+        CancelPpfSlotApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/ppf-slots/${queryArg.id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["PpfSlot"],
+      }),
+      receivePpfSlot: build.mutation<
+        ReceivePpfSlotApiResponse,
+        ReceivePpfSlotApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/ppf-slots/${queryArg.id}/receive`,
+          method: "POST",
+        }),
+        invalidatesTags: ["PpfSlot"],
+      }),
+      finishPpfSlot: build.mutation<
+        FinishPpfSlotApiResponse,
+        FinishPpfSlotApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/ppf-slots/${queryArg.id}/finish`,
+          method: "POST",
+        }),
+        invalidatesTags: ["PpfSlot"],
       }),
       getDocumentTemplate: build.query<
         GetDocumentTemplateApiResponse,
@@ -1551,6 +1613,10 @@ export type CreateLeadPpfFormApiResponse = /** status 201 Success */ {
   discount: string;
   totalAmount: string;
   advancePaid: string;
+  startDate?: string | null;
+  bayStatus?: ("booked" | "received" | "done" | null) | null;
+  receivedOn?: string | null;
+  finishedOn?: string | null;
   installationDate: string | null;
   notes: string | null;
   extraFields: {
@@ -2008,6 +2074,10 @@ export type CreateStandalonePpfFormApiResponse = /** status 201 Success */ {
   discount: string;
   totalAmount: string;
   advancePaid: string;
+  startDate?: string | null;
+  bayStatus?: ("booked" | "received" | "done" | null) | null;
+  receivedOn?: string | null;
+  finishedOn?: string | null;
   installationDate: string | null;
   notes: string | null;
   extraFields: {
@@ -2025,6 +2095,42 @@ export type CreateStandalonePpfFormApiArg = {
 };
 export type GetPpfDocumentApiResponse = /** status 200 Success */ PpfDocument;
 export type GetPpfDocumentApiArg = {
+  id: number;
+};
+export type ListPpfSlotsApiResponse = /** status 200 Success */ PpfSlots;
+export type ListPpfSlotsApiArg = {
+  dealershipId: number;
+  from?: string;
+  days?: number;
+  back?: number | null;
+};
+export type BookPpfSlotApiResponse = /** status 201 Success */ PpfSlotBooked;
+export type BookPpfSlotApiArg = {
+  ppfSlotBook: PpfSlotBook;
+};
+export type UpdatePpfSlotApiResponse = /** status 200 Success */ {
+  ok: true;
+};
+export type UpdatePpfSlotApiArg = {
+  id: number;
+  ppfSlotUpdate: PpfSlotUpdate;
+};
+export type CancelPpfSlotApiResponse = /** status 200 Success */ {
+  ok: true;
+};
+export type CancelPpfSlotApiArg = {
+  id: number;
+};
+export type ReceivePpfSlotApiResponse = /** status 200 Success */ {
+  ok: true;
+};
+export type ReceivePpfSlotApiArg = {
+  id: number;
+};
+export type FinishPpfSlotApiResponse = /** status 200 Success */ {
+  ok: true;
+};
+export type FinishPpfSlotApiArg = {
   id: number;
 };
 export type GetDocumentTemplateApiResponse =
@@ -3373,6 +3479,7 @@ export type PpfFormCreate = {
   extraFields?: {
     [key: string]: string;
   };
+  slotDate?: string;
 };
 export type LeadAppointmentRequest = {
   appointmentAt: string | null;
@@ -3467,6 +3574,7 @@ export type DocumentTemplate = {
     | "phone"
     | "vehicle"
     | "salesExecutive"
+    | "startDate"
     | "promiseDate"
     | "ppf"
     | "notes"
@@ -3594,6 +3702,7 @@ export type PpfDocument = {
   filmBrand: string | null;
   finish: "gloss" | "matte";
   warrantyYears: number | null;
+  startDate?: string | null;
   installationDate: string | null;
   pricing: {
     amount: string;
@@ -3602,6 +3711,76 @@ export type PpfDocument = {
     advancePaid: string;
     balance: string;
   };
+};
+export type PpfSlots = {
+  canManage: boolean;
+  days: {
+    date: string;
+    booked: boolean;
+    mine: boolean;
+    estimateDate: string;
+    bookingId: number | null;
+    customerName: string | null;
+    customerMobile: string | null;
+    vehicle: string | null;
+    formNo: string | null;
+    dealershipName: string | null;
+    bookedByName: string | null;
+    blocked: boolean;
+    receivedOn: string | null;
+    finishedOn: string | null;
+    past: boolean;
+    salespersonName: string | null;
+    chassisNo: string | null;
+    engineNo: string | null;
+    registrationNo: string | null;
+    amount: string | null;
+    extras: {
+      bookingId: number;
+      customerName: string;
+      customerMobile: string | null;
+      vehicle: string | null;
+      salespersonName: string | null;
+      chassisNo: string | null;
+      engineNo: string | null;
+      registrationNo: string | null;
+      amount: string | null;
+      dealershipName: string | null;
+    }[];
+  }[];
+};
+export type PpfSlotBooked = {
+  id: number;
+  slotDate: string;
+  estimateDate: string;
+};
+export type PpfSlotBook = {
+  dealershipId: number;
+  slotDate: string;
+  customerName?: string | null;
+  customerMobile?: string | null;
+  vehicle?: string | null;
+  notes?: string | null;
+  modelId?: number;
+  variant?: string | null;
+  chassisNo?: string | null;
+  engineNo?: string | null;
+  registrationNo?: string | null;
+  salespersonName?: string | null;
+  amount?: string;
+  extra?: boolean;
+  blocked?: boolean;
+};
+export type PpfSlotUpdate = {
+  customerName?: string | null;
+  customerMobile?: string | null;
+  vehicle?: string | null;
+  chassisNo?: string | null;
+  engineNo?: string | null;
+  registrationNo?: string | null;
+  salespersonName?: string | null;
+  amount?: string;
+  notes?: string | null;
 };
 export type DocumentTemplateUpdate = {
   dealershipId: number;
@@ -3630,6 +3809,7 @@ export type DocumentTemplateUpdate = {
     | "phone"
     | "vehicle"
     | "salesExecutive"
+    | "startDate"
     | "promiseDate"
     | "ppf"
     | "notes"
@@ -4663,6 +4843,10 @@ export type PpfForm = {
   discount: string;
   totalAmount: string;
   advancePaid: string;
+  startDate?: string | null;
+  bayStatus?: ("booked" | "received" | "done" | null) | null;
+  receivedOn?: string | null;
+  finishedOn?: string | null;
   installationDate: string | null;
   notes: string | null;
   extraFields: {
@@ -4786,6 +4970,13 @@ export const {
   useCreateStandalonePpfFormMutation,
   useGetPpfDocumentQuery,
   useLazyGetPpfDocumentQuery,
+  useListPpfSlotsQuery,
+  useLazyListPpfSlotsQuery,
+  useBookPpfSlotMutation,
+  useUpdatePpfSlotMutation,
+  useCancelPpfSlotMutation,
+  useReceivePpfSlotMutation,
+  useFinishPpfSlotMutation,
   useGetDocumentTemplateQuery,
   useLazyGetDocumentTemplateQuery,
   useSaveDocumentTemplateMutation,

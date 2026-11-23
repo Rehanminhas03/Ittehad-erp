@@ -99,7 +99,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.users.view', 'core.users.create', 'core.users.update', 'core.users.assign_roles', 'sales.team.manage',
       'core.activity.view_team',
       'sales.leads.view_all', 'sales.leads.create', 'sales.leads.update_own', 'sales.leads.convert_own', 'sales.leads.reopen',
-      'sales.leads.reassign', 'sales.leads.appointment', 'sales.leads.correct_conversion', 'sales.orders.view_all', 'sales.orders.approve', 'sales.orders.dispatch', 'sales.orders.invoice', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
+      'sales.leads.reassign', 'sales.leads.appointment', 'sales.leads.correct_conversion', 'sales.orders.view_all', 'sales.orders.dispatch', 'sales.orders.invoice', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view',
       'sales.quotations.view_all', 'sales.quotations.create', 'sales.quotations.update_own', 'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update_own',
       'sales.templates.manage', 'sales.variants.view',
       'sales.reports.view',
@@ -113,7 +113,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'sales.leave.apply', 'sales.payments.manage', 'sales.orders.clear', 'sales.orders.invoice', 'sales.leads.correct_conversion', 'sales.stock.manage',
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'master.customers.view',
       'sales.leads.view_converted', 'sales.leads.update_converted', 'sales.orders.view_all', 'sales.orders.create', 'sales.orders.update',
-      'sales.orders.submit', 'sales.orders.cancel', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view', 'sales.quotations.view_all', 'sales.ppf.view_all', 'sales.variants.view',
+      'sales.orders.cancel', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view', 'sales.quotations.view_all', 'sales.ppf.view_all', 'sales.variants.view',
     ],
   },
   {
@@ -125,6 +125,15 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'core.dealerships.view', 'core.branches.view', 'master.models.view',
       'sales.stock.view', 'sales.stock.manage', 'sales.orders.view_all', 'sales.orders.allocate',
       'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.deliveries.complete', 'sales.variants.view',
+    ],
+  },
+  {
+    name: 'PPF Team',
+    description: 'The paint protection film bay (one login for the group): sees which days are free or booked for every dealership and who booked them, books cars into the bay directly (cars from our own reference), cancels bookings, and issues and corrects PPF vouchers. No access to leads or quotations.',
+    patterns: [
+      'sales.leave.apply',
+      'core.dealerships.view', 'core.branches.view', 'master.models.view',
+      'sales.ppf.view_all', 'sales.ppf.create', 'sales.ppf.update', 'sales.ppf.slots',
     ],
   },
   {

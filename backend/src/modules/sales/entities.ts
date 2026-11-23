@@ -402,12 +402,6 @@ export function priceOrder(data: Record<string, unknown>, before?: Row) {
   return { ...data, totalAmount: subMoney(unitPrice, discount) };
 }
 
-const approverGuard = (ctx: EntityCtx, row: Row) =>
-  POLICIES.sales.approverMustDifferFromSalesperson &&
-  (row.salespersonId === ctx.access.userId || row.createdById === ctx.access.userId)
-    ? 'An order must be approved by someone other than its salesperson or creator'
-    : null;
-
 /** Moves the order's lead with it (processing → completed / back to converted). */
 async function moveLead(ctx: EntityCtx, row: Row, action: 'complete' | 'order_cancelled') {
   if (!row.leadId) return;
@@ -482,35 +476,18 @@ export const salesOrderEntity: EntityConfig = {
   sort: { default: '-createdAt', keys: ['createdAt', 'orderNo', 'totalAmount', 'expectedDeliveryDate', 'status'] },
   workflow: {
     stateKey: 'status',
-    initial: 'draft',
+    // An order is booked the moment the Sales Admin raises it: there is no Manager approval. (`draft` and `submitted`
+    // only remain for orders raised before that; a migration moved them to `approved`.) The state key stays `approved`;
+    // screens call it Booked (partial payment) or Ordered (full payment).
+    initial: 'approved',
     states: [
       { key: 'draft', label: 'Draft' },
       { key: 'submitted', label: 'Submitted' },
-      { key: 'approved', label: 'Approved' },
+      { key: 'approved', label: 'Booked' },
       { key: 'delivered', label: 'Delivered', terminal: true },
       { key: 'cancelled', label: 'Cancelled', terminal: true },
     ],
     transitions: [
-      {
-        action: 'submit',
-        label: 'Submit for approval',
-        from: ['draft'],
-        to: 'submitted',
-        permission: P.ordersSubmit,
-        guard: (_ctx, row) => (cmpMoney(row.unitPrice as string, '0') <= 0 ? 'Enter the vehicle price before submitting' : null),
-      },
-      // The Manager can approve a submitted order, or a draft directly (e.g. its car is already
-      // ready for delivery and the Admin has not submitted it); a draft needs its price.
-      {
-        action: 'approve',
-        label: 'Approve',
-        from: ['draft', 'submitted'],
-        to: 'approved',
-        permission: P.ordersApprove,
-        guard: (ctx, row) =>
-          approverGuard(ctx, row) ?? (row.status === 'draft' && cmpMoney(row.unitPrice as string, '0') <= 0 ? 'Enter the vehicle price before approving' : null),
-      },
-      { action: 'return', label: 'Return to draft', from: ['submitted'], to: 'draft', permission: P.ordersApprove, requiresComment: true },
       {
         action: 'cancel',
         label: 'Cancel order',
@@ -560,7 +537,7 @@ export const salesOrderEntity: EntityConfig = {
       };
     },
     beforeUpdate: async (ctx, row, patch) => {
-      if (row.status !== 'draft') throw conflict('Only draft orders can be edited; return it to draft first');
+      if (row.status === 'delivered' || row.status === 'cancelled') throw conflict(`The order is ${row.status as string} and can no longer be edited`);
       const target = { dealershipId: row.dealershipId as number, branchId: (row.branchId as number | null) ?? null };
       if (patch.salespersonId !== undefined && patch.salespersonId !== row.salespersonId) {
         assertCanAssign(ctx, patch.salespersonId, P.ordersUpdate, target);

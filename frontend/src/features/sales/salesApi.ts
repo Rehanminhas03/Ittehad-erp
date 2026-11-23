@@ -18,7 +18,9 @@ export const salesApi = enhancedApi
       commentOnFollowUp: { invalidatesTags: ['Lead'] },
       // Documents feed the monthly track record (SalesTeam).
       createLeadQuotation: { invalidatesTags: ['Quotation', 'SalesTeam'] },
-      createLeadPpfForm: { invalidatesTags: ['PPF form', 'SalesTeam'] },
+      // A voucher books its bay day.
+      createLeadPpfForm: { invalidatesTags: ['PPF form', 'SalesTeam', 'PpfSlot'] },
+      createStandalonePpfForm: { invalidatesTags: ['PPF form', 'SalesTeam', 'PpfSlot'] },
       updateQuotation: { invalidatesTags: ['Quotation', 'SalesTeam'] },
       updatePpfForm: { invalidatesTags: ['PPF form', 'SalesTeam'] },
       // A new format changes how every quotation prints.

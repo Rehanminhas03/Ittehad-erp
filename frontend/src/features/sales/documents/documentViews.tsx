@@ -279,6 +279,18 @@ function ExtraFieldsInput({ id, value, onChange }: CustomFieldProps) {
   );
 }
 
+/** Where the car is in the PPF bay: waiting for the day, received by the PPF team, or done. */
+export const bayStatusBadge = (s: string | null | undefined) =>
+  s === 'done' ? (
+    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">Done</span>
+  ) : s === 'received' ? (
+    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">Received</span>
+  ) : s === 'booked' ? (
+    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Booked</span>
+  ) : (
+    '—'
+  );
+
 export const ppfView: EntityViewConfig<PpfForm> = {
   singular: 'PPF voucher',
   plural: 'PPF vouchers',
@@ -298,13 +310,18 @@ export const ppfView: EntityViewConfig<PpfForm> = {
     columns: [
       { key: 'formNo', header: 'Voucher', sortKey: 'formNo', render: (f) => mono(f.formNo) },
       { key: 'customerName', header: 'Customer', render: (f) => strong(f.customerName) },
+      { key: 'vehicle', header: 'Car', render: (f) => [f.modelName, f.variant, f.color].filter(Boolean).join(' · ') || '—' },
+      { key: 'chassisNo', header: 'Chassis no.', render: (f) => mono(f.chassisNo ?? '—') },
+      { key: 'engineNo', header: 'Engine no.', render: (f) => mono(f.engineNo ?? '—') },
       { key: 'coverage', header: 'Coverage', render: (f) => PPF_COVERAGES.find((c) => c.value === f.coverage)?.label.replace(/ \(.*\)$/, '') },
       { key: 'totalAmount', header: 'Price', sortKey: 'totalAmount', className: 'text-right tabular-nums', render: (f) => formatMoney(f.totalAmount) },
       { key: 'advancePaid', header: 'Paid', className: 'text-right tabular-nums', render: (f) => muted(formatMoney(f.advancePaid)) },
-      { key: 'ownerName', header: 'Salesperson', render: (f) => muted(f.ownerName), visible: teamOnly([P.ppfViewAll]) },
+      { key: 'ownerName', header: 'Salesperson', render: (f) => muted(f.ownerName) },
       { key: 'createdByName', header: 'Created / changed by', render: trail },
       { key: 'createdAt', header: 'Sold on (date and time)', sortKey: 'createdAt', render: (f) => formatDateTime(f.createdAt) },
-      { key: 'installationDate', header: 'Promise date', sortKey: 'installationDate', render: (f) => formatDate(f.installationDate) },
+      { key: 'bayStatus', header: 'PPF status', render: (f) => bayStatusBadge(f.bayStatus) },
+      { key: 'startDate', header: 'Car comes on', render: (f) => formatDate(f.startDate) },
+      { key: 'installationDate', header: 'Estimate date', sortKey: 'installationDate', render: (f) => formatDate(f.installationDate) },
       { key: 'pdf', header: 'PDF', className: 'w-px text-right', render: (f) => <PreviewIcon kind="ppf" id={f.id} label={f.formNo} /> },
       { key: 'edit', header: 'Edit', className: 'w-px text-right', render: (f) => <EditDocumentLink kind="ppf" doc={f} text /> },
     ],
@@ -330,7 +347,11 @@ export const ppfView: EntityViewConfig<PpfForm> = {
       { label: 'Price', value: (f) => <span className="font-semibold">{formatMoney(f.totalAmount)}</span> },
       { label: 'Paid', value: (f) => formatMoney(f.advancePaid) },
       { label: 'Un-paid', value: (f) => <span className="font-semibold">{formatMoney(String(Number(f.totalAmount) - Number(f.advancePaid)))}</span> },
-      { label: 'Promise date', value: (f) => formatDate(f.installationDate) },
+      { label: 'PPF status', value: (f) => bayStatusBadge(f.bayStatus) },
+      { label: 'Car comes on (PPF bay day)', value: (f) => formatDate(f.startDate) },
+      { label: 'Received by the PPF team', value: (f) => formatDate(f.receivedOn) },
+      { label: 'PPF done on', value: (f) => formatDate(f.finishedOn) },
+      { label: 'Estimate date', value: (f) => formatDate(f.installationDate) },
       {
         label: 'Other fields',
         value: (f) => {
@@ -361,7 +382,7 @@ export const ppfView: EntityViewConfig<PpfForm> = {
       { name: 'amount', label: 'Price before discount (PKR)', type: 'money', required: true },
       { name: 'discount', label: 'Discount (PKR)', type: 'money' },
       { name: 'advancePaid', label: 'Paid (PKR)', type: 'money' },
-      { name: 'installationDate', label: 'Promise date', type: 'date' },
+      { name: 'installationDate', label: 'Estimate date', type: 'date' },
       { name: 'notes', label: 'Notes', type: 'textarea', span: 2 },
     ],
     createSchema: z.object({}),

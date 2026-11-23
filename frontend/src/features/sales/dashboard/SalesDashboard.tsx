@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ServiceCallPanel } from '@/features/service';
 import { TodayPanel } from './TodayPanel';
 import { DateRangePicker, type DateRange, lastDays, rangeLabel } from '@/shared/components';
+import { PpfBayPanel } from '../ppf/PpfDashboard';
 import { Button, Select, StatusBadge } from '@/shared/components/ui';
 import { useAuth, usePermission } from '@/shared/hooks';
 import { cn, formatDate, formatMoney, humanize } from '@/shared/lib';
@@ -124,7 +125,7 @@ export function SalesDashboard() {
   // Delivery team: the cars allocated from the plant and not received yet (they arrive in a few days).
   const incomingCars = useListStockVehiclesQuery({ incoming: 'true', pageSize: 8, sort: '-createdAt' }, { skip: layout !== 'delivery' });
   const recordsOrders = useListSalesOrdersQuery(
-    { ...(layout === 'delivery' ? { pageSize: 6, live: 'true' as const, sort: 'createdAt' } : { pageSize: 6, awaitingApproval: 'true' as const, sort: 'createdAt' }), salespersonId: person ?? undefined },
+    { ...(layout === 'delivery' ? { pageSize: 6, live: 'true' as const, sort: 'createdAt' } : { pageSize: 6, live: 'true' as const, sort: '-createdAt' }), salespersonId: person ?? undefined },
     { skip: layout !== 'delivery' && layout !== 'manager' },
   );
 
@@ -163,14 +164,14 @@ export function SalesDashboard() {
     manager: [
       { label: 'Leads today', value: leads?.loggedToday, icon: 'today', tone: 'blue', to: links.today, hint: 'Logged today' },
       { label: 'Open leads', value: leads?.open, icon: 'leads', tone: 'aqua', to: links.open, hint: `of ${leads?.total ?? 0} total leads` },
-      { label: 'Awaiting your approval', value: (orders?.byStatus.submitted ?? 0) + (orders?.byStatus.draft ?? 0), icon: 'order', tone: 'orange', to: '/sales/orders?range=all&awaitingApproval=true', hint: 'Draft or submitted' },
+      { label: 'Cars booked', value: (orders ? (orders.byStatus.draft ?? 0) + (orders.byStatus.submitted ?? 0) + (orders.byStatus.approved ?? 0) : 0), icon: 'order', tone: 'orange', to: '/sales/orders?range=all&live=true', hint: 'Raised by the Sales Admin, not yet delivered' },
       { label: 'Delivered', value: data?.deliveries?.deliveredInPeriod, icon: 'truck', tone: 'violet', to: links.delivered, hint: periodLabel },
     ],
     admin: [
       { label: 'Leads to order', value: leads?.byStatus.converted ?? 0, icon: 'check', tone: 'blue', to: '/sales/leads?status=converted&range=all', hint: 'Converted, no order yet' },
-      { label: 'Draft orders', value: orders?.byStatus.draft ?? 0, icon: 'order', tone: 'aqua', to: '/sales/orders?range=all&status=draft' },
-      { label: 'Awaiting approval', value: orders?.byStatus.submitted ?? 0, icon: 'clock', tone: 'orange', to: '/sales/orders?range=all&status=submitted' },
-      { label: 'Approved', value: orders?.byStatus.approved ?? 0, icon: 'car', tone: 'violet', to: '/sales/orders?range=all&status=approved' },
+      { label: 'Cars booked', value: (orders ? (orders.byStatus.draft ?? 0) + (orders.byStatus.submitted ?? 0) + (orders.byStatus.approved ?? 0) : 0), icon: 'order', tone: 'aqua', to: '/sales/orders?range=all&live=true', hint: 'Raised, not yet delivered' },
+      { label: 'Car not here yet', value: orders?.awaitingVehicle ?? 0, icon: 'clock', tone: 'orange', to: '/sales/delivery-status?range=all&stage=waiting', hint: 'Booked, waiting for the car' },
+      { label: 'Delivered', value: orders?.byStatus.delivered ?? 0, icon: 'truck', tone: 'violet', to: '/sales/orders?range=all&status=delivered' },
     ],
     delivery: [
       { label: 'Waiting for a vehicle', value: orders?.awaitingVehicle, icon: 'order', tone: 'orange', to: '/sales/delivery-status?range=all&stage=waiting', hint: 'Booked, car not dispatched yet' },
@@ -255,6 +256,8 @@ export function SalesDashboard() {
 
       {/* What is waiting for you (approvals, cars to hand over…), with a pop-up when something is new. */}
       <ActionNeeded />
+      {/* Every salesperson: the free PPF bay days, and a button to book one with a PPF voucher. */}
+      {layout !== 'delivery' && perm.can(P.ppfCreate) && <PpfBayPanel />}
       {layout === 'delivery' && (
         <Panel title="Cars allocated, on their way" subtitle="Allocated from the plant, not received yet (usually 3 to 4 days). Click one, or use Vehicle received when it arrives." to="/sales/stock?incoming=true">
           <RecordsTable rows={incomingCars.data?.items} columns={incomingColumns} href={(v) => `/sales/stock/${v.id}`} loading={incomingCars.isLoading} empty="No car is waiting to arrive." />
@@ -335,16 +338,16 @@ export function SalesDashboard() {
 
       {layout === 'manager' || layout === 'delivery' ? (
         <Panel
-          title={layout === 'delivery' ? 'Delivery queue' : 'Orders awaiting your approval'}
-          subtitle={layout === 'delivery' ? 'Booked orders, oldest first' : 'Draft or submitted, oldest first; the Vehicle column shows when the car is ready'}
-          to={layout === 'delivery' ? '/sales/delivery-status?range=all' : '/sales/orders?range=all&awaitingApproval=true'}
+          title={layout === 'delivery' ? 'Delivery queue' : 'Latest booked orders'}
+          subtitle={layout === 'delivery' ? 'Booked orders, oldest first' : 'Newest first; the Vehicle column shows where the car is'}
+          to={layout === 'delivery' ? '/sales/delivery-status?range=all' : '/sales/orders?range=all&live=true'}
         >
           <RecordsTable
             rows={recordsOrders.data?.items}
             columns={orderColumns}
             href={(o) => `/sales/orders/${o.id}`}
             loading={recordsOrders.isLoading}
-            empty={layout === 'delivery' ? 'No booked orders waiting.' : 'Nothing waiting for approval.'}
+            empty={layout === 'delivery' ? 'No booked orders waiting.' : 'No booked orders yet.'}
           />
         </Panel>
       ) : (

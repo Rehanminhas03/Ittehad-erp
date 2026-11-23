@@ -62,6 +62,7 @@ export const P = {
   ppfCreate: 'sales.ppf.create',
   ppfUpdate: 'sales.ppf.update',
   ppfUpdateOwn: 'sales.ppf.update_own',
+  ppfSlots: 'sales.ppf.slots',
 } as const;
 
 export const LEAD_STATES = ['new', 'follow_up', 'visited', 'converted', 'processing', 'completed', 'exhausted', 'lost'] as const;

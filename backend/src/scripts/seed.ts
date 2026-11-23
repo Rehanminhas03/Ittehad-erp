@@ -67,6 +67,14 @@ USERS.push({
   roles: SALES_TEAMS.map((t) => ({ role: 'Delivery Team', dealership: t.code })),
 });
 
+// The PPF bay: one login for the whole group (a PPF Team role at every dealership).
+USERS.push({
+  email: 'ppf@ittehad.com',
+  fullName: 'Ittehad PPF Team',
+  password: 'ittehad123',
+  roles: SALES_TEAMS.map((t) => ({ role: 'PPF Team', dealership: t.code })),
+});
+
 for (const [code, label] of [['HYD-ISB', 'Hyundai'], ['JET-ITH', 'Jetour'], ['CSM-ITH', 'CSM']] as const) {
   const slug = label.toLowerCase();
   USERS.push(

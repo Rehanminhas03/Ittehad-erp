@@ -142,20 +142,6 @@ function LeadFunnel() {
   );
 }
 
-function AwaitingApprovalKpi() {
-  const { data, isLoading, error } = useListSalesOrdersQuery({ pageSize: 1, status: 'submitted' });
-  return (
-    <DashboardWidget
-      kind="kpi"
-      title="Orders awaiting approval"
-      value={data?.total}
-      loading={isLoading}
-      error={error && apiErrorMessage(error)}
-      to="/sales/orders?range=all&status=submitted"
-    />
-  );
-}
-
 function ScheduledDeliveriesKpi() {
   const { data, isLoading, error } = useListDeliveriesQuery({ pageSize: 1, status: 'scheduled' });
   return (
@@ -418,7 +404,6 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'lead-funnel', module: 'sales', any: ['sales.leads.view_all', 'sales.leads.view_own'], span: 3, render: () => <LeadFunnel /> },
   { id: 'awaiting-vehicle', module: 'sales', any: ['sales.orders.allocate'], render: () => <OrdersAwaitingVehicleKpi /> },
   { id: 'open-stock', module: 'sales', any: ['sales.stock.view'], span: 2, render: () => <OpenStock /> },
-  { id: 'awaiting-approval', module: 'sales', any: ['sales.orders.approve'], render: () => <AwaitingApprovalKpi /> },
   { id: 'deliveries', module: 'sales', any: ['sales.deliveries.view_all', 'sales.deliveries.view_own'], render: () => <ScheduledDeliveriesKpi /> },
   { id: 'pipeline', module: 'sales', any: ['sales.orders.view_all', 'sales.orders.view_own'], span: 3, render: () => <OrderPipeline /> },
   { id: 'customers', module: 'crm', any: ['master.customers.view'], render: () => <CustomersKpi /> },

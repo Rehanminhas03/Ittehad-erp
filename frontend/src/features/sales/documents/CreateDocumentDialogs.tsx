@@ -17,6 +17,7 @@ import { LeadModelSelect } from '../leads/components/LeadModelSelect';
 import { formatAmount, formatMoney } from '@/shared/lib';
 import type { VariantCode } from '../salesApi';
 import { VariantPicker } from '../leads/components/VariantPicker';
+import { PpfSlotPicker } from '../ppf/PpfSlotPicker';
 import { FILM_BRAND_PLACEHOLDER, PPF_COVERAGES, PPF_FINISHES, PPF_PACKAGES } from './labels';
 
 /** Jetour's usual tentative delivery period (its quotations print a sentence, not a number of days). */
@@ -404,7 +405,7 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
     amount: '',
     discount: '',
     advancePaid: '',
-    installationDate: '',
+    slotDate: '',
     notes: '',
   });
   // Processing / vehicle received / delivered: the sales order already has these.
@@ -434,6 +435,7 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
     if (!v.customerAddress.trim()) missing.customerAddress = 'Enter the address';
     if (!v.protectionPackage) missing.protectionPackage = 'Choose the protection package';
     if (!v.amount.trim()) missing.amount = 'Enter the PPF price';
+    if (!v.slotDate) missing.slotDate = 'Pick the day the car comes to the PPF bay';
     if (!lead && standalone.mobile.replace(/\D/g, '').length < 10) missing.customerMobile = 'Enter a valid phone number, e.g. 03001234567';
     if (!lead && !standalone.modelId) missing.modelId = 'Choose the model';
     if (Object.keys(missing).length) return setErrors(missing);
@@ -452,7 +454,8 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
             amount: v.amount.trim(),
             discount: v.discount.trim() || '0',
             advancePaid: v.advancePaid.trim() || '0',
-            installationDate: v.installationDate || null,
+            // The bay day: booked for everyone with the voucher; the estimate date follows 4 working days later.
+            slotDate: v.slotDate,
             notes: blank(v.notes),
             extraFields: extra,
           };
@@ -588,8 +591,8 @@ export function PpfDialog({ lead, dealershipId: dealer, open, onClose, onCreated
         <Field label="Paid (PKR)" htmlFor="ppf-advance" error={errors.advancePaid}>
           <Input id="ppf-advance" inputMode="decimal" value={v.advancePaid} onChange={set('advancePaid')} invalid={!!errors.advancePaid} placeholder="0" />
         </Field>
-        <Field label="Promise date" htmlFor="ppf-date" error={errors.installationDate} hint="When the PPF will be done">
-          <Input id="ppf-date" type="date" value={v.installationDate} onChange={set('installationDate')} />
+        <Field label="PPF bay day" htmlFor="ppf-slot" required className="sm:col-span-2" hint="One car starts per day, shared by Hyundai, Jetour and CSM. A booked day is taken for everyone; the estimate date is set 4 working days after the day you pick.">
+          <PpfSlotPicker dealershipId={dealershipId} value={v.slotDate} onChange={(slotDate) => setV((s) => ({ ...s, slotDate }))} error={errors.slotDate ?? errors.installationDate} />
         </Field>
         <Field label="Notes" htmlFor="ppf-notes" className="sm:col-span-2">
           <Textarea id="ppf-notes" rows={2} value={v.notes} onChange={set('notes')} />

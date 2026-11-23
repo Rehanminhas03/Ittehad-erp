@@ -65,6 +65,7 @@ export const SalesPerm = definePermissions('sales', {
   ppfCreate: ['sales.ppf.create', 'Fill in PPF forms when the customer agrees (own leads, or any lead with the edit-all right)'],
   ppfUpdate: ['sales.ppf.update', 'Correct any PPF form in scope'],
   ppfUpdateOwn: ['sales.ppf.update_own', 'Correct PPF forms of your own leads'],
+  ppfSlots: ['sales.ppf.slots', 'PPF bay: book a car into a day directly (cars from our own reference), cancel bookings and see who booked each day'],
 
   deliveriesViewAll: ['sales.deliveries.view_all', 'View all deliveries in scope'],
   deliveriesViewOwn: ['sales.deliveries.view_own', 'View own deliveries'],

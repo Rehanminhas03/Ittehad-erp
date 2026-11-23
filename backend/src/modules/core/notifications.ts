@@ -108,6 +108,8 @@ export function describeChange(e: AuditEntry): Spec | null {
     case 'sales.ppf_form':
       if (e.action === 'create') return { title: 'PPF voucher created', weight: 60, href: `/sales/ppf-forms/${id}`, detail: str(c.formNo) };
       if (e.action === 'update') return { title: 'PPF voucher updated', weight: 40, href: `/sales/ppf-forms/${id}` };
+      if (e.action === 'bay_received') return { title: 'PPF: the car has been received in the bay', weight: 65, href: `/sales/ppf-forms/${id}` };
+      if (e.action === 'bay_done') return { title: 'PPF done: the car is ready', weight: 75, href: `/sales/ppf-forms/${id}` };
       break;
     case 'sales.leave':
       if (e.action === 'create') return { title: 'Leave application submitted: please approve or reject', weight: 70, href: `/sales/leave/${id}`, detail: str(c.applicationNo) };

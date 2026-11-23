@@ -15,6 +15,7 @@ const TeamReportPage = lazy(() => import('./team/TeamReportPage'));
 const TrackRecordPage = lazy(() => import('./team/TrackRecordPage'));
 const DocumentFormatsPage = lazy(() => import('./documents/DocumentFormatsPage'));
 const StandaloneDocumentPage = lazy(() => import('./documents/StandaloneDocumentPage'));
+const PpfSlotsPage = lazy(() => import('./ppf/PpfSlotsPage'));
 const DeliveryReportPage = lazy(() => import('./deliveries/DeliveryReportPage'));
 const DeliveryStatusPage = lazy(() => import('./deliveries/DeliveryStatusPage'));
 const LeaveListPage = lazy(() => import('./leave/LeaveListPage'));
@@ -58,6 +59,16 @@ export default function SalesRoutes() {
           <RequirePermission any={[P.deliveriesViewAll]}>
             <Suspense fallback={<PageSpinner />}>
               <DeliveryReportPage />
+            </Suspense>
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="ppf-slots"
+        element={
+          <RequirePermission any={[P.ppfViewAll, P.ppfViewOwn, P.ppfCreate, P.ppfSlots]}>
+            <Suspense fallback={<PageSpinner />}>
+              <PpfSlotsPage />
             </Suspense>
           </RequirePermission>
         }
