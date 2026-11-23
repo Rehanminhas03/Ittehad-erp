@@ -13,7 +13,7 @@ const longDate = (d: string | Date) => {
  * the terms and conditions and the stamp & signature line. The dealership's own terms; edit it in Word before printing.
  */
 export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: Blob; fileName: string }> {
-  const { AlignmentType, BorderStyle, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, VerticalAlign, WidthType } = await import('docx');
+  const { AlignmentType, BorderStyle, Document, Footer, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, VerticalAlign, WidthType } = await import('docx');
   const t = q.template;
   // Jetour's and Hyundai's quotations are in the same format: the clauses are sections of the template.
 
@@ -162,7 +162,9 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
     styles: { default: { document: { run: { font: FONT, size: 20 } } } },
     sections: [
       {
-        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 2350, bottom: 1300, left: 850, right: 850 } } },
+        // Jetour: the pre-printed letterhead has its own footer area, so "STAMP & SIGNATURE" sits in the page footer, bottom right.
+        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 2350, bottom: 1300, left: 850, right: 850, footer: 850 } } },
+        ...(jet ? { footers: { default: new Footer({ children: [para([run('STAMP & SIGNATURE', { size: 12 })], { align: AlignmentType.RIGHT, before: 0, after: 0 })] }) } } : {}),
         children: [
           para([run('QUOTATION', { bold: true, size: 16 })], { align: AlignmentType.CENTER, after: 80 }),
           para([run(`Date: ${longDate(q.issuedAt)}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, after: 60 }),
@@ -173,8 +175,7 @@ export async function buildQuotationDocx(q: QuotationDocument): Promise<{ blob: 
           ...(quotationEmployeeLine(q) ? [para([run(quotationEmployeeLine(q)!, { bold: true, size: 9 })], { before: 80, after: 40 })] : []),
           ...(sectioned && t.standardEquipment && !standardEquipmentInTable(q) ? [para([run(`*Standard Equipment: ${t.standardEquipment}`, { bold: true, size: 9 })], { align: AlignmentType.RIGHT, before: 80, after: 160 })] : [new Paragraph({ spacing: { after: 60 }, children: [] })]),
           ...terms,
-          new Paragraph({ spacing: { after: 60 }, children: [] }),
-          sign,
+          ...(jet ? [] : [new Paragraph({ spacing: { after: 60 }, children: [] }), sign]),
         ],
       },
     ],
