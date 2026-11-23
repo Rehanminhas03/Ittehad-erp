@@ -1,3 +1,4 @@
+import { StockReportButtons } from '../exports/BookingsReport';
 import { Link } from 'react-router';
 import { z } from 'zod';
 import { useVehicleModelOptions, VEHICLE_STATUSES } from '@/features/crm';
@@ -56,7 +57,12 @@ export const stockView: EntityViewConfig<StockVehicle> = {
   canEdit: (_v, perm) => perm.can(P.stockManage),
   list: {
     defaultSort: '-createdAt',
-    headerActions: () => <VehicleReceivedButton variant="secondary" />,
+    headerActions: () => (
+      <>
+        <StockReportButtons />
+        <VehicleReceivedButton variant="secondary" />
+      </>
+    ),
     searchPlaceholder: 'Search chassis, engine, registration, PBO or customer',
     filters: [
       { param: 'status', label: 'Status', type: 'select', options: VEHICLE_STATUSES.filter((s) => s.value !== 'delivered') },

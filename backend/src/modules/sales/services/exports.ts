@@ -7,7 +7,8 @@ import { query } from '../../../db/client';
 import { and, inArray, sql, type SQL } from '../../../db/sql';
 import type { EntityCtx } from '../../../entity/types';
 import type { z } from '../../../lib/zod';
-import { leads, orders } from '../entities';
+import { vehicle } from '../../master/models';
+import { leads, orders, stock } from '../entities';
 import { lead, salesOrder } from '../models';
 import type { ExportQuery } from '../schemas';
 
@@ -24,8 +25,8 @@ export async function exportOrders(ctx: EntityCtx, q: z.output<typeof ExportQuer
     sql`select ${salesOrder.id}::int as "orderId", ${salesOrder.orderNo} as "orderNo", ${salesOrder.pboNo} as "pboNo", upper(${salesOrder.orderType}) as "orderType",
                ${salesOrder.status} as "status", d.name as "dealership", d.brand as "brand",
                (${salesOrder.createdAt} at time zone 'Asia/Karachi')::date::text as "bookedOn",
-               c.full_name as "customerName", c.mobile as "phone", c.email as "email", c.cnic as "cnic", c.address as "address",
-               l.customer_type as "customerType", l.company_name as "companyName", l.contact_designation as "contactDesignation", l.purchase_order_no as "purchaseOrderNo",
+               c.full_name as "customerName", c.mobile as "phone", c.email as "email", c.cnic as "cnic", c.address as "address", c.occupation as "occupation",
+               l.customer_type as "customerType", l.company_name as "companyName", l.contact_designation as "contactDesignation", l.purchase_order_no as "purchaseOrderNo", l.referred_by as "referredBy",
                m.brand || ' ' || m.name as "model", ${salesOrder.variant} as "variant", ${salesOrder.color} as "color",
                v.vin as "chassisNo", v.engine_no as "engineNo", v.status as "carStatus",
                u.full_name as "salesperson",
@@ -33,8 +34,14 @@ export async function exportOrders(ctx: EntityCtx, q: z.output<typeof ExportQuer
                ${salesOrder.bookingAmount}::text as "bookingAmount", l.payment_type as "paymentType",
                ${salesOrder.expectedDeliveryDate}::text as "expectedDelivery", ${salesOrder.expectedDeliveryByMonth} as "expectedDeliveryByMonth",
                ${salesOrder.clearanceStatus} as "clearance",
+               -- The day the Delivery Team marked the car received (else the day its PDI was recorded).
+               coalesce((select (max(a.occurred_at) at time zone 'Asia/Karachi')::date::text from audit.audit_log a
+                          where a.entity_type = 'master.vehicle' and a.entity_id = v.id::text and a.action = 'status.update' and a.changes->>'status' = 'received'),
+                        (${salesOrder.pdiRecordedAt} at time zone 'Asia/Karachi')::date::text) as "receivedOn",
                dl.scheduled_date::text as "deliveryScheduled", dl.delivered_on::text as "deliveredOn",
-               ${salesOrder.invoiceNo} as "invoiceNo", ${salesOrder.invoiceReceivedOn}::text as "invoiceReceivedOn",
+               ${salesOrder.invoiceNo} as "invoiceNo", ${salesOrder.invoiceDate}::text as "invoiceDate", ${salesOrder.invoiceReceivedOn}::text as "invoiceReceivedOn", ${salesOrder.invoiceNotes} as "invoiceNotes",
+               to_char(${salesOrder.invoiceDeliveredAt} at time zone 'Asia/Karachi', 'DD-Mon-YYYY HH12:MI am') as "invoiceDeliveredAt",
+               ${salesOrder.paymentReference} as "paymentReference",
                ${salesOrder.notes} as "notes"
           from ${salesOrder}
           join core.dealership d on d.id = ${salesOrder.dealershipId}
@@ -67,6 +74,32 @@ export async function exportOrders(ctx: EntityCtx, q: z.output<typeof ExportQuer
       payments: mine.map(({ orderId: _o, ...p }) => p),
     };
   });
+}
+
+/**
+ * The stock sheets: every car of the dealership not yet delivered, with its model, colour, engine and chassis number,
+ * its status, the order and customer holding it (if any) and the day it was received. The page picks what to show:
+ * the open stock (free cars) or everything received and not delivered.
+ */
+export async function exportStockSheet(ctx: EntityCtx, q: { dealershipId?: number }) {
+  const conds: (SQL | undefined)[] = [stock.viewCondition(ctx.access)];
+  if (q.dealershipId) conds.push(sql`exists (select 1 from core.vehicle_dealership vd where vd.vehicle_id = ${vehicle.id} and vd.dealership_id = ${q.dealershipId})`);
+  return query<Record<string, unknown>>(
+    ctx.tx,
+    sql`select ${vehicle.id}::int as "vehicleId", m.brand || ' ' || m.name as "model", ${vehicle.variant} as "variant", ${vehicle.color} as "color",
+               ${vehicle.engineNo} as "engineNo", ${vehicle.vin} as "chassisNo", ${vehicle.status} as "status",
+               so.id::int as "orderId", so.order_no as "orderNo", so.pbo_no as "pboNo", c.full_name as "customerName",
+               coalesce((select (max(a.occurred_at) at time zone 'Asia/Karachi')::date::text from audit.audit_log a
+                          where a.entity_type = 'master.vehicle' and a.entity_id = ${vehicle.id}::text and a.action = 'status.update' and a.changes->>'status' = 'received'),
+                        (${vehicle.createdAt} at time zone 'Asia/Karachi')::date::text) as "receivedOn"
+          from ${vehicle}
+          join core.vehicle_model m on m.id = ${vehicle.modelId}
+          left join sales.sales_order so on so.vehicle_id = ${vehicle.id} and so.status <> 'cancelled'
+          left join core.customer c on c.id = so.customer_id
+         where ${and(...conds)}
+         order by m.brand, m.name, ${vehicle.variant}, ${vehicle.createdAt}, ${vehicle.id}
+         limit 5000`,
+  );
 }
 
 export async function exportLeads(ctx: EntityCtx, q: z.output<typeof ExportQuery>) {

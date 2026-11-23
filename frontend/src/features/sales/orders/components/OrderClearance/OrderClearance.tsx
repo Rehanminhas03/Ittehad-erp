@@ -23,6 +23,7 @@ export function OrderClearance({ order }: { order: SalesOrder }) {
     order.status === 'approved' &&
     carHere &&
     (status === 'none' || status === 'rejected') &&
+    Number(order.balanceDue ?? 0) > 0 &&
     (perm.canIn(P.deliveriesComplete, order.dealershipId, order.branchId) || perm.canIn(P.deliveriesSchedule, order.dealershipId, order.branchId));
   const canDecide = status === 'requested' && perm.canIn(P.ordersClear, order.dealershipId, order.branchId);
   // Not relevant yet (no approved order with its car here, and nothing asked).
@@ -52,8 +53,11 @@ export function OrderClearance({ order }: { order: SalesOrder }) {
         Payments: received <b>{formatMoney(order.amountReceived ?? '0')}</b> of {formatMoney(order.totalAmount)} ·{' '}
         {balance > 0 ? <b className="text-amber-700">balance due {formatMoney(String(balance))}</b> : <b className="text-emerald-700">fully paid</b>}
       </p>
-      {status !== 'approved' && (
+      {status !== 'approved' && balance > 0 && (
         <p className="mt-1 text-xs text-slate-500">The car is handed over only after the Sales Admin clears it (all payments clear).</p>
+      )}
+      {status !== 'approved' && balance <= 0 && Number(order.amountReceived ?? 0) > 0 && (
+        <p className="mt-1 text-xs text-emerald-700">Fully paid: no clearance is needed, the car can be handed over.</p>
       )}
 
       {(canRequest || canDecide) && (

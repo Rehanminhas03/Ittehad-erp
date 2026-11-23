@@ -4,6 +4,7 @@ import { normalizeCnic, normalizeMobile } from '../master/normalize';
 import {
   DELIVERY_DOCUMENTS,
   PDI_CHECKLIST,
+  REQUIRED_PDI_CHECKLIST,
   DELIVERY_STATES,
   FOLLOW_UP_OUTCOMES,
   LEAD_SOURCES,
@@ -109,6 +110,8 @@ export const LeadSchema = z.object({
   /** The customer's address (from the customer record; captured at conversion). */
   customerAddress: z.string().nullable().optional(),
   customerOccupation: z.string().nullable().optional(),
+  /** Who referred the customer (entered at conversion). */
+  referredBy: z.string().nullable().optional(),
   /** A returning customer: cars bought before (delivered orders of the same customer / phone at the dealership). */
   previousPurchases: z.number().int().optional(),
   convertedAt: Timestamp.nullable(),
@@ -757,6 +760,8 @@ export const ConvertLeadBody = z
     customerAddress: requiredText('Address', 300),
     /** The customer's occupation (required): saved on the customer. */
     customerOccupation: requiredText('Occupation', 120),
+    /** Optional: who referred the customer (e.g. the General Manager, the CEO); shown as the Reference on the bookings report. */
+    referredBy: optionalText(120),
     /** Individual, or corporate: the company (billing name), the contact's designation, and a purchase order if they brought one. */
     customerType: z.enum(CUSTOMER_TYPES).default('individual'),
     companyName: optionalText(160),
@@ -790,6 +795,8 @@ export const ConversionCorrectionBody = z
     email,
     customerAddress: requiredText('Address', 300),
     customerOccupation: requiredText('Occupation', 120),
+    /** Optional: who referred the customer (e.g. the General Manager, the CEO); shown as the Reference on the bookings report. */
+    referredBy: optionalText(120),
     customerCnic: z
       .string()
       .trim()
@@ -1252,6 +1259,10 @@ export const SalesOrderSchema = z.object({
   /** The vehicle invoice received from the manufacturer / head office for the car: its number, the day, who recorded it. */
   invoiceNo: z.string().nullable().optional(),
   invoiceReceivedOn: z.string().nullable().optional(),
+  /** The date printed on the invoice (typed in). */
+  invoiceDate: z.string().nullable().optional(),
+  /** When the invoice was handed to the customer (set when the box is ticked). */
+  invoiceDeliveredAt: Timestamp.nullable().optional(),
   invoiceReceivedByName: z.string().nullable().optional(),
   invoiceNotes: z.string().nullable().optional(),
   /** Corporate customer (from the lead): billed to the company. */
@@ -1523,10 +1534,15 @@ export const AllocationBody = z.object({ vehicleId: Id }).openapi('AllocationReq
 export const VehicleInvoiceBody = z
   .object({
     invoiceNo: z.string({ error: 'Enter the invoice number' }).trim().min(1, 'Enter the invoice number').max(40),
+    /** The date printed on the invoice (typed in by hand). */
+    invoiceDate: z.iso.date().nullish(),
+    /** The day the invoice arrived; empty: today. */
     receivedOn: z.iso.date().nullish(),
     notes: optionalText(500),
   })
   .openapi('VehicleInvoiceRequest');
+/** Tick (true) or untick (false): the invoice has been handed to the customer; the date and time are taken from now. */
+export const InvoiceDeliveredBody = z.object({ delivered: z.boolean() }).openapi('InvoiceDeliveredRequest');
 export const PdiCommentBody = z
   .object({ body: z.string({ error: 'Write the comment' }).trim().min(1, 'Write the comment').max(1000) })
   .openapi('PdiCommentRequest');
@@ -1615,10 +1631,10 @@ export const CompleteDeliveryBody = z
     registrationNo: z.string().trim().max(40).nullish(),
     documentsHandedOver: z.array(z.enum(DELIVERY_DOCUMENTS)).max(DELIVERY_DOCUMENTS.length).default([]),
     accessoriesHandedOver: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
-    /** Pre-delivery checklist: every item must be ticked (PDI done, documents ready, accessories fitted). */
+    /** Pre-delivery checklist: every item must be ticked (PDI done, documents ready). */
     checklist: z
       .array(z.enum(PDI_CHECKLIST))
-      .refine((v) => PDI_CHECKLIST.every((i) => v.includes(i)), 'Tick every item of the pre-delivery checklist (PDI done, documents ready, accessories fitted)'),
+      .refine((v) => REQUIRED_PDI_CHECKLIST.every((i) => v.includes(i)), 'Tick every item of the pre-delivery checklist (PDI done, documents ready)'),
     /** The customer must confirm receipt to complete the delivery. */
     customerAcknowledged: z.boolean().refine((v) => v, 'The customer must acknowledge receipt to complete the delivery'),
     notes: optionalText(2000),

@@ -42,6 +42,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
     email: lead.email ?? '',
     customerAddress: lead.customerAddress ?? '',
     customerOccupation: lead.customerOccupation ?? '',
+    referredBy: lead.referredBy ?? '',
     interestedModelId: lead.interestedModelId ? String(lead.interestedModelId) : '',
     variant: lead.variant ?? '',
     preferredColor: lead.preferredColor ?? '',
@@ -94,6 +95,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
           email: v.email.trim(),
           customerAddress: v.customerAddress.trim(),
           customerOccupation: v.customerOccupation.trim(),
+          referredBy: v.referredBy.trim() || null,
           ...(cnic ? { customerCnic: cnic } : {}),
           interestedModelId: Number(v.interestedModelId),
           variant: v.variant.trim(),
@@ -166,6 +168,9 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
           </Field>
           <Field label="Occupation" htmlFor="ce-occupation" required error={err('customerOccupation')}>
             <Input id="ce-occupation" value={v.customerOccupation} onChange={set('customerOccupation')} invalid={!!err('customerOccupation')} maxLength={120} />
+          </Field>
+          <Field label="Referred by" htmlFor="ce-referred" hint="Optional: e.g. the General Manager or the CEO">
+            <Input id="ce-referred" value={v.referredBy} onChange={set('referredBy')} maxLength={120} />
           </Field>
           <Field label="Model" htmlFor="ce-model" required error={err('interestedModelId')}>
             <LeadModelSelect id="ce-model" value={v.interestedModelId} onChange={(interestedModelId) => setV((s) => ({ ...s, interestedModelId }))} invalid={!!err('interestedModelId')} dealershipId={lead.dealershipId} />

@@ -10,6 +10,10 @@ export interface NavItem {
   label: string;
   to: string;
   any: readonly string[];
+  /** Hidden for someone who holds any of these (a view-only permission can give access without the menu item). */
+  hideIf?: readonly string[];
+  /** Unless they also hold any of these (e.g. hidden for the Sales Admin, shown to whoever also books PPF). */
+  unlessAlso?: readonly string[];
 }
 
 export interface NavSection {
@@ -55,8 +59,9 @@ const ALL_SECTIONS: NavSection[] = [
       { label: 'Invoices not received', to: '/sales/orders?invoice=pending&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
       { label: 'Delivery report', to: '/sales/delivery-report', any: ['sales.deliveries.view_all'] },
       { label: 'Quotations', to: '/sales/quotations', any: ['sales.quotations.view_all', 'sales.quotations.view_own'] },
-      { label: 'PPF slots', to: '/sales/ppf-slots', any: ['sales.ppf.slots', 'sales.ppf.create', 'sales.ppf.view_all', 'sales.ppf.view_own'] },
-      { label: 'PPF cars & vouchers', to: '/sales/ppf-forms', any: ['sales.ppf.view_all', 'sales.ppf.view_own'] },
+      // Not for the Sales Admin: they raise orders and only look at PPF vouchers (still reachable by link), so no PPF menu.
+      { label: 'PPF slots', to: '/sales/ppf-slots', any: ['sales.ppf.slots', 'sales.ppf.create', 'sales.ppf.view_all', 'sales.ppf.view_own'], hideIf: ['sales.orders.create'], unlessAlso: ['sales.ppf.slots', 'sales.ppf.create'] },
+      { label: 'PPF cars & vouchers', to: '/sales/ppf-forms', any: ['sales.ppf.view_all', 'sales.ppf.view_own'], hideIf: ['sales.orders.create'], unlessAlso: ['sales.ppf.slots', 'sales.ppf.create'] },
       { label: 'Document formats', to: '/sales/document-formats', any: ['sales.templates.manage'] },
       { label: 'Variant codes', to: '/sales/variants', any: ['sales.templates.manage'] },
       { label: 'Track record', to: '/sales/track-record', any: ['sales.ppf.view_all', 'sales.ppf.view_own', 'sales.reports.view'] },

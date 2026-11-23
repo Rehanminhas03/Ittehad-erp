@@ -87,6 +87,7 @@ import {
   TrackRecordSchema,
   VariantImportBody,
   VehicleInvoiceBody,
+  InvoiceDeliveredBody,
   VisitRemarksBody,
   VariantImportResultSchema,
 } from './schemas';
@@ -601,6 +602,17 @@ const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
     handler: (ctx) => svc.recordVehicleInvoice(ctx, ctx.params.id, ctx.body),
   })
   .route({
+    method: 'put',
+    path: '/:id/invoice/delivered',
+    operationId: 'setInvoiceDelivered',
+    summary: 'The vehicle invoice was handed to the customer (date and time recorded), or undo it',
+    permission: P.ordersInvoice,
+    params: IdParam,
+    body: InvoiceDeliveredBody,
+    response: OrderRead,
+    handler: (ctx) => svc.setInvoiceDelivered(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
     method: 'delete',
     path: '/:id/invoice',
     operationId: 'clearVehicleInvoice',
@@ -744,6 +756,15 @@ const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
 
 // ---- Open stock (Delivery Team) ----
 const stockActions = new ApiRouter('/sales/stock', 'StockVehicle').route({
+  method: 'get',
+  path: '/report',
+  operationId: 'exportStockSheet',
+  summary: 'Every undelivered car with its colour, engine and chassis number, status, customer and received date (for the stock sheets)',
+  permission: P.stockView,
+  query: z.object({ dealershipId: z.coerce.number().int().positive().optional() }),
+  response: ExportRowsSchema,
+  handler: (ctx) => svc.exportStockSheet(ctx, ctx.query),
+}).route({
   method: 'post',
   path: '/',
   operationId: 'receiveStockVehicle',

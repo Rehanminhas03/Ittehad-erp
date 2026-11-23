@@ -30,6 +30,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
     // The customer's address (required): saved on the customer; the PPF voucher starts from it.
     customerAddress: lead.customerAddress ?? '',
     customerOccupation: lead.customerOccupation ?? '',
+    referredBy: lead.referredBy ?? '',
     // Partial (a booking amount) or Full payment: one must be chosen; its fields are then required.
     paymentType: '',
     // Partial payment: the total price of the car (the balance is paid before delivery).
@@ -112,6 +113,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           customerCnic: cnic,
           customerAddress: v.customerAddress.trim(),
           customerOccupation: v.customerOccupation.trim(),
+          referredBy: v.referredBy.trim() || null,
           customerType: v.customerType as 'individual',
           companyName: v.customerType === 'corporate' ? v.companyName.trim() : null,
           contactDesignation: v.customerType === 'corporate' ? v.contactDesignation.trim() : null,
@@ -204,6 +206,9 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           </Field>
           <Field label="Occupation" htmlFor="cv-occupation" required error={errors.customerOccupation} hint="What the customer does, e.g. businessman, doctor, government employee">
             <Input id="cv-occupation" value={v.customerOccupation} onChange={set('customerOccupation')} invalid={!!errors.customerOccupation} maxLength={120} />
+          </Field>
+          <Field label="Referred by" htmlFor="cv-referred" hint="Optional: e.g. the General Manager or the CEO. It shows as the Reference on the bookings report">
+            <Input id="cv-referred" value={v.referredBy} onChange={set('referredBy')} maxLength={120} />
           </Field>
           <Field label="Model" htmlFor="cv-model" required error={errors.interestedModelId}>
             <LeadModelSelect

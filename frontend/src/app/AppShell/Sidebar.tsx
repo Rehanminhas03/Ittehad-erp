@@ -81,7 +81,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       }
       return next;
     });
-  const sections = NAVIGATION.map((s) => ({ ...s, items: s.items.filter((i) => !i.any.length || perm.can(i.any)) })).filter(
+  const sections = NAVIGATION.map((s) => ({ ...s, items: s.items.filter((i) => (!i.any.length || perm.can(i.any)) && !(i.hideIf && perm.can(i.hideIf) && !(i.unlessAlso && perm.can(i.unlessAlso)))) })).filter(
     (s) => s.items.length,
   );
   const active = activeNavItem(sections.flatMap((s) => s.items.map((i) => i.to)), location.pathname, location.search);

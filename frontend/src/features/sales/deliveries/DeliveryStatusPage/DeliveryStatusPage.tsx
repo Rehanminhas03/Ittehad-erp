@@ -6,6 +6,7 @@ import { usePermission, useToast } from '@/shared/hooks';
 import { apiErrorMessage, cn, formatDate } from '@/shared/lib';
 import { DeliveryNoteButton } from '../../documents/DocumentPreview';
 import { formatExpectedDelivery } from '../../orders/components/ExpectedDelivery';
+import { DeliveredReportButton } from '../../exports/BookingsReport';
 import { CLEARANCE_LABELS, P } from '../../permissions';
 import { type DeliveryPipeline, useGetDeliveryPipelineQuery, useRequestDeliveryClearanceMutation } from '../../salesApi';
 
@@ -198,6 +199,7 @@ export default function DeliveryStatusPage() {
       <PageHeader
         title="Deliveries"
         subtitle={staff ? 'Every booked order until its car is delivered, by stage.' : "Your customers' cars: where each one is, from booking to delivery."}
+        actions={staff ? <DeliveredReportButton period={period} periodLabel={rangeKey === 'all' ? 'all time' : periodText} dealershipId={dealershipId} /> : undefined}
       />
       <div className="surface mb-4 space-y-3 p-3">
         <div role="tablist" className="flex flex-wrap gap-1.5">

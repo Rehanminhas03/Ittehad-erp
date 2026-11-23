@@ -124,7 +124,6 @@ export const DELIVERY_DOCUMENTS = [
 export const PDI_CHECKLIST = [
   { value: 'pdi_done', label: 'PDI (pre-delivery inspection) done' },
   { value: 'documents_ready', label: 'Documents ready' },
-  { value: 'accessories_fitted', label: 'Accessories fitted' },
 ] as const;
 
 export const LEAD_SOURCES = [

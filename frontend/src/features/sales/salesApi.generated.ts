@@ -543,6 +543,17 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["SalesOrder"],
       }),
+      setInvoiceDelivered: build.mutation<
+        SetInvoiceDeliveredApiResponse,
+        SetInvoiceDeliveredApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/invoice/delivered`,
+          method: "PUT",
+          body: queryArg.invoiceDeliveredRequest,
+        }),
+        invalidatesTags: ["SalesOrder"],
+      }),
       commentOnPdi: build.mutation<CommentOnPdiApiResponse, CommentOnPdiApiArg>(
         {
           query: (queryArg) => ({
@@ -657,6 +668,18 @@ const injectedRtkApi = api
           invalidatesTags: ["SalesOrder"],
         },
       ),
+      exportStockSheet: build.query<
+        ExportStockSheetApiResponse,
+        ExportStockSheetApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/stock/report`,
+          params: {
+            dealershipId: queryArg.dealershipId,
+          },
+        }),
+        providesTags: ["StockVehicle"],
+      }),
       receiveStockVehicle: build.mutation<
         ReceiveStockVehicleApiResponse,
         ReceiveStockVehicleApiArg
@@ -1300,6 +1323,7 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
   customerOccupation?: string | null;
+  referredBy?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1406,6 +1430,7 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
   customerOccupation?: string | null;
+  referredBy?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1499,6 +1524,7 @@ export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
   customerOccupation?: string | null;
+  referredBy?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1698,6 +1724,7 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
   customerOccupation?: string | null;
+  referredBy?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1796,6 +1823,7 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
   customerOccupation?: string | null;
+  referredBy?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1889,6 +1917,7 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
   customerOccupation?: string | null;
+  referredBy?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -1974,6 +2003,8 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2297,6 +2328,8 @@ export type RecordVehicleInvoiceApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2369,6 +2402,8 @@ export type ClearVehicleInvoiceApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2382,6 +2417,80 @@ export type ClearVehicleInvoiceApiResponse = /** status 200 Success */ {
 };
 export type ClearVehicleInvoiceApiArg = {
   id: number;
+};
+export type SetInvoiceDeliveredApiResponse = /** status 200 Success */ {
+  id: number;
+  orderNo: string;
+  pboNo: string | null;
+  orderType: "pbo" | "cbo";
+  dealershipId: number;
+  branchId: number | null;
+  legalEntityId: number | null;
+  accountingEntityId: number | null;
+  leadId: number | null;
+  customerId: number;
+  customerName?: string;
+  salespersonId: number;
+  salespersonName?: string;
+  modelId: number;
+  modelName?: string;
+  variant: string | null;
+  color: string | null;
+  unitPrice: string;
+  discount: string;
+  totalAmount: string;
+  bookingAmount: string;
+  expectedDeliveryDate: string | null;
+  expectedDeliveryByMonth: boolean;
+  vehicleId: number | null;
+  vehicleLabel?: string | null;
+  vehicleStatus?:
+    | (
+        | "available"
+        | "reserved"
+        | "booked"
+        | "in_transit"
+        | "received"
+        | "ready_for_delivery"
+        | "delivered"
+        | "transferred"
+        | "hold"
+        | null
+      )
+    | null;
+  financingRef: string | null;
+  paymentReference: string | null;
+  vehicleVin?: string | null;
+  vehicleEngineNo?: string | null;
+  notes: string | null;
+  status: "draft" | "submitted" | "approved" | "delivered" | "cancelled";
+  amountReceived?: string;
+  balanceDue?: string;
+  clearanceStatus?: "none" | "requested" | "approved" | "rejected";
+  clearanceRequestedAt?: string | null;
+  clearanceRequestedByName?: string | null;
+  clearanceRequestNote?: string | null;
+  clearanceDecidedAt?: string | null;
+  clearanceDecidedByName?: string | null;
+  clearanceDecisionNote?: string | null;
+  invoiceNo?: string | null;
+  invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
+  invoiceReceivedByName?: string | null;
+  invoiceNotes?: string | null;
+  customerType?: "individual" | "corporate";
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  paymentType?: ("partial" | "full" | null) | null;
+  createdAt: string;
+  updatedAt: string;
+  availableActions: string[];
+};
+export type SetInvoiceDeliveredApiArg = {
+  id: number;
+  invoiceDeliveredRequest: InvoiceDeliveredRequest;
 };
 export type CommentOnPdiApiResponse = /** status 201 Success */ Pdi;
 export type CommentOnPdiApiArg = {
@@ -2445,6 +2554,8 @@ export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2517,6 +2628,8 @@ export type DecideDeliveryClearanceApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2589,6 +2702,8 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2666,6 +2781,8 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2738,6 +2855,8 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2809,6 +2928,8 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2936,6 +3057,10 @@ export type DeliverOrderApiResponse = /** status 200 Success */ {
 export type DeliverOrderApiArg = {
   id: number;
   completeDeliveryRequest: CompleteDeliveryRequest;
+};
+export type ExportStockSheetApiResponse = /** status 200 Success */ ExportRows;
+export type ExportStockSheetApiArg = {
+  dealershipId?: number;
 };
 export type ReceiveStockVehicleApiResponse =
   /** status 201 Success */ StockVehicle;
@@ -3404,6 +3529,7 @@ export type ConversionCorrectionRequest = {
   email?: string;
   customerAddress?: string;
   customerOccupation?: string;
+  referredBy?: string | null;
   customerCnic?: string;
   interestedModelId?: number;
   variant?: string;
@@ -3521,6 +3647,7 @@ export type ConvertLeadRequest = {
   customerCnic: string;
   customerAddress: string;
   customerOccupation: string;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -4137,8 +4264,12 @@ export type PdiRequest = {
 };
 export type VehicleInvoiceRequest = {
   invoiceNo: string;
+  invoiceDate?: string | null;
   receivedOn?: string | null;
   notes?: string | null;
+};
+export type InvoiceDeliveredRequest = {
+  delivered: boolean;
 };
 export type PdiCommentRequest = {
   body: string;
@@ -4463,6 +4594,7 @@ export type Lead = {
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
   customerOccupation?: string | null;
+  referredBy?: string | null;
   previousPurchases?: number;
   convertedAt: string | null;
   convertedById: number | null;
@@ -4625,6 +4757,8 @@ export type SalesOrder = {
   clearanceDecisionNote?: string | null;
   invoiceNo?: string | null;
   invoiceReceivedOn?: string | null;
+  invoiceDate?: string | null;
+  invoiceDeliveredAt?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -5009,6 +5143,7 @@ export const {
   useRecordOrderPdiMutation,
   useRecordVehicleInvoiceMutation,
   useClearVehicleInvoiceMutation,
+  useSetInvoiceDeliveredMutation,
   useCommentOnPdiMutation,
   useRequestDeliveryClearanceMutation,
   useDecideDeliveryClearanceMutation,
@@ -5022,6 +5157,8 @@ export const {
   useLazyListOrderDeliveriesQuery,
   useScheduleDeliveryMutation,
   useDeliverOrderMutation,
+  useExportStockSheetQuery,
+  useLazyExportStockSheetQuery,
   useReceiveStockVehicleMutation,
   useListStockVehiclesQuery,
   useLazyListStockVehiclesQuery,

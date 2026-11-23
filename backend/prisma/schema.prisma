@@ -1466,6 +1466,8 @@ model Lead {
   companyName              String?        @map("company_name")
   contactDesignation       String?        @map("contact_designation")
   purchaseOrderNo          String?        @map("purchase_order_no")
+  /** Who referred the customer (e.g. the General Manager, the CEO); optional, entered at conversion. */
+  referredBy               String?        @map("referred_by")
   convertedAt              DateTime?      @map("converted_at") @db.Timestamptz(6)
   convertedById            BigInt?        @map("converted_by_id")
   status                   String         @default("new")
@@ -1743,6 +1745,11 @@ model SalesOrder {
   /// The vehicle invoice received from the manufacturer / head office for this car: its number, the day, who recorded it.
   invoiceNo               String?           @map("invoice_no")
   invoiceReceivedOn       DateTime?         @map("invoice_received_on") @db.Date
+  /// The date printed on the vehicle invoice (typed in when it is recorded).
+  invoiceDate             DateTime?         @map("invoice_date") @db.Date
+  /// When the invoice was handed to the customer (date and time, set when the box is ticked) and by whom.
+  invoiceDeliveredAt      DateTime?         @map("invoice_delivered_at") @db.Timestamptz(6)
+  invoiceDeliveredById    BigInt?           @map("invoice_delivered_by_id")
   invoiceReceivedById     BigInt?           @map("invoice_received_by_id")
   invoiceNotes            String?           @map("invoice_notes")
   payments                OrderPayment[]

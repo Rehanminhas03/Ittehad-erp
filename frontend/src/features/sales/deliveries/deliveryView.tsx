@@ -58,7 +58,7 @@ export const deliveryView: EntityViewConfig<Delivery> = {
       { label: 'Odometer at delivery', value: (d) => (d.odometerKm == null ? '—' : `${d.odometerKm} km`) },
       {
         label: 'Pre-delivery checklist',
-        value: (d) => (d.checklist?.length ? d.checklist.map((c) => PDI_CHECKLIST.find((x) => x.value === c)?.label ?? c).join(', ') : '—'),
+        value: (d) => (d.checklist?.length ? d.checklist.map((c) => PDI_CHECKLIST.find((x) => x.value === c)?.label ?? (c === 'accessories_fitted' ? 'Accessories fitted' : c)).join(', ') : '—'),
       },
       {
         label: 'Documents handed over',

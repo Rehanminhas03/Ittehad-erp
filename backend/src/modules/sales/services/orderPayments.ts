@@ -184,13 +184,17 @@ export async function decideClearance(ctx: EntityCtx, orderId: number, input: z.
   return orders.get(ctx, orderId);
 }
 
-/** Handing over needs the Sales Admin's clearance (all payments clear). */
-export function assertCleared(o: Record<string, unknown>) {
-  if (o.clearanceStatus !== 'approved') {
-    throw conflict(
-      o.clearanceStatus === 'requested'
-        ? 'Waiting for the Sales Admin to clear this car for delivery (payments)'
-        : 'Request delivery clearance from the Sales Admin first: the car is handed over only once all payments are clear',
-    );
-  }
+/**
+ * Handing over needs the payments to be clear: either the Sales Admin cleared the car, or the order is fully paid
+ * (everything received), in which case there is nothing to check and no request is needed.
+ */
+export async function assertCleared(ctx: EntityCtx, o: Record<string, unknown>) {
+  if (o.clearanceStatus === 'approved') return;
+  const received = await receivedOn(ctx, o.id as number);
+  if (cmpMoney(received, '0') > 0 && cmpMoney(subMoney(money(o.totalAmount), received), '0') <= 0) return;
+  throw conflict(
+    o.clearanceStatus === 'requested'
+      ? 'Waiting for the Sales Admin to clear this car for delivery (payments)'
+      : 'Request delivery clearance from the Sales Admin first: the car is handed over only once all payments are clear',
+  );
 }

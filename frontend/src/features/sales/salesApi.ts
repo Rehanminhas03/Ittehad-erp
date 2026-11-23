@@ -42,6 +42,7 @@ export const salesApi = enhancedApi
       recordOrderPdi: { invalidatesTags: ['SalesOrder'] },
       recordVehicleInvoice: { invalidatesTags: ['SalesOrder', 'Lead'] },
       clearVehicleInvoice: { invalidatesTags: ['SalesOrder', 'Lead'] },
+      setInvoiceDelivered: { invalidatesTags: ['SalesOrder', 'Lead'] },
       commentOnPdi: { invalidatesTags: ['SalesOrder'] },
       addOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },
       removeOrderPayment: { invalidatesTags: ['SalesOrder', 'DeliveryPipeline'] },

@@ -50,7 +50,10 @@ export const VEHICLE_PIPELINE = ['booked', 'in_transit', 'received', 'ready_for_
 /** Fixed checklist of documents handed over at delivery (kept small and controlled for compliance). */
 export const DELIVERY_DOCUMENTS = ['invoice', 'registration_book', 'warranty_card', 'owners_manual', 'insurance_cover_note'] as const;
 /** Pre-delivery checklist: every item is ticked before the car is handed over. */
+/** Older deliveries may carry `accessories_fitted`; it is no longer asked for. */
 export const PDI_CHECKLIST = ['pdi_done', 'documents_ready', 'accessories_fitted'] as const;
+/** The items that must be ticked before the car is handed over. */
+export const REQUIRED_PDI_CHECKLIST = ['pdi_done', 'documents_ready'] as const;
 
 /** Paint Protection Film: coverage the customer agreed to, with its price. */
 export const PPF_COVERAGES = ['full_body', 'front_package', 'partial', 'custom'] as const;

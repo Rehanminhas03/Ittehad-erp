@@ -4273,6 +4273,11 @@
             "minLength": 1,
             "maxLength": 120
           },
+          "referredBy": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
           "customerCnic": {
             "type": "string",
             "maxLength": 20
@@ -4831,6 +4836,11 @@
           "customerOccupation": {
             "type": "string",
             "minLength": 1,
+            "maxLength": 120
+          },
+          "referredBy": {
+            "type": "string",
+            "nullable": true,
             "maxLength": 120
           },
           "customerType": {
@@ -7655,6 +7665,11 @@
             "minLength": 1,
             "maxLength": 40
           },
+          "invoiceDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
           "receivedOn": {
             "type": "string",
             "nullable": true,
@@ -7668,6 +7683,17 @@
         },
         "required": [
           "invoiceNo"
+        ]
+      },
+      "InvoiceDeliveredRequest": {
+        "type": "object",
+        "properties": {
+          "delivered": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "delivered"
         ]
       },
       "PdiRequest": {
@@ -9135,6 +9161,10 @@
             "type": "string",
             "nullable": true
           },
+          "referredBy": {
+            "type": "string",
+            "nullable": true
+          },
           "previousPurchases": {
             "type": "integer"
           },
@@ -9665,6 +9695,15 @@
           "invoiceReceivedOn": {
             "type": "string",
             "nullable": true
+          },
+          "invoiceDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceDeliveredAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
           },
           "invoiceReceivedByName": {
             "type": "string",
@@ -27707,6 +27746,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -28332,6 +28375,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -28782,6 +28829,10 @@
                       "nullable": true
                     },
                     "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
                       "type": "string",
                       "nullable": true
                     },
@@ -29913,6 +29964,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -30432,6 +30487,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -30885,6 +30944,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "previousPurchases": {
                       "type": "integer"
                     },
@@ -31278,6 +31341,15 @@
                     "invoiceReceivedOn": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -34330,6 +34402,15 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -34682,6 +34763,388 @@
                     "invoiceReceivedOn": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "invoiceReceivedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerType": {
+                      "type": "string",
+                      "enum": [
+                        "individual",
+                        "corporate"
+                      ]
+                    },
+                    "companyName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactDesignation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "purchaseOrderNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentType": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "partial",
+                        "full",
+                        null
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "availableActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderNo",
+                    "pboNo",
+                    "orderType",
+                    "dealershipId",
+                    "branchId",
+                    "legalEntityId",
+                    "accountingEntityId",
+                    "leadId",
+                    "customerId",
+                    "salespersonId",
+                    "modelId",
+                    "variant",
+                    "color",
+                    "unitPrice",
+                    "discount",
+                    "totalAmount",
+                    "bookingAmount",
+                    "expectedDeliveryDate",
+                    "expectedDeliveryByMonth",
+                    "vehicleId",
+                    "financingRef",
+                    "paymentReference",
+                    "notes",
+                    "status",
+                    "createdAt",
+                    "updatedAt",
+                    "availableActions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/orders/{id}/invoice/delivered": {
+      "put": {
+        "operationId": "setInvoiceDelivered",
+        "summary": "The vehicle invoice was handed to the customer (date and time recorded), or undo it",
+        "description": "Requires: sales.orders.invoice",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceDeliveredRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "orderNo": {
+                      "type": "string"
+                    },
+                    "pboNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "orderType": {
+                      "type": "string",
+                      "enum": [
+                        "pbo",
+                        "cbo"
+                      ]
+                    },
+                    "dealershipId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "branchId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "legalEntityId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "accountingEntityId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "leadId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "customerId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "customerName": {
+                      "type": "string"
+                    },
+                    "salespersonId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "salespersonName": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "modelName": {
+                      "type": "string"
+                    },
+                    "variant": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "color": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "unitPrice": {
+                      "type": "string"
+                    },
+                    "discount": {
+                      "type": "string"
+                    },
+                    "totalAmount": {
+                      "type": "string"
+                    },
+                    "bookingAmount": {
+                      "type": "string"
+                    },
+                    "expectedDeliveryDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "expectedDeliveryByMonth": {
+                      "type": "boolean"
+                    },
+                    "vehicleId": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "vehicleLabel": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleStatus": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        "available",
+                        "reserved",
+                        "booked",
+                        "in_transit",
+                        "received",
+                        "ready_for_delivery",
+                        "delivered",
+                        "transferred",
+                        "hold",
+                        null
+                      ]
+                    },
+                    "financingRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentReference": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleVin": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vehicleEngineNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "submitted",
+                        "approved",
+                        "delivered",
+                        "cancelled"
+                      ]
+                    },
+                    "amountReceived": {
+                      "type": "string"
+                    },
+                    "balanceDue": {
+                      "type": "string"
+                    },
+                    "clearanceStatus": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "requested",
+                        "approved",
+                        "rejected"
+                      ]
+                    },
+                    "clearanceRequestedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "clearanceRequestedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceRequestNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceDecidedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "clearanceDecidedByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "clearanceDecisionNote": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceReceivedOn": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -35125,6 +35588,15 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -35489,6 +35961,15 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -35852,6 +36333,15 @@
                     "invoiceReceivedOn": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -36289,6 +36779,15 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -36641,6 +37140,15 @@
                     "invoiceReceivedOn": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -37005,6 +37513,15 @@
                     "invoiceReceivedOn": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "invoiceDate": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceDeliveredAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -37784,6 +38301,75 @@
                     "updatedAt",
                     "availableActions"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/stock/report": {
+      "get": {
+        "operationId": "exportStockSheet",
+        "summary": "Every undelivered car with its colour, engine and chassis number, status, customer and received date (for the stock sheets)",
+        "description": "Requires: sales.stock.view",
+        "tags": [
+          "StockVehicle"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "dealershipId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportRows"
                 }
               }
             }
@@ -40508,7 +41094,7 @@
       "post": {
         "operationId": "transitionSalesOrder",
         "summary": "Run a workflow action on SalesOrder",
-        "description": "Requires: sales.orders.submit | sales.orders.approve | sales.orders.cancel",
+        "description": "Requires: sales.orders.cancel",
         "tags": [
           "SalesOrder"
         ],

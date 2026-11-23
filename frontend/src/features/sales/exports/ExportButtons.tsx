@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/shared/components/ui';
 import { useToast } from '@/shared/hooks';
 import { useLazyExportLeadsQuery, useLazyExportSalesOrdersQuery } from '../salesApi';
+import { BookingsReportButton, DeliveredReportButton, InvoiceReportButton } from './BookingsReport';
 import { downloadCsv, downloadTablePdf, LEAD_COLUMNS, LEAD_PDF_COLUMNS, ORDER_COLUMNS, ORDER_PDF_COLUMNS } from './exporters';
 
 const KINDS = {
@@ -80,6 +81,9 @@ export function ExportButtons({
 
   return (
     <div className="mb-3 flex flex-wrap justify-end gap-2">
+      {kind === 'orders' && arg.status === 'delivered' && <DeliveredReportButton period={{ from: arg.from, to: arg.to }} periodLabel={periodLabel} dealershipId={arg.dealershipId} by="bookedOn" />}
+      {kind === 'orders' && query.invoice === 'received' && <InvoiceReportButton period={{ from: arg.from, to: arg.to }} periodLabel={periodLabel} dealershipId={arg.dealershipId} />}
+      {kind === 'orders' && <BookingsReportButton query={arg} periodLabel={periodLabel} />}
       <Button size="sm" variant="secondary" loading={busy === 'csv'} onClick={() => void run('csv')} title="Every detail, one column each — opens in Excel">
         <DownloadIcon />
         Export to Excel (CSV)

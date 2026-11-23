@@ -595,8 +595,8 @@ export const salesOrderEntity: EntityConfig = {
           companyName: l?.companyName ?? null,
           contactDesignation: l?.contactDesignation ?? null,
           purchaseOrderNo: l?.purchaseOrderNo ?? null,
-          // Partial or full payment, as recorded at conversion.
-          paymentType: l?.paymentType ?? null,
+          // Partial or full payment, as recorded at conversion; once everything is received it is a full payment.
+          paymentType: cmpMoney(received, '0') > 0 && cmpMoney(subMoney(money2(r.totalAmount), received), '0') <= 0 ? 'full' : (l?.paymentType ?? null),
         };
       });
     },
@@ -741,6 +741,8 @@ export const stockVehicleEntity: EntityConfig = {
     // Free stock vs. vehicles already on a live order.
     allocated: { key: 'id', schema: BoolQuery, where: (v) => (v ? liveOrderExists : sql`not ${liveOrderExists}`) },
   },
+  // Open stock is the free cars: cars already on an order are left out unless asked for ("On an order", a status, or "Not received yet").
+  listDefault: (f) => (f.allocated !== undefined || f.status !== undefined || f.incoming !== undefined ? undefined : sql`not ${liveOrderExists}`),
   sort: { default: '-createdAt', keys: ['createdAt', 'vin', 'modelYear', 'status'] },
   hooks: {
     beforeUpdate: async (ctx, row, patch) => {

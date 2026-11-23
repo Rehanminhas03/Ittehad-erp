@@ -77,7 +77,7 @@ export async function completeDelivery(ctx: EntityCtx, deliveryId: number, input
   const o = await orders.findById(ctx, d.salesOrderId as number, { lock: true });
   if (o.status !== 'approved' || o.vehicleId !== d.vehicleId) throw conflict('The order is no longer approved for this vehicle');
   // The Sales Admin must have cleared the car (all payments clear) before it is handed over.
-  assertCleared(o);
+  await assertCleared(ctx, o);
 
   const deliveredOn = input.deliveredOn ?? today();
   if (deliveredOn > today()) throw validationError([{ in: 'body', path: 'deliveredOn', message: 'Delivery date cannot be in the future' }]);

@@ -190,7 +190,7 @@ export const setReportDealership = (code: string | null) => {
  * The letterhead of a landscape report: "Ittehad Motors (An Ittehad Steel Company)" with the dealership's address on the left
  * and its logo on the right, a line under it. Returns the y where the report starts (a plain start without a known dealership).
  */
-async function reportLetterhead(doc: import('jspdf').jsPDF, W: number, M: number): Promise<number> {
+export async function reportLetterhead(doc: import('jspdf').jsPDF, W: number, M: number): Promise<number> {
   const code = reportDealershipCode ?? '';
   const [{ loadImage }, { workshopBrand }] = await Promise.all([import('../documents/pdf'), import('../documents/workshopPdf')]);
   const known = workshopBrand(code);

@@ -181,6 +181,12 @@ export async function setOrderVehicle(ctx: EntityCtx, orderId: number, input: z.
     branchId: (o.branchId as number | null) ?? null,
     changes: { vehicleId, ...patch },
   });
+  // Jetour: once the chassis and engine numbers are entered the car is already on its way, so it goes straight to in transit.
+  const brand = (await ctx.tx.dealership.findUnique({ where: { id: dealershipId }, select: { brand: true } }))?.brand;
+  if (brand === 'Jetour' && isLive(o.status)) {
+    const [cur] = await query<{ status: string }>(ctx.tx, sql`select ${vehicle.status} as "status" from ${vehicle} where ${vehicle.id} = ${vehicleId}`);
+    if (cur?.status === 'booked') await setVehicleStatus(ctx, vehicleId, 'in_transit', dealershipId);
+  }
   return orders.get(ctx, orderId);
 }
 

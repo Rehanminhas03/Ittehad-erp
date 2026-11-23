@@ -246,6 +246,7 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
       vehiclePrice: input.paymentType === 'partial' ? (input.vehiclePrice ?? null) : input.paymentAmount,
       // Individual or corporate (the company is the billing name on the order's documents).
       customerType: input.customerType,
+      referredBy: input.referredBy ?? null,
       companyName: input.customerType === 'corporate' ? (input.companyName ?? null) : null,
       contactDesignation: input.customerType === 'corporate' ? (input.contactDesignation ?? null) : null,
       purchaseOrderNo: input.customerType === 'corporate' ? (input.purchaseOrderNo ?? null) : null,
@@ -324,7 +325,7 @@ export async function correctLeadConversion(ctx: EntityCtx, leadId: number, inpu
   if (input.customerCnic) await ensureCustomerCnic(ctx, customerId, target.dealershipId, input.customerCnic);
   if (Object.keys(customerPatch).length) await ctx.tx.customer.update({ where: { id: customerId }, data: { ...customerPatch, updatedById: ctx.access.userId }, select: { id: true } });
 
-  for (const k of ['interestedModelId', 'variant', 'preferredColor', 'paymentType', 'paymentInstrument', 'paymentInstrumentRef', 'paymentInstrumentBank', 'paymentAmount', 'customerType', 'notes'] as const) {
+  for (const k of ['interestedModelId', 'variant', 'preferredColor', 'paymentType', 'paymentInstrument', 'paymentInstrumentRef', 'paymentInstrumentBank', 'paymentAmount', 'customerType', 'referredBy', 'notes'] as const) {
     if (input[k] !== undefined) leadPatch[k] = input[k];
   }
   if (input.paymentType !== undefined || input.vehiclePrice !== undefined || input.paymentAmount !== undefined) {
