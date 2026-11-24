@@ -7,6 +7,7 @@ import type { EntityCtx } from '../../../entity/types';
 import { conflict, forbidden, validationError } from '../../../lib/errors';
 import { pakistanToday } from '../../../lib/dates';
 import type { z } from '../../../lib/zod';
+import { normalizeCnic, normalizeMobile } from '../../master/normalize';
 import { orders } from '../entities';
 import { SalesPerm as P } from '../permissions';
 import type { InvoiceDeliveredBody, VehicleInvoiceBody } from '../schemas';
@@ -49,12 +50,32 @@ export async function setInvoiceDelivered(ctx: EntityCtx, orderId: number, input
   const o = await orders.findVisible(ctx, orderId, { lock: true });
   if (!orders.canOnRow(ctx.access, o, P.ordersInvoice)) throw forbidden('Only the Sales Admin, Assistant Manager or Manager hand over the vehicle invoice');
   if (!o.invoiceNo) throw conflict('Record the vehicle invoice first');
+  // The customer takes it himself, or someone else does: then who (name, contact, CNIC) is required.
+  const other = input.delivered && input.takenBy === 'other';
+  const name = input.receiverName?.trim() || null;
+  const contact = input.receiverContact?.trim() || null;
+  const cnic = input.receiverCnic ? normalizeCnic(input.receiverCnic) : null;
+  if (other) {
+    const bad = [
+      !name && { in: 'body' as const, path: 'receiverName', message: "Enter the receiver's name" },
+      (!contact || !normalizeMobile(contact)) && { in: 'body' as const, path: 'receiverContact', message: "Enter the receiver's contact number" },
+      !cnic && { in: 'body' as const, path: 'receiverCnic', message: "Enter the receiver's CNIC (13 digits, e.g. 35202-1234567-1)" },
+    ].filter((x) => !!x);
+    if (bad.length) throw validationError(bad);
+  }
   await ctx.tx.salesOrder.update({
     where: { id: orderId },
-    data: { invoiceDeliveredAt: input.delivered ? new Date() : null, invoiceDeliveredById: input.delivered ? ctx.access.userId : null, updatedById: ctx.access.userId },
+    data: {
+      invoiceDeliveredAt: input.delivered ? new Date() : null,
+      invoiceDeliveredById: input.delivered ? ctx.access.userId : null,
+      invoiceTakenByName: other ? name : null,
+      invoiceTakenByContact: other ? contact : null,
+      invoiceTakenByCnic: other ? cnic : null,
+      updatedById: ctx.access.userId,
+    },
     select: { id: true },
   });
-  await ctx.audit({ entityType: 'sales.order', entityId: orderId, action: input.delivered ? 'invoice.deliver' : 'invoice.undeliver', ...targetOf(o), changes: { invoiceNo: o.invoiceNo } });
+  await ctx.audit({ entityType: 'sales.order', entityId: orderId, action: input.delivered ? 'invoice.deliver' : 'invoice.undeliver', ...targetOf(o), changes: { invoiceNo: o.invoiceNo, ...(other ? { takenBy: name } : {}) } });
   return orders.get(ctx, orderId);
 }
 
@@ -65,7 +86,7 @@ export async function clearVehicleInvoice(ctx: EntityCtx, orderId: number) {
   if (!o.invoiceNo) throw conflict('No invoice is recorded for this order');
   await ctx.tx.salesOrder.update({
     where: { id: orderId },
-    data: { invoiceNo: null, invoiceDeliveredAt: null, invoiceDeliveredById: null, invoiceDate: null, invoiceReceivedOn: null, invoiceNotes: null, invoiceReceivedById: null, updatedById: ctx.access.userId },
+    data: { invoiceNo: null, invoiceDeliveredAt: null, invoiceDeliveredById: null, invoiceTakenByName: null, invoiceTakenByContact: null, invoiceTakenByCnic: null, invoiceDate: null, invoiceReceivedOn: null, invoiceNotes: null, invoiceReceivedById: null, updatedById: ctx.access.userId },
     select: { id: true },
   });
   await ctx.audit({ entityType: 'sales.order', entityId: orderId, action: 'invoice.clear', ...targetOf(o), changes: { invoiceNo: o.invoiceNo } });

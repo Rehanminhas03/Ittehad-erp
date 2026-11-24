@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Badge, Button, Dialog, Field, Input, Section, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
-import { formatDate, formatDateTime } from '@/shared/lib';
+import { apiErrorMessage, formatDate, formatDateTime } from '@/shared/lib';
 import { P } from '../../../permissions';
 import { type SalesOrder, useClearVehicleInvoiceMutation, useRecordVehicleInvoiceMutation, useSetInvoiceDeliveredMutation } from '../../../salesApi';
 
@@ -28,6 +28,11 @@ export function OrderInvoice({ order }: { order: SalesOrder }) {
   const [save, { isLoading }] = useRecordVehicleInvoiceMutation();
   const [clear, { isLoading: clearing }] = useClearVehicleInvoiceMutation();
   const [setDelivered, { isLoading: handing }] = useSetInvoiceDeliveredMutation();
+  // Handing the invoice over: the customer himself, or someone else (name, contact and CNIC are then needed).
+  const [handOpen, setHandOpen] = useState(false);
+  const [takenBy, setTakenBy] = useState<'customer' | 'other'>('customer');
+  const [receiver, setReceiver] = useState({ name: '', contact: '', cnic: '' });
+  const [handError, setHandError] = useState<string | null>(null);
   const applies = !!order.vehicleId && ['approved', 'delivered'].includes(order.status);
   if (!applies && !order.invoiceNo) return null;
   const canRecord = applies && perm.canIn(P.ordersInvoice, order.dealershipId, order.branchId);
@@ -66,32 +71,144 @@ export function OrderInvoice({ order }: { order: SalesOrder }) {
             {order.invoiceReceivedByName ? ` · recorded by ${order.invoiceReceivedByName}` : ''}
           </p>
           {order.invoiceNotes && <p className="text-slate-700">{order.invoiceNotes}</p>}
-          {/* The customer comes for the invoice: tick the box; the date and time are taken from now. */}
+          {/* The invoice is handed over: to the customer or to someone else; the date and time are taken from now. */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            <label className={`inline-flex items-center gap-2 font-medium text-slate-800 ${canRecord ? 'cursor-pointer' : ''}`}>
-              <input
-                type="checkbox"
-                className="size-4 rounded border-slate-300"
-                checked={!!order.invoiceDeliveredAt}
-                disabled={!canRecord || handing}
-                onChange={async (e) => {
-                  try {
-                    await setDelivered({ id: order.id, invoiceDeliveredRequest: { delivered: e.target.checked } }).unwrap();
-                    toast.success(e.target.checked ? 'Invoice marked as delivered to the customer' : 'Marked as not delivered');
-                  } catch (err) {
-                    toast.error(err);
-                  }
-                }}
-              />
-              Invoice delivered to the customer
-            </label>
-            {order.invoiceDeliveredAt && <span className="text-emerald-700">Handed over {formatDateTime(order.invoiceDeliveredAt)}</span>}
+            {order.invoiceDeliveredAt ? (
+              <>
+                <Badge tone="green" dot>Invoice delivered</Badge>
+                <span className="text-emerald-700">
+                  Handed over {formatDateTime(order.invoiceDeliveredAt)} to{' '}
+                  {order.invoiceTakenByName ? (
+                    <b>
+                      {order.invoiceTakenByName}
+                      {order.invoiceTakenByContact ? ` · ${order.invoiceTakenByContact}` : ''}
+                      {order.invoiceTakenByCnic ? ` · CNIC ${order.invoiceTakenByCnic}` : ''}
+                    </b>
+                  ) : (
+                    <b>the customer</b>
+                  )}
+                </span>
+                {canRecord && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={handing}
+                    onClick={async () => {
+                      if (!window.confirm('Mark the invoice as not delivered?')) return;
+                      try {
+                        await setDelivered({ id: order.id, invoiceDeliveredRequest: { delivered: false, takenBy: 'customer' } }).unwrap();
+                        toast.success('Marked as not delivered');
+                      } catch (err) {
+                        toast.error(err);
+                      }
+                    }}
+                  >
+                    Undo
+                  </Button>
+                )}
+              </>
+            ) : (
+              canRecord && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setTakenBy('customer');
+                    setReceiver({ name: '', contact: '', cnic: '' });
+                    setHandError(null);
+                    setHandOpen(true);
+                  }}
+                >
+                  Hand over the invoice
+                </Button>
+              )
+            )}
           </div>
         </div>
       ) : (
         <p className="text-sm text-slate-600">
           <Badge tone="amber">Invoice not received yet</Badge> <span className="ml-2">The Sales Admin, Assistant Manager or Manager records it when it arrives for this customer&apos;s car.</span>
         </p>
+      )}
+      {handOpen && (
+        <Dialog
+          open
+          onClose={() => setHandOpen(false)}
+          title="Hand over the invoice"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setHandOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                loading={handing}
+                onClick={async () => {
+                  if (takenBy === 'other' && !(receiver.name.trim() && receiver.contact.trim() && receiver.cnic.trim())) return setHandError("Enter the receiver's name, contact and CNIC");
+                  setHandError(null);
+                  try {
+                    await setDelivered({
+                      id: order.id,
+                      invoiceDeliveredRequest: {
+                        delivered: true,
+                        takenBy,
+                        receiverName: takenBy === 'other' ? receiver.name.trim() : null,
+                        receiverContact: takenBy === 'other' ? receiver.contact.trim() : null,
+                        receiverCnic: takenBy === 'other' ? receiver.cnic.trim() : null,
+                      },
+                    }).unwrap();
+                    toast.success('Invoice handed over');
+                    setHandOpen(false);
+                  } catch (err) {
+                    setHandError(apiErrorMessage(err));
+                  }
+                }}
+              >
+                Hand over
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Invoice <b className="font-mono">{order.invoiceNo}</b> · {order.customerName}. The date and time are recorded now.
+            </p>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Who is taking the invoice">
+              {(
+                [
+                  ['customer', 'The customer', 'comes himself'],
+                  ['other', 'Someone else', 'on the customer’s behalf'],
+                ] as const
+              ).map(([value, text, sub]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={takenBy === value}
+                  onClick={() => setTakenBy(value)}
+                  className={takenBy === value ? 'rounded-xl border-2 border-brand-600 bg-brand-50 px-3 py-2.5 text-left' : 'rounded-xl border-2 border-slate-200 bg-white px-3 py-2.5 text-left hover:border-slate-300'}
+                >
+                  <span className="block text-sm font-semibold text-slate-900">{text}</span>
+                  <span className="block text-xs text-slate-500">{sub}</span>
+                </button>
+              ))}
+            </div>
+            {takenBy === 'other' && (
+              <div className="space-y-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                <Field label="Receiver's name" htmlFor="ho-name" required>
+                  <Input id="ho-name" value={receiver.name} onChange={(e) => setReceiver((r) => ({ ...r, name: e.target.value }))} autoFocus />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Receiver's contact" htmlFor="ho-contact" required>
+                    <Input id="ho-contact" inputMode="tel" value={receiver.contact} onChange={(e) => setReceiver((r) => ({ ...r, contact: e.target.value.replace(/[^\d+\s-]/g, '') }))} />
+                  </Field>
+                  <Field label="Receiver's CNIC" htmlFor="ho-cnic" required hint="13 digits">
+                    <Input id="ho-cnic" inputMode="numeric" value={receiver.cnic} onChange={(e) => setReceiver((r) => ({ ...r, cnic: e.target.value.replace(/[^\d-]/g, '') }))} placeholder="35202-1234567-1" />
+                  </Field>
+                </div>
+              </div>
+            )}
+            {handError && <p className="text-sm text-red-600">{handError}</p>}
+          </div>
+        </Dialog>
       )}
       {open && (
         <Dialog

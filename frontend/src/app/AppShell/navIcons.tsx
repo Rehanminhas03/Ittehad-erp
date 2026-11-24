@@ -2,6 +2,7 @@
 const paths: Record<string, string> = {
   Overview: 'M3 10.5 12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5',
   Sales: 'M3 17 9 11l4 4 8-8M21 7h-5m5 0v5',
+  'Our reports': 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
   Service: 'M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L21 6l-3-3-3.3 3.3Z',
   Parts: 'M21 8 12 3 3 8m18 0-9 5m9-5v9l-9 5m0-9L3 8m9 5v9M3 8v9l9 5',
   Accounts: 'M4 5h16v14H4zM4 10h16M9 15h6',

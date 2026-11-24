@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Button, Dialog } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { useLazyExportSalesOrdersQuery, useLazyExportStockSheetQuery } from '../salesApi';
@@ -11,6 +11,8 @@ import { reportLetterhead } from './exporters';
  * or downloaded as a PDF (A3, landscape, every column on one wide page) or as an Excel file (.xlsx) with proper column widths.
  */
 export type Row = Record<string, unknown>;
+/** Draws what opens a report (default: a small button); the reports page draws a card. */
+export type ReportTrigger = (open: () => void, loading: boolean) => ReactNode;
 /** `w`: the column's relative width (PDF) and its width in characters (Excel). */
 export type Col = { header: string; value: (r: Row) => string | number; w: number; num?: boolean };
 
@@ -283,7 +285,7 @@ export function ReportDialog({
     <Dialog
       open
       onClose={onClose}
-      size="xl"
+      size="full"
       title={`${title} — ${periodLabel}`}
       footer={
         <>
@@ -303,7 +305,7 @@ export function ReportDialog({
       }
     >
       <p className="mb-2 text-xs text-slate-500">{summary} Look it over, then print or download.</p>
-      <div className="max-h-[62vh] overflow-auto rounded-lg ring-1 ring-slate-300">
+      <div className="overflow-auto rounded-lg ring-1 ring-slate-300" style={{ maxHeight: 'calc(100vh - 240px)' }}>
         <table className="min-w-full border-collapse text-xs">
           <thead className="sticky top-0">
             <tr>
@@ -339,7 +341,7 @@ export function ReportDialog({
   );
 }
 
-export function BookingsReportButton({ query, periodLabel }: { query: { from?: string; to?: string; dealershipId?: number; status?: string }; periodLabel: string }) {
+export function BookingsReportButton({ query, periodLabel, trigger }: { query: { from?: string; to?: string; dealershipId?: number; status?: string }; periodLabel: string; trigger?: ReportTrigger }) {
   const perm = usePermission();
   const toast = useToast();
   const [load, { isFetching }] = useLazyExportSalesOrdersQuery();
@@ -358,9 +360,13 @@ export function BookingsReportButton({ query, periodLabel }: { query: { from?: s
   const due = rows?.reduce((n, r) => n + num(r.balance), 0) ?? 0;
   return (
     <>
-      <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open()} title="The booking sheet: one row per order, to view, print or download">
-        Bookings report
-      </Button>
+      {trigger ? (
+        trigger(() => void open(), isFetching)
+      ) : (
+        <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open()} title="The booking sheet: one row per order, to view, print or download">
+          Bookings report
+        </Button>
+      )}
       {rows && (
         <ReportDialog
           title="Bookings report"
@@ -405,12 +411,12 @@ export const INVOICE_COLUMNS: Col[] = [
   { header: 'Invoice No', value: (r) => text(r.invoiceNo), w: 13 },
   { header: 'Invoices date', value: (r) => date(r.invoiceDate), w: 13 },
   { header: 'Invoice Received', value: (r) => date(r.invoiceReceivedOn), w: 13 },
-  { header: 'Invoice Delivered To customer', value: (r) => (r.invoiceDeliveredAt ? `DELIVERED\n${text(r.invoiceDeliveredAt)}` : ''), w: 18 },
+  { header: 'Invoice Delivered To customer', value: (r) => (r.invoiceDeliveredAt ? ['DELIVERED', text(r.invoiceDeliveredAt), r.invoiceTakenByName ? `Taken by ${text(r.invoiceTakenByName)}${r.invoiceTakenByContact ? `, ${text(r.invoiceTakenByContact)}` : ''}${r.invoiceTakenByCnic ? `, CNIC ${text(r.invoiceTakenByCnic)}` : ''}` : 'Taken by the customer'].join('\n') : ''), w: 18 },
   { header: 'Remarks', value: (r) => text(r.invoiceNotes), w: 28 },
 ];
 
 /** "Invoices received report" for the Invoices received page: the cars whose invoice is recorded, in the order the invoices arrived. */
-export function InvoiceReportButton({ period, periodLabel, dealershipId }: { period: { from?: string; to?: string }; periodLabel: string; dealershipId?: number }) {
+export function InvoiceReportButton({ period, periodLabel, dealershipId, trigger }: { period: { from?: string; to?: string }; periodLabel: string; dealershipId?: number; trigger?: ReportTrigger }) {
   const perm = usePermission();
   const toast = useToast();
   const [load, { isFetching }] = useLazyExportSalesOrdersQuery();
@@ -428,9 +434,13 @@ export function InvoiceReportButton({ period, periodLabel, dealershipId }: { per
   };
   return (
     <>
-      <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open()} title="The invoices received: to view, print or download">
-        Invoices received report
-      </Button>
+      {trigger ? (
+        trigger(() => void open(), isFetching)
+      ) : (
+        <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open()} title="The invoices received: to view, print or download">
+          Invoices received report
+        </Button>
+      )}
       {rows && (
         <ReportDialog
           title="Invoices received report"
@@ -448,7 +458,8 @@ export function InvoiceReportButton({ period, periodLabel, dealershipId }: { per
 }
 
 /** "Delivered cars report" for the Deliveries page: only delivered cars, narrowed to the page's period (delivered then). */
-export function DeliveredReportButton({ period, periodLabel, dealershipId, by = 'deliveredOn' }: { period: { from?: string; to?: string }; periodLabel: string; dealershipId?: number; /** The date the period applies to: when the car was delivered (default), or when the order was booked. */ by?: 'deliveredOn' | 'bookedOn' }) {
+export function DeliveredReportButton({ period, periodLabel, dealershipId, by = 'deliveredOn', trigger }: {
+  trigger?: ReportTrigger; period: { from?: string; to?: string }; periodLabel: string; dealershipId?: number; /** The date the period applies to: when the car was delivered (default), or when the order was booked. */ by?: 'deliveredOn' | 'bookedOn' }) {
   const perm = usePermission();
   const toast = useToast();
   const [load, { isFetching }] = useLazyExportSalesOrdersQuery();
@@ -471,9 +482,13 @@ export function DeliveredReportButton({ period, periodLabel, dealershipId, by = 
   };
   return (
     <>
-      <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open()} title="Only the delivered cars: to view, print or download">
-        Delivered cars report
-      </Button>
+      {trigger ? (
+        trigger(() => void open(), isFetching)
+      ) : (
+        <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open()} title="Only the delivered cars: to view, print or download">
+          Delivered cars report
+        </Button>
+      )}
       {rows && (
         <ReportDialog
           title="Delivered cars report"
@@ -524,11 +539,11 @@ export const STOCK_COLUMNS: Col[] = [
  * The two stock reports on the Open stock page: "Open stock sheet" (the free cars) and "Stock sheet" (every car that has
  * been received and not delivered, also those already held by a customer's order).
  */
-export function StockReportButtons({ dealershipId }: { dealershipId?: number }) {
+export function StockSheetButton({ which, dealershipId, trigger }: { which: 'open' | 'all'; dealershipId?: number; trigger?: ReportTrigger }) {
   const toast = useToast();
   const [load, { isFetching }] = useLazyExportStockSheetQuery();
   const [report, setReport] = useState<{ title: string; rows: Row[]; cars: number } | null>(null);
-  const open = async (which: 'open' | 'all') => {
+  const open = async () => {
     try {
       const all = (await load({ dealershipId }).unwrap()) as Row[];
       // A car is here once it is received (or registered as stock); booked / in-transit cars are still on their way.
@@ -543,12 +558,19 @@ export function StockReportButtons({ dealershipId }: { dealershipId?: number }) 
   };
   return (
     <>
-      <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open('open')} title="The free cars, grouped by model">
-        Open stock sheet
-      </Button>
-      <Button size="sm" variant="secondary" loading={isFetching} onClick={() => void open('all')} title="Every car received and not delivered, with the customer holding it">
-        Stock sheet
-      </Button>
+      {trigger ? (
+        trigger(() => void open(), isFetching)
+      ) : (
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={isFetching}
+          onClick={() => void open()}
+          title={which === 'open' ? 'The free cars, grouped by model' : 'Every car received and not delivered, with the customer holding it'}
+        >
+          {which === 'open' ? 'Open stock sheet' : 'Stock sheet'}
+        </Button>
+      )}
       {report && (
         <ReportDialog
           title={report.title}
@@ -561,6 +583,16 @@ export function StockReportButtons({ dealershipId }: { dealershipId?: number }) 
           onClose={() => setReport(null)}
         />
       )}
+    </>
+  );
+}
+
+/** The two stock reports on the Open stock page. */
+export function StockReportButtons({ dealershipId }: { dealershipId?: number }) {
+  return (
+    <>
+      <StockSheetButton which="open" dealershipId={dealershipId} />
+      <StockSheetButton which="all" dealershipId={dealershipId} />
     </>
   );
 }

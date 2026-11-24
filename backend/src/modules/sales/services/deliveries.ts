@@ -160,6 +160,38 @@ export async function orderDeliveries(ctx: EntityCtx, orderId: number) {
  * What the delivery note prints (the dealership's own form: who takes delivery, against which PBO,
  * the vehicle, and the sign-offs on the back). Blank where not known, to be written by hand.
  */
+/** The Vehicle Delivery Acceptance Note of an order: filled from the order, its car and the customer; the receiver is typed in when printed. */
+export async function acceptanceNote(ctx: EntityCtx, orderId: number) {
+  const o = await orders.findVisible(ctx, orderId);
+  const [car, model, buyer, dealer, corp] = await Promise.all([
+    o.vehicleId ? ctx.tx.vehicle.findFirst({ where: { id: o.vehicleId as number }, select: { vin: true, engineNo: true, color: true, variant: true, registrationNo: true, modelYear: true } }) : null,
+    ctx.tx.vehicleModel.findFirst({ where: { id: o.modelId as number }, select: { brand: true, name: true } }),
+    ctx.tx.customer.findFirst({ where: { id: o.customerId as number }, select: { fullName: true, mobile: true, address: true, cnic: true } }),
+    ctx.tx.dealership.findFirst({ where: { id: o.dealershipId as number }, select: { name: true, code: true, brand: true } }),
+    o.leadId ? ctx.tx.lead.findFirst({ where: { id: o.leadId as number }, select: { customerType: true, companyName: true } }) : null,
+  ]);
+  return {
+    dealership: { name: dealer?.name ?? '', code: dealer?.code ?? '', brand: dealer?.brand ?? '' },
+    pboNo: (o.pboNo as string | null) ?? null,
+    orderNo: (o.orderNo as string | null) ?? null,
+    invoiceNo: (o.invoiceNo as string | null) ?? null,
+    owner: corp?.customerType === 'corporate' && corp.companyName ? corp.companyName : (buyer?.fullName ?? null),
+    ownerContact: buyer?.mobile ?? null,
+    ownerCnic: buyer?.cnic ? formatCnic(buyer.cnic) : null,
+    address: buyer?.address ?? null,
+    vehicle: {
+      make: model?.brand ?? null,
+      model: model?.name ?? null,
+      variant: (o.variant as string | null) ?? car?.variant ?? null,
+      year: car?.modelYear ?? null,
+      color: (o.color as string | null) ?? car?.color ?? null,
+      chassisNo: car?.vin ?? null,
+      engineNo: car?.engineNo ?? null,
+      registrationNo: car?.registrationNo ?? null,
+    },
+  };
+}
+
 export async function deliveryNote(ctx: EntityCtx, deliveryId: number) {
   const d = await deliveries.findVisible(ctx, deliveryId);
   const o = await ctx.tx.salesOrder.findFirst({

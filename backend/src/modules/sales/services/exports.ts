@@ -41,6 +41,8 @@ export async function exportOrders(ctx: EntityCtx, q: z.output<typeof ExportQuer
                dl.scheduled_date::text as "deliveryScheduled", dl.delivered_on::text as "deliveredOn",
                ${salesOrder.invoiceNo} as "invoiceNo", ${salesOrder.invoiceDate}::text as "invoiceDate", ${salesOrder.invoiceReceivedOn}::text as "invoiceReceivedOn", ${salesOrder.invoiceNotes} as "invoiceNotes",
                to_char(${salesOrder.invoiceDeliveredAt} at time zone 'Asia/Karachi', 'DD-Mon-YYYY HH12:MI am') as "invoiceDeliveredAt",
+               ${salesOrder.invoiceTakenByName} as "invoiceTakenByName", ${salesOrder.invoiceTakenByContact} as "invoiceTakenByContact",
+               ${salesOrder.invoiceTakenByCnic} as "invoiceTakenByCnic",
                ${salesOrder.paymentReference} as "paymentReference",
                ${salesOrder.notes} as "notes"
           from ${salesOrder}

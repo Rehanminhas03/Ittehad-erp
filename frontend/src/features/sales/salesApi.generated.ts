@@ -4,6 +4,7 @@ export const addTagTypes = [
   "Quotation",
   "PPF form",
   "PpfSlot",
+  "DeliveryDocument",
   "DocumentTemplate",
   "Variant code",
   "SalesDashboard",
@@ -310,6 +311,61 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["PpfSlot"],
       }),
+      listDeliveryDocuments: build.query<
+        ListDeliveryDocumentsApiResponse,
+        ListDeliveryDocumentsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/delivery-documents`,
+          params: {
+            orderId: queryArg.orderId,
+            kind: queryArg.kind,
+            q: queryArg.q,
+          },
+        }),
+        providesTags: ["DeliveryDocument"],
+      }),
+      saveDeliveryDocument: build.mutation<
+        SaveDeliveryDocumentApiResponse,
+        SaveDeliveryDocumentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/delivery-documents`,
+          method: "POST",
+          body: queryArg.deliveryDocumentRequest,
+        }),
+        invalidatesTags: ["DeliveryDocument"],
+      }),
+      getDeliveryDocument: build.query<
+        GetDeliveryDocumentApiResponse,
+        GetDeliveryDocumentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/delivery-documents/${queryArg.id}`,
+        }),
+        providesTags: ["DeliveryDocument"],
+      }),
+      updateDeliveryDocument: build.mutation<
+        UpdateDeliveryDocumentApiResponse,
+        UpdateDeliveryDocumentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/delivery-documents/${queryArg.id}`,
+          method: "PATCH",
+          body: queryArg.deliveryDocumentRequest,
+        }),
+        invalidatesTags: ["DeliveryDocument"],
+      }),
+      removeDeliveryDocument: build.mutation<
+        RemoveDeliveryDocumentApiResponse,
+        RemoveDeliveryDocumentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/delivery-documents/${queryArg.id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["DeliveryDocument"],
+      }),
       getDocumentTemplate: build.query<
         GetDocumentTemplateApiResponse,
         GetDocumentTemplateApiArg
@@ -521,6 +577,15 @@ const injectedRtkApi = api
           body: queryArg.pdiRequest,
         }),
         invalidatesTags: ["SalesOrder"],
+      }),
+      getAcceptanceNote: build.query<
+        GetAcceptanceNoteApiResponse,
+        GetAcceptanceNoteApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/sales/orders/${queryArg.id}/acceptance-note`,
+        }),
+        providesTags: ["SalesOrder"],
       }),
       recordVehicleInvoice: build.mutation<
         RecordVehicleInvoiceApiResponse,
@@ -2005,6 +2070,9 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2164,6 +2232,35 @@ export type FinishPpfSlotApiResponse = /** status 200 Success */ {
 export type FinishPpfSlotApiArg = {
   id: number;
 };
+export type ListDeliveryDocumentsApiResponse =
+  /** status 200 Success */ DeliveryDocuments;
+export type ListDeliveryDocumentsApiArg = {
+  orderId?: number;
+  kind?: "acceptance" | "note" | "undertakings" | "all";
+  q?: string;
+};
+export type SaveDeliveryDocumentApiResponse =
+  /** status 201 Success */ DeliveryDocument;
+export type SaveDeliveryDocumentApiArg = {
+  deliveryDocumentRequest: DeliveryDocumentRequest;
+};
+export type GetDeliveryDocumentApiResponse =
+  /** status 200 Success */ DeliveryDocument;
+export type GetDeliveryDocumentApiArg = {
+  id: number;
+};
+export type UpdateDeliveryDocumentApiResponse =
+  /** status 200 Success */ DeliveryDocument;
+export type UpdateDeliveryDocumentApiArg = {
+  id: number;
+  deliveryDocumentRequest: DeliveryDocumentRequest;
+};
+export type RemoveDeliveryDocumentApiResponse = /** status 200 Success */ {
+  ok: true;
+};
+export type RemoveDeliveryDocumentApiArg = {
+  id: number;
+};
 export type GetDocumentTemplateApiResponse =
   /** status 200 Success */ DocumentTemplate;
 export type GetDocumentTemplateApiArg = {
@@ -2271,6 +2368,11 @@ export type RecordOrderPdiApiArg = {
   id: number;
   pdiRequest: PdiRequest;
 };
+export type GetAcceptanceNoteApiResponse =
+  /** status 200 Success */ AcceptanceNote;
+export type GetAcceptanceNoteApiArg = {
+  id: number;
+};
 export type RecordVehicleInvoiceApiResponse = /** status 200 Success */ {
   id: number;
   orderNo: string;
@@ -2330,6 +2432,9 @@ export type RecordVehicleInvoiceApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2404,6 +2509,9 @@ export type ClearVehicleInvoiceApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2477,6 +2585,9 @@ export type SetInvoiceDeliveredApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2556,6 +2667,9 @@ export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2630,6 +2744,9 @@ export type DecideDeliveryClearanceApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2704,6 +2821,9 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2783,6 +2903,9 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2857,6 +2980,9 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -2930,6 +3056,9 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -3909,6 +4038,31 @@ export type PpfSlotUpdate = {
   amount?: string;
   notes?: string | null;
 };
+export type DeliveryDocument = {
+  id: number;
+  kind: "acceptance" | "note" | "undertakings" | "all";
+  dealershipId: number;
+  orderId: number | null;
+  orderNo: string | null;
+  label: string;
+  data: {
+    [key: string]: string;
+  };
+  createdByName: string | null;
+  createdAt: string;
+  updatedByName: string | null;
+  updatedAt: string;
+};
+export type DeliveryDocuments = DeliveryDocument[];
+export type DeliveryDocumentRequest = {
+  kind: "acceptance" | "note" | "undertakings" | "all";
+  dealershipId: number;
+  orderId?: number | null;
+  label?: string;
+  data: {
+    [key: string]: string;
+  };
+};
 export type DocumentTemplateUpdate = {
   dealershipId: number;
   companyName: string;
@@ -4262,6 +4416,30 @@ export type PdiRequest = {
   issue: boolean;
   notes?: string | null;
 };
+export type AcceptanceNote = {
+  dealership: {
+    name: string;
+    code: string;
+    brand: string;
+  };
+  pboNo: string | null;
+  orderNo: string | null;
+  invoiceNo: string | null;
+  owner: string | null;
+  ownerContact: string | null;
+  ownerCnic: string | null;
+  address: string | null;
+  vehicle: {
+    make: string | null;
+    model: string | null;
+    variant: string | null;
+    year: number | null;
+    color: string | null;
+    chassisNo: string | null;
+    engineNo: string | null;
+    registrationNo: string | null;
+  };
+};
 export type VehicleInvoiceRequest = {
   invoiceNo: string;
   invoiceDate?: string | null;
@@ -4270,6 +4448,10 @@ export type VehicleInvoiceRequest = {
 };
 export type InvoiceDeliveredRequest = {
   delivered: boolean;
+  takenBy?: "customer" | "other";
+  receiverName?: string | null;
+  receiverContact?: string | null;
+  receiverCnic?: string | null;
 };
 export type PdiCommentRequest = {
   body: string;
@@ -4759,6 +4941,9 @@ export type SalesOrder = {
   invoiceReceivedOn?: string | null;
   invoiceDate?: string | null;
   invoiceDeliveredAt?: string | null;
+  invoiceTakenByName?: string | null;
+  invoiceTakenByContact?: string | null;
+  invoiceTakenByCnic?: string | null;
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerType?: "individual" | "corporate";
@@ -5111,6 +5296,13 @@ export const {
   useCancelPpfSlotMutation,
   useReceivePpfSlotMutation,
   useFinishPpfSlotMutation,
+  useListDeliveryDocumentsQuery,
+  useLazyListDeliveryDocumentsQuery,
+  useSaveDeliveryDocumentMutation,
+  useGetDeliveryDocumentQuery,
+  useLazyGetDeliveryDocumentQuery,
+  useUpdateDeliveryDocumentMutation,
+  useRemoveDeliveryDocumentMutation,
   useGetDocumentTemplateQuery,
   useLazyGetDocumentTemplateQuery,
   useSaveDocumentTemplateMutation,
@@ -5141,6 +5333,8 @@ export const {
   useGetOrderPdiQuery,
   useLazyGetOrderPdiQuery,
   useRecordOrderPdiMutation,
+  useGetAcceptanceNoteQuery,
+  useLazyGetAcceptanceNoteQuery,
   useRecordVehicleInvoiceMutation,
   useClearVehicleInvoiceMutation,
   useSetInvoiceDeliveredMutation,

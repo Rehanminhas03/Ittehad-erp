@@ -6091,6 +6091,126 @@
           }
         }
       },
+      "DeliveryDocuments": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/DeliveryDocument"
+        }
+      },
+      "DeliveryDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "acceptance",
+              "note",
+              "undertakings",
+              "all"
+            ]
+          },
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "orderId": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "orderNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "createdByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "dealershipId",
+          "orderId",
+          "orderNo",
+          "label",
+          "data",
+          "createdByName",
+          "createdAt",
+          "updatedByName",
+          "updatedAt"
+        ]
+      },
+      "DeliveryDocumentRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "acceptance",
+              "note",
+              "undertakings",
+              "all"
+            ]
+          },
+          "dealershipId": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "orderId": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "default": ""
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "dealershipId",
+          "data"
+        ]
+      },
       "DocumentTemplateUpdate": {
         "type": "object",
         "properties": {
@@ -7657,6 +7777,116 @@
           "comments"
         ]
       },
+      "AcceptanceNote": {
+        "type": "object",
+        "properties": {
+          "dealership": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "brand": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "code",
+              "brand"
+            ]
+          },
+          "pboNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerContact": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerCnic": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "type": "object",
+            "properties": {
+              "make": {
+                "type": "string",
+                "nullable": true
+              },
+              "model": {
+                "type": "string",
+                "nullable": true
+              },
+              "variant": {
+                "type": "string",
+                "nullable": true
+              },
+              "year": {
+                "type": "number",
+                "nullable": true
+              },
+              "color": {
+                "type": "string",
+                "nullable": true
+              },
+              "chassisNo": {
+                "type": "string",
+                "nullable": true
+              },
+              "engineNo": {
+                "type": "string",
+                "nullable": true
+              },
+              "registrationNo": {
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": [
+              "make",
+              "model",
+              "variant",
+              "year",
+              "color",
+              "chassisNo",
+              "engineNo",
+              "registrationNo"
+            ]
+          }
+        },
+        "required": [
+          "dealership",
+          "pboNo",
+          "orderNo",
+          "invoiceNo",
+          "owner",
+          "ownerContact",
+          "ownerCnic",
+          "address",
+          "vehicle"
+        ]
+      },
       "VehicleInvoiceRequest": {
         "type": "object",
         "properties": {
@@ -7690,6 +7920,29 @@
         "properties": {
           "delivered": {
             "type": "boolean"
+          },
+          "takenBy": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "other"
+            ],
+            "default": "customer"
+          },
+          "receiverName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "receiverContact": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 25
+          },
+          "receiverCnic": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20
           }
         },
         "required": [
@@ -9704,6 +9957,18 @@
             "type": "string",
             "nullable": true,
             "format": "date-time"
+          },
+          "invoiceTakenByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceTakenByContact": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceTakenByCnic": {
+            "type": "string",
+            "nullable": true
           },
           "invoiceReceivedByName": {
             "type": "string",
@@ -31351,6 +31616,18 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -32608,6 +32885,385 @@
         "description": "Requires: sales.ppf.slots",
         "tags": [
           "PpfSlot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/delivery-documents": {
+      "get": {
+        "operationId": "listDeliveryDocuments",
+        "summary": "The saved delivery documents (of an order, of one kind, or found by their label), newest first",
+        "description": "Requires: sales.orders.view_all",
+        "tags": [
+          "DeliveryDocument"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": false,
+            "name": "orderId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "acceptance",
+                "note",
+                "undertakings",
+                "all"
+              ]
+            },
+            "required": false,
+            "name": "kind",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryDocuments"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "saveDeliveryDocument",
+        "summary": "Save a delivery document with the data entered",
+        "description": "Requires: sales.orders.update | sales.deliveries.complete | sales.deliveries.schedule",
+        "tags": [
+          "DeliveryDocument"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sales/delivery-documents/{id}": {
+      "get": {
+        "operationId": "getDeliveryDocument",
+        "summary": "One saved delivery document with the data entered",
+        "description": "Requires: sales.orders.view_all",
+        "tags": [
+          "DeliveryDocument"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDeliveryDocument",
+        "summary": "Save the corrected data of a saved delivery document",
+        "description": "Requires: sales.orders.update | sales.deliveries.complete | sales.deliveries.schedule",
+        "tags": [
+          "DeliveryDocument"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeDeliveryDocument",
+        "summary": "Remove a saved delivery document",
+        "description": "Requires: sales.orders.update | sales.deliveries.complete | sales.deliveries.schedule",
+        "tags": [
+          "DeliveryDocument"
         ],
         "security": [
           {
@@ -34156,6 +34812,75 @@
         }
       }
     },
+    "/api/sales/orders/{id}/acceptance-note": {
+      "get": {
+        "operationId": "getAcceptanceNote",
+        "summary": "What the Vehicle Delivery Acceptance Note starts with: the order, its car and the customer",
+        "description": "Requires: sales.orders.view_all | sales.orders.view_own",
+        "tags": [
+          "SalesOrder"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptanceNote"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales/orders/{id}/invoice": {
       "put": {
         "operationId": "recordVehicleInvoice",
@@ -34410,6 +35135,18 @@
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
+                    },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -34772,6 +35509,18 @@
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
+                    },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -35145,6 +35894,18 @@
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
+                    },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -35597,6 +36358,18 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -35970,6 +36743,18 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -36342,6 +37127,18 @@
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
+                    },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -36788,6 +37585,18 @@
                       "nullable": true,
                       "format": "date-time"
                     },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "invoiceReceivedByName": {
                       "type": "string",
                       "nullable": true
@@ -37149,6 +37958,18 @@
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
+                    },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "invoiceReceivedByName": {
                       "type": "string",
@@ -37522,6 +38343,18 @@
                       "type": "string",
                       "nullable": true,
                       "format": "date-time"
+                    },
+                    "invoiceTakenByName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByContact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "invoiceTakenByCnic": {
+                      "type": "string",
+                      "nullable": true
                     },
                     "invoiceReceivedByName": {
                       "type": "string",

@@ -16,6 +16,7 @@ export { deliveries, leads, orders, ppfForms, quotations, stock, variants } from
 export * from './actionItems';
 export * from './dashboard';
 export * from './deliveries';
+export * from './deliveryDocuments';
 export * from './deliveryPipeline';
 export * from './deliveryReport';
 export * from './handOver';

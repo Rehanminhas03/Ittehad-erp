@@ -64,9 +64,19 @@ export async function createQuotation(ctx: EntityCtx, leadId: number, input: z.o
   return issueQuotation(ctx, target, l.ownerId as number, l, null, input);
 }
 
+/**
+ * Where a document without a lead belongs: the dealership, and the branch when the person's role is limited to one branch
+ * (a role for the whole dealership leaves it empty), so a branch-only user can issue their own documents too.
+ */
+function standaloneTarget(ctx: EntityCtx, dealershipId: number, permission: string): Target {
+  const grants = ctx.access.grantsFor(permission).filter((g) => g.dealershipId === null || g.dealershipId === dealershipId);
+  const wide = grants.some((g) => g.branchId === null);
+  return { dealershipId, branchId: wide ? null : (grants[0]?.branchId ?? null) };
+}
+
 /** A quotation without a lead: whoever issues quotations at the dealership; it is theirs. */
 export async function createStandaloneQuotation(ctx: EntityCtx, input: z.output<typeof StandaloneQuotationCreate>) {
-  const target = { dealershipId: input.dealershipId, branchId: null };
+  const target = standaloneTarget(ctx, input.dealershipId, P.quotationsCreate);
   if (!ctx.access.canIn(P.quotationsCreate, target)) throw forbidden('You cannot issue quotations at this dealership');
   const { dealershipId: _d, customerName, customerMobile, customerEmail, ...rest } = input;
   return issueQuotation(ctx, target, ctx.access.userId, null, { customerName, customerMobile: customerMobile ?? null, customerEmail: customerEmail ?? null }, rest);
@@ -138,7 +148,7 @@ export async function createPpfForm(ctx: EntityCtx, leadId: number, input: z.out
 
 /** A PPF voucher without a lead (e.g. a customer who bought elsewhere): the vehicle is written on it. */
 export async function createStandalonePpf(ctx: EntityCtx, input: z.output<typeof StandalonePpfCreate>) {
-  const target = { dealershipId: input.dealershipId, branchId: null };
+  const target = standaloneTarget(ctx, input.dealershipId, P.ppfCreate);
   if (!ctx.access.canIn(P.ppfCreate, target)) throw forbidden('You cannot issue PPF vouchers at this dealership');
   await assertActiveModel(ctx, input.modelId);
   const { dealershipId: _d, customerMobile, modelId, variant, color, ...rest } = input;

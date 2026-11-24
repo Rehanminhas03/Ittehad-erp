@@ -48,7 +48,6 @@ const ALL_SECTIONS: NavSection[] = [
       // Leads the customer is not interested in (each person sees their own; managers the team's).
       { label: 'Lost leads', to: '/sales/leads?lost=true&range=all', any: ['sales.leads.view_all', 'sales.leads.view_own'] },
       // Reports of leads (social media and salespeople's), with every follow-up remark: Excel (CSV) and PDF.
-      { label: 'Leads report', to: '/sales/leads-report', any: ['sales.leads.view_social', 'sales.leads.view_team', 'sales.leads.view_all'] },
       { label: 'Duplicate customers', to: '/sales/leads?escalated=true&range=all', any: ['sales.leads.convert_escalated'] },
       // Every booked order by stage (a salesperson: their own customers' cars).
       { label: 'Deliveries', to: '/sales/delivery-status', any: ['sales.orders.view_all', 'sales.deliveries.view_all', 'sales.deliveries.view_own', 'sales.leads.convert_own'] },
@@ -57,17 +56,27 @@ const ALL_SECTIONS: NavSection[] = [
       { label: 'Cars delivered', to: '/sales/orders?status=delivered&range=all', any: ['sales.orders.view_all', 'sales.deliveries.view_all'] },
       { label: 'Invoices received', to: '/sales/orders?invoice=received&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
       { label: 'Invoices not received', to: '/sales/orders?invoice=pending&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
-      { label: 'Delivery report', to: '/sales/delivery-report', any: ['sales.deliveries.view_all'] },
-      { label: 'Quotations', to: '/sales/quotations', any: ['sales.quotations.view_all', 'sales.quotations.view_own'] },
+      // Not for the Sales Admin (who only looks at quotations and can still reach one by link): no Quotations menu.
+      { label: 'Quotations', to: '/sales/quotations', any: ['sales.quotations.view_all', 'sales.quotations.view_own'], hideIf: ['sales.orders.create'], unlessAlso: ['sales.quotations.create'] },
       // Not for the Sales Admin: they raise orders and only look at PPF vouchers (still reachable by link), so no PPF menu.
       { label: 'PPF slots', to: '/sales/ppf-slots', any: ['sales.ppf.slots', 'sales.ppf.create', 'sales.ppf.view_all', 'sales.ppf.view_own'], hideIf: ['sales.orders.create'], unlessAlso: ['sales.ppf.slots', 'sales.ppf.create'] },
       { label: 'PPF cars & vouchers', to: '/sales/ppf-forms', any: ['sales.ppf.view_all', 'sales.ppf.view_own'], hideIf: ['sales.orders.create'], unlessAlso: ['sales.ppf.slots', 'sales.ppf.create'] },
       { label: 'Document formats', to: '/sales/document-formats', any: ['sales.templates.manage'] },
       { label: 'Variant codes', to: '/sales/variants', any: ['sales.templates.manage'] },
-      { label: 'Track record', to: '/sales/track-record', any: ['sales.ppf.view_all', 'sales.ppf.view_own', 'sales.reports.view'] },
-      { label: 'Team report', to: '/sales/team', any: ['sales.reports.view'] },
       // Every member of the sales department applies; the Assistant Manager / Manager approve.
       { label: 'Leave applications', to: '/sales/leave', any: ['sales.leave.apply', 'sales.leave.approve'] },
+    ],
+  },
+  {
+    // Every report in one place: cards for the bookings, delivered cars, invoices and stock sheets, and the older reports.
+    title: 'Our reports',
+    module: 'sales',
+    items: [
+      { label: 'All reports', to: '/sales/reports', any: ['sales.orders.view_all', 'sales.stock.view', 'sales.deliveries.view_all', 'sales.reports.view', 'sales.leads.view_all'] },
+      { label: 'Leads report', to: '/sales/leads-report', any: ['sales.leads.view_social', 'sales.leads.view_team', 'sales.leads.view_all'] },
+      { label: 'Delivery report', to: '/sales/delivery-report', any: ['sales.deliveries.view_all'] },
+      { label: 'Track record', to: '/sales/track-record', any: ['sales.ppf.view_all', 'sales.ppf.view_own', 'sales.reports.view'] },
+      { label: 'Team report', to: '/sales/team', any: ['sales.reports.view'] },
     ],
   },
   {

@@ -11,6 +11,7 @@ import { P } from './permissions';
 import { stockView } from './stock/stockView';
 
 const LeadsReportPage = lazy(() => import('./reports/LeadsReportPage'));
+const SalesReportsPage = lazy(() => import('./reports/SalesReportsPage'));
 const TeamReportPage = lazy(() => import('./team/TeamReportPage'));
 const TrackRecordPage = lazy(() => import('./team/TrackRecordPage'));
 const DocumentFormatsPage = lazy(() => import('./documents/DocumentFormatsPage'));
@@ -49,6 +50,16 @@ export default function SalesRoutes() {
           <RequirePermission any={[P.ordersViewAll, P.deliveriesViewAll, P.ordersViewOwn, P.deliveriesViewOwn, P.leadsViewOwn]}>
             <Suspense fallback={<PageSpinner />}>
               <DeliveryStatusPage />
+            </Suspense>
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="reports"
+        element={
+          <RequirePermission any={[P.ordersViewAll, P.stockView, P.deliveriesViewAll, P.leadsViewAll]}>
+            <Suspense fallback={<PageSpinner />}>
+              <SalesReportsPage />
             </Suspense>
           </RequirePermission>
         }

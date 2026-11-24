@@ -1534,6 +1534,29 @@ model LeadFollowUp {
   @@schema("sales")
 }
 
+/// A delivery document (Vehicle Delivery Acceptance Note, Delivery Note) saved with the data entered, to view and print again.
+model DeliveryDocument {
+  id           BigInt    @id @default(autoincrement())
+  dealershipId BigInt    @map("dealership_id")
+  /// The order it was made for; empty for a document typed in by hand.
+  salesOrderId BigInt?   @map("sales_order_id")
+  /// 'acceptance' (Vehicle Delivery Acceptance Note) or 'note' (Delivery Note, front and back).
+  kind         String
+  /// A short name to find it by: the order and customer, or the owner / chassis typed.
+  label        String
+  /// Every field of the form, as typed.
+  data         Json
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById  BigInt?   @map("created_by_id")
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedById  BigInt?   @map("updated_by_id")
+
+  @@index([dealershipId, createdAt], map: "delivery_document_dealership_id_created_at_index")
+  @@index([salesOrderId], map: "delivery_document_sales_order_id_index")
+  @@map("delivery_document")
+  @@schema("sales")
+}
+
 /// The PPF bay calendar, shared by every dealership: one car starts per day (the partial unique index on slot_date).
 model PpfSlot {
   id             BigInt    @id @default(autoincrement())
@@ -1750,6 +1773,10 @@ model SalesOrder {
   /// When the invoice was handed to the customer (date and time, set when the box is ticked) and by whom.
   invoiceDeliveredAt      DateTime?         @map("invoice_delivered_at") @db.Timestamptz(6)
   invoiceDeliveredById    BigInt?           @map("invoice_delivered_by_id")
+  /// Who took the invoice: the customer (null) or someone else, with their name, contact and CNIC.
+  invoiceTakenByName      String?           @map("invoice_taken_by_name")
+  invoiceTakenByContact   String?           @map("invoice_taken_by_contact")
+  invoiceTakenByCnic      String?           @map("invoice_taken_by_cnic")
   invoiceReceivedById     BigInt?           @map("invoice_received_by_id")
   invoiceNotes            String?           @map("invoice_notes")
   payments                OrderPayment[]

@@ -375,6 +375,13 @@ export const resultExtension = {
     nextFollowUpOn: { needs: { nextFollowUpOn: true }, compute: (r: { nextFollowUpOn: Date | null }) => fromDate(r.nextFollowUpOn) },
     createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint }) => fromBigInt(r.createdById) },
   },
+  deliveryDocument: {
+    id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
+    dealershipId: { needs: { dealershipId: true }, compute: (r: { dealershipId: bigint }) => fromBigInt(r.dealershipId) },
+    salesOrderId: { needs: { salesOrderId: true }, compute: (r: { salesOrderId: bigint | null }) => fromBigInt(r.salesOrderId) },
+    createdById: { needs: { createdById: true }, compute: (r: { createdById: bigint | null }) => fromBigInt(r.createdById) },
+    updatedById: { needs: { updatedById: true }, compute: (r: { updatedById: bigint | null }) => fromBigInt(r.updatedById) },
+  },
   ppfSlot: {
     id: { needs: { id: true }, compute: (r: { id: bigint }) => fromBigInt(r.id) },
     dealershipId: { needs: { dealershipId: true }, compute: (r: { dealershipId: bigint }) => fromBigInt(r.dealershipId) },

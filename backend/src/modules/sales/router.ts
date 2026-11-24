@@ -19,6 +19,11 @@ import {
   DocumentTemplateBody,
   DocumentTemplateQuery,
   DocumentTemplateSchema,
+  AcceptanceNoteSchema,
+  DeliveryDocumentBody,
+  DeliveryDocumentSchema,
+  DeliveryDocumentsQuery,
+  DeliveryDocumentsSchema,
   DeliveryNoteSchema,
   DeliveryPipelineQuery,
   DeliveryPipelineSchema,
@@ -403,6 +408,61 @@ const ppfSlotActions = new ApiRouter('/sales/ppf-slots', 'PpfSlot')
     handler: (ctx) => svc.cancelPpfSlot(ctx, ctx.params.id),
   });
 
+// ---- Saved delivery documents (Acceptance Note, Delivery Note) ----
+const deliveryDocumentActions = new ApiRouter('/sales/delivery-documents', 'DeliveryDocument')
+  .route({
+    method: 'get',
+    path: '/',
+    operationId: 'listDeliveryDocuments',
+    summary: 'The saved delivery documents (of an order, of one kind, or found by their label), newest first',
+    permission: P.ordersViewAll,
+    query: DeliveryDocumentsQuery,
+    response: DeliveryDocumentsSchema,
+    handler: (ctx) => svc.listDeliveryDocuments(ctx, ctx.query),
+  })
+  .route({
+    method: 'get',
+    path: '/:id',
+    operationId: 'getDeliveryDocument',
+    summary: 'One saved delivery document with the data entered',
+    permission: P.ordersViewAll,
+    params: IdParam,
+    response: DeliveryDocumentSchema,
+    handler: (ctx) => svc.getDeliveryDocument(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'post',
+    path: '/',
+    operationId: 'saveDeliveryDocument',
+    summary: 'Save a delivery document with the data entered',
+    permission: [P.ordersUpdate, P.deliveriesComplete, P.deliveriesSchedule],
+    body: DeliveryDocumentBody,
+    response: DeliveryDocumentSchema,
+    status: 201,
+    handler: (ctx) => svc.saveDeliveryDocument(ctx, ctx.body),
+  })
+  .route({
+    method: 'patch',
+    path: '/:id',
+    operationId: 'updateDeliveryDocument',
+    summary: 'Save the corrected data of a saved delivery document',
+    permission: [P.ordersUpdate, P.deliveriesComplete, P.deliveriesSchedule],
+    params: IdParam,
+    body: DeliveryDocumentBody,
+    response: DeliveryDocumentSchema,
+    handler: (ctx) => svc.updateDeliveryDocument(ctx, ctx.params.id, ctx.body),
+  })
+  .route({
+    method: 'delete',
+    path: '/:id',
+    operationId: 'removeDeliveryDocument',
+    summary: 'Remove a saved delivery document',
+    permission: [P.ordersUpdate, P.deliveriesComplete, P.deliveriesSchedule],
+    params: IdParam,
+    response: z.object({ ok: z.literal(true) }),
+    handler: (ctx) => svc.removeDeliveryDocument(ctx, ctx.params.id),
+  });
+
 // ---- Document formats (letterhead, terms, sign-off) per dealership ----
 const templateActions = new ApiRouter('/sales/document-templates', 'DocumentTemplate')
   .route({
@@ -589,6 +649,16 @@ const orderActions = new ApiRouter('/sales/orders', 'SalesOrder')
     params: IdParam,
     response: PdiSchema,
     handler: (ctx) => svc.getPdi(ctx, ctx.params.id),
+  })
+  .route({
+    method: 'get',
+    path: '/:id/acceptance-note',
+    operationId: 'getAcceptanceNote',
+    summary: 'What the Vehicle Delivery Acceptance Note starts with: the order, its car and the customer',
+    permission: [P.ordersViewAll, P.ordersViewOwn],
+    params: IdParam,
+    response: AcceptanceNoteSchema,
+    handler: (ctx) => svc.acceptanceNote(ctx, ctx.params.id),
   })
   .route({
     method: 'put',
@@ -908,6 +978,7 @@ export const salesRouters = [
   teamActions,
   orderActions,
   deliveryActions,
+  deliveryDocumentActions,
   stockActions,
   quotationActions,
   templateActions,

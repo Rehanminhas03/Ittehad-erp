@@ -1263,6 +1263,10 @@ export const SalesOrderSchema = z.object({
   invoiceDate: z.string().nullable().optional(),
   /** When the invoice was handed to the customer (set when the box is ticked). */
   invoiceDeliveredAt: Timestamp.nullable().optional(),
+  /** When someone other than the customer took the invoice: their name, contact and CNIC. */
+  invoiceTakenByName: z.string().nullable().optional(),
+  invoiceTakenByContact: z.string().nullable().optional(),
+  invoiceTakenByCnic: z.string().nullable().optional(),
   invoiceReceivedByName: z.string().nullable().optional(),
   invoiceNotes: z.string().nullable().optional(),
   /** Corporate customer (from the lead): billed to the company. */
@@ -1542,7 +1546,16 @@ export const VehicleInvoiceBody = z
   })
   .openapi('VehicleInvoiceRequest');
 /** Tick (true) or untick (false): the invoice has been handed to the customer; the date and time are taken from now. */
-export const InvoiceDeliveredBody = z.object({ delivered: z.boolean() }).openapi('InvoiceDeliveredRequest');
+export const InvoiceDeliveredBody = z
+  .object({
+    delivered: z.boolean(),
+    /** Who takes the invoice: the customer himself (default), or someone else (their name, contact and CNIC are then required). */
+    takenBy: z.enum(['customer', 'other']).default('customer'),
+    receiverName: optionalText(120),
+    receiverContact: optionalText(25),
+    receiverCnic: optionalText(20),
+  })
+  .openapi('InvoiceDeliveredRequest');
 export const PdiCommentBody = z
   .object({ body: z.string({ error: 'Write the comment' }).trim().min(1, 'Write the comment').max(1000) })
   .openapi('PdiCommentRequest');
@@ -1618,6 +1631,61 @@ export const DeliveryNoteSchema = z
     accessories: z.array(z.string()),
   })
   .openapi('DeliveryNote');
+
+/** What the Vehicle Delivery Acceptance Note starts with: the order, the car and the customer (the receiver's details are typed when it is printed). */
+export const AcceptanceNoteSchema = z
+  .object({
+    dealership: z.object({ name: z.string(), code: z.string(), brand: z.string() }),
+    pboNo: z.string().nullable(),
+    orderNo: z.string().nullable(),
+    invoiceNo: z.string().nullable(),
+    /** The customer, or the company of a corporate customer. */
+    owner: z.string().nullable(),
+    /** The customer's phone as on the order. */
+    ownerContact: z.string().nullable(),
+    /** The customer's CNIC, as written on the order. */
+    ownerCnic: z.string().nullable(),
+    address: z.string().nullable(),
+    vehicle: z.object({
+      make: z.string().nullable(),
+      model: z.string().nullable(),
+      variant: z.string().nullable(),
+      year: z.number().nullable(),
+      color: z.string().nullable(),
+      chassisNo: z.string().nullable(),
+      engineNo: z.string().nullable(),
+      registrationNo: z.string().nullable(),
+    }),
+  })
+  .openapi('AcceptanceNote');
+
+/** A saved delivery document ('acceptance' note, delivery 'note', or the two 'undertakings'): which one, for which order, and every field as typed. */
+export const DeliveryDocumentSchema = z
+  .object({
+    id: Id,
+    kind: z.enum(['acceptance', 'note', 'undertakings', 'all']),
+    dealershipId: Id,
+    orderId: Id.nullable(),
+    orderNo: z.string().nullable(),
+    label: z.string(),
+    data: z.record(z.string(), z.string()),
+    createdByName: z.string().nullable(),
+    createdAt: Timestamp,
+    updatedByName: z.string().nullable(),
+    updatedAt: Timestamp,
+  })
+  .openapi('DeliveryDocument');
+export const DeliveryDocumentsSchema = z.array(DeliveryDocumentSchema).openapi('DeliveryDocuments');
+export const DeliveryDocumentsQuery = z.object({ orderId: z.coerce.number().int().positive().optional(), kind: z.enum(['acceptance', 'note', 'undertakings', 'all']).optional(), q: z.string().trim().max(80).optional() });
+export const DeliveryDocumentBody = z
+  .object({
+    kind: z.enum(['acceptance', 'note', 'undertakings', 'all']),
+    dealershipId: Id,
+    orderId: Id.nullish(),
+    label: z.string().trim().max(200).default(''),
+    data: z.record(z.string(), z.string().max(500)),
+  })
+  .openapi('DeliveryDocumentRequest');
 
 export const ScheduleDeliveryBody = z
   .object({ scheduledDate: isoDate, branchId: Id.nullish(), notes: optionalText(2000) })
