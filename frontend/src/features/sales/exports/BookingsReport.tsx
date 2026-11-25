@@ -14,7 +14,7 @@ export type Row = Record<string, unknown>;
 /** Draws what opens a report (default: a small button); the reports page draws a card. */
 export type ReportTrigger = (open: () => void, loading: boolean) => ReactNode;
 /** `w`: the column's relative width (PDF) and its width in characters (Excel). */
-export type Col = { header: string; value: (r: Row) => string | number; w: number; num?: boolean };
+export type Col = { header: string; value: (r: Row) => string | number; w: number; num?: boolean; /** Never wraps onto a second line (a number like the PBO). */ nowrap?: boolean };
 
 const date = (v: unknown) => {
   if (typeof v !== 'string' || !v) return '';
@@ -41,7 +41,7 @@ const state = (r: Row) => (r.status === 'delivered' ? 'DELIVERED' : r.status ===
 
 export const BOOKING_COLUMNS: Col[] = [
   { header: 'SR NO', value: (r) => num(r.sr), w: 6, num: true },
-  { header: 'PBO No.', value: (r) => text(r.pboNo), w: 16 },
+  { header: 'PBO No.', value: (r) => text(r.pboNo), w: 24, nowrap: true },
   { header: 'Customer Name', value: (r) => text(r.customerName), w: 30 },
   { header: 'Model', value: (r) => [r.model, r.variant].filter(Boolean).join(' '), w: 22 },
   { header: 'Color', value: (r) => text(r.color), w: 18 },
@@ -327,7 +327,7 @@ export function ReportDialog({
               ) : (
               <tr key={i} className={r.status === 'cancelled' ? 'bg-red-100' : ''}>
                 {cols.map((c) => (
-                  <td key={c.header} className={`border border-slate-300 px-2 py-1 align-middle whitespace-pre-line text-slate-800 ${isAmount(c) ? 'text-right tabular-nums' : 'text-center'}`}>
+                  <td key={c.header} className={`border border-slate-300 px-2 py-1 align-middle ${c.nowrap ? 'whitespace-nowrap' : 'whitespace-pre-line'} text-slate-800 ${isAmount(c) ? 'text-right tabular-nums' : 'text-center'}`}>
                     {fmt(c, r)}
                   </td>
                 ))}
@@ -386,7 +386,7 @@ export function BookingsReportButton({ query, periodLabel, trigger }: { query: {
 // ---- The delivered cars (the "VEHICLE DELIVERED" sheet) ----
 export const DELIVERED_COLUMNS: Col[] = [
   { header: 'SR NO', value: (r) => num(r.sr), w: 6, num: true },
-  { header: 'PBO No.', value: (r) => text(r.pboNo), w: 16 },
+  { header: 'PBO No.', value: (r) => text(r.pboNo), w: 24, nowrap: true },
   { header: 'Customer Name', value: (r) => text(r.customerName), w: 30 },
   { header: 'Model', value: (r) => [r.model, r.variant].filter(Boolean).join(' '), w: 22 },
   { header: 'Color', value: (r) => text(r.color), w: 18 },
@@ -402,7 +402,7 @@ export const DELIVERED_COLUMNS: Col[] = [
 // ---- The invoices received (the "INVOICE" sheet) ----
 export const INVOICE_COLUMNS: Col[] = [
   { header: 'Sr No.', value: (r) => num(r.sr), w: 6, num: true },
-  { header: 'PBO NO', value: (r) => text(r.pboNo), w: 16 },
+  { header: 'PBO NO', value: (r) => text(r.pboNo), w: 24, nowrap: true },
   { header: 'Customer Name', value: (r) => text(r.customerName), w: 30 },
   { header: 'Model', value: (r) => [r.model, r.variant].filter(Boolean).join(' '), w: 22 },
   { header: 'Color', value: (r) => text(r.color), w: 16 },
