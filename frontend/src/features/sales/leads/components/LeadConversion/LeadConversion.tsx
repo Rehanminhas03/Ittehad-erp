@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { type FilerStatus, FilerStatusInput } from '../FilerStatusInput';
 import { Button, Checkbox, Field, Input, Section, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { digitsOnly } from '@/shared/components/EntityFormView/FormFieldControl';
@@ -48,6 +49,8 @@ export function LeadConversion({ lead }: { lead: Lead }) {
   });
   // The customer's CNIC (required): the Admin checks it against the copy when raising the order.
   const [cnic, setCnic] = useState('');
+  // Optional here: if the salesperson does not know it, the Sales Admin has to enter it when raising the order.
+  const [filer, setFiler] = useState<FilerStatus>((lead.customerFilerStatus as FilerStatus | null | undefined) ?? '');
   const [expected, setExpected] = useState<ExpectedDeliveryValue>({ date: lead.expectedDeliveryDate ?? '', byMonth: lead.expectedDeliveryDate ? !!lead.expectedDeliveryByMonth : true });
 
   const isOpenLead = (OPEN_LEAD_STATES as readonly string[]).includes(lead.status);
@@ -111,6 +114,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           expectedDeliveryDate: expected.date || null,
           expectedDeliveryByMonth: !!expected.date && expected.byMonth,
           customerCnic: cnic,
+          filerStatus: filer || null,
           customerAddress: v.customerAddress.trim(),
           customerOccupation: v.customerOccupation.trim(),
           referredBy: v.referredBy.trim() || null,
@@ -302,6 +306,9 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           )}
           <Field label="Customer CNIC" htmlFor="cv-cnic" required error={errors.customerCnic} hint="From the customer's CNIC; the Admin checks it against the copy">
             <Input id="cv-cnic" inputMode="numeric" value={cnic} onChange={(e) => setCnic(maskCnic(e.target.value))} placeholder="14301-5305891-1" invalid={!!errors.customerCnic} />
+          </Field>
+          <Field label="Filer status" htmlFor="cv-filer" hint="Tick one: active filer or inactive (non-filer). If you leave it, the Sales Admin must enter it with the PBO number.">
+            <FilerStatusInput id="cv-filer" value={filer} onChange={setFiler} />
           </Field>
           <Field label="Expected delivery" htmlFor="cv-expected" className="sm:col-span-2" error={errors.expectedDeliveryDate} hint="What the customer is told: a month (some cars take 3–5 months) or an exact date. Goes on the sales order.">
             <ExpectedDeliveryInput id="cv-expected" value={expected} onChange={setExpected} invalid={!!errors.expectedDeliveryDate} />

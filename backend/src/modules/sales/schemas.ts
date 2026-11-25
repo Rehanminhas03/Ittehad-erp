@@ -3,6 +3,7 @@ import { VEHICLE_STATUSES } from '../master/models';
 import { normalizeCnic, normalizeMobile } from '../master/normalize';
 import {
   DELIVERY_DOCUMENTS,
+  FILER_STATUSES,
   PDI_CHECKLIST,
   REQUIRED_PDI_CHECKLIST,
   DELIVERY_STATES,
@@ -109,6 +110,10 @@ export const LeadSchema = z.object({
   purchaseOrderNo: z.string().nullable().optional(),
   /** The customer's address (from the customer record; captured at conversion). */
   customerAddress: z.string().nullable().optional(),
+  /** The customer's CNIC (entered at conversion): 13 digits, no hyphens. */
+  customerCnic: z.string().nullable().optional(),
+  /** The customer's tax filer status: active (filer) or inactive (non-filer); null until entered. */
+  customerFilerStatus: z.string().nullable().optional(),
   customerOccupation: z.string().nullable().optional(),
   /** Who referred the customer (entered at conversion). */
   referredBy: z.string().nullable().optional(),
@@ -762,6 +767,8 @@ export const ConvertLeadBody = z
     customerOccupation: requiredText('Occupation', 120),
     /** Optional: who referred the customer (e.g. the General Manager, the CEO); shown as the Reference on the bookings report. */
     referredBy: optionalText(120),
+    /** The customer's filer status: optional here (the salesperson may not know it); the Sales Admin must have it when raising the order. */
+    filerStatus: z.enum(FILER_STATUSES).nullish(),
     /** Individual, or corporate: the company (billing name), the contact's designation, and a purchase order if they brought one. */
     customerType: z.enum(CUSTOMER_TYPES).default('individual'),
     companyName: optionalText(160),
@@ -797,6 +804,8 @@ export const ConversionCorrectionBody = z
     customerOccupation: requiredText('Occupation', 120),
     /** Optional: who referred the customer (e.g. the General Manager, the CEO); shown as the Reference on the bookings report. */
     referredBy: optionalText(120),
+    /** The customer's filer status: optional here (the salesperson may not know it); the Sales Admin must have it when raising the order. */
+    filerStatus: z.enum(FILER_STATUSES).nullish(),
     customerCnic: z
       .string()
       .trim()
@@ -870,6 +879,8 @@ export const RaiseOrderBody = z
       .max(20)
       .optional()
       .refine((v) => !v || normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+    /** The customer's filer status: required unless the salesperson already entered it at conversion. */
+    filerStatus: z.enum(FILER_STATUSES).nullish(),
     /** Empty: from the lead (what the salesperson told the customer). */
     expectedDeliveryDate: isoDate.nullish(),
     /** The expected delivery is a month (the date is its last day), not an exact date. */
@@ -1269,6 +1280,9 @@ export const SalesOrderSchema = z.object({
   invoiceTakenByCnic: z.string().nullable().optional(),
   invoiceReceivedByName: z.string().nullable().optional(),
   invoiceNotes: z.string().nullable().optional(),
+  /** The customer's CNIC (from the customer record): 13 digits, no hyphens. */
+  customerCnic: z.string().nullable().optional(),
+  customerFilerStatus: z.string().nullable().optional(),
   /** Corporate customer (from the lead): billed to the company. */
   customerType: z.enum(CUSTOMER_TYPES).optional(),
   companyName: z.string().nullable().optional(),
@@ -1434,7 +1448,14 @@ export const SalesOrderCreate = z
   .object({ dealershipId: Id, branchId: Id.nullish(), ...orderFields })
   .openapi('SalesOrderCreate');
 export const SalesOrderUpdate = z
-  .object({ ...orderFields, discount: Money.optional(), bookingAmount: Money.optional(), branchId: Id.nullish() })
+  .object({
+    ...orderFields,
+    discount: Money.optional(),
+    bookingAmount: Money.optional(),
+    branchId: Id.nullish(),
+    /** The customer's filer status (kept on the customer): only the Sales Admin's value is used. */
+    filerStatus: z.enum(FILER_STATUSES).optional(),
+  })
   .partial()
   .openapi('SalesOrderUpdate');
 

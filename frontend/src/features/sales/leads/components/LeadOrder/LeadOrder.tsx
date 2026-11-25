@@ -1,3 +1,4 @@
+import { type FilerStatus, FilerStatusInput } from '../FilerStatusInput';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatCnic, maskCnic, VEHICLE_PIPELINE, VEHICLE_STATUSES } from '@/features/crm';
@@ -83,6 +84,8 @@ export function LeadOrder({ lead }: { lead: Lead }) {
   const canRaise = lead.status === 'converted' && perm.canIn(P.ordersCreate, lead.dealershipId, lead.branchId);
   const { data: customer } = useGetCustomerQuery({ id: lead.customerId ?? 0 }, { skip: !canRaise || !lead.customerId });
   const [cnic, setCnic] = useState('');
+  // The customer's filer status: shown when the salesperson entered it; otherwise the Admin must choose it.
+  const [filer, setFiler] = useState<FilerStatus>((lead.customerFilerStatus as FilerStatus | null | undefined) ?? '');
   // The PBO number from the head-office system (required); leads and orders are searchable by it.
   const [pboNo, setPboNo] = useState('');
   useEffect(() => {
@@ -136,6 +139,7 @@ export function LeadOrder({ lead }: { lead: Lead }) {
     const missing: Record<string, string> = {};
     if (!v.unitPrice.trim()) missing.unitPrice = 'Price is required';
     if (!pboNo.trim()) missing.pboNo = 'Enter the PBO number from the head-office system';
+    if (!filer) missing.filerStatus = "Select the customer's filer status (active or inactive): required on every sales order";
     if (cnic.replace(/\D/g, '').length !== 13) missing.customerCnic = "Enter the customer's CNIC (13 digits), required on every sales order";
     if (Object.keys(missing).length) {
       setErrors(missing);
@@ -153,6 +157,7 @@ export function LeadOrder({ lead }: { lead: Lead }) {
           bookingAmount: v.bookingAmount || undefined,
           paymentReference: v.paymentReference || null,
           customerCnic: cnic.trim(),
+          filerStatus: filer || null,
           expectedDeliveryDate: expected.date || null,
           expectedDeliveryByMonth: !!expected.date && expected.byMonth,
           notes: v.notes || null,
@@ -198,6 +203,15 @@ export function LeadOrder({ lead }: { lead: Lead }) {
             placeholder="14301-5305891-1"
             invalid={!!errors.customerCnic}
           />
+        </Field>
+        <Field
+          label="Filer status"
+          htmlFor="ro-filer"
+          required
+          error={errors.filerStatus}
+          hint={lead.customerFilerStatus ? 'Entered by the salesperson: check it and correct it if needed' : 'The salesperson did not enter it: tick active filer or inactive (non-filer)'}
+        >
+          <FilerStatusInput id="ro-filer" value={filer} onChange={setFiler} invalid={!!errors.filerStatus} />
         </Field>
         <Field label="Expected delivery" htmlFor="ro-date" error={errors.expectedDeliveryDate} hint="A month (usual) or the exact date">
           <ExpectedDeliveryInput id="ro-date" value={expected} onChange={setExpected} invalid={!!errors.expectedDeliveryDate} />

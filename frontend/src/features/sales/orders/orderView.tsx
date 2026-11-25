@@ -1,3 +1,4 @@
+import { type FilerStatus, FilerStatusInput, filerLabel } from '../leads/components/FilerStatusInput';
 import { z } from 'zod';
 import { Link } from 'react-router';
 import { SourceInvoice } from '@/features/accounts';
@@ -57,6 +58,8 @@ const commercial = {
   expectedDelivery: z.object({ date: z.string(), byMonth: z.boolean() }).optional(),
   financingRef: optionalText(80),
   paymentReference: optionalText(80),
+  /** The customer's filer status (kept on the customer; only the Sales Admin's edit counts). */
+  filerStatus: z.enum(['', 'active', 'inactive']).optional(),
   notes: optionalText(2000),
 };
 
@@ -118,6 +121,8 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { label: 'PBO number', value: (o) => o.pboNo },
       { label: 'Order type', value: (o) => labelOf(ORDER_TYPES, o.orderType) },
       { label: 'Customer', value: (o) => o.customerName },
+      { label: 'Customer CNIC', value: (o) => o.customerCnic },
+      { label: 'Filer status', value: (o) => filerLabel(o.customerFilerStatus) ?? <span className="text-amber-700">Not entered yet: the Sales Admin enters it</span> },
       { label: 'Company (corporate)', value: (o) => (o.customerType === 'corporate' ? [o.companyName, o.contactDesignation && `contact: ${o.contactDesignation}`, o.purchaseOrderNo ? `PO ${o.purchaseOrderNo}` : 'no purchase order'].filter(Boolean).join(' · ') : null) },
       { label: 'Salesperson', value: (o) => o.salespersonName },
       { label: 'Model', value: (o) => [o.modelName, o.variant, o.color].filter(Boolean).join(' · ') },
@@ -169,11 +174,19 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { name: 'discount', label: 'Discount (PKR)', type: 'money', hint: 'Limited by the group discount policy' },
       { name: 'bookingAmount', label: 'Booking amount (PKR)', type: 'money' },
       { name: 'paymentReference', label: 'Payment reference', type: 'text', hint: 'Pay order / cheque / transfer number' },
+      {
+        name: 'filerStatus',
+        label: 'Filer status',
+        type: 'custom',
+        hint: 'Only the Sales Admin enters or changes it',
+        visible: (perm) => perm.can([P.ordersCreate]),
+        render: ({ id, value, onChange, invalid }) => <FilerStatusInput id={id} value={((value as FilerStatus | undefined) ?? '') as FilerStatus} onChange={onChange} invalid={invalid} />,
+      },
       { name: 'financingRef', label: 'Financing reference', type: 'text', hint: 'Bank / leasing company reference, if financed', span: 2 },
       { name: 'notes', label: 'Notes', type: 'textarea', span: 2 },
     ],
     defaults: { discount: '0', bookingAmount: '0', expectedDelivery: { date: '', byMonth: true } },
-    toFormValues: (o) => ({ ...o, expectedDelivery: { date: o.expectedDeliveryDate ?? '', byMonth: o.expectedDeliveryByMonth } }),
+    toFormValues: (o) => ({ ...o, filerStatus: o.customerFilerStatus ?? '', expectedDelivery: { date: o.expectedDeliveryDate ?? '', byMonth: o.expectedDeliveryByMonth } }),
     createSchema: z.object(commercial),
   },
   api: {
@@ -188,6 +201,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
           id,
           salesOrderUpdate: {
             ...rest,
+            filerStatus: (rest.filerStatus as 'active' | 'inactive' | '' | undefined) || undefined,
             ...(expectedDelivery ? { expectedDeliveryDate: expectedDelivery.date || null, expectedDeliveryByMonth: !!expectedDelivery.date && expectedDelivery.byMonth } : {}),
           },
         };

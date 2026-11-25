@@ -177,7 +177,7 @@ export async function acceptanceNote(ctx: EntityCtx, orderId: number) {
     invoiceNo: (o.invoiceNo as string | null) ?? null,
     owner: corp?.customerType === 'corporate' && corp.companyName ? corp.companyName : (buyer?.fullName ?? null),
     ownerContact: buyer?.mobile ?? null,
-    ownerCnic: buyer?.cnic ? formatCnic(buyer.cnic) : null,
+    ownerCnic: buyer?.cnic ?? null,
     address: buyer?.address ?? null,
     vehicle: {
       make: model?.brand ?? null,

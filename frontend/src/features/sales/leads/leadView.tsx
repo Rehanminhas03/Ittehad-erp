@@ -1,3 +1,4 @@
+import { filerLabel } from './components/FilerStatusInput';
 import { Link } from 'react-router';
 import { z } from 'zod';
 import { Badge, Button, StatusBadge } from '@/shared/components/ui';
@@ -233,6 +234,8 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Status', value: (l) => <StatusBadge status={l.status} /> },
       { label: 'Phone', value: (l) => l.prospectMobile },
       { label: 'Email', value: (l) => l.email },
+      { label: 'CNIC', value: (l) => l.customerCnic },
+      { label: 'Filer status', value: (l) => filerLabel(l.customerFilerStatus) },
       { label: 'Address', value: (l) => l.customerAddress },
       { label: 'Occupation', value: (l) => l.customerOccupation },
       {

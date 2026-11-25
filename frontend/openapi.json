@@ -4278,6 +4278,15 @@
             "nullable": true,
             "maxLength": 120
           },
+          "filerStatus": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "active",
+              "inactive",
+              null
+            ]
+          },
           "customerCnic": {
             "type": "string",
             "maxLength": 20
@@ -4843,6 +4852,15 @@
             "nullable": true,
             "maxLength": 120
           },
+          "filerStatus": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "active",
+              "inactive",
+              null
+            ]
+          },
           "customerType": {
             "type": "string",
             "enum": [
@@ -4927,6 +4945,15 @@
           "customerCnic": {
             "type": "string",
             "maxLength": 20
+          },
+          "filerStatus": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "active",
+              "inactive",
+              null
+            ]
           },
           "expectedDeliveryDate": {
             "type": "string",
@@ -9410,6 +9437,14 @@
             "type": "string",
             "nullable": true
           },
+          "customerCnic": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerFilerStatus": {
+            "type": "string",
+            "nullable": true
+          },
           "customerOccupation": {
             "type": "string",
             "nullable": true
@@ -9978,6 +10013,14 @@
             "type": "string",
             "nullable": true
           },
+          "customerCnic": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerFilerStatus": {
+            "type": "string",
+            "nullable": true
+          },
           "customerType": {
             "type": "string",
             "enum": [
@@ -10226,6 +10269,13 @@
             "nullable": true,
             "minimum": 0,
             "exclusiveMinimum": true
+          },
+          "filerStatus": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
           }
         }
       },
@@ -28007,6 +28057,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerOccupation": {
                       "type": "string",
                       "nullable": true
@@ -28636,6 +28694,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerOccupation": {
                       "type": "string",
                       "nullable": true
@@ -29090,6 +29156,14 @@
                       "nullable": true
                     },
                     "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
                     },
@@ -30225,6 +30299,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerOccupation": {
                       "type": "string",
                       "nullable": true
@@ -30748,6 +30830,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerOccupation": {
                       "type": "string",
                       "nullable": true
@@ -31205,6 +31295,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerOccupation": {
                       "type": "string",
                       "nullable": true
@@ -31633,6 +31731,14 @@
                       "nullable": true
                     },
                     "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
                     },
@@ -35156,6 +35262,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -35527,6 +35641,14 @@
                       "nullable": true
                     },
                     "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
                     },
@@ -35912,6 +36034,14 @@
                       "nullable": true
                     },
                     "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36378,6 +36508,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -36763,6 +36901,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -37145,6 +37291,14 @@
                       "nullable": true
                     },
                     "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
                     },
@@ -37605,6 +37759,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -37976,6 +38138,14 @@
                       "nullable": true
                     },
                     "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
                     },
@@ -38361,6 +38531,14 @@
                       "nullable": true
                     },
                     "invoiceNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
                     },

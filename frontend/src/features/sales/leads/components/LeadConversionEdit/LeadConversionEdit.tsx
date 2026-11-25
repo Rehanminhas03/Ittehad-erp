@@ -1,3 +1,4 @@
+import { type FilerStatus, FilerStatusInput } from '../FilerStatusInput';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { formatCnic, maskCnic } from '@/features/crm';
@@ -20,6 +21,7 @@ import { VariantPicker } from '../VariantPicker';
 export function LeadConversionEdit({ lead }: { lead: Lead }) {
   const perm = usePermission();
   const toast = useToast();
+  const canFiler = perm.canIn(P.ordersCreate, lead.dealershipId, lead.branchId);
   const allowed = lead.status === 'converted' && perm.canIn(P.leadsCorrectConversion, lead.dealershipId, lead.branchId);
   const { data: customer } = useGetCustomerQuery({ id: lead.customerId ?? 0 }, { skip: !allowed || !lead.customerId });
   const [save, { isLoading }] = useCorrectLeadConversionMutation();
@@ -60,6 +62,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
   });
   const [v, setV] = useState(initial);
   const [cnic, setCnic] = useState('');
+  const [filer, setFiler] = useState<FilerStatus>((lead.customerFilerStatus as FilerStatus | null | undefined) ?? '');
   const [expected, setExpected] = useState<ExpectedDeliveryValue>({ date: lead.expectedDeliveryDate ?? '', byMonth: lead.expectedDeliveryDate ? !!lead.expectedDeliveryByMonth : true });
   useEffect(() => {
     if (customer?.cnic) setCnic((c) => c || formatCnic(customer.cnic));
@@ -97,6 +100,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
           customerOccupation: v.customerOccupation.trim(),
           referredBy: v.referredBy.trim() || null,
           ...(cnic ? { customerCnic: cnic } : {}),
+          ...(filer && canFiler ? { filerStatus: filer } : {}),
           interestedModelId: Number(v.interestedModelId),
           variant: v.variant.trim(),
           preferredColor: v.preferredColor.trim(),
@@ -163,6 +167,11 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
           <Field label="Customer CNIC" htmlFor="ce-cnic" error={err('customerCnic')}>
             <Input id="ce-cnic" inputMode="numeric" value={cnic} onChange={(e) => setCnic(maskCnic(e.target.value))} placeholder="14301-5305891-1" invalid={!!err('customerCnic')} />
           </Field>
+          {canFiler && (
+            <Field label="Filer status" htmlFor="ce-filer" hint="Only the Sales Admin enters or changes it">
+              <FilerStatusInput id="ce-filer" value={filer} onChange={setFiler} />
+            </Field>
+          )}
           <Field label="Address" htmlFor="ce-address" required className="sm:col-span-2" error={err('customerAddress')}>
             <Input id="ce-address" value={v.customerAddress} onChange={set('customerAddress')} invalid={!!err('customerAddress')} />
           </Field>

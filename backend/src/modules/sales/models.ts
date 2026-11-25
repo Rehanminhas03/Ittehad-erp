@@ -51,6 +51,9 @@ export const VEHICLE_PIPELINE = ['booked', 'in_transit', 'received', 'ready_for_
 export const DELIVERY_DOCUMENTS = ['invoice', 'registration_book', 'warranty_card', 'owners_manual', 'insurance_cover_note'] as const;
 /** Pre-delivery checklist: every item is ticked before the car is handed over. */
 /** Older deliveries may carry `accessories_fitted`; it is no longer asked for. */
+/** The customer's tax filer status: an active filer, or an inactive one (non-filer). */
+export const FILER_STATUSES = ['active', 'inactive'] as const;
+
 export const PDI_CHECKLIST = ['pdi_done', 'documents_ready', 'accessories_fitted'] as const;
 /** The items that must be ticked before the car is handed over. */
 export const REQUIRED_PDI_CHECKLIST = ['pdi_done', 'documents_ready'] as const;

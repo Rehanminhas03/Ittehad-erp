@@ -38,6 +38,21 @@ export async function ensureCustomerCnic(ctx: EntityCtx, customerId: number, dea
   await ctx.audit({ entityType: 'master.customer', entityId: customerId, action: 'update', dealershipId, changes: { cnic: { from: c?.cnic ?? null, to: cnic } } });
 }
 
+/**
+ * The customer's filer status (active / inactive): taken from what the salesperson entered at conversion; if they did not,
+ * the Sales Admin must give it. A status given now is saved on the customer (the admin may also correct it).
+ */
+export async function ensureFilerStatus(ctx: EntityCtx, customerId: number, dealershipId: number, given: string | null | undefined) {
+  const c = await ctx.tx.customer.findFirst({ where: { id: customerId }, select: { filerStatus: true } });
+  if (!given) {
+    if (c?.filerStatus) return;
+    throw validationError([{ in: 'body', path: 'filerStatus', message: "Select the customer's filer status (active or inactive): required on every sales order" }]);
+  }
+  if (given === c?.filerStatus) return;
+  await ctx.tx.customer.update({ where: { id: customerId }, data: { filerStatus: given, updatedById: ctx.access.userId }, select: { id: true } });
+  await ctx.audit({ entityType: 'master.customer', entityId: customerId, action: 'update', dealershipId, changes: { filerStatus: { from: c?.filerStatus ?? null, to: given } } });
+}
+
 /** A PBO number is used once per dealership (a cancelled order frees it). */
 export async function assertNewPbo(ctx: EntityCtx, dealershipId: number, pboNo: string, exceptOrderId?: number) {
   const same = await ctx.tx.salesOrder.findFirst({
@@ -58,6 +73,7 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
   }
   if (cmpMoney(input.unitPrice, '0') <= 0) throw validationError([{ in: 'body', path: 'unitPrice', message: 'Enter the vehicle price: the order is booked as soon as it is raised' }]);
   await ensureCustomerCnic(ctx, l.customerId as number, dealershipId, input.customerCnic);
+  await ensureFilerStatus(ctx, l.customerId as number, dealershipId, input.filerStatus);
   await assertNewPbo(ctx, dealershipId, input.pboNo);
 
   const order = await orders.create(ctx, {

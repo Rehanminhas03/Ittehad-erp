@@ -13,7 +13,7 @@ import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
 import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
-import { CUSTOMER_ADDRESS, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
+import { CUSTOMER_ADDRESS, CUSTOMER_CNIC, CUSTOMER_FILER_STATUS, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
 import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, LEAD_TEMPERATURES, nextFollowUpAfter, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
@@ -351,6 +351,8 @@ export const leadEntity: EntityConfig = {
         appointmentSetByName: { key: 'appointmentSetById', source: USER_NAME },
         lostByName: { key: 'lostById', source: USER_NAME },
         customerAddress: { key: 'customerId', source: CUSTOMER_ADDRESS },
+        customerCnic: { key: 'customerId', source: CUSTOMER_CNIC },
+        customerFilerStatus: { key: 'customerId', source: CUSTOMER_FILER_STATUS },
         customerOccupation: { key: 'customerId', source: CUSTOMER_OCCUPATION },
         createdByName: { key: 'createdById', source: USER_NAME },
         dealtByName: { key: 'dealtById', source: USER_NAME },
@@ -539,6 +541,16 @@ export const salesOrderEntity: EntityConfig = {
     beforeUpdate: async (ctx, row, patch) => {
       if (row.status === 'delivered' || row.status === 'cancelled') throw conflict(`The order is ${row.status as string} and can no longer be edited`);
       const target = { dealershipId: row.dealershipId as number, branchId: (row.branchId as number | null) ?? null };
+      // The filer status lives on the customer and is the Sales Admin's to enter or change (anyone else's value is dropped).
+      const filer = patch.filerStatus as string | undefined;
+      delete patch.filerStatus;
+      if (filer && ctx.access.canIn(P.ordersCreate, target)) {
+        const c = await ctx.tx.customer.findFirst({ where: { id: row.customerId as number }, select: { filerStatus: true } });
+        if (c?.filerStatus !== filer) {
+          await ctx.tx.customer.update({ where: { id: row.customerId as number }, data: { filerStatus: filer, updatedById: ctx.access.userId }, select: { id: true } });
+          await ctx.audit({ entityType: 'master.customer', entityId: row.customerId as number, action: 'update', dealershipId: target.dealershipId, changes: { filerStatus: { from: c?.filerStatus ?? null, to: filer } } });
+        }
+      }
       if (patch.salespersonId !== undefined && patch.salespersonId !== row.salespersonId) {
         assertCanAssign(ctx, patch.salespersonId, P.ordersUpdate, target);
       }
@@ -557,6 +569,8 @@ export const salesOrderEntity: EntityConfig = {
     decorate: async (ctx, rows) => {
       const named = await withNames(ctx.tx, rows, {
         customerName: { key: 'customerId', source: CUSTOMER_NAME },
+        customerCnic: { key: 'customerId', source: CUSTOMER_CNIC },
+        customerFilerStatus: { key: 'customerId', source: CUSTOMER_FILER_STATUS },
         salespersonName: { key: 'salespersonId', source: USER_NAME },
         modelName: { key: 'modelId', source: MODEL_NAME },
         vehicleLabel: { key: 'vehicleId', source: VEHICLE_LABEL },

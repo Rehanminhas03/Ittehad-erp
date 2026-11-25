@@ -222,7 +222,7 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
   // The customer's CNIC (required at conversion): the Admin checks it against the copy when raising the order.
   await ensureCustomerCnic(ctx, customerId, dealershipId, input.customerCnic);
   // The customer's address (required at conversion): kept on the customer (orders, PPF vouchers, delivery).
-  await ctx.tx.customer.update({ where: { id: customerId }, data: { address: input.customerAddress, occupation: input.customerOccupation, updatedById: ctx.access.userId } });
+  await ctx.tx.customer.update({ where: { id: customerId }, data: { address: input.customerAddress, occupation: input.customerOccupation, ...(input.filerStatus ? { filerStatus: input.filerStatus } : {}), updatedById: ctx.access.userId } });
 
   await ctx.tx.lead.update({
     where: { id: leadId },
@@ -309,6 +309,8 @@ export async function correctLeadConversion(ctx: EntityCtx, leadId: number, inpu
   if (input.email !== undefined) customerPatch.email = input.email;
   if (input.customerAddress !== undefined) customerPatch.address = input.customerAddress;
   if (input.customerOccupation !== undefined) customerPatch.occupation = input.customerOccupation;
+  // Only the Sales Admin enters or changes the filer status after conversion (what others send is ignored).
+  if (input.filerStatus && ctx.access.canIn(P.ordersCreate, targetOf(l))) customerPatch.filerStatus = input.filerStatus;
   const leadPatch: Record<string, unknown> = {};
   if (input.prospectName !== undefined) leadPatch.prospectName = input.prospectName;
   if (input.email !== undefined) leadPatch.email = input.email;
