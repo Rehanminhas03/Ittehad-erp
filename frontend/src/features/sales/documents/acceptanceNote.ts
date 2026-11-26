@@ -30,6 +30,9 @@ export type AcceptanceForm = {
   /** The Delivery Note's back page: Authority Letter & CNIC (yes / no / na) and Invoice Attached (yes / undertaking); empty: ticked by hand. */
   authority: string;
   invoiceAttached: string;
+  /** The Gate Pass: the customer's code and the car's warranty / book number (typed; empty: written by hand). */
+  customerCode: string;
+  warrantyNo: string;
 };
 
 /** 24-NOV-2026, Pakistan date. */
@@ -59,6 +62,8 @@ export function blankAcceptanceForm(): AcceptanceForm {
     address: '',
     authority: '',
     invoiceAttached: '',
+    customerCode: '',
+    warrantyNo: '',
   };
 }
 
@@ -87,6 +92,8 @@ export function acceptanceFormFrom(n: AcceptanceNote): AcceptanceForm {
     authority: '',
     // The vehicle invoice is attached once it is recorded on the order.
     invoiceAttached: n.invoiceNo ? 'yes' : '',
+    customerCode: '',
+    warrantyNo: '',
   };
 }
 
@@ -549,5 +556,113 @@ export async function buildAllDocumentsPdf(f: AcceptanceForm, fileLabel: string)
   await buildAcceptanceNotePdf(f, fileLabel, { into });
   await buildDeliveryNoteSheetPdf(f, fileLabel, { into, newPage: true });
   await buildUndertakingsPdf(f, fileLabel, { into, newPage: true });
+  await buildGatePassPdf(f, fileLabel, { into, newPage: true });
   return { doc: into, fileName: `Delivery documents - ${fileLabel}.pdf`.replace(/[\\/:*?"<>|]/g, '') };
+}
+
+/**
+ * The Gate Pass: lets the car out through the gate. The dealership's name and address, the invoice, order and customer, the car
+ * (description, chassis and engine number, quantity) and the Prepared / Checked / Authorized signature lines.
+ */
+export async function buildGatePassPdf(f: AcceptanceForm, fileLabel: string, opts?: BuildOpts): Promise<BuiltPdf> {
+  const { jsPDF } = await import('jspdf');
+  const doc = opts?.into ?? new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  if (opts?.into && opts.newPage) doc.addPage();
+  const W = 210;
+  const L = 14;
+  const R = W - 14;
+  const font = (size: number, style: 'normal' | 'bold' | 'italic' | 'bolditalic' = 'normal') => {
+    doc.setFont('helvetica', style);
+    doc.setFontSize(size);
+  };
+  doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.25);
+  const fit = (text: string, cx: number, y: number, w: number, style: 'normal' | 'bold' | 'bolditalic' = 'normal', size = 9) => {
+    const v = text.trim().toUpperCase();
+    if (!v) return;
+    let s = size;
+    font(s, style);
+    while (s > 5.5 && doc.getTextWidth(v) > w - 3) font((s -= 0.4), style);
+    doc.text(v, cx, y, { align: 'center' });
+  };
+
+  // ---- Heading ----
+  font(14, 'bolditalic');
+  doc.text('JETOUR ITTEHAD', W / 2, 26, { align: 'center' });
+  font(8.8);
+  doc.text('Plot # 415 off 9th Avenue Sector I-9/3', W / 2, 33, { align: 'center' });
+  doc.text('Islamabad', W / 2, 37.5, { align: 'center' });
+  font(11.5, 'bolditalic');
+  doc.text('Gate Pass', W / 2, 52, { align: 'center' });
+  doc.line(L, 57, R, 57);
+
+  // ---- Invoice, order and customer ----
+  const c1 = L + 33;
+  const c2 = c1 + 47;
+  const c3 = c2 + 33;
+  const RH = 7.2;
+  let y = 66;
+  doc.rect(L, y, R - L, RH * 3);
+  doc.line(c1, y, c1, y + RH * 3);
+  doc.line(c2, y, c2, y + RH * 3);
+  doc.line(c3, y, c3, y + RH * 3);
+  doc.line(L, y + RH, c2, y + RH);
+  doc.line(L, y + RH * 2, c2, y + RH * 2);
+  doc.line(c2, y + RH, R, y + RH);
+  const lab = (t: string, x: number, top: number, h: number) => {
+    font(8.8, 'bolditalic');
+    doc.text(t, x + 2, top + h / 2 + 1.2);
+  };
+  lab('Invoice No :', L, y, RH);
+  lab('Order No :', L, y + RH, RH);
+  lab('Customer Code', L, y + RH * 2, RH);
+  lab('Customer Name :', c2, y, RH);
+  lab('Address :', c2, y + RH, RH * 2);
+  fit(f.invoiceNo, (c1 + c2) / 2, y + RH / 2 + 1.2, c2 - c1);
+  fit(f.orderNo, (c1 + c2) / 2, y + RH * 1.5 + 1.2, c2 - c1);
+  fit(f.customerCode, (c1 + c2) / 2, y + RH * 2.5 + 1.2, c2 - c1);
+  fit(f.owner, (c3 + R) / 2, y + RH / 2 + 1.2, R - c3);
+  const addr = f.address.trim().toUpperCase();
+  if (addr) {
+    font(8.4);
+    const lines = (doc.splitTextToSize(addr, R - c3 - 4) as string[]).slice(0, 3);
+    lines.forEach((l, i) => doc.text(l, (c3 + R) / 2, y + RH + 5 + i * 4.4, { align: 'center' }));
+  }
+
+  // ---- The car ----
+  y += RH * 3 + 11;
+  const widths = [23, 42, 38, 33, 23, 12, 11];
+  const heads = ['Part No', 'Description', 'Chassis No', 'Engine No', 'Warranty/\nBook No', 'QTY', 'Unit'];
+  const xs = widths.reduce<number[]>((a, w, i) => [...a, a[i]! + w], [L]);
+  const HH = 10.5;
+  doc.rect(L, y, R - L, HH + RH);
+  doc.line(L, y + HH, R, y + HH);
+  widths.forEach((_, i) => {
+    if (i) doc.line(xs[i]!, y, xs[i]!, y + HH + RH);
+    font(8.2, 'bolditalic');
+    const lines = heads[i]!.split('\n');
+    lines.forEach((l, k) => doc.text(l, (xs[i]! + xs[i + 1]!) / 2, y + (lines.length > 1 ? 4.2 : 6.4) + k * 3.8, { align: 'center' }));
+  });
+  const ry = y + HH + RH / 2 + 1.2;
+  const cx = (i: number) => (xs[i]! + xs[i + 1]!) / 2;
+  fit(`${f.make} ${f.variant || f.model}`, cx(1), ry, widths[1]!, 'bold', 8.4);
+  fit(f.chassis, cx(2), ry, widths[2]!, 'bold', 8.4);
+  fit(f.engine, cx(3), ry, widths[3]!, 'bold', 8.4);
+  fit(f.warrantyNo, cx(4), ry, widths[4]!, 'bold', 8.4);
+  fit('01', cx(5), ry, widths[5]!, 'bold', 8.4);
+  fit('1', cx(6), ry, widths[6]!, 'bold', 8.4);
+
+  // ---- Signatures ----
+  y += HH + RH + 28;
+  const sw = 58;
+  const gap = (R - L - sw * 3) / 2;
+  ['Prepared By :', 'Checked By:', 'Authorized By'].forEach((t, i) => {
+    const sx = L + 2 + i * (sw + gap);
+    doc.line(sx, y, sx + sw, y);
+    font(8.6, 'bolditalic');
+    doc.text(t, sx + sw / 2, y + 5.5, { align: 'center' });
+  });
+
+  return { doc, fileName: `Gate Pass - ${fileLabel}.pdf`.replace(/[\\/:*?"<>|]/g, '') };
 }

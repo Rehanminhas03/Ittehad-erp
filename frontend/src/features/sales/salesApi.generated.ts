@@ -2250,7 +2250,7 @@ export type ListDeliveryDocumentsApiResponse =
   /** status 200 Success */ DeliveryDocuments;
 export type ListDeliveryDocumentsApiArg = {
   orderId?: number;
-  kind?: "acceptance" | "note" | "undertakings" | "all";
+  kind?: "acceptance" | "note" | "undertakings" | "gatepass" | "all";
   q?: string;
 };
 export type SaveDeliveryDocumentApiResponse =
@@ -4075,7 +4075,7 @@ export type PpfSlotUpdate = {
 };
 export type DeliveryDocument = {
   id: number;
-  kind: "acceptance" | "note" | "undertakings" | "all";
+  kind: "acceptance" | "note" | "undertakings" | "gatepass" | "all";
   dealershipId: number;
   orderId: number | null;
   orderNo: string | null;
@@ -4090,7 +4090,7 @@ export type DeliveryDocument = {
 };
 export type DeliveryDocuments = DeliveryDocument[];
 export type DeliveryDocumentRequest = {
-  kind: "acceptance" | "note" | "undertakings" | "all";
+  kind: "acceptance" | "note" | "undertakings" | "gatepass" | "all";
   dealershipId: number;
   orderId?: number | null;
   label?: string;

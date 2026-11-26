@@ -1684,7 +1684,7 @@ export const AcceptanceNoteSchema = z
 export const DeliveryDocumentSchema = z
   .object({
     id: Id,
-    kind: z.enum(['acceptance', 'note', 'undertakings', 'all']),
+    kind: z.enum(['acceptance', 'note', 'undertakings', 'gatepass', 'all']),
     dealershipId: Id,
     orderId: Id.nullable(),
     orderNo: z.string().nullable(),
@@ -1697,10 +1697,10 @@ export const DeliveryDocumentSchema = z
   })
   .openapi('DeliveryDocument');
 export const DeliveryDocumentsSchema = z.array(DeliveryDocumentSchema).openapi('DeliveryDocuments');
-export const DeliveryDocumentsQuery = z.object({ orderId: z.coerce.number().int().positive().optional(), kind: z.enum(['acceptance', 'note', 'undertakings', 'all']).optional(), q: z.string().trim().max(80).optional() });
+export const DeliveryDocumentsQuery = z.object({ orderId: z.coerce.number().int().positive().optional(), kind: z.enum(['acceptance', 'note', 'undertakings', 'gatepass', 'all']).optional(), q: z.string().trim().max(80).optional() });
 export const DeliveryDocumentBody = z
   .object({
-    kind: z.enum(['acceptance', 'note', 'undertakings', 'all']),
+    kind: z.enum(['acceptance', 'note', 'undertakings', 'gatepass', 'all']),
     dealershipId: Id,
     orderId: Id.nullish(),
     label: z.string().trim().max(200).default(''),

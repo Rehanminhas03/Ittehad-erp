@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Dialog, Field, Input, Section, Select, Spinner } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
 import { apiErrorMessage, formatDateTime } from '@/shared/lib';
-import { type AcceptanceForm, acceptanceFormFrom, blankAcceptanceForm, buildAcceptanceNotePdf, buildAllDocumentsPdf, buildDeliveryNoteSheetPdf, buildUndertakingsPdf } from '../../../documents/acceptanceNote';
+import { type AcceptanceForm, acceptanceFormFrom, blankAcceptanceForm, buildAcceptanceNotePdf, buildAllDocumentsPdf, buildDeliveryNoteSheetPdf, buildGatePassPdf, buildUndertakingsPdf } from '../../../documents/acceptanceNote';
 import { DownloadIcon, PrintIcon, usePdf } from '../../../documents/DocumentPreview';
 import { P } from '../../../permissions';
 import {
@@ -17,7 +17,7 @@ import {
 
 type Key = keyof AcceptanceForm;
 type FieldDef = [key: Key, label: string, hint?: string];
-export type DeliveryDocKind = 'acceptance' | 'note' | 'undertakings' | 'all';
+export type DeliveryDocKind = 'acceptance' | 'note' | 'undertakings' | 'gatepass' | 'all';
 
 const RECEIVER: Key[] = ['receiverName', 'receiverContact', 'receiverCnic'];
 
@@ -89,9 +89,28 @@ const DOCS: Record<DeliveryDocKind, { title: string; text: string; fields: Field
     editable: ['time'],
     build: buildUndertakingsPdf,
   },
+  gatepass: {
+    title: 'Gate Pass',
+    text: 'Lets the car out through the gate: invoice, order, customer, chassis and engine are filled in.',
+    fields: [
+      ['customerCode', 'Customer Code', 'Optional: written by hand if empty'],
+      ['warrantyNo', 'Warranty / Book No', 'Optional: written by hand if empty'],
+      ['invoiceNo', 'Invoice No', 'From the vehicle invoice, when received'],
+      ['orderNo', 'Order No', 'The PBO number'],
+      ['owner', 'Customer Name'],
+      ['address', 'Address'],
+      ['make', 'Make'],
+      ['model', 'Model'],
+      ['variant', 'Variant (printed as the description)'],
+      ['chassis', 'Chassis No'],
+      ['engine', 'Engine No'],
+    ],
+    editable: ['customerCode', 'warrantyNo', 'invoiceNo'],
+    build: buildGatePassPdf,
+  },
   all: {
     title: 'All delivery documents',
-    text: 'The Acceptance Note, the Delivery Note (front and back) and the undertakings, filled in and printed together.',
+    text: 'The Acceptance Note, the Delivery Note (front and back), the undertakings and the Gate Pass, filled in and printed together.',
     fields: [
       ['time', 'Time', 'Optional: printed after the date; empty: written by hand'],
       ['receiverName', "Receiver's Name", 'Who takes the car'],
@@ -104,6 +123,8 @@ const DOCS: Record<DeliveryDocKind, { title: string; text: string; fields: Field
       ['date', 'Date', "Today's date"],
       ['orderNo', 'Order No / PBO No'],
       ['invoiceNo', 'Invoice No', 'From the vehicle invoice, when received'],
+      ['customerCode', 'Customer Code (Gate Pass)', 'Optional: written by hand if empty'],
+      ['warrantyNo', 'Warranty / Book No (Gate Pass)', 'Optional: written by hand if empty'],
       ['make', 'Make'],
       ['model', 'Model'],
       ['variant', 'Variant'],
@@ -115,17 +136,18 @@ const DOCS: Record<DeliveryDocKind, { title: string; text: string; fields: Field
       ['contact', 'Contact (customer)', "The customer's phone from the order"],
       ['address', 'Address', "The customer's address"],
     ],
-    editable: ['time', 'receiverName', 'receiverContact', 'receiverCnic', 'userName', 'regNo', 'authority', 'invoiceAttached'],
+    editable: ['time', 'receiverName', 'receiverContact', 'receiverCnic', 'userName', 'regNo', 'authority', 'invoiceAttached', 'invoiceNo', 'customerCode', 'warrantyNo'],
     headings: {
       time: 'Date and time (all documents)',
       receiverName: 'Who is receiving the car (Acceptance Note and Delivery Note)',
       userName: 'Vehicle Delivery Acceptance Note',
       authority: 'Delivery Note (back page)',
+      invoiceNo: 'Gate Pass',
     },
     build: buildAllDocumentsPdf,
   },
 };
-const KINDS: DeliveryDocKind[] = ['acceptance', 'note', 'undertakings'];
+const KINDS: DeliveryDocKind[] = ['acceptance', 'note', 'undertakings', 'gatepass'];
 
 const SELECTS: Partial<Record<Key, [value: string, text: string][]>> = {
   authority: [
@@ -358,7 +380,7 @@ function AllRow({ onOpen }: { onOpen: () => void }) {
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 px-4 py-3.5 ring-1 ring-brand-200">
       <div>
         <p className="text-sm font-semibold text-slate-900">All documents together</p>
-        <p className="text-xs text-slate-600">Opens every document filled in, document by document, and prints them all in one go (4 pages).</p>
+        <p className="text-xs text-slate-600">Opens every document filled in, document by document, and prints them all in one go (5 pages).</p>
       </div>
       <Button size="sm" onClick={onOpen}>
         <PrintIcon />

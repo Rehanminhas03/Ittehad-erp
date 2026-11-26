@@ -6138,6 +6138,7 @@
               "acceptance",
               "note",
               "undertakings",
+              "gatepass",
               "all"
             ]
           },
@@ -6205,6 +6206,7 @@
               "acceptance",
               "note",
               "undertakings",
+              "gatepass",
               "all"
             ]
           },
@@ -33095,6 +33097,7 @@
                 "acceptance",
                 "note",
                 "undertakings",
+                "gatepass",
                 "all"
               ]
             },
