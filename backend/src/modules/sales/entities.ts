@@ -13,7 +13,7 @@ import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
 import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
-import { CUSTOMER_ADDRESS, CUSTOMER_CNIC, CUSTOMER_FILER_STATUS, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
+import { CUSTOMER_ADDRESS, CUSTOMER_CNIC, CUSTOMER_FILER_STATUS, CUSTOMER_MOBILE, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
 import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, LEAD_TEMPERATURES, nextFollowUpAfter, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
@@ -185,7 +185,7 @@ export const leadEntity: EntityConfig = {
   },
   tenant: { dealershipKey: 'dealershipId', branchKey: 'branchId' },
   ownerKey: 'ownerId',
-  search: ['prospectName', 'prospectMobileNormalized'],
+  search: ['prospectName', 'prospectMobileNormalized', 'leadNo'],
   // Also by email, the sales order's PBO or order number (e.g. the last digits of a PBO), and the
   // converted customer's CNIC or the car's chassis / engine number.
   searchExtra: (_p, q) => {
@@ -328,7 +328,14 @@ export const leadEntity: EntityConfig = {
       const ownerId = (data.ownerId as number | undefined) ?? ctx.access.userId;
       if (ownerId !== ctx.access.userId) await assertCanLogFor(ctx, ownerId, data.dealershipId as number);
       // The first follow-up is due 2 days after the lead is logged.
-      return { ...data, ...testDriveDates(data, null), ownerId, prospectMobileNormalized: mobileNormalized, nextFollowUpOn: nextFollowUpAfter(0, pakistanToday()) };
+      return {
+        ...data,
+        ...testDriveDates(data, null),
+        ownerId,
+        prospectMobileNormalized: mobileNormalized,
+        nextFollowUpOn: nextFollowUpAfter(0, pakistanToday()),
+        leadNo: await nextDocumentNumber(ctx.tx, data.dealershipId as number, DocType.lead),
+      };
     },
     beforeUpdate: async (ctx, row, patch) => {
       if (!['new', 'follow_up', 'visited'].includes(row.status as string)) {
@@ -570,6 +577,7 @@ export const salesOrderEntity: EntityConfig = {
       const named = await withNames(ctx.tx, rows, {
         customerName: { key: 'customerId', source: CUSTOMER_NAME },
         customerCnic: { key: 'customerId', source: CUSTOMER_CNIC },
+        customerMobile: { key: 'customerId', source: CUSTOMER_MOBILE },
         customerFilerStatus: { key: 'customerId', source: CUSTOMER_FILER_STATUS },
         salespersonName: { key: 'salespersonId', source: USER_NAME },
         modelName: { key: 'modelId', source: MODEL_NAME },
@@ -590,7 +598,7 @@ export const salesOrderEntity: EntityConfig = {
           : [],
         // Corporate customer details, from the lead.
         leadIds.length
-          ? ctx.tx.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, customerType: true, companyName: true, contactDesignation: true, purchaseOrderNo: true, paymentType: true } })
+          ? ctx.tx.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, customerType: true, companyName: true, contactDesignation: true, purchaseOrderNo: true, paymentType: true, referredBy: true } })
           : [],
       ]);
       const vById = new Map(vs.map((v) => [v.id, v]));
@@ -609,6 +617,8 @@ export const salesOrderEntity: EntityConfig = {
           companyName: l?.companyName ?? null,
           contactDesignation: l?.contactDesignation ?? null,
           purchaseOrderNo: l?.purchaseOrderNo ?? null,
+          // Who referred the customer (entered at conversion): the order list's Reference.
+          referredBy: l?.referredBy ?? null,
           // Partial or full payment, as recorded at conversion; once everything is received it is a full payment.
           paymentType: cmpMoney(received, '0') > 0 && cmpMoney(subMoney(money2(r.totalAmount), received), '0') <= 0 ? 'full' : (l?.paymentType ?? null),
         };
@@ -752,12 +762,14 @@ export const stockVehicleEntity: EntityConfig = {
     },
     // Cars still on their way (booked or in transit): the ones the Delivery Team marks received.
     incoming: { key: 'status', schema: BoolQuery, where: (v) => (v ? sql`${vehicle.status} in ('booked', 'in_transit')` : sql`${vehicle.status} not in ('booked', 'in_transit')`) },
+    // Cars that have arrived and are not delivered yet: received, ready for delivery, or on hold.
+    arrived: { key: 'status', schema: BoolQuery, where: (v) => (v ? sql`${vehicle.status} in ('received', 'ready_for_delivery', 'hold')` : sql`${vehicle.status} not in ('received', 'ready_for_delivery', 'hold')`) },
     // Free stock vs. vehicles already on a live order.
     allocated: { key: 'id', schema: BoolQuery, where: (v) => (v ? liveOrderExists : sql`not ${liveOrderExists}`) },
   },
   // Open stock is the free cars: cars already on an order are left out unless asked for ("On an order", a status, or "Not received yet").
-  listDefault: (f) => (f.allocated !== undefined || f.status !== undefined || f.incoming !== undefined ? undefined : sql`not ${liveOrderExists}`),
-  sort: { default: '-createdAt', keys: ['createdAt', 'vin', 'modelYear', 'status'] },
+  listDefault: (f) => (f.allocated !== undefined || f.status !== undefined || f.incoming !== undefined || f.arrived !== undefined ? undefined : sql`not ${liveOrderExists}`),
+  sort: { default: '-createdAt', keys: ['createdAt', 'updatedAt', 'vin', 'modelYear', 'status'] },
   hooks: {
     beforeUpdate: async (ctx, row, patch) => {
       const clash = await findVehicleByIdentifiers(ctx.tx, { vin: patch.vin as string | undefined, engineNo: patch.engineNo as string | null | undefined }, row.id);

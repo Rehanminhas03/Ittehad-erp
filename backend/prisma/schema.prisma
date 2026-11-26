@@ -1403,6 +1403,8 @@ model DocumentTemplate {
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Lead {
   id                       BigInt         @id @default(autoincrement())
+  /// The lead's number: JET-ITH-LD-2026-11007 (the month, then the month's counter).
+  leadNo                   String?        @map("lead_no")
   dealershipId             BigInt         @map("dealership_id")
   branchId                 BigInt?        @map("branch_id")
   ownerId                  BigInt         @map("owner_id")

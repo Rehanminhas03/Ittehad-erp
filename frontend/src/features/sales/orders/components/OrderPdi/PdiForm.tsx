@@ -30,7 +30,8 @@ export function PdiChoices({
 }) {
   return (
     <div className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="PDI">
+      {/* One choice per line: in a small window three side by side ran their descriptions into each other. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 8 }} role="radiogroup" aria-label="PDI">
         {PDI_CHOICES.map((c) => (
           <label
             key={c.value}
@@ -44,7 +45,9 @@ export function PdiChoices({
               <input type="radio" name="pdi-choice" checked={choice === c.value} onChange={() => onChoice(c.value)} className="size-4 text-brand-600" />
               <span className={cn('font-medium', c.tone)}>{c.label}</span>
             </span>
-            <span className="pl-6 text-xs text-slate-500">{c.hint}</span>
+            <span className="pl-6 text-xs text-slate-500" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+              {c.hint}
+            </span>
           </label>
         ))}
       </div>

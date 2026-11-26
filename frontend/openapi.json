@@ -9439,6 +9439,10 @@
             "type": "string",
             "nullable": true
           },
+          "leadNo": {
+            "type": "string",
+            "nullable": true
+          },
           "customerCnic": {
             "type": "string",
             "nullable": true
@@ -10020,6 +10024,14 @@
             "nullable": true
           },
           "customerFilerStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerMobile": {
+            "type": "string",
+            "nullable": true
+          },
+          "referredBy": {
             "type": "string",
             "nullable": true
           },
@@ -28059,6 +28071,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerCnic": {
                       "type": "string",
                       "nullable": true
@@ -28696,6 +28712,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerCnic": {
                       "type": "string",
                       "nullable": true
@@ -29158,6 +29178,10 @@
                       "nullable": true
                     },
                     "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
                       "type": "string",
                       "nullable": true
                     },
@@ -30301,6 +30325,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerCnic": {
                       "type": "string",
                       "nullable": true
@@ -30832,6 +30860,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerCnic": {
                       "type": "string",
                       "nullable": true
@@ -31297,6 +31329,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerCnic": {
                       "type": "string",
                       "nullable": true
@@ -31741,6 +31777,14 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
                       "type": "string",
                       "nullable": true
                     },
@@ -35273,6 +35317,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -35652,6 +35704,14 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36045,6 +36105,14 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36519,6 +36587,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -36912,6 +36988,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -37302,6 +37386,14 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
                       "type": "string",
                       "nullable": true
                     },
@@ -37770,6 +37862,14 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerType": {
                       "type": "string",
                       "enum": [
@@ -38149,6 +38249,14 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
                       "type": "string",
                       "nullable": true
                     },
@@ -38542,6 +38650,14 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerMobile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "referredBy": {
                       "type": "string",
                       "nullable": true
                     },
@@ -39587,6 +39703,18 @@
             },
             "required": false,
             "name": "incoming",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "arrived",
             "in": "query"
           },
           {

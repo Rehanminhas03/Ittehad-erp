@@ -184,6 +184,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { param: 'appointmentOn', label: 'Appointment on', type: 'hidden', chip: (v) => `Appointment on ${day(v)}` },
     ],
     columns: [
+      { key: 'leadNo', header: 'Lead no.', render: (l) => <span className="font-mono text-xs whitespace-nowrap">{l.leadNo ?? '—'}</span> },
       {
         key: 'prospectName',
         header: 'Customer',
@@ -231,6 +232,7 @@ export const leadView: EntityViewConfig<Lead> = {
         </Link>
       ) : null,
     fields: [
+      { label: 'Lead no.', value: (l) => (l.leadNo ? <span className="font-mono">{l.leadNo}</span> : null) },
       { label: 'Status', value: (l) => <StatusBadge status={l.status} /> },
       { label: 'Phone', value: (l) => l.prospectMobile },
       { label: 'Email', value: (l) => l.email },

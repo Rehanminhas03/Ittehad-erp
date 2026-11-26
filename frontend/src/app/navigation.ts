@@ -54,8 +54,9 @@ const ALL_SECTIONS: NavSection[] = [
       { label: 'Open stock', to: '/sales/stock', any: ['sales.stock.view'] },
       { label: 'Sales orders', to: '/sales/orders', any: ['sales.orders.view_all', 'sales.orders.view_own'] },
       { label: 'Cars delivered', to: '/sales/orders?status=delivered&range=all', any: ['sales.orders.view_all', 'sales.deliveries.view_all'] },
-      { label: 'Invoices received', to: '/sales/orders?invoice=received&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
-      { label: 'Invoices not received', to: '/sales/orders?invoice=pending&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'] },
+      // Not for the Delivery Team (who move the cars but do not record the invoices).
+      { label: 'Invoices received', to: '/sales/orders?invoice=received&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'], hideIf: ['sales.orders.allocate'], unlessAlso: ['sales.orders.invoice'] },
+      { label: 'Invoices not received', to: '/sales/orders?invoice=pending&range=all', any: ['sales.orders.invoice', 'sales.orders.view_all'], hideIf: ['sales.orders.allocate'], unlessAlso: ['sales.orders.invoice'] },
       // Not for the Sales Admin (who only looks at quotations and can still reach one by link): no Quotations menu.
       { label: 'Quotations', to: '/sales/quotations', any: ['sales.quotations.view_all', 'sales.quotations.view_own'], hideIf: ['sales.orders.create'], unlessAlso: ['sales.quotations.create'] },
       // Not for the Sales Admin: they raise orders and only look at PPF vouchers (still reachable by link), so no PPF menu.

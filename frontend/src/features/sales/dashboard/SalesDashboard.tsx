@@ -1,4 +1,6 @@
+import { ReceiveCarButton } from '../stock/VehicleReceived';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Link } from 'react-router';
 import { ServiceCallPanel } from '@/features/service';
 import { TodayPanel } from './TodayPanel';
@@ -79,6 +81,17 @@ const incomingColumns = [
   { header: 'Customer', render: (v: StockVehicle) => v.customerName ?? '—', hideOnMobile: true },
   { header: 'Allocated', render: (v: StockVehicle) => <span className="text-slate-500">{formatDate(v.updatedAt ?? v.createdAt)}</span> },
   { header: 'Status', render: (v: StockVehicle) => <StatusBadge status={v.status} /> },
+  { header: '', render: (v: StockVehicle) => <ReceiveCarButton car={v} /> },
+];
+
+const arrivedColumns = [
+  { header: 'Chassis no.', render: (v: StockVehicle) => <span className="font-mono text-xs">{v.vin ?? '—'}</span> },
+  { header: 'Engine no.', render: (v: StockVehicle) => <span className="font-mono text-xs">{v.engineNo ?? '—'}</span>, hideOnMobile: true },
+  { header: 'Car', render: (v: StockVehicle) => <span className="text-slate-700">{[v.modelName, v.variant, v.color].filter(Boolean).join(' · ')}</span> },
+  { header: 'Order', render: (v: StockVehicle) => (v.orderNo ? <span className="font-mono text-xs">{v.orderNo}</span> : <span className="text-slate-400">Free stock</span>), hideOnMobile: true },
+  { header: 'Customer', render: (v: StockVehicle) => v.customerName ?? '—', hideOnMobile: true },
+  { header: 'Received', render: (v: StockVehicle) => <span className="text-slate-500">{formatDate(v.updatedAt ?? v.createdAt)}</span> },
+  { header: 'Status', render: (v: StockVehicle) => <StatusBadge status={v.status} /> },
 ];
 
 const orderColumns = [
@@ -95,6 +108,7 @@ const orderColumns = [
  * latest records. All figures come from the server within the user's own scope.
  */
 export function SalesDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const perm = usePermission();
   const layout = useLayout();
@@ -124,6 +138,8 @@ export function SalesDashboard() {
   );
   // Delivery team: the cars allocated from the plant and not received yet (they arrive in a few days).
   const incomingCars = useListStockVehiclesQuery({ incoming: 'true', pageSize: 8, sort: '-createdAt' }, { skip: layout !== 'delivery' });
+  // …and the cars that have arrived and are not delivered yet (they leave this list when handed over).
+  const arrivedCars = useListStockVehiclesQuery({ arrived: 'true', pageSize: 8, sort: '-updatedAt' }, { skip: layout !== 'delivery' });
   const recordsOrders = useListSalesOrdersQuery(
     { ...(layout === 'delivery' ? { pageSize: 6, live: 'true' as const, sort: 'createdAt' } : { pageSize: 6, live: 'true' as const, sort: '-createdAt' }), salespersonId: person ?? undefined },
     { skip: layout !== 'delivery' && layout !== 'manager' },
@@ -259,8 +275,28 @@ export function SalesDashboard() {
       {/* Every salesperson: the free PPF bay days, and a button to book one with a PPF voucher. */}
       {layout !== 'delivery' && perm.can(P.ppfCreate) && <PpfBayPanel />}
       {layout === 'delivery' && (
-        <Panel title="Cars allocated, on their way" subtitle="Allocated from the plant, not received yet (usually 3 to 4 days). Click one, or use Vehicle received when it arrives." to="/sales/stock?incoming=true">
-          <RecordsTable rows={incomingCars.data?.items} columns={incomingColumns} href={(v) => `/sales/stock/${v.id}`} loading={incomingCars.isLoading} empty="No car is waiting to arrive." />
+        <Panel title="Cars allocated, on their way" subtitle="Allocated from the plant, not received yet (usually 3 to 4 days). Click one, or use Vehicle received when it arrives." to="/sales/delivery-status?range=all&stage=in_transit">
+          <RecordsTable
+            rows={incomingCars.data?.items}
+            columns={incomingColumns}
+            href={(v) => `/sales/stock/${v.id}`}
+            // A click on a row opens the car's sales order (mark it received, print its documents); a free car opens its page.
+            onRowClick={(v) => navigate(v.orderId ? `/sales/orders/${v.orderId}` : `/sales/stock/${v.id}`)}
+            loading={incomingCars.isLoading}
+            empty="No car is waiting to arrive."
+          />
+        </Panel>
+      )}
+      {layout === 'delivery' && (
+        <Panel title="Cars received, not delivered yet" subtitle="At the dealership and waiting for hand-over. A car leaves this list when it is delivered and appears under Cars delivered." to="/sales/delivery-status?range=all&stage=received">
+          <RecordsTable
+            rows={arrivedCars.data?.items}
+            columns={arrivedColumns}
+            href={(v) => `/sales/stock/${v.id}`}
+            onRowClick={(v) => navigate(v.orderId ? `/sales/orders/${v.orderId}` : `/sales/stock/${v.id}`)}
+            loading={arrivedCars.isLoading}
+            empty="No received car is waiting to be delivered."
+          />
         </Panel>
       )}
 

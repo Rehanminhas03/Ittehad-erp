@@ -140,3 +140,83 @@ function ReceivedDialog({ onClose }: { onClose: () => void }) {
     </Dialog>
   );
 }
+
+/** A car that is still on its way (booked or in transit): the Delivery Team can mark it received from wherever the car is listed. */
+export const isOnItsWay = (car: { status?: string | null }) => car.status === 'booked' || car.status === 'in_transit';
+
+/**
+ * "Mark received" for one car: asks for the PDI (done, pending, or not clear with the issue) and marks the car received.
+ * Shown to the Delivery Team on the car's page, in the open stock list and in the dashboard's list of cars on their way.
+ */
+export function ReceiveCarButton({ car, size = 'sm', variant = 'primary' }: { car: StockVehicle; size?: 'sm' | 'md'; variant?: 'primary' | 'secondary' }) {
+  const perm = usePermission();
+  const [open, setOpen] = useState(false);
+  const can = car.dealershipId ? perm.canIn(P.stockManage, car.dealershipId) : perm.can(P.stockManage);
+  if (!can || !isOnItsWay(car)) return null;
+  return (
+    // Inside a clickable row: pressing the button must not also open the row.
+    <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="inline-flex">
+      <Button size={size} variant={variant} onClick={() => setOpen(true)}>
+        Mark received
+      </Button>
+      {open && <ReceiveCarDialog car={car} onClose={() => setOpen(false)} />}
+    </span>
+  );
+}
+
+export function ReceiveCarDialog({ car, onClose }: { car: StockVehicle; onClose: () => void }) {
+  const toast = useToast();
+  const [choice, setChoice] = useState<PdiChoice | ''>('');
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [save, { isLoading }] = useReceiveIncomingVehicleMutation();
+  const receive = async () => {
+    if (!choice) return setError('Choose: PDI done, PDI pending, or PDI not clear');
+    if (choice === 'issue' && !notes.trim()) return setError('Describe the issue found in the PDI');
+    setError(null);
+    try {
+      await save({ id: car.id, pdiRequest: pdiBody(choice, notes) }).unwrap();
+      toast.success(`${car.vin ?? car.engineNo ?? 'The vehicle'} marked received`);
+      onClose();
+    } catch (e) {
+      toast.error(e);
+    }
+  };
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Mark the car received"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button loading={isLoading} onClick={receive}>
+            Mark received
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
+          <p className="font-mono text-xs font-semibold text-slate-900">{car.vin ?? '—'}</p>
+          <p className="font-mono text-xs text-slate-500">{car.engineNo ?? '—'}</p>
+          <p className="mt-1 text-slate-700">{[car.modelName, car.variant, car.color, car.modelYear].filter(Boolean).join(' · ')}</p>
+          {car.orderNo && (
+            <p className="text-xs text-slate-500">
+              Order {car.orderNo} · {car.customerName}
+            </p>
+          )}
+        </div>
+        <p className="text-sm font-medium text-slate-800">PDI (pre-delivery inspection)</p>
+        <PdiChoices choice={choice} onChoice={setChoice} notes={notes} onNotes={setNotes} />
+        {error && (
+          <p className="text-sm text-red-600" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}

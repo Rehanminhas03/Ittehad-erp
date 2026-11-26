@@ -12,6 +12,8 @@ export const salesApi = enhancedApi
       getSalesActionItems: { providesTags: ['Lead', 'SalesOrder', 'Delivery', 'StockVehicle'] },
       // Registering a car for a waiting order links it: the order (and its lead's car stage) change too.
       receiveStockVehicle: { invalidatesTags: ['StockVehicle', 'SalesOrder', 'Vehicle', 'Lead'] },
+      // Marking a car received moves its order's car stage too.
+      receiveIncomingVehicle: { invalidatesTags: ['StockVehicle', 'SalesOrder', 'Vehicle', 'Lead'] },
       convertLead: { invalidatesTags: ['Lead', 'Customer', 'Search'] },
       recordLeadFollowUp: { invalidatesTags: ['Lead'] },
       addLeadVisitRemarks: { invalidatesTags: ['Lead'] },
@@ -55,7 +57,7 @@ export const salesApi = enhancedApi
       transitionSalesOrder: { invalidatesTags: ['SalesOrder', 'Delivery', 'Lead', 'StockVehicle'] },
       allocateVehicle: { invalidatesTags: ['SalesOrder', 'Vehicle', 'StockVehicle'] },
       releaseVehicle: { invalidatesTags: ['SalesOrder', 'Vehicle', 'StockVehicle'] },
-      advanceVehicleStatus: { invalidatesTags: ['SalesOrder', 'Vehicle', 'StockVehicle'] },
+      advanceVehicleStatus: { invalidatesTags: ['SalesOrder', 'Vehicle', 'StockVehicle', 'Lead'] },
       scheduleDelivery: { invalidatesTags: ['Delivery', 'SalesOrder'] },
       transitionDelivery: { invalidatesTags: ['Delivery', 'SalesOrder'] },
       completeDelivery: { invalidatesTags: ['Delivery', 'SalesOrder', 'Lead', 'Vehicle', 'StockVehicle', 'Customer', 'Search'] },

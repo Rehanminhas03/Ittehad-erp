@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { type FilerStatus, FilerStatusInput } from '../FilerStatusInput';
 import { Button, Checkbox, Field, Input, Section, Select, Textarea } from '@/shared/components/ui';
 import { usePermission, useToast } from '@/shared/hooks';
@@ -6,7 +6,7 @@ import { digitsOnly } from '@/shared/components/EntityFormView/FormFieldControl'
 import { maskCnic } from '@/features/crm';
 import { amountNumber, apiConflict, apiFieldErrors } from '@/shared/lib';
 import { CUSTOMER_TYPES, OPEN_LEAD_STATES, P, PAYMENT_INSTRUMENTS, PAYMENT_TYPES } from '../../../permissions';
-import { type Lead, useConvertLeadMutation } from '../../../salesApi';
+import { type Lead, type VariantCode, useConvertLeadMutation } from '../../../salesApi';
 import { ExpectedDeliveryInput, type ExpectedDeliveryValue } from '../../../orders/components/ExpectedDelivery';
 import { LeadModelSelect } from '../LeadModelSelect';
 import { VariantPicker } from '../VariantPicker';
@@ -50,7 +50,17 @@ export function LeadConversion({ lead }: { lead: Lead }) {
   // The customer's CNIC (required): the Admin checks it against the copy when raising the order.
   const [cnic, setCnic] = useState('');
   // Optional here: if the salesperson does not know it, the Sales Admin has to enter it when raising the order.
+  // The chosen variant's price list: the car's total price is worked out from it (until the salesperson types another).
+  const [prices, setPrices] = useState<VariantCode | null>(null);
+  const [totalTyped, setTotalTyped] = useState(false);
   const [filer, setFiler] = useState<FilerStatus>((lead.customerFilerStatus as FilerStatus | null | undefined) ?? '');
+  // Net price of the variant: ex-factory + advance tax (filer, or non-filer when the customer is inactive) + freight (+ levy / CVT where listed).
+  const netPrice = prices?.exFactoryPrice
+    ? Number(prices.exFactoryPrice) + Number((filer === 'inactive' ? prices.advanceTaxNonFiler : prices.advanceTaxFiler) ?? 0) + Number(prices.freightCharges ?? 0) + Number(prices.nevLevy ?? 0) + Number(prices.cvt ?? 0)
+    : null;
+  useEffect(() => {
+    if (netPrice !== null && !totalTyped) setV((x) => ({ ...x, vehiclePrice: String(Math.round(netPrice)) }));
+  }, [netPrice, totalTyped]);
   const [expected, setExpected] = useState<ExpectedDeliveryValue>({ date: lead.expectedDeliveryDate ?? '', byMonth: lead.expectedDeliveryDate ? !!lead.expectedDeliveryByMonth : true });
 
   const isOpenLead = (OPEN_LEAD_STATES as readonly string[]).includes(lead.status);
@@ -78,7 +88,10 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       required('customerOccupation', 'Occupation'),
       v.paymentType ? null : (['paymentType', 'Tick Partial payment or Full payment'] as const),
       v.paymentType ? required('paymentAmount', v.paymentType === 'full' ? 'The full amount paid' : 'The amount paid') : null,
-      v.paymentType === 'partial' ? required('vehiclePrice', 'The total amount of the car') : null,
+      v.paymentType ? required('vehiclePrice', 'The total amount of the car') : null,
+      v.paymentType === 'full' && v.vehiclePrice.trim() && v.paymentAmount.trim() && amountNumber(v.paymentAmount) !== amountNumber(v.vehiclePrice)
+        ? (['paymentAmount', 'A full payment equals the total amount of the car (otherwise choose Partial payment)'] as const)
+        : null,
       v.paymentType === 'partial' && v.vehiclePrice.trim() && v.paymentAmount.trim() && amountNumber(v.paymentAmount) >= amountNumber(v.vehiclePrice)
         ? (['paymentAmount', 'A partial payment is less than the total amount (otherwise choose Full payment)'] as const)
         : null,
@@ -228,6 +241,10 @@ export function LeadConversion({ lead }: { lead: Lead }) {
               id="cv-variant"
               value={v.variant}
               onChange={(variant) => setV((s) => ({ ...s, variant }))}
+              onCode={(_code, variant) => {
+                setPrices(variant ?? null);
+                setTotalTyped(false);
+              }}
               invalid={!!errors.variant}
               modelId={Number(v.interestedModelId) || null}
               dealershipId={lead.dealershipId}
@@ -264,22 +281,32 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           </div>
           {v.paymentType && (
             <>
-              {v.paymentType === 'partial' && (
-                <Field
-                  label="Total amount of the car (PKR)"
-                  htmlFor="cv-total"
-                  required
-                  error={errors.vehiclePrice}
-                  hint={
-                    amountNumber(v.vehiclePrice) > 0 && amountNumber(v.paymentAmount) > 0 && amountNumber(v.vehiclePrice) > amountNumber(v.paymentAmount)
-                      ? `Balance to pay before delivery: Rs ${(amountNumber(v.vehiclePrice) - amountNumber(v.paymentAmount)).toLocaleString('en-PK')}`
+              <Field
+                label="Total amount of the car (PKR)"
+                htmlFor="cv-total"
+                required
+                error={errors.vehiclePrice}
+                hint={
+                  v.paymentType === 'partial' && amountNumber(v.vehiclePrice) > 0 && amountNumber(v.paymentAmount) > 0 && amountNumber(v.vehiclePrice) > amountNumber(v.paymentAmount)
+                    ? `Balance to pay before delivery: Rs ${(amountNumber(v.vehiclePrice) - amountNumber(v.paymentAmount)).toLocaleString('en-PK')}`
+                    : netPrice !== null && !totalTyped
+                      ? 'From the variant\'s price list (you can change it)'
                       : 'The full price of the car'
-                  }
-                >
-                  <Input id="cv-total" inputMode="decimal" value={v.vehiclePrice} onChange={set('vehiclePrice')} invalid={!!errors.vehiclePrice} placeholder="e.g. 9500000" />
-                </Field>
-              )}
-              <Field label={v.paymentType === 'full' ? 'Full amount paid (PKR)' : 'Amount paid now — booking (PKR)'} htmlFor="cv-amount" required error={errors.paymentAmount}>
+                }
+              >
+                <Input
+                  id="cv-total"
+                  inputMode="decimal"
+                  value={v.vehiclePrice}
+                  onChange={(e) => {
+                    setTotalTyped(true);
+                    setV((x) => ({ ...x, vehiclePrice: e.target.value }));
+                  }}
+                  invalid={!!errors.vehiclePrice}
+                  placeholder="e.g. 9500000"
+                />
+              </Field>
+              <Field label={v.paymentType === 'full' ? 'Amount paid by the customer (PKR)' : 'Amount paid now — booking (PKR)'} htmlFor="cv-amount" required error={errors.paymentAmount}>
                 <Input id="cv-amount" inputMode="decimal" value={v.paymentAmount} onChange={set('paymentAmount')} invalid={!!errors.paymentAmount} placeholder={v.paymentType === 'full' ? 'e.g. 9500000' : 'e.g. 2500000'} />
               </Field>
               <Field label="Payment instrument" htmlFor="cv-instrument" required error={errors.paymentInstrument}>

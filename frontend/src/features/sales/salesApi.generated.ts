@@ -771,6 +771,7 @@ const injectedRtkApi = api
             modelId: queryArg.modelId,
             dealershipId: queryArg.dealershipId,
             incoming: queryArg.incoming,
+            arrived: queryArg.arrived,
             allocated: queryArg.allocated,
           },
         }),
@@ -1387,6 +1388,7 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  leadNo?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
@@ -1496,6 +1498,7 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  leadNo?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
@@ -1592,6 +1595,7 @@ export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  leadNo?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
@@ -1794,6 +1798,7 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  leadNo?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
@@ -1895,6 +1900,7 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  leadNo?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
@@ -1991,6 +1997,7 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  leadNo?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
@@ -2089,6 +2096,8 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2453,6 +2462,8 @@ export type RecordVehicleInvoiceApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2532,6 +2543,8 @@ export type ClearVehicleInvoiceApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2610,6 +2623,8 @@ export type SetInvoiceDeliveredApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2694,6 +2709,8 @@ export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2773,6 +2790,8 @@ export type DecideDeliveryClearanceApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2852,6 +2871,8 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -2936,6 +2957,8 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -3015,6 +3038,8 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -3093,6 +3118,8 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;
@@ -3248,6 +3275,7 @@ export type ListStockVehiclesApiArg = {
   modelId?: number;
   dealershipId?: number;
   incoming?: "true" | "false";
+  arrived?: "true" | "false";
   allocated?: "true" | "false";
 };
 export type RecordStockVehiclePdiApiResponse =
@@ -4810,6 +4838,7 @@ export type Lead = {
   contactDesignation?: string | null;
   purchaseOrderNo?: string | null;
   customerAddress?: string | null;
+  leadNo?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
@@ -4985,6 +5014,8 @@ export type SalesOrder = {
   invoiceNotes?: string | null;
   customerCnic?: string | null;
   customerFilerStatus?: string | null;
+  customerMobile?: string | null;
+  referredBy?: string | null;
   customerType?: "individual" | "corporate";
   companyName?: string | null;
   contactDesignation?: string | null;

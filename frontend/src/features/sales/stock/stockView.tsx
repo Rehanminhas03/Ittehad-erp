@@ -1,3 +1,4 @@
+import { ReceiveCarButton } from './VehicleReceived';
 import { StockReportButtons } from '../exports/BookingsReport';
 import { Link } from 'react-router';
 import { z } from 'zod';
@@ -68,6 +69,7 @@ export const stockView: EntityViewConfig<StockVehicle> = {
       { param: 'status', label: 'Status', type: 'select', options: VEHICLE_STATUSES.filter((s) => s.value !== 'delivered') },
       { param: 'allocated', label: 'On an order', type: 'boolean' },
       { param: 'incoming', label: 'Not received yet', type: 'boolean' },
+      { param: 'arrived', label: 'Received, not delivered', type: 'boolean' },
       { param: 'modelId', label: 'Model', type: 'select', useOptions: useVehicleModelOptions },
       dealershipFilter,
     ],
@@ -81,6 +83,8 @@ export const stockView: EntityViewConfig<StockVehicle> = {
       { key: 'pdiStatus', header: 'PDI', render: (v) => <PdiBadge status={v.pdiStatus} /> },
       { key: 'orderNo', header: 'Order', render: (v) => (v.orderNo ? <span className="font-mono text-xs">{v.orderNo}</span> : muted('Free')) },
       { key: 'customerName', header: 'Customer', render: (v) => muted(v.customerName) },
+      // A car still on its way: the Delivery Team marks it received right here.
+      { key: 'receive', header: '', className: 'w-px text-right', render: (v) => <ReceiveCarButton car={v} /> },
     ],
   },
   detail: {

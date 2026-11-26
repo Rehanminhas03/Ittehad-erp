@@ -11,6 +11,7 @@
  * META_VERIFY_TOKEN (typed into Meta once, when the webhook is added) and META_PAGES, a JSON list
  * mapping each Facebook Page to a dealership code with its access token.
  */
+import { DocType, nextDocumentNumber } from '../core/documents';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 import { env } from '../../config/env';
@@ -157,6 +158,7 @@ export async function ingestMetaLead(page: MetaPage, leadgenId: string): Promise
     const row = await tx.lead.create({
       data: {
         dealershipId,
+        leadNo: await nextDocumentNumber(tx, dealershipId, DocType.lead, lead.created_time ? new Date(lead.created_time) : new Date()),
         ownerId,
         prospectName: f.name ?? 'Meta lead',
         prospectMobile: mobile,

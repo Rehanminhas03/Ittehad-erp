@@ -110,6 +110,8 @@ export const LeadSchema = z.object({
   purchaseOrderNo: z.string().nullable().optional(),
   /** The customer's address (from the customer record; captured at conversion). */
   customerAddress: z.string().nullable().optional(),
+  /** The lead's number, e.g. JET-ITH-LD-2026-11007. */
+  leadNo: z.string().nullable().optional(),
   /** The customer's CNIC (entered at conversion): 13 digits, no hyphens. */
   customerCnic: z.string().nullable().optional(),
   /** The customer's tax filer status: active (filer) or inactive (non-filer); null until entered. */
@@ -1283,6 +1285,9 @@ export const SalesOrderSchema = z.object({
   /** The customer's CNIC (from the customer record): 13 digits, no hyphens. */
   customerCnic: z.string().nullable().optional(),
   customerFilerStatus: z.string().nullable().optional(),
+  /** The customer's phone, and who referred them (entered at conversion): shown in the orders list. */
+  customerMobile: z.string().nullable().optional(),
+  referredBy: z.string().nullable().optional(),
   /** Corporate customer (from the lead): billed to the company. */
   customerType: z.enum(CUSTOMER_TYPES).optional(),
   companyName: z.string().nullable().optional(),

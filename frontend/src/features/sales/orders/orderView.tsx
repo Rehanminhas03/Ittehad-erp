@@ -16,7 +16,7 @@ import {
   statusFilter,
   strong,
 } from '@/shared/entity';
-import { formatDateTime, formatMoney } from '@/shared/lib';
+import { formatDate, formatDateTime, formatMoney } from '@/shared/lib';
 import { ExpectedDeliveryInput, formatExpectedDelivery, type ExpectedDeliveryValue } from './components/ExpectedDelivery';
 import { OrderClearance } from './components/OrderClearance';
 import { OrderDelivery } from './components/OrderDelivery';
@@ -90,12 +90,29 @@ export const orderView: EntityViewConfig<SalesOrder> = {
     columns: [
       { key: 'orderNo', header: 'Order', sortKey: 'orderNo', render: (o) => mono(o.orderNo) },
       { key: 'pboNo', header: 'PBO', render: (o) => mono(o.pboNo) },
-      { key: 'orderType', header: 'Type', render: (o) => o.orderType.toUpperCase() },
       { key: 'customerName', header: 'Customer', render: (o) => strong(o.customerName) },
+      { key: 'customerMobile', header: 'Contact', render: (o) => <span className="whitespace-nowrap">{o.customerMobile ?? '—'}</span> },
       { key: 'modelName', header: 'Model', render: (o) => [o.modelName, o.variant].filter(Boolean).join(' ') },
+      { key: 'color', header: 'Color', render: (o) => muted(o.color) },
+      // Entered by the Admin or the Delivery Team once the car is known.
+      {
+        key: 'vehicleIds',
+        header: 'Engine / Chassis',
+        render: (o) =>
+          o.vehicleEngineNo || o.vehicleVin ? (
+            <span className="block font-mono text-xs leading-tight whitespace-nowrap">
+              <span className="block">{o.vehicleEngineNo ?? '—'}</span>
+              <span className="block text-slate-500">{o.vehicleVin ?? '—'}</span>
+            </span>
+          ) : (
+            muted('—')
+          ),
+      },
+      { key: 'createdAt', header: 'Booking date', sortKey: 'createdAt', render: (o) => <span className="whitespace-nowrap">{formatDate(o.createdAt)}</span> },
       { key: 'totalAmount', header: 'Total', sortKey: 'totalAmount', className: 'text-right tabular-nums', render: (o) => formatMoney(o.totalAmount) },
       { key: 'balanceDue', header: 'Balance due', className: 'text-right tabular-nums', render: (o) => (o.status === 'delivered' || o.status === 'cancelled' ? muted(o.status === 'delivered' ? 'Delivered' : '—') : Number(o.balanceDue ?? 0) > 0 ? <span className="font-medium text-amber-700">{formatMoney(o.balanceDue ?? '0')}</span> : <span className="text-emerald-700">Paid</span>) },
       { key: 'salespersonName', header: 'Salesperson', render: (o) => muted(o.salespersonName) },
+      { key: 'referredBy', header: 'Reference', render: (o) => muted(o.referredBy) },
       { key: 'invoiceNo', header: 'Vehicle invoice', render: (o) => <InvoiceBadge no={o.invoiceNo} hasCar={!!o.vehicleId && ['approved', 'delivered'].includes(o.status)} /> },
       {
         key: 'status',

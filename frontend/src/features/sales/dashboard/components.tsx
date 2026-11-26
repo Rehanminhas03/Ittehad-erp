@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Spinner } from '@/shared/components/ui';
 import { cn } from '@/shared/lib';
 
@@ -136,15 +136,19 @@ export function RecordsTable<R extends { id: number }>({
   rows,
   columns,
   href,
+  onRowClick,
   loading,
   empty,
 }: {
   rows: R[] | undefined;
   columns: RecordColumn<R>[];
   href: (row: R) => string;
+  /** Instead of opening the record's page: what a click on the row does (e.g. open a window). */
+  onRowClick?: (row: R) => void;
   loading?: boolean;
   empty: string;
 }) {
+  const navigate = useNavigate();
   if (loading) return <Spinner className="mx-auto my-8 size-5 text-slate-400" />;
   if (!rows?.length) return <p className="py-5 text-center text-sm text-slate-500">{empty}</p>;
   return (
@@ -161,13 +165,22 @@ export function RecordsTable<R extends { id: number }>({
         </thead>
         <tbody className="divide-y divide-slate-200/60">
           {rows.map((r) => (
-            <tr key={r.id} className="group">
+            <tr
+              key={r.id}
+              className="group cursor-pointer transition-colors hover:bg-white/60"
+              // The whole row opens the record (a link or button inside a cell keeps doing its own thing).
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('a, button, input, select, textarea')) return;
+                if (onRowClick) onRowClick(r);
+                else navigate(href(r));
+              }}
+            >
               {columns.map((c, i) => (
                 <td
                   key={c.header}
                   className={cn('px-3.5 py-1.5 text-[13px] whitespace-nowrap first:pl-4 sm:first:pl-5 last:pr-4 sm:last:pr-5', c.hideOnMobile && 'hidden md:table-cell', c.className)}
                 >
-                  {i === 0 ? (
+                  {i === 0 && !onRowClick ? (
                     <Link to={href(r)} className="font-medium text-slate-900 group-hover:text-brand-700">
                       {c.render(r)}
                     </Link>

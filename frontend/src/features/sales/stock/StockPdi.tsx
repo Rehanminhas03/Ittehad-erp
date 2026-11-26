@@ -5,6 +5,7 @@ import { formatDateTime } from '@/shared/lib';
 import { PdiForm } from '../orders/components/OrderPdi';
 import { P } from '../permissions';
 import { type StockVehicle, useRecordStockVehiclePdiMutation } from '../salesApi';
+import { ReceiveCarButton } from './VehicleReceived';
 
 /** The PDI badge of a car in stock: done, pending or not clear (issue found); nothing when never recorded. */
 export function PdiBadge({ status }: { status?: string | null }) {
@@ -23,7 +24,16 @@ export function StockPdi({ v }: { v: StockVehicle }) {
   const canEdit = v.dealershipId ? perm.canIn(P.stockManage, v.dealershipId) : perm.can(P.stockManage);
 
   return (
-    <Section compact title="PDI (pre-delivery inspection)" actions={canEdit && <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>{v.pdiStatus ? 'Update PDI' : 'Record the PDI'}</Button>}>
+    <Section compact title="PDI (pre-delivery inspection)" actions={
+        <span className="flex items-center gap-2">
+          <ReceiveCarButton car={v} />
+          {canEdit && (
+            <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+              {v.pdiStatus ? 'Update PDI' : 'Record the PDI'}
+            </Button>
+          )}
+        </span>
+      }>
       {v.pdiStatus ? (
         <div className="space-y-2 text-sm">
           <PdiBadge status={v.pdiStatus} />

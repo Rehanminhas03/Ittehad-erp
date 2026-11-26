@@ -10,6 +10,7 @@ import {
   useAllocateVehicleMutation,
   useDeliverOrderMutation,
   useListAllocatableVehiclesQuery,
+  useReceiveIncomingVehicleMutation,
   useReleaseVehicleMutation,
 } from '../../../salesApi';
 import { HandOverForm } from '../../../deliveries/components/HandOverForm';
@@ -61,7 +62,12 @@ function Pipeline({ status }: { status: string | null | undefined }) {
 /** Sales Admin / Assistant Manager / Manager: the car's progress, and "Mark in transit" once the plant dispatches it. */
 function DispatchLogistics({ order }: { order: SalesOrder }) {
   const toast = useToast();
+  const perm = usePermission();
   const [advance, { isLoading }] = useAdvanceVehicleStatusMutation();
+  // The Sales Admin manages stock too: the car that arrives can be marked received here (PDI first), as the Delivery Team does.
+  const [receive, { isLoading: receiving }] = useReceiveIncomingVehicleMutation();
+  const [pdiOpen, setPdiOpen] = useState(false);
+  const canReceive = !!order.vehicleId && perm.canIn(P.stockManage, order.dealershipId, order.branchId) && (order.vehicleStatus === 'booked' || order.vehicleStatus === 'in_transit');
   return (
     <Section compact title="Logistics">
       {order.vehicleId ? (
@@ -86,11 +92,37 @@ function DispatchLogistics({ order }: { order: SalesOrder }) {
               <span className="text-slate-500">When the plant / head office has dispatched the car.</span>
             </div>
           ) : (
-            order.vehicleStatus === 'in_transit' && <p className="text-slate-500">The Delivery Team marks the car received when it arrives.</p>
+            order.vehicleStatus === 'in_transit' && <p className="text-slate-500">The Delivery Team marks the car received when it arrives{canReceive ? ' (you can do it too, below).' : '.'}</p>
+          )}
+          {canReceive && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="sm" variant={order.vehicleStatus === 'in_transit' ? 'primary' : 'secondary'} onClick={() => setPdiOpen(true)}>
+                Mark received
+              </Button>
+              <span className="text-slate-500">When the car has arrived at the dealership: the PDI is asked first.</span>
+            </div>
           )}
         </div>
       ) : (
         <p className="text-sm text-slate-600">The Delivery Team allocates the car to this order; it can then be marked in transit.</p>
+      )}
+      {pdiOpen && order.vehicleId && (
+        <Dialog open onClose={() => setPdiOpen(false)} title={`PDI before marking the car received — ${order.customerName ?? order.orderNo}`}>
+          <PdiForm
+            submitLabel="Save PDI and mark received"
+            loading={receiving}
+            onCancel={() => setPdiOpen(false)}
+            onSubmit={async (pdi) => {
+              try {
+                await receive({ id: order.vehicleId!, pdiRequest: pdi }).unwrap();
+                toast.success('Vehicle marked received');
+                setPdiOpen(false);
+              } catch (e) {
+                toast.error(e);
+              }
+            }}
+          />
+        </Dialog>
       )}
     </Section>
   );
