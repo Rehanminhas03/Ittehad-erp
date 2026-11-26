@@ -342,6 +342,8 @@ export const leadView: EntityViewConfig<Lead> = {
       { name: 'notes', label: 'Notes', type: 'textarea', span: 2 },
     ],
     defaults: { source: 'walk_in' },
+    // A CRO (who works the phone and social leads, without seeing every lead) enters phone calls: Phone is the default, Walk-in is one click away.
+    userDefaults: (perm) => (perm.can(P.leadsViewSocial) && !perm.can(P.leadsViewAll) ? { source: 'phone' } : {}),
     // The customer is a social media lead (the CRO's): no new lead; it is now Visited and dealt by this salesperson.
     savedMessage: (saved) => (saved.source === 'social' && saved.dealtByName ? 'This customer is already a social media lead: it is now marked Visited and recorded as dealt with by you. The CRO enters the order details.' : null),
     createSchema: z.object({ dealershipId: idField('Dealership'), ownerId: optionalId(), ...fields }),

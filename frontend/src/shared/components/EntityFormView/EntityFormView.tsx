@@ -43,7 +43,7 @@ function FormBody<T extends { id: number }>({ config, mode, row }: { config: Ent
       const src = form.toFormValues ? form.toFormValues(row) : (row as FormValues);
       return Object.fromEntries(fields.map((f) => [f.name, toInputValue(src[f.name], f)]));
     }
-    return Object.fromEntries(fields.map((f) => [f.name, toInputValue(search.get(f.name) ?? form.defaults?.[f.name], f)]));
+    return Object.fromEntries(fields.map((f) => [f.name, toInputValue(search.get(f.name) ?? form.userDefaults?.(perm)[f.name] ?? form.defaults?.[f.name], f)]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, row]);
 

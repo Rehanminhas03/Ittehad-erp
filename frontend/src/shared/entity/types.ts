@@ -210,6 +210,8 @@ export interface EntityViewConfig<T extends { id: number }> {
     createSchema: ZodType;
     updateSchema?: ZodType;
     defaults?: Record<string, unknown>;
+    /** Defaults that depend on who is entering (they override `defaults`). */
+    userDefaults?: (perm: PermissionApi) => Record<string, unknown>;
     toFormValues?: (row: T) => Record<string, unknown>;
     /** The message after saving (default: "<Entity> saved"), e.g. when saving answered with an existing record. */
     savedMessage?: (saved: T, perm: PermissionApi) => string | null;
