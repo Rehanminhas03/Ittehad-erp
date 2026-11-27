@@ -30,7 +30,7 @@ import { OrderDeliveryDocs } from './components/OrderDeliveryDocs';
 import { OrderPdi } from './components/OrderPdi';
 import { OrderStatusSummary } from './components/OrderStatusSummary';
 import { OrderVehicle } from './components/OrderVehicle';
-import { CLEARANCE_LABELS, labelOf, ORDER_STATES, ORDER_TYPES, P } from '../permissions';
+import { CLEARANCE_LABELS, labelOf, ORDER_STATES, ORDER_TYPES, P, PAYMENT_INSTRUMENTS } from '../permissions';
 import {
   type SalesOrder,
   useGetSalesOrderHistoryQuery,
@@ -148,6 +148,15 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { label: 'Status', value: (o) => <span className="inline-flex flex-wrap gap-1"><StatusBadge status={o.status} label={orderStatusLabel(o)} /><ProcessingBadge status={o.status} /></span> },
       { label: 'PBO number', value: (o) => o.pboNo },
       { label: 'Order type', value: (o) => labelOf(ORDER_TYPES, o.orderType) },
+      { label: 'Phone', value: (o) => o.customerMobile },
+      { label: 'Email', value: (o) => o.customerEmail },
+      { label: 'Address', value: (o) => o.customerAddress },
+      { label: 'Occupation', value: (o) => o.customerOccupation },
+      { label: 'Contact person', value: (o) => (o.customerType === 'corporate' ? o.contactName : null) },
+      { label: 'Referred by', value: (o) => o.referredBy },
+      { label: 'Payment instrument', value: (o) => (o.paymentInstrument ? labelOf(PAYMENT_INSTRUMENTS, o.paymentInstrument) : null) },
+      { label: 'Instrument number', value: (o) => o.paymentInstrumentRef },
+      { label: 'Bank', value: (o) => o.paymentInstrumentBank },
       { label: 'Customer', value: (o) => o.customerName },
       { label: 'Customer CNIC', value: (o) => o.customerCnic },
       { label: 'NTN', value: (o) => o.customerNtn },
@@ -165,7 +174,9 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { label: 'Payment reference', value: (o) => o.paymentReference },
       { label: 'Financing reference', value: (o) => o.financingRef },
       { label: 'Lead', value: (o) => (o.leadId ? <Link to={`/sales/leads/${o.leadId}`} className="text-brand-700 hover:underline">Open lead</Link> : null) },
+      { label: 'Lead no.', value: (o) => o.leadNo },
       { label: 'Notes', value: (o) => o.notes },
+      { label: 'Notes at conversion', value: (o) => o.conversionNotes },
       { label: 'Created', value: (o) => formatDateTime(o.createdAt) },
     ],
     sections: (o) => (

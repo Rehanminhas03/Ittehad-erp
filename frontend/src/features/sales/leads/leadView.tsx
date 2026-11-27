@@ -238,6 +238,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Email', value: (l) => l.email },
       { label: 'CNIC', value: (l) => l.customerCnic },
       { label: 'NTN', value: (l) => l.customerNtn },
+      { label: 'Referred by', value: (l) => l.referredBy },
       { label: 'Filer status', value: (l) => filerLabel(l.customerFilerStatus) },
       { label: 'Address', value: (l) => l.customerAddress },
       { label: 'Occupation', value: (l) => l.customerOccupation },

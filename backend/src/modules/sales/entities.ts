@@ -13,7 +13,7 @@ import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
 import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
-import { CUSTOMER_ADDRESS, CUSTOMER_CNIC, CUSTOMER_FILER_STATUS, CUSTOMER_MOBILE, CUSTOMER_NTN, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
+import { CUSTOMER_ADDRESS, CUSTOMER_CNIC, CUSTOMER_EMAIL, CUSTOMER_FILER_STATUS, CUSTOMER_MOBILE, CUSTOMER_NTN, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
 import { mobileSearchTerm, normalizeCnic, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
 import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, LEAD_TEMPERATURES, nextFollowUpAfter, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
@@ -628,6 +628,9 @@ export const salesOrderEntity: EntityConfig = {
         customerCnic: { key: 'customerId', source: CUSTOMER_CNIC },
         customerNtn: { key: 'customerId', source: CUSTOMER_NTN },
         customerMobile: { key: 'customerId', source: CUSTOMER_MOBILE },
+        customerEmail: { key: 'customerId', source: CUSTOMER_EMAIL },
+        customerAddress: { key: 'customerId', source: CUSTOMER_ADDRESS },
+        customerOccupation: { key: 'customerId', source: CUSTOMER_OCCUPATION },
         customerFilerStatus: { key: 'customerId', source: CUSTOMER_FILER_STATUS },
         salespersonName: { key: 'salespersonId', source: USER_NAME },
         modelName: { key: 'modelId', source: MODEL_NAME },
@@ -648,7 +651,7 @@ export const salesOrderEntity: EntityConfig = {
           : [],
         // Corporate customer details, from the lead.
         leadIds.length
-          ? ctx.tx.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, customerType: true, companyName: true, contactDesignation: true, purchaseOrderNo: true, paymentType: true, referredBy: true } })
+          ? ctx.tx.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, customerType: true, companyName: true, contactDesignation: true, purchaseOrderNo: true, paymentType: true, referredBy: true, leadNo: true, prospectName: true, paymentInstrument: true, paymentInstrumentRef: true, paymentInstrumentBank: true, notes: true } })
           : [],
       ]);
       const vById = new Map(vs.map((v) => [v.id, v]));
@@ -667,6 +670,13 @@ export const salesOrderEntity: EntityConfig = {
           companyName: l?.companyName ?? null,
           contactDesignation: l?.contactDesignation ?? null,
           purchaseOrderNo: l?.purchaseOrderNo ?? null,
+          // What was entered with the lead and its conversion, shown on the order.
+          leadNo: l?.leadNo ?? null,
+          contactName: l?.prospectName ?? null,
+          paymentInstrument: l?.paymentInstrument ?? null,
+          paymentInstrumentRef: l?.paymentInstrumentRef ?? null,
+          paymentInstrumentBank: l?.paymentInstrumentBank ?? null,
+          conversionNotes: l?.notes ?? null,
           // Who referred the customer (entered at conversion): the order list's Reference.
           referredBy: (r.referredBy as string | null | undefined) ?? l?.referredBy ?? null,
           // Partial or full payment, as recorded at conversion; once everything is received it is a full payment.

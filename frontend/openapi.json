@@ -10071,6 +10071,42 @@
             "type": "string",
             "nullable": true
           },
+          "customerEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerOccupation": {
+            "type": "string",
+            "nullable": true
+          },
+          "leadNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "contactName": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentInstrument": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentInstrumentRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentInstrumentBank": {
+            "type": "string",
+            "nullable": true
+          },
+          "conversionNotes": {
+            "type": "string",
+            "nullable": true
+          },
           "customerMobile": {
             "type": "string",
             "nullable": true
@@ -31892,6 +31928,42 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerMobile": {
                       "type": "string",
                       "nullable": true
@@ -35433,6 +35505,42 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerMobile": {
                       "type": "string",
                       "nullable": true
@@ -35824,6 +35932,42 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36229,6 +36373,42 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36715,6 +36895,42 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerMobile": {
                       "type": "string",
                       "nullable": true
@@ -37120,6 +37336,42 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerMobile": {
                       "type": "string",
                       "nullable": true
@@ -37522,6 +37774,42 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -38002,6 +38290,42 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerMobile": {
                       "type": "string",
                       "nullable": true
@@ -38393,6 +38717,42 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
                       "type": "string",
                       "nullable": true
                     },
@@ -38798,6 +39158,42 @@
                       "nullable": true
                     },
                     "customerFilerStatus": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerEmail": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerAddress": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerOccupation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "leadNo": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "contactName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrument": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "paymentInstrumentBank": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "conversionNotes": {
                       "type": "string",
                       "nullable": true
                     },

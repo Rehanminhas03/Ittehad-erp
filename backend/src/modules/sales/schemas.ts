@@ -1297,6 +1297,16 @@ export const SalesOrderSchema = z.object({
   customerCnic: z.string().nullable().optional(),
   customerNtn: z.string().nullable().optional(),
   customerFilerStatus: z.string().nullable().optional(),
+  /** Entered with the lead and its conversion (order page). */
+  customerEmail: z.string().nullable().optional(),
+  customerAddress: z.string().nullable().optional(),
+  customerOccupation: z.string().nullable().optional(),
+  leadNo: z.string().nullable().optional(),
+  contactName: z.string().nullable().optional(),
+  paymentInstrument: z.string().nullable().optional(),
+  paymentInstrumentRef: z.string().nullable().optional(),
+  paymentInstrumentBank: z.string().nullable().optional(),
+  conversionNotes: z.string().nullable().optional(),
   /** The customer's phone, and who referred them (entered at conversion): shown in the orders list. */
   customerMobile: z.string().nullable().optional(),
   referredBy: z.string().nullable().optional(),

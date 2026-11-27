@@ -101,6 +101,7 @@ export function LeadOrder({ lead }: { lead: Lead }) {
       Payment: {labelOf(PAYMENT_INSTRUMENTS, lead.paymentInstrument)} {lead.paymentInstrumentRef}
       {lead.paymentInstrumentBank ? ` · ${lead.paymentInstrumentBank}` : ''}
       {lead.paymentAmount ? ` · ${formatMoney(lead.paymentAmount)}` : ''}
+      {lead.referredBy ? <span className="block">Referred by: {lead.referredBy}</span> : null}
     </p>
   );
 

@@ -14,6 +14,7 @@ export const CUSTOMER_NTN: NameSource = { table: customer, id: customer.id, labe
 export const CUSTOMER_FILER_STATUS: NameSource = { table: customer, id: customer.id, label: customer.filerStatus };
 /** The customer's phone as saved on the customer. */
 export const CUSTOMER_MOBILE: NameSource = { table: customer, id: customer.id, label: customer.mobile };
+export const CUSTOMER_EMAIL: NameSource = { table: customer, id: customer.id, label: customer.email };
 export const CUSTOMER_ADDRESS: NameSource = { table: customer, id: customer.id, label: customer.address };
 export const MODEL_NAME: NameSource = { table: vehicleModel, id: vehicleModel.id, label: sql`${vehicleModel.brand} || ' ' || ${vehicleModel.name}` };
 /** Plate if registered, otherwise VIN, otherwise engine number; 'Pending' before any is known. */
