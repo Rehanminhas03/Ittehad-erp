@@ -23,6 +23,7 @@ import { OrderDelivery } from './components/OrderDelivery';
 import { InvoiceBadge, OrderInvoice } from './components/OrderInvoice';
 import { OrderPayments } from './components/OrderPayments';
 import { ExportButtons } from '../exports/ExportButtons';
+import { useOrderSalespersonOptions } from '../team/useSalespersonOptions';
 import { PaymentTypeBadge } from '../leads/components/PaymentTypeBadge';
 import { OrderLogistics } from './components/OrderLogistics';
 import { OrderDeliveryDocs } from './components/OrderDeliveryDocs';
@@ -61,6 +62,16 @@ const commercial = {
   /** The customer's filer status (kept on the customer; only the Sales Admin's edit counts). */
   filerStatus: z.enum(['', 'active', 'inactive']).optional(),
   notes: optionalText(2000),
+  orderType: z.enum(['pbo', 'cbo']),
+  salespersonId: idField('Salesperson'),
+  referredBy: optionalText(120),
+  customerName: optionalText(160),
+  customerMobile: optionalText(20),
+  customerCnic: optionalText(20),
+  customerNtn: optionalText(20),
+  companyName: optionalText(160),
+  contactDesignation: optionalText(80),
+  purchaseOrderNo: optionalText(60),
 };
 
 export const orderView: EntityViewConfig<SalesOrder> = {
@@ -139,6 +150,7 @@ export const orderView: EntityViewConfig<SalesOrder> = {
       { label: 'Order type', value: (o) => labelOf(ORDER_TYPES, o.orderType) },
       { label: 'Customer', value: (o) => o.customerName },
       { label: 'Customer CNIC', value: (o) => o.customerCnic },
+      { label: 'NTN', value: (o) => o.customerNtn },
       { label: 'Filer status', value: (o) => filerLabel(o.customerFilerStatus) ?? <span className="text-amber-700">Not entered yet: the Sales Admin enters it</span> },
       { label: 'Company (corporate)', value: (o) => (o.customerType === 'corporate' ? [o.companyName, o.contactDesignation && `contact: ${o.contactDesignation}`, o.purchaseOrderNo ? `PO ${o.purchaseOrderNo}` : 'no purchase order'].filter(Boolean).join(' · ') : null) },
       { label: 'Salesperson', value: (o) => o.salespersonName },
@@ -175,6 +187,16 @@ export const orderView: EntityViewConfig<SalesOrder> = {
   form: {
     fields: [
       { name: 'pboNo', label: 'PBO number', type: 'text', hint: 'From the head-office system' },
+      { name: 'orderType', label: 'Order type', type: 'select', required: true, options: ORDER_TYPES },
+      { name: 'customerName', label: 'Customer name', type: 'text', hint: "Changes the customer's record" },
+      { name: 'customerMobile', label: 'Phone', type: 'text' },
+      { name: 'customerCnic', label: 'Customer CNIC', type: 'text' },
+      { name: 'customerNtn', label: 'NTN', type: 'text' },
+      { name: 'companyName', label: 'Company name', type: 'text', visible: (_perm, row) => !!(row as SalesOrder | undefined)?.leadId },
+      { name: 'contactDesignation', label: "Contact's designation", type: 'text', visible: (_perm, row) => !!(row as SalesOrder | undefined)?.leadId },
+      { name: 'purchaseOrderNo', label: 'Purchase order no.', type: 'text', visible: (_perm, row) => !!(row as SalesOrder | undefined)?.leadId },
+      { name: 'salespersonId', label: 'Salesperson', type: 'select', required: true, useOptions: useOrderSalespersonOptions },
+      { name: 'referredBy', label: 'Referred by', type: 'text' },
       { name: 'modelId', label: 'Model', type: 'select', required: true, useOptions: useVehicleModelOptions },
       { name: 'variant', label: 'Variant', type: 'text' },
       { name: 'color', label: 'Colour', type: 'text' },
@@ -195,8 +217,8 @@ export const orderView: EntityViewConfig<SalesOrder> = {
         name: 'filerStatus',
         label: 'Filer status',
         type: 'custom',
-        hint: 'Only the Sales Admin enters or changes it',
-        visible: (perm) => perm.can([P.ordersCreate]),
+        hint: 'Entered or changed by the Admin or the Manager',
+        visible: (perm) => perm.can([P.ordersUpdate]),
         render: ({ id, value, onChange, invalid }) => <FilerStatusInput id={id} value={((value as FilerStatus | undefined) ?? '') as FilerStatus} onChange={onChange} invalid={invalid} />,
       },
       { name: 'financingRef', label: 'Financing reference', type: 'text', hint: 'Bank / leasing company reference, if financed', span: 2 },

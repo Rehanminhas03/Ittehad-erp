@@ -13,8 +13,8 @@ import { pakistanToday } from '../../lib/dates';
 import { dealership, user } from '../core/models';
 import { assertActiveModel } from '../master/entities';
 import { customer, vehicle, vehicleDealership, VEHICLE_STATUSES } from '../master/models';
-import { CUSTOMER_ADDRESS, CUSTOMER_CNIC, CUSTOMER_FILER_STATUS, CUSTOMER_MOBILE, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
-import { mobileSearchTerm, normalizeIdentifier, normalizeMobile } from '../master/normalize';
+import { CUSTOMER_ADDRESS, CUSTOMER_CNIC, CUSTOMER_FILER_STATUS, CUSTOMER_MOBILE, CUSTOMER_NTN, CUSTOMER_OCCUPATION, CUSTOMER_NAME, MODEL_NAME, USER_NAME, VEHICLE_LABEL, VEHICLE_STATUS } from '../master/nameSources';
+import { mobileSearchTerm, normalizeCnic, normalizeIdentifier, normalizeMobile } from '../master/normalize';
 import { findVehicleByIdentifiers, vehicleVisibility } from '../master/repository';
 import { ACTIVE_LEAD_STATES, delivery, lead, LEAD_STATES, LEAD_TEMPERATURES, nextFollowUpAfter, ppfForm, quotation, salesOrder, vehicleVariant } from './models';
 import { SalesPerm as P } from './permissions';
@@ -359,6 +359,7 @@ export const leadEntity: EntityConfig = {
         lostByName: { key: 'lostById', source: USER_NAME },
         customerAddress: { key: 'customerId', source: CUSTOMER_ADDRESS },
         customerCnic: { key: 'customerId', source: CUSTOMER_CNIC },
+        customerNtn: { key: 'customerId', source: CUSTOMER_NTN },
         customerFilerStatus: { key: 'customerId', source: CUSTOMER_FILER_STATUS },
         customerOccupation: { key: 'customerId', source: CUSTOMER_OCCUPATION },
         createdByName: { key: 'createdById', source: USER_NAME },
@@ -416,6 +417,52 @@ async function moveLead(ctx: EntityCtx, row: Row, action: 'complete' | 'order_ca
   if (!row.leadId) return;
   const l = await ctx.tx.lead.findUnique({ where: { id: row.leadId as number }, select: { status: true } });
   if (l?.status === 'processing') await leads.transition(ctx, row.leadId as number, action, `Order ${row.orderNo as string}`, { system: true });
+}
+
+/**
+ * Correcting an order's customer (name, phone, CNIC, NTN) and its corporate details: allowed to whoever may update any order
+ * (the Sales Admin and the Managers). The keys are taken out of the order's patch.
+ */
+async function saveOrderParties(ctx: EntityCtx, row: Row, patch: Record<string, unknown>, target: { dealershipId: number; branchId: number | null }) {
+  const take = (k: string) => {
+    const v = patch[k] as string | null | undefined;
+    delete patch[k];
+    return v;
+  };
+  const name = take('customerName');
+  const mobile = take('customerMobile');
+  const cnicGiven = take('customerCnic');
+  const ntn = take('customerNtn');
+  const company = { companyName: take('companyName'), contactDesignation: take('contactDesignation'), purchaseOrderNo: take('purchaseOrderNo') };
+  if (!ctx.access.canIn(P.ordersUpdate, target)) return;
+  const bad = (path: string, message: string) => validationError([{ in: 'body', path, message }]);
+  const c = await ctx.tx.customer.findFirst({ where: { id: row.customerId as number }, select: { fullName: true, mobile: true, cnic: true, ntn: true } });
+  if (!c) return;
+  const next: Record<string, unknown> = {};
+  if (name && name !== c.fullName) next.fullName = name;
+  if (mobile && mobile !== c.mobile) {
+    const normalized = normalizeMobile(mobile);
+    if (!normalized) throw bad('customerMobile', 'Enter a valid phone number');
+    const other = await ctx.tx.customer.findFirst({ where: { dealershipId: target.dealershipId, mobileNormalized: normalized, id: { not: row.customerId as number } }, select: { fullName: true } });
+    if (other) throw bad('customerMobile', `Another customer already has this phone number: ${other.fullName}`);
+    Object.assign(next, { mobile, mobileNormalized: normalized });
+  }
+  if (cnicGiven) {
+    const cnic = normalizeCnic(cnicGiven);
+    if (!cnic) throw bad('customerCnic', 'CNIC must be 13 digits, e.g. 35202-1234567-1');
+    if (cnic !== c.cnic) {
+      const other = await ctx.tx.customer.findFirst({ where: { dealershipId: target.dealershipId, cnic, id: { not: row.customerId as number } }, select: { fullName: true } });
+      if (other) throw bad('customerCnic', `This CNIC belongs to another customer (${other.fullName})`);
+      next.cnic = cnic;
+    }
+  }
+  if (ntn !== undefined && ntn !== c.ntn) next.ntn = ntn;
+  if (Object.keys(next).length) {
+    await ctx.tx.customer.update({ where: { id: row.customerId as number }, data: { ...next, updatedById: ctx.access.userId }, select: { id: true } });
+    await ctx.audit({ entityType: 'master.customer', entityId: row.customerId as number, action: 'update', dealershipId: target.dealershipId, changes: Object.fromEntries(Object.entries(next).map(([k, v]) => [k, { from: (c as Record<string, unknown>)[k] ?? null, to: v }])) });
+  }
+  const details = Object.fromEntries(Object.entries(company).filter(([, v]) => v !== undefined));
+  if (row.leadId && Object.keys(details).length) await ctx.tx.lead.update({ where: { id: row.leadId as number }, data: { ...details, updatedById: ctx.access.userId }, select: { id: true } });
 }
 
 export const salesOrderEntity: EntityConfig = {
@@ -548,10 +595,12 @@ export const salesOrderEntity: EntityConfig = {
     beforeUpdate: async (ctx, row, patch) => {
       if (row.status === 'delivered' || row.status === 'cancelled') throw conflict(`The order is ${row.status as string} and can no longer be edited`);
       const target = { dealershipId: row.dealershipId as number, branchId: (row.branchId as number | null) ?? null };
-      // The filer status lives on the customer and is the Sales Admin's to enter or change (anyone else's value is dropped).
+      // The customer's and the company's details are not the order's own columns: saved where they belong.
+      await saveOrderParties(ctx, row, patch, target);
+      // The filer status lives on the customer: the Admin's or the Manager's to enter or change.
       const filer = patch.filerStatus as string | undefined;
       delete patch.filerStatus;
-      if (filer && ctx.access.canIn(P.ordersCreate, target)) {
+      if (filer && ctx.access.canIn(P.ordersUpdate, target)) {
         const c = await ctx.tx.customer.findFirst({ where: { id: row.customerId as number }, select: { filerStatus: true } });
         if (c?.filerStatus !== filer) {
           await ctx.tx.customer.update({ where: { id: row.customerId as number }, data: { filerStatus: filer, updatedById: ctx.access.userId }, select: { id: true } });
@@ -577,6 +626,7 @@ export const salesOrderEntity: EntityConfig = {
       const named = await withNames(ctx.tx, rows, {
         customerName: { key: 'customerId', source: CUSTOMER_NAME },
         customerCnic: { key: 'customerId', source: CUSTOMER_CNIC },
+        customerNtn: { key: 'customerId', source: CUSTOMER_NTN },
         customerMobile: { key: 'customerId', source: CUSTOMER_MOBILE },
         customerFilerStatus: { key: 'customerId', source: CUSTOMER_FILER_STATUS },
         salespersonName: { key: 'salespersonId', source: USER_NAME },

@@ -62,6 +62,7 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
   });
   const [v, setV] = useState(initial);
   const [cnic, setCnic] = useState('');
+  const [ntn, setNtn] = useState(lead.customerNtn ?? '');
   const [filer, setFiler] = useState<FilerStatus>((lead.customerFilerStatus as FilerStatus | null | undefined) ?? '');
   const [expected, setExpected] = useState<ExpectedDeliveryValue>({ date: lead.expectedDeliveryDate ?? '', byMonth: lead.expectedDeliveryDate ? !!lead.expectedDeliveryByMonth : true });
   useEffect(() => {
@@ -82,11 +83,12 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
 
   const submit = async () => {
     const missing: Record<string, string> = {};
-    for (const [k, label] of [['prospectName', 'Customer name'], ['prospectMobile', 'Phone'], ['email', 'Email'], ['customerAddress', 'Address'], ['customerOccupation', 'Occupation'], ['interestedModelId', 'Model'], ['variant', 'Variant'], ['preferredColor', 'Colour'], ['paymentType', 'Payment type'], ['paymentInstrument', 'Payment instrument'], ['paymentAmount', 'The amount paid']] as const) {
+    for (const [k, label] of [['prospectName', 'Customer name'], ['prospectMobile', 'Phone'], ['customerAddress', 'Address'], ['customerOccupation', 'Occupation'], ['interestedModelId', 'Model'], ['variant', 'Variant'], ['preferredColor', 'Colour'], ['paymentType', 'Payment type'], ['paymentInstrument', 'Payment instrument'], ['paymentAmount', 'The amount paid']] as const) {
       if (!v[k].trim()) missing[k] = `${label} is required`;
     }
     if (v.paymentType === 'partial' && !v.vehiclePrice.trim()) missing.vehiclePrice = 'Enter the total amount of the car';
     if (cnic && cnic.replace(/\D/g, '').length !== 13) missing.customerCnic = 'CNIC must be 13 digits';
+    if (v.customerType === 'corporate' && !ntn.trim()) missing.ntn = 'NTN is required for a company';
     if (Object.keys(missing).length) return setErrors(missing);
     setErrors({});
     try {
@@ -95,11 +97,12 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
         conversionCorrectionRequest: {
           prospectName: v.prospectName.trim(),
           prospectMobile: v.prospectMobile,
-          email: v.email.trim(),
+          email: v.email.trim() || null,
           customerAddress: v.customerAddress.trim(),
           customerOccupation: v.customerOccupation.trim(),
           referredBy: v.referredBy.trim() || null,
           ...(cnic ? { customerCnic: cnic } : {}),
+          ...(ntn.trim() !== (lead.customerNtn ?? '') ? { ntn: ntn.trim() || null } : {}),
           ...(filer && canFiler ? { filerStatus: filer } : {}),
           interestedModelId: Number(v.interestedModelId),
           variant: v.variant.trim(),
@@ -161,8 +164,11 @@ export function LeadConversionEdit({ lead }: { lead: Lead }) {
           <Field label="Phone" htmlFor="ce-phone" required error={err('prospectMobile')} hint="Digits only">
             <Input id="ce-phone" type="tel" inputMode="tel" maxLength={16} value={v.prospectMobile} onChange={set('prospectMobile')} invalid={!!err('prospectMobile')} />
           </Field>
-          <Field label="Email" htmlFor="ce-email" required error={err('email')}>
+          <Field label="Email" htmlFor="ce-email" hint="Optional" error={err('email')}>
             <Input id="ce-email" type="email" value={v.email} onChange={set('email')} invalid={!!err('email')} />
+          </Field>
+          <Field label="NTN" htmlFor="ce-ntn" required={v.customerType === 'corporate'} error={err('ntn')} hint={v.customerType === 'corporate' ? undefined : 'Optional'}>
+            <Input id="ce-ntn" value={ntn} maxLength={20} onChange={(e) => setNtn(e.target.value)} invalid={!!err('ntn')} />
           </Field>
           <Field label="Customer CNIC" htmlFor="ce-cnic" error={err('customerCnic')}>
             <Input id="ce-cnic" inputMode="numeric" value={cnic} onChange={(e) => setCnic(maskCnic(e.target.value))} placeholder="14301-5305891-1" invalid={!!err('customerCnic')} />

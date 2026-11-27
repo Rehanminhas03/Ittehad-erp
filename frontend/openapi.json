@@ -4259,9 +4259,23 @@
             "maxLength": 30
           },
           "email": {
-            "type": "string",
-            "maxLength": 200,
-            "format": "email"
+            "anyOf": [
+              {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 200,
+                "format": "email"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              }
+            ]
           },
           "customerAddress": {
             "type": "string",
@@ -4289,6 +4303,11 @@
           },
           "customerCnic": {
             "type": "string",
+            "maxLength": 20
+          },
+          "ntn": {
+            "type": "string",
+            "nullable": true,
             "maxLength": 20
           },
           "interestedModelId": {
@@ -4786,9 +4805,23 @@
             "maxLength": 160
           },
           "email": {
-            "type": "string",
-            "maxLength": 200,
-            "format": "email"
+            "anyOf": [
+              {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 200,
+                "format": "email"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "nullable": true
+              }
+            ]
           },
           "paymentType": {
             "type": "string",
@@ -4835,6 +4868,11 @@
           },
           "customerCnic": {
             "type": "string",
+            "maxLength": 20
+          },
+          "ntn": {
+            "type": "string",
+            "nullable": true,
             "maxLength": 20
           },
           "customerAddress": {
@@ -4894,11 +4932,9 @@
           "interestedModelId",
           "preferredColor",
           "variant",
-          "email",
           "paymentType",
           "paymentInstrument",
           "paymentAmount",
-          "customerCnic",
           "customerAddress",
           "customerOccupation"
         ]
@@ -9447,6 +9483,10 @@
             "type": "string",
             "nullable": true
           },
+          "customerNtn": {
+            "type": "string",
+            "nullable": true
+          },
           "customerFilerStatus": {
             "type": "string",
             "nullable": true
@@ -10023,6 +10063,10 @@
             "type": "string",
             "nullable": true
           },
+          "customerNtn": {
+            "type": "string",
+            "nullable": true
+          },
           "customerFilerStatus": {
             "type": "string",
             "nullable": true
@@ -10290,6 +10334,46 @@
               "active",
               "inactive"
             ]
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "customerMobile": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20
+          },
+          "customerCnic": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20
+          },
+          "customerNtn": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "contactDesignation": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "purchaseOrderNo": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 60
+          },
+          "referredBy": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
           }
         }
       },
@@ -28079,6 +28163,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -28720,6 +28808,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -29186,6 +29278,10 @@
                       "nullable": true
                     },
                     "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerNtn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -30333,6 +30429,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -30868,6 +30968,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -31337,6 +31441,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -31773,6 +31881,10 @@
                       "nullable": true
                     },
                     "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerNtn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -35313,6 +35425,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -35700,6 +35816,10 @@
                       "nullable": true
                     },
                     "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerNtn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36101,6 +36221,10 @@
                       "nullable": true
                     },
                     "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerNtn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -36583,6 +36707,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -36984,6 +37112,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -37382,6 +37514,10 @@
                       "nullable": true
                     },
                     "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerNtn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -37858,6 +37994,10 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "customerNtn": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "customerFilerStatus": {
                       "type": "string",
                       "nullable": true
@@ -38245,6 +38385,10 @@
                       "nullable": true
                     },
                     "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerNtn": {
                       "type": "string",
                       "nullable": true
                     },
@@ -38646,6 +38790,10 @@
                       "nullable": true
                     },
                     "customerCnic": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customerNtn": {
                       "type": "string",
                       "nullable": true
                     },

@@ -5,6 +5,14 @@ import { useListSalesTeamMembersQuery } from '../salesApi';
 /** Who sees the whole team (and so gets a salesperson filter). */
 export const TEAM_VIEW = [P.leadsViewAll, P.leadsViewConverted, P.ordersViewAll, P.reportsView] as const;
 
+/** Everyone in the sales team, to choose an order's salesperson when correcting it. */
+export function useOrderSalespersonOptions() {
+  const perm = usePermission();
+  const dealershipId = [P.leadsViewAll, P.reportsView, P.quotationsViewAll, P.ppfViewAll, P.leadsTransfer].flatMap((c) => perm.dealershipsFor(c))[0]?.id;
+  const { data } = useListSalesTeamMembersQuery({ dealershipId: dealershipId ?? 0 }, { skip: !dealershipId });
+  return (data ?? []).map((m) => ({ value: String(m.id), label: m.fullName }));
+}
+
 /**
  * People for a "Salesperson" filter: the Sales Manager can pick anyone in the sales team; the
  * Assistant Manager / Sales Admin only the Salespersons (not CROs or managers).

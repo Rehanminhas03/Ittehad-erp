@@ -237,6 +237,7 @@ export const leadView: EntityViewConfig<Lead> = {
       { label: 'Phone', value: (l) => l.prospectMobile },
       { label: 'Email', value: (l) => l.email },
       { label: 'CNIC', value: (l) => l.customerCnic },
+      { label: 'NTN', value: (l) => l.customerNtn },
       { label: 'Filer status', value: (l) => filerLabel(l.customerFilerStatus) },
       { label: 'Address', value: (l) => l.customerAddress },
       { label: 'Occupation', value: (l) => l.customerOccupation },
@@ -293,7 +294,8 @@ export const leadView: EntityViewConfig<Lead> = {
         <LeadReassign lead={l} />
         <LeadConversionEdit lead={l} />
         <LeadDetailsEditor lead={l} />
-        <LeadOrder lead={l} />
+        {/* Started afresh when the conversion details arrive or change, so the form is filled from them. */}
+        <LeadOrder key={[l.id, l.status, l.vehiclePrice, l.paymentAmount, l.paymentInstrumentRef, l.expectedDeliveryDate, l.customerFilerStatus].join('|')} lead={l} />
         <LeadDocuments lead={l} />
         <LeadFollowUps lead={l} />
       </>

@@ -219,10 +219,10 @@ export async function convertLead(ctx: EntityCtx, leadId: number, input: z.outpu
     }
   }
 
-  // The customer's CNIC (required at conversion): the Admin checks it against the copy when raising the order.
-  await ensureCustomerCnic(ctx, customerId, dealershipId, input.customerCnic);
+  // The CNIC (an individual's is required): the Admin checks it against the copy when raising the order.
+  if (input.customerType !== 'corporate' || input.customerCnic) await ensureCustomerCnic(ctx, customerId, dealershipId, input.customerCnic);
   // The customer's address (required at conversion): kept on the customer (orders, PPF vouchers, delivery).
-  await ctx.tx.customer.update({ where: { id: customerId }, data: { address: input.customerAddress, occupation: input.customerOccupation, ...(input.filerStatus ? { filerStatus: input.filerStatus } : {}), updatedById: ctx.access.userId } });
+  await ctx.tx.customer.update({ where: { id: customerId }, data: { address: input.customerAddress, occupation: input.customerOccupation, ...(input.filerStatus ? { filerStatus: input.filerStatus } : {}), ...(input.ntn ? { ntn: input.ntn } : {}), updatedById: ctx.access.userId } });
 
   await ctx.tx.lead.update({
     where: { id: leadId },
@@ -299,6 +299,7 @@ export async function correctLeadConversion(ctx: EntityCtx, leadId: number, inpu
     now.paymentInstrument !== 'cash' && !now.paymentInstrumentBank && bad('paymentInstrumentBank', 'Enter the bank'),
     now.customerType === 'corporate' && !now.companyName && bad('companyName', 'Company name is required for a corporate customer'),
     now.customerType === 'corporate' && !now.contactDesignation && bad('contactDesignation', "The contact's designation is required for a corporate customer"),
+    now.customerType === 'corporate' && (input.customerType !== undefined || input.ntn !== undefined) && !(input.ntn ?? (input.ntn === undefined ? (await ctx.tx.customer.findFirst({ where: { id: customerId }, select: { ntn: true } }))?.ntn : null)) && bad('ntn', 'NTN is required for a corporate customer'),
   ].filter((x) => !!x);
   if (issues.length) throw validationError(issues);
   if (input.interestedModelId) await assertActiveModel(ctx, input.interestedModelId);
@@ -309,6 +310,7 @@ export async function correctLeadConversion(ctx: EntityCtx, leadId: number, inpu
   if (input.email !== undefined) customerPatch.email = input.email;
   if (input.customerAddress !== undefined) customerPatch.address = input.customerAddress;
   if (input.customerOccupation !== undefined) customerPatch.occupation = input.customerOccupation;
+  if (input.ntn !== undefined) customerPatch.ntn = input.ntn;
   // Only the Sales Admin enters or changes the filer status after conversion (what others send is ignored).
   if (input.filerStatus && ctx.access.canIn(P.ordersCreate, targetOf(l))) customerPatch.filerStatus = input.filerStatus;
   const leadPatch: Record<string, unknown> = {};
@@ -348,6 +350,7 @@ export async function correctLeadConversion(ctx: EntityCtx, leadId: number, inpu
   if (customerPatch.address !== undefined) changes.customerAddress = { from: null, to: customerPatch.address };
   if (customerPatch.occupation !== undefined) changes.customerOccupation = { from: null, to: customerPatch.occupation };
   if (input.customerCnic) changes.customerCnic = { from: null, to: input.customerCnic };
+  if (input.ntn !== undefined) changes.ntn = { from: null, to: input.ntn };
   if (!Object.keys(changes).length) return leads.get(ctx, leadId);
 
   await ctx.tx.lead.update({ where: { id: leadId }, data: pickColumns(lead, { ...leadPatch, updatedById: ctx.access.userId }) });

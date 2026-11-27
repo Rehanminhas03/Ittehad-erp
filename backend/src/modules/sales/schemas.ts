@@ -114,6 +114,7 @@ export const LeadSchema = z.object({
   leadNo: z.string().nullable().optional(),
   /** The customer's CNIC (entered at conversion): 13 digits, no hyphens. */
   customerCnic: z.string().nullable().optional(),
+  customerNtn: z.string().nullable().optional(),
   /** The customer's tax filer status: active (filer) or inactive (non-filer); null until entered. */
   customerFilerStatus: z.string().nullable().optional(),
   customerOccupation: z.string().nullable().optional(),
@@ -744,7 +745,8 @@ export const ConvertLeadBody = z
     interestedModelId: Id,
     preferredColor: requiredText('Vehicle colour', 40),
     variant: requiredText('Variant', 160),
-    email,
+    /** The customer's email, if they have one. */
+    email: email.nullish().or(z.literal('').transform(() => null)),
     /** What the customer paid now: part (a booking amount, the rest before delivery) or the full price. */
     paymentType: z.enum(PAYMENT_TYPES, { error: 'Choose Partial payment or Full payment' }),
     paymentInstrument: z.enum(PAYMENT_INSTRUMENTS),
@@ -757,12 +759,15 @@ export const ConvertLeadBody = z
     /** Expected delivery told to the customer (carried to the sales order): a date, or a month. */
     expectedDeliveryDate: isoDate.nullish(),
     expectedDeliveryByMonth: z.boolean().optional(),
-    /** The customer's CNIC (required): saved on the customer; the Admin checks it against the copy. */
+    /** The CNIC: required for an individual, optional for a company. Saved on the customer; the Admin checks it against the copy. */
     customerCnic: z
-      .string({ error: "Enter the customer's CNIC" })
+      .string()
       .trim()
       .max(20)
-      .refine((v) => normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+      .optional()
+      .refine((v) => !v || normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+    /** The National Tax Number: required for a company, optional for an individual. */
+    ntn: optionalText(20),
     /** The customer's address (required): saved on the customer. */
     customerAddress: requiredText('Address', 300),
     /** The customer's occupation (required): saved on the customer. */
@@ -787,7 +792,11 @@ export const ConvertLeadBody = z
       if (!v.paymentInstrumentRef) c.addIssue({ code: 'custom', path: ['paymentInstrumentRef'], message: 'Enter the instrument number' });
       if (!v.paymentInstrumentBank) c.addIssue({ code: 'custom', path: ['paymentInstrumentBank'], message: 'Enter the bank' });
     }
-    if (v.customerType !== 'corporate') return;
+    if (v.customerType !== 'corporate') {
+      if (!v.customerCnic) c.addIssue({ code: 'custom', path: ['customerCnic'], message: "Enter the customer's CNIC" });
+      return;
+    }
+    if (!v.ntn) c.addIssue({ code: 'custom', path: ['ntn'], message: 'NTN is required for a corporate customer' });
     if (!v.companyName) c.addIssue({ code: 'custom', path: ['companyName'], message: 'Company name is required for a corporate customer' });
     if (!v.contactDesignation) c.addIssue({ code: 'custom', path: ['contactDesignation'], message: "The contact's designation is required for a corporate customer" });
   })
@@ -801,7 +810,7 @@ export const ConversionCorrectionBody = z
   .object({
     prospectName: requiredText('Customer name'),
     prospectMobile: mobile,
-    email,
+    email: email.nullish().or(z.literal('').transform(() => null)),
     customerAddress: requiredText('Address', 300),
     customerOccupation: requiredText('Occupation', 120),
     /** Optional: who referred the customer (e.g. the General Manager, the CEO); shown as the Reference on the bookings report. */
@@ -812,7 +821,9 @@ export const ConversionCorrectionBody = z
       .string()
       .trim()
       .max(20)
-      .refine((v) => normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+      .optional()
+      .refine((v) => !v || normalizeCnic(v) !== null, 'CNIC must be 13 digits, e.g. 35202-1234567-1'),
+    ntn: optionalText(20),
     interestedModelId: Id,
     variant: requiredText('Variant', 160),
     preferredColor: requiredText('Vehicle colour', 40),
@@ -1284,6 +1295,7 @@ export const SalesOrderSchema = z.object({
   invoiceNotes: z.string().nullable().optional(),
   /** The customer's CNIC (from the customer record): 13 digits, no hyphens. */
   customerCnic: z.string().nullable().optional(),
+  customerNtn: z.string().nullable().optional(),
   customerFilerStatus: z.string().nullable().optional(),
   /** The customer's phone, and who referred them (entered at conversion): shown in the orders list. */
   customerMobile: z.string().nullable().optional(),
@@ -1460,6 +1472,16 @@ export const SalesOrderUpdate = z
     branchId: Id.nullish(),
     /** The customer's filer status (kept on the customer): only the Sales Admin's value is used. */
     filerStatus: z.enum(FILER_STATUSES).optional(),
+    /** The customer's details (kept on the customer, so their other orders show them too). */
+    customerName: optionalText(160),
+    customerMobile: optionalText(20),
+    customerCnic: optionalText(20),
+    customerNtn: optionalText(20),
+    /** A corporate order's company details (kept on its lead). */
+    companyName: optionalText(160),
+    contactDesignation: optionalText(80),
+    purchaseOrderNo: optionalText(60),
+    referredBy: optionalText(120),
   })
   .partial()
   .openapi('SalesOrderUpdate');

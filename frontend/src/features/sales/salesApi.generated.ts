@@ -1390,6 +1390,7 @@ export type RecordLeadFollowUpApiResponse = /** status 201 Success */ {
   customerAddress?: string | null;
   leadNo?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
   referredBy?: string | null;
@@ -1500,6 +1501,7 @@ export type CorrectLeadDetailsApiResponse = /** status 200 Success */ {
   customerAddress?: string | null;
   leadNo?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
   referredBy?: string | null;
@@ -1597,6 +1599,7 @@ export type CorrectLeadConversionApiResponse = /** status 200 Success */ {
   customerAddress?: string | null;
   leadNo?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
   referredBy?: string | null;
@@ -1800,6 +1803,7 @@ export type SetLeadAppointmentApiResponse = /** status 200 Success */ {
   customerAddress?: string | null;
   leadNo?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
   referredBy?: string | null;
@@ -1902,6 +1906,7 @@ export type ReassignLeadApiResponse = /** status 200 Success */ {
   customerAddress?: string | null;
   leadNo?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
   referredBy?: string | null;
@@ -1999,6 +2004,7 @@ export type ConvertLeadApiResponse = /** status 200 Success */ {
   customerAddress?: string | null;
   leadNo?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
   referredBy?: string | null;
@@ -2095,6 +2101,7 @@ export type RaiseSalesOrderApiResponse = /** status 201 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -2461,6 +2468,7 @@ export type RecordVehicleInvoiceApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -2542,6 +2550,7 @@ export type ClearVehicleInvoiceApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -2622,6 +2631,7 @@ export type SetInvoiceDeliveredApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -2708,6 +2718,7 @@ export type RequestDeliveryClearanceApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -2789,6 +2800,7 @@ export type DecideDeliveryClearanceApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -2870,6 +2882,7 @@ export type SetOrderVehicleApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -2956,6 +2969,7 @@ export type AllocateVehicleApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -3037,6 +3051,7 @@ export type ReleaseVehicleApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -3117,6 +3132,7 @@ export type AdvanceVehicleStatusApiResponse = /** status 200 Success */ {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -3715,12 +3731,13 @@ export type LeadDetailsRequest = {
 export type ConversionCorrectionRequest = {
   prospectName?: string;
   prospectMobile?: string;
-  email?: string;
+  email?: (string | null) | "" | (any | null);
   customerAddress?: string;
   customerOccupation?: string;
   referredBy?: string | null;
   filerStatus?: ("active" | "inactive" | null) | null;
   customerCnic?: string;
+  ntn?: string | null;
   interestedModelId?: number;
   variant?: string;
   preferredColor?: string;
@@ -3824,7 +3841,7 @@ export type ConvertLeadRequest = {
   interestedModelId: number;
   preferredColor: string;
   variant: string;
-  email: string;
+  email?: (string | null) | "" | (any | null);
   paymentType: "partial" | "full";
   paymentInstrument:
     "pay_order" | "bank_draft" | "cheque" | "online_transfer" | "cash";
@@ -3834,7 +3851,8 @@ export type ConvertLeadRequest = {
   vehiclePrice?: string;
   expectedDeliveryDate?: string | null;
   expectedDeliveryByMonth?: boolean;
-  customerCnic: string;
+  customerCnic?: string;
+  ntn?: string | null;
   customerAddress: string;
   customerOccupation: string;
   referredBy?: string | null;
@@ -4840,6 +4858,7 @@ export type Lead = {
   customerAddress?: string | null;
   leadNo?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerOccupation?: string | null;
   referredBy?: string | null;
@@ -5013,6 +5032,7 @@ export type SalesOrder = {
   invoiceReceivedByName?: string | null;
   invoiceNotes?: string | null;
   customerCnic?: string | null;
+  customerNtn?: string | null;
   customerFilerStatus?: string | null;
   customerMobile?: string | null;
   referredBy?: string | null;
@@ -5068,6 +5088,14 @@ export type SalesOrderUpdate = {
   notes?: string | null;
   branchId?: number | null;
   filerStatus?: "active" | "inactive";
+  customerName?: string | null;
+  customerMobile?: string | null;
+  customerCnic?: string | null;
+  customerNtn?: string | null;
+  companyName?: string | null;
+  contactDesignation?: string | null;
+  purchaseOrderNo?: string | null;
+  referredBy?: string | null;
 };
 export type Delivery = {
   id: number;

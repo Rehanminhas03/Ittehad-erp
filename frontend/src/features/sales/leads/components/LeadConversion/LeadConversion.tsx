@@ -47,8 +47,9 @@ export function LeadConversion({ lead }: { lead: Lead }) {
     contactDesignation: '',
     purchaseOrderNo: '',
   });
-  // The customer's CNIC (required): the Admin checks it against the copy when raising the order.
+  // An individual needs the CNIC (NTN optional); a company needs the NTN (CNIC optional).
   const [cnic, setCnic] = useState('');
+  const [ntn, setNtn] = useState(lead.customerNtn ?? '');
   // Optional here: if the salesperson does not know it, the Sales Admin has to enter it when raising the order.
   // The chosen variant's price list: the car's total price is worked out from it (until the salesperson types another).
   const [prices, setPrices] = useState<VariantCode | null>(null);
@@ -83,7 +84,6 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       required('interestedModelId', 'Model'),
       required('variant', 'Variant'),
       required('preferredColor', 'Vehicle colour'),
-      required('email', 'Email'),
       required('customerAddress', 'Address'),
       required('customerOccupation', 'Occupation'),
       v.paymentType ? null : (['paymentType', 'Tick Partial payment or Full payment'] as const),
@@ -99,7 +99,8 @@ export function LeadConversion({ lead }: { lead: Lead }) {
       // Cash has no instrument number or bank.
       v.paymentType && v.paymentInstrument !== 'cash' ? required('paymentInstrumentRef', 'Instrument number') : null,
       v.paymentType && v.paymentInstrument !== 'cash' ? required('paymentInstrumentBank', 'Bank') : null,
-      cnic.replace(/\D/g, '').length === 13 ? null : (['customerCnic', "Enter the customer's CNIC (13 digits)"] as const),
+      cnic.replace(/\D/g, '').length === 13 || (v.customerType === 'corporate' && !cnic.trim()) ? null : (['customerCnic', "Enter the customer's CNIC (13 digits)"] as const),
+      v.customerType === 'corporate' && !ntn.trim() ? (['ntn', 'NTN is required for a company'] as const) : null,
       v.customerType === 'corporate' ? required('companyName', 'Company name') : null,
       v.customerType === 'corporate' ? required('contactDesignation', "The contact's designation") : null,
     ].filter((x) => x !== null);
@@ -117,7 +118,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           interestedModelId: Number(v.interestedModelId),
           preferredColor: v.preferredColor,
           variant: v.variant,
-          email: v.email,
+          email: v.email.trim() || null,
           paymentType: v.paymentType as 'partial',
           paymentInstrument: v.paymentInstrument as never,
           paymentInstrumentRef: v.paymentInstrumentRef.trim() || null,
@@ -126,7 +127,8 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           vehiclePrice: v.paymentType === 'partial' ? v.vehiclePrice.trim() : undefined,
           expectedDeliveryDate: expected.date || null,
           expectedDeliveryByMonth: !!expected.date && expected.byMonth,
-          customerCnic: cnic,
+          customerCnic: cnic || undefined,
+          ntn: ntn.trim() || null,
           filerStatus: filer || null,
           customerAddress: v.customerAddress.trim(),
           customerOccupation: v.customerOccupation.trim(),
@@ -253,7 +255,7 @@ export function LeadConversion({ lead }: { lead: Lead }) {
           <Field label="Vehicle colour" htmlFor="cv-color" required error={errors.preferredColor}>
             <Input id="cv-color" value={v.preferredColor} onChange={set('preferredColor')} invalid={!!errors.preferredColor} />
           </Field>
-          <Field label="Customer email" htmlFor="cv-email" required error={errors.email}>
+          <Field label="Customer email" htmlFor="cv-email" hint="Optional" error={errors.email}>
             <Input id="cv-email" type="email" value={v.email} onChange={set('email')} invalid={!!errors.email} />
           </Field>
           <div className="sm:col-span-2">
@@ -331,8 +333,11 @@ export function LeadConversion({ lead }: { lead: Lead }) {
               )}
             </>
           )}
-          <Field label="Customer CNIC" htmlFor="cv-cnic" required error={errors.customerCnic} hint="From the customer's CNIC; the Admin checks it against the copy">
+          <Field label="Customer CNIC" htmlFor="cv-cnic" required={v.customerType !== 'corporate'} error={errors.customerCnic} hint={v.customerType === 'corporate' ? 'Optional for a company' : "From the customer's CNIC; the Admin checks it against the copy"}>
             <Input id="cv-cnic" inputMode="numeric" value={cnic} onChange={(e) => setCnic(maskCnic(e.target.value))} placeholder="14301-5305891-1" invalid={!!errors.customerCnic} />
+          </Field>
+          <Field label="NTN" htmlFor="cv-ntn" required={v.customerType === 'corporate'} error={errors.ntn} hint={v.customerType === 'corporate' ? "The company's National Tax Number" : 'Optional'}>
+            <Input id="cv-ntn" value={ntn} maxLength={20} onChange={(e) => setNtn(e.target.value)} placeholder="1234567-8" invalid={!!errors.ntn} />
           </Field>
           <Field label="Filer status" htmlFor="cv-filer" hint="Tick one: active filer or inactive (non-filer). If you leave it, the Sales Admin must enter it with the PBO number.">
             <FilerStatusInput id="cv-filer" value={filer} onChange={setFiler} />

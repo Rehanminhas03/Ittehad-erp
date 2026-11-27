@@ -140,7 +140,8 @@ export function LeadOrder({ lead }: { lead: Lead }) {
     if (!v.unitPrice.trim()) missing.unitPrice = 'Price is required';
     if (!pboNo.trim()) missing.pboNo = 'Enter the PBO number from the head-office system';
     if (!filer) missing.filerStatus = "Select the customer's filer status (active or inactive): required on every sales order";
-    if (cnic.replace(/\D/g, '').length !== 13) missing.customerCnic = "Enter the customer's CNIC (13 digits), required on every sales order";
+    const company = lead.customerType === 'corporate';
+    if (cnic.replace(/\D/g, '').length !== 13 && !(company && !cnic.trim())) missing.customerCnic = "Enter the customer's CNIC (13 digits)";
     if (Object.keys(missing).length) {
       setErrors(missing);
       return;
@@ -156,7 +157,7 @@ export function LeadOrder({ lead }: { lead: Lead }) {
           discount: v.discount || '0',
           bookingAmount: v.bookingAmount || undefined,
           paymentReference: v.paymentReference || null,
-          customerCnic: cnic.trim(),
+          customerCnic: cnic.trim() || undefined,
           filerStatus: filer || null,
           expectedDeliveryDate: expected.date || null,
           expectedDeliveryByMonth: !!expected.date && expected.byMonth,
@@ -191,9 +192,9 @@ export function LeadOrder({ lead }: { lead: Lead }) {
         <Field
           label="Customer CNIC"
           htmlFor="ro-cnic"
-          required
+          required={lead.customerType !== 'corporate'}
           error={errors.customerCnic}
-          hint={customer?.cnic ? 'Entered by the salesperson: check it against the CNIC copy and correct it if needed' : 'Saved on the customer'}
+          hint={lead.customerType === 'corporate' && !customer?.cnic ? `Optional for a company${lead.customerNtn ? ` (NTN ${lead.customerNtn})` : ''}` : customer?.cnic ? 'Entered by the salesperson: check it against the CNIC copy and correct it if needed' : 'Saved on the customer'}
         >
           <Input
             id="ro-cnic"

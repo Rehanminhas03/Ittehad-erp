@@ -10,6 +10,7 @@ export const CUSTOMER_NAME: NameSource = { table: customer, id: customer.id, lab
 export const CUSTOMER_OCCUPATION: NameSource = { table: customer, id: customer.id, label: customer.occupation };
 /** The customer's CNIC as shown on the order and the lead: the 13 digits, without hyphens. */
 export const CUSTOMER_CNIC: NameSource = { table: customer, id: customer.id, label: customer.cnic };
+export const CUSTOMER_NTN: NameSource = { table: customer, id: customer.id, label: customer.ntn };
 export const CUSTOMER_FILER_STATUS: NameSource = { table: customer, id: customer.id, label: customer.filerStatus };
 /** The customer's phone as saved on the customer. */
 export const CUSTOMER_MOBILE: NameSource = { table: customer, id: customer.id, label: customer.mobile };

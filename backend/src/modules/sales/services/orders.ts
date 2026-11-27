@@ -72,7 +72,8 @@ export async function raiseOrder(ctx: EntityCtx, leadId: number, input: z.output
     throw conflict(l.status === 'processing' ? 'A sales order is already raised for this lead' : 'Only converted leads can be ordered');
   }
   if (cmpMoney(input.unitPrice, '0') <= 0) throw validationError([{ in: 'body', path: 'unitPrice', message: 'Enter the vehicle price: the order is booked as soon as it is raised' }]);
-  await ensureCustomerCnic(ctx, l.customerId as number, dealershipId, input.customerCnic);
+  // A company is identified by its NTN: its CNIC is optional.
+  if (l.customerType !== 'corporate' || input.customerCnic) await ensureCustomerCnic(ctx, l.customerId as number, dealershipId, input.customerCnic);
   await ensureFilerStatus(ctx, l.customerId as number, dealershipId, input.filerStatus);
   await assertNewPbo(ctx, dealershipId, input.pboNo);
 
