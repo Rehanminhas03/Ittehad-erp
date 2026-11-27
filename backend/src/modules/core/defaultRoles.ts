@@ -112,6 +112,8 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     patterns: [
       'sales.leave.apply', 'sales.payments.manage', 'sales.orders.clear', 'sales.orders.invoice', 'sales.leads.correct_conversion', 'sales.stock.manage',
       'core.dealerships.view', 'core.branches.view', 'master.models.view', 'master.customers.view',
+      // The Admin can also log a lead of their own and convert it.
+      'sales.leads.create', 'sales.leads.view_own', 'sales.leads.update_own', 'sales.leads.convert_own',
       'sales.leads.view_converted', 'sales.leads.update_converted', 'sales.orders.view_all', 'sales.orders.create', 'sales.orders.update',
       'sales.orders.cancel', 'sales.orders.dispatch', 'sales.deliveries.view_all', 'sales.deliveries.schedule', 'sales.stock.view', 'sales.quotations.view_all', 'sales.ppf.view_all', 'sales.variants.view',
     ],

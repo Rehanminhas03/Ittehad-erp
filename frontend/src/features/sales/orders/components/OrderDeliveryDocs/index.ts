@@ -1,1 +1,1 @@
-export { AcceptanceNoteDialog, DeliveryDocumentsButton, OrderDeliveryDocs } from './OrderDeliveryDocs';
+export { AcceptanceNoteDialog, CarDocumentsButton, DeliveryDocumentsButton, OrderDeliveryDocs } from './OrderDeliveryDocs';

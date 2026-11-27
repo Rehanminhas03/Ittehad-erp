@@ -7,7 +7,7 @@ import { apiErrorMessage, cn, formatDate } from '@/shared/lib';
 import { DeliveryNoteButton } from '../../documents/DocumentPreview';
 import { formatExpectedDelivery } from '../../orders/components/ExpectedDelivery';
 import { DeliveredReportButton } from '../../exports/BookingsReport';
-import { DeliveryDocumentsButton } from '../../orders/components/OrderDeliveryDocs';
+import { CarDocumentsButton, DeliveryDocumentsButton } from '../../orders/components/OrderDeliveryDocs';
 import { CLEARANCE_LABELS, P } from '../../permissions';
 import { type DeliveryPipeline, useGetDeliveryPipelineQuery, useRequestDeliveryClearanceMutation } from '../../salesApi';
 
@@ -112,6 +112,8 @@ export default function DeliveryStatusPage() {
   };
   // The delivery note: for scheduled and delivered cars, to whoever can open deliveries.
   const canNote = (stage === 'scheduled' || stage === 'delivered') && perm.can([P.deliveriesViewAll, P.deliveriesViewOwn]);
+  // Jetour's delivery documents (its own forms); other brands print the delivery note.
+  const jetourIds = new Set([P.ordersViewAll, P.ordersViewOwn].flatMap((c) => perm.dealershipsFor(c)).filter((d) => d.brand === 'Jetour').map((d) => d.id));
   const late = (r: Row) => !!r.expectedDeliveryDate && r.expectedDeliveryDate < today && r.stage !== 'delivered' && r.stage !== 'received' && r.stage !== 'scheduled';
 
   const table = (rows: Row[]) => (
@@ -187,7 +189,12 @@ export default function DeliveryStatusPage() {
                   </div>
                 </td>
               )}
-              {canNote && <td className="px-3 py-1.5 text-right">{r.deliveryId && <DeliveryNoteButton deliveryId={r.deliveryId} label="Note" />}</td>}
+              {canNote && (
+                // The button and its windows stay here: a click on them does not open the row's order.
+                <td className="px-3 py-1.5 text-right" onClick={(e) => e.stopPropagation()}>
+                  {jetourIds.has(r.dealershipId) ? <CarDocumentsButton orderId={r.orderId} /> : r.deliveryId && <DeliveryNoteButton deliveryId={r.deliveryId} label="Note" />}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

@@ -103,7 +103,7 @@ export async function completeDelivery(ctx: EntityCtx, deliveryId: number, input
                accessories_handed_over = ${input.accessoriesHandedOver}::text[],
                checklist = ${input.checklist}::text[],
                customer_acknowledged = ${input.customerAcknowledged},
-               customer_acknowledged_at = ${new Date()},
+               customer_acknowledged_at = ${input.customerAcknowledged ? new Date() : null},
                notes = ${input.notes ?? (d.notes as string | null)},
                updated_at = now()
          where ${delivery.id} = ${deliveryId}`,

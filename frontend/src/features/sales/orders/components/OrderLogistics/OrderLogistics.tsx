@@ -282,6 +282,7 @@ function DeliveryTeamLogistics({ order }: { order: SalesOrder }) {
       {handingOver && (
         <Dialog open onClose={() => setHandingOver(false)} size="lg" title={`Mark as delivered — ${order.customerName ?? order.orderNo}`}>
           <HandOverForm
+            orderId={order.id}
             customerName={order.customerName}
             submitLabel="Mark as delivered"
             loading={delivering}

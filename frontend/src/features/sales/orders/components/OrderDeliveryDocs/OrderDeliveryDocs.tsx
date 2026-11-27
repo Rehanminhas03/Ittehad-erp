@@ -9,6 +9,7 @@ import {
   type DeliveryDocument,
   type SalesOrder,
   useGetAcceptanceNoteQuery,
+  useGetSalesOrderQuery,
   useListDeliveryDocumentsQuery,
   useRemoveDeliveryDocumentMutation,
   useSaveDeliveryDocumentMutation,
@@ -505,6 +506,76 @@ export function DeliveryDocumentsButton() {
         </Dialog>
       )}
       {open && <AcceptanceNoteDialog kind={open.kind} saved={open.saved} viewOnly={open.viewOnly} dealershipId={open.saved?.dealershipId ?? jetour.id} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+
+/**
+ * "Documents" on a car in the Deliveries list: what was saved for its order first, then every delivery document, filled in
+ * from the order, to open and print.
+ */
+export function CarDocumentsButton({ orderId }: { orderId: number }) {
+  const [list, setList] = useState(false);
+  const [open, setOpen] = useState<{ kind: DeliveryDocKind; saved?: DeliveryDocument; viewOnly?: boolean } | null>(null);
+  const { data: order, error } = useGetSalesOrderQuery({ id: orderId }, { skip: !list && !open });
+  // One window at a time: the list steps aside for the document and comes back when it is closed.
+  const pick = (next: { kind: DeliveryDocKind; saved?: DeliveryDocument; viewOnly?: boolean }) => {
+    setList(false);
+    setOpen(next);
+  };
+  return (
+    <>
+      <Button size="sm" variant="secondary" onClick={() => setList(true)} title="The delivery documents of this car">
+        <PrintIcon />
+        Documents
+      </Button>
+      {list && (
+        <Dialog
+          open
+          onClose={() => setList(false)}
+          size="lg"
+          title={order ? `Documents — ${order.customerName ?? order.orderNo}` : 'Documents'}
+          footer={
+            <Button variant="secondary" onClick={() => setList(false)}>
+              Close
+            </Button>
+          }
+        >
+          {/* The window opens from a table cell: its text reads from the left like any other window. */}
+          <div className="text-left">
+            <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Saved for this car</h3>
+            <SavedDocs orderId={orderId} onOpen={(d, viewOnly) => pick({ kind: d.kind, saved: d, viewOnly })} />
+            <h3 className="mt-5 mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">All documents</h3>
+            {error ? (
+              <p className="text-sm text-red-700">{apiErrorMessage(error)}</p>
+            ) : !order ? (
+              <Spinner className="mx-auto my-6 size-5 text-slate-400" />
+            ) : (
+              <>
+                <AllRow onOpen={() => pick({ kind: 'all' })} />
+                <div className="space-y-2">
+                  {KINDS.map((k) => (
+                    <DocRow key={k} kind={k} onOpen={() => pick({ kind: k })} button="Open and print" />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </Dialog>
+      )}
+      {open && order && (
+        <AcceptanceNoteDialog
+          order={order}
+          kind={open.kind}
+          saved={open.saved}
+          viewOnly={open.viewOnly}
+          dealershipId={order.dealershipId}
+          onClose={() => {
+            setOpen(null);
+            setList(true);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -18,6 +18,7 @@ export function DeliveryCompletion({ delivery }: { delivery: Delivery }) {
   return (
     <Section compact title="Hand over">
       <HandOverForm
+        orderId={delivery.salesOrderId}
         customerName={delivery.customerName}
         submitLabel="Complete delivery"
         loading={isLoading}

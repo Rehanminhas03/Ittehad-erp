@@ -1729,8 +1729,8 @@ export const CompleteDeliveryBody = z
     checklist: z
       .array(z.enum(PDI_CHECKLIST))
       .refine((v) => REQUIRED_PDI_CHECKLIST.every((i) => v.includes(i)), 'Tick every item of the pre-delivery checklist (PDI done, documents ready)'),
-    /** The customer must confirm receipt to complete the delivery. */
-    customerAcknowledged: z.boolean().refine((v) => v, 'The customer must acknowledge receipt to complete the delivery'),
+    /** Whether the customer's acknowledgement was recorded (the hand-over form no longer asks for it). */
+    customerAcknowledged: z.boolean(),
     notes: optionalText(2000),
   })
   .openapi('CompleteDeliveryRequest');

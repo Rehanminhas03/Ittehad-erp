@@ -1781,6 +1781,8 @@ model SalesOrder {
   invoiceTakenByName      String?           @map("invoice_taken_by_name")
   invoiceTakenByContact   String?           @map("invoice_taken_by_contact")
   invoiceTakenByCnic      String?           @map("invoice_taken_by_cnic")
+  /// Who referred the customer, when the order has no lead to say it (e.g. imported old records).
+  referredBy              String?             @map("referred_by")
   invoiceReceivedById     BigInt?           @map("invoice_received_by_id")
   invoiceNotes            String?           @map("invoice_notes")
   payments                OrderPayment[]

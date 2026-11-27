@@ -618,7 +618,7 @@ export const salesOrderEntity: EntityConfig = {
           contactDesignation: l?.contactDesignation ?? null,
           purchaseOrderNo: l?.purchaseOrderNo ?? null,
           // Who referred the customer (entered at conversion): the order list's Reference.
-          referredBy: l?.referredBy ?? null,
+          referredBy: (r.referredBy as string | null | undefined) ?? l?.referredBy ?? null,
           // Partial or full payment, as recorded at conversion; once everything is received it is a full payment.
           paymentType: cmpMoney(received, '0') > 0 && cmpMoney(subMoney(money2(r.totalAmount), received), '0') <= 0 ? 'full' : (l?.paymentType ?? null),
         };

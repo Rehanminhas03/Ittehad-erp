@@ -26,8 +26,9 @@ export function ppfEstimateDate(start: string) {
 }
 
 const target = (dealershipId: number) => ({ dealershipId, branchId: null });
+// The bay is shared and has no branch: a role limited to one branch of the dealership sees it too.
 const canSee = (ctx: EntityCtx, dealershipId: number) =>
-  [P.ppfViewAll, P.ppfViewOwn, P.ppfCreate, P.ppfSlots].some((p) => ctx.access.canIn(p, target(dealershipId)));
+  [P.ppfViewAll, P.ppfViewOwn, P.ppfCreate, P.ppfSlots].some((p) => ctx.access.grantsFor(p).some((g) => g.dealershipId === null || g.dealershipId === dealershipId));
 const day = (v: unknown) => String(v).slice(0, 10);
 
 export async function listPpfSlots(ctx: EntityCtx, q: z.output<typeof PpfSlotsQuery>) {

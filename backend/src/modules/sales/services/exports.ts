@@ -26,7 +26,7 @@ export async function exportOrders(ctx: EntityCtx, q: z.output<typeof ExportQuer
                ${salesOrder.status} as "status", d.name as "dealership", d.brand as "brand",
                (${salesOrder.createdAt} at time zone 'Asia/Karachi')::date::text as "bookedOn",
                c.full_name as "customerName", c.mobile as "phone", c.email as "email", c.cnic as "cnic", c.address as "address", c.occupation as "occupation",
-               l.customer_type as "customerType", l.company_name as "companyName", l.contact_designation as "contactDesignation", l.purchase_order_no as "purchaseOrderNo", l.referred_by as "referredBy",
+               l.customer_type as "customerType", l.company_name as "companyName", l.contact_designation as "contactDesignation", l.purchase_order_no as "purchaseOrderNo", coalesce(${salesOrder.referredBy}, l.referred_by) as "referredBy",
                m.brand || ' ' || m.name as "model", ${salesOrder.variant} as "variant", ${salesOrder.color} as "color",
                v.vin as "chassisNo", v.engine_no as "engineNo", v.status as "carStatus",
                u.full_name as "salesperson",

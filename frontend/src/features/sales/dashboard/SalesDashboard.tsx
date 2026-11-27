@@ -1,19 +1,20 @@
 import { ReceiveCarButton } from '../stock/VehicleReceived';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 import { Link } from 'react-router';
 import { ServiceCallPanel } from '@/features/service';
 import { TodayPanel } from './TodayPanel';
 import { DateRangePicker, type DateRange, lastDays, rangeLabel } from '@/shared/components';
 import { PpfBayPanel } from '../ppf/PpfDashboard';
-import { Button, Select, StatusBadge } from '@/shared/components/ui';
-import { useAuth, usePermission } from '@/shared/hooks';
+import { Button, Dialog, Select, StatusBadge } from '@/shared/components/ui';
+import { useAuth, usePermission, useToast } from '@/shared/hooks';
 import { cn, formatDate, formatMoney, humanize } from '@/shared/lib';
 import { labelOf, LEAD_SOURCES, LEAD_STATES, ORDER_STATES, P, showsVisited } from '../permissions';
 import {
   type Lead,
   type SalesOrder,
   type StockVehicle,
+  useDeliverOrderMutation,
   useGetSalesDashboardQuery,
   useGetSalesTeamReportQuery,
   useListLeadsQuery,
@@ -27,6 +28,7 @@ import { MonthRecord } from './MonthRecord';
 import { useSalespersonOptions } from '../team/useSalespersonOptions';
 import { ActionNeeded } from '../actions';
 import { VehicleReceivedButton } from '../stock/VehicleReceived';
+import { HandOverForm } from '../deliveries/components/HandOverForm';
 import { ExportButtons } from '../exports/ExportButtons';
 
 // Validated categorical slots (dataviz reference palette): slot 1 blue, slot 2 orange.
@@ -84,7 +86,7 @@ const incomingColumns = [
   { header: '', render: (v: StockVehicle) => <ReceiveCarButton car={v} /> },
 ];
 
-const arrivedColumns = [
+const arrivedColumns = (onDeliver: ((v: StockVehicle) => void) | null) => [
   { header: 'Chassis no.', render: (v: StockVehicle) => <span className="font-mono text-xs">{v.vin ?? '—'}</span> },
   { header: 'Engine no.', render: (v: StockVehicle) => <span className="font-mono text-xs">{v.engineNo ?? '—'}</span>, hideOnMobile: true },
   { header: 'Car', render: (v: StockVehicle) => <span className="text-slate-700">{[v.modelName, v.variant, v.color].filter(Boolean).join(' · ')}</span> },
@@ -92,7 +94,73 @@ const arrivedColumns = [
   { header: 'Customer', render: (v: StockVehicle) => v.customerName ?? '—', hideOnMobile: true },
   { header: 'Received', render: (v: StockVehicle) => <span className="text-slate-500">{formatDate(v.updatedAt ?? v.createdAt)}</span> },
   { header: 'Status', render: (v: StockVehicle) => <StatusBadge status={v.status} /> },
+  { header: '', render: (v: StockVehicle) => <DeliverCar car={v} onDeliver={onDeliver} /> },
 ];
+
+/** "Car delivered" on a received car that is on an order: opens the hand-over once the car is ready for delivery. */
+function DeliverCar({ car, onDeliver }: { car: StockVehicle; onDeliver: ((v: StockVehicle) => void) | null }) {
+  if (!onDeliver || !car.orderId) return null;
+  if (car.status !== 'ready_for_delivery')
+    return (
+      <Link to={`/sales/orders/${car.orderId}`} className="text-xs font-medium text-brand-700 hover:underline">
+        Mark ready first
+      </Link>
+    );
+  return (
+    <Button size="sm" onClick={() => onDeliver(car)}>
+      Car delivered
+    </Button>
+  );
+}
+
+/** On a phone the car panels show the car and its button only, so both fit without scrolling sideways. */
+const carSummary = {
+  header: 'Car',
+  render: (v: StockVehicle) => (
+    <span style={{ display: 'block', whiteSpace: 'normal' }}>
+      <span className="block text-slate-900">{[v.modelName, v.variant, v.color].filter(Boolean).join(' · ')}</span>
+      <span className="block font-mono text-xs text-slate-500">{v.vin ?? v.engineNo ?? '—'}</span>
+      <span className="block text-xs text-slate-500">{[v.customerName ?? 'Free stock', humanize(v.status)].join(' · ')}</span>
+    </span>
+  ),
+};
+
+const PHONE = '(max-width: 767px)';
+const usePhone = () =>
+  useSyncExternalStore(
+    (changed) => {
+      const media = window.matchMedia(PHONE);
+      media.addEventListener('change', changed);
+      return () => media.removeEventListener('change', changed);
+    },
+    () => window.matchMedia(PHONE).matches,
+  );
+
+/** The hand-over, opened straight from the dashboard. */
+function DeliverCarDialog({ car, onClose }: { car: StockVehicle; onClose: () => void }) {
+  const toast = useToast();
+  const [deliver, { isLoading }] = useDeliverOrderMutation();
+  return (
+    <Dialog open onClose={onClose} size="lg" title={`Mark as delivered — ${car.customerName ?? car.orderNo}`}>
+      <HandOverForm
+        orderId={car.orderId!}
+        customerName={car.customerName}
+        submitLabel="Mark as delivered"
+        loading={isLoading}
+        onCancel={onClose}
+        onSubmit={async (request) => {
+          try {
+            await deliver({ id: car.orderId!, completeDeliveryRequest: request }).unwrap();
+            toast.success('Car delivered: the order is closed and the customer is the owner');
+            onClose();
+          } catch (e) {
+            toast.error(e);
+          }
+        }}
+      />
+    </Dialog>
+  );
+}
 
 const orderColumns = [
   { header: 'Order', render: (o: SalesOrder) => <span className="font-mono text-xs">{o.orderNo}</span> },
@@ -112,6 +180,8 @@ export function SalesDashboard() {
   const { user } = useAuth();
   const perm = usePermission();
   const layout = useLayout();
+  const phone = usePhone();
+  const [delivering, setDelivering] = useState<StockVehicle | null>(null);
   const [period, setPeriod] = useState<{ key: string; range: DateRange }>({ key: '14', range: lastDays(14) });
   const custom = period.key === 'custom';
   // Team views (Manager, Assistant Manager, Admin): every figure and list for one salesperson.
@@ -213,6 +283,34 @@ export function SalesDashboard() {
       ? { title: 'Leads converted per day', series: [SERIES_CONVERTED] }
       : { title: layout === 'sales' ? 'My leads per day' : 'Leads per day', series: [SERIES_LOGGED, SERIES_CONVERTED] };
 
+  const onDeliver = perm.can(P.deliveriesComplete) ? setDelivering : null;
+  // The Delivery Team's cars: on a phone they come first, above everything else.
+  const carPanels = layout === 'delivery' && (
+    <>
+      <Panel title="Cars allocated, on their way" subtitle="Allocated from the plant, not received yet (usually 3 to 4 days). Click one, or use Vehicle received when it arrives." to="/sales/delivery-status?range=all&stage=in_transit">
+        <RecordsTable
+          rows={incomingCars.data?.items}
+          columns={phone ? [carSummary, incomingColumns[incomingColumns.length - 1]!] : incomingColumns}
+          href={(v) => `/sales/stock/${v.id}`}
+          // A click on a row opens the car's sales order (mark it received, print its documents); a free car opens its page.
+          onRowClick={(v) => navigate(v.orderId ? `/sales/orders/${v.orderId}` : `/sales/stock/${v.id}`)}
+          loading={incomingCars.isLoading}
+          empty="No car is waiting to arrive."
+        />
+      </Panel>
+      <Panel title="Cars received, not delivered yet" subtitle="At the dealership and waiting for hand-over. A car leaves this list when it is delivered and appears under Cars delivered." to="/sales/delivery-status?range=all&stage=received">
+        <RecordsTable
+          rows={arrivedCars.data?.items}
+          columns={phone ? [carSummary, arrivedColumns(onDeliver).at(-1)!] : arrivedColumns(onDeliver)}
+          href={(v) => `/sales/stock/${v.id}`}
+          onRowClick={(v) => navigate(v.orderId ? `/sales/orders/${v.orderId}` : `/sales/stock/${v.id}`)}
+          loading={arrivedCars.isLoading}
+          empty="No received car is waiting to be delivered."
+        />
+      </Panel>
+    </>
+  );
+
   return (
     <div className="space-y-3">
       {/* Header + the one row of filters above the charts */}
@@ -264,6 +362,9 @@ export function SalesDashboard() {
         </div>
       </div>
 
+      {phone && carPanels}
+      {delivering && <DeliverCarDialog car={delivering} onClose={() => setDelivering(null)} />}
+
       {/* Today and tomorrow: customer appointments and car deliveries, first thing in the morning. */}
       <TodayPanel />
 
@@ -272,33 +373,9 @@ export function SalesDashboard() {
 
       {/* What is waiting for you (approvals, cars to hand over…), with a pop-up when something is new. */}
       <ActionNeeded />
-      {/* Every salesperson: the free PPF bay days, and a button to book one with a PPF voucher. */}
-      {layout !== 'delivery' && perm.can(P.ppfCreate) && <PpfBayPanel />}
-      {layout === 'delivery' && (
-        <Panel title="Cars allocated, on their way" subtitle="Allocated from the plant, not received yet (usually 3 to 4 days). Click one, or use Vehicle received when it arrives." to="/sales/delivery-status?range=all&stage=in_transit">
-          <RecordsTable
-            rows={incomingCars.data?.items}
-            columns={incomingColumns}
-            href={(v) => `/sales/stock/${v.id}`}
-            // A click on a row opens the car's sales order (mark it received, print its documents); a free car opens its page.
-            onRowClick={(v) => navigate(v.orderId ? `/sales/orders/${v.orderId}` : `/sales/stock/${v.id}`)}
-            loading={incomingCars.isLoading}
-            empty="No car is waiting to arrive."
-          />
-        </Panel>
-      )}
-      {layout === 'delivery' && (
-        <Panel title="Cars received, not delivered yet" subtitle="At the dealership and waiting for hand-over. A car leaves this list when it is delivered and appears under Cars delivered." to="/sales/delivery-status?range=all&stage=received">
-          <RecordsTable
-            rows={arrivedCars.data?.items}
-            columns={arrivedColumns}
-            href={(v) => `/sales/stock/${v.id}`}
-            onRowClick={(v) => navigate(v.orderId ? `/sales/orders/${v.orderId}` : `/sales/stock/${v.id}`)}
-            loading={arrivedCars.isLoading}
-            empty="No received car is waiting to be delivered."
-          />
-        </Panel>
-      )}
+      {/* The free PPF bay days, with a button to book one. Not on the salespeople's dashboard (they use PPF slots in the sidebar). */}
+      {layout !== 'delivery' && layout !== 'sales' && perm.can(P.ppfCreate) && <PpfBayPanel />}
+      {!phone && carPanels}
 
       {/* Walk-ins and calls come first; the social media leads are shown under them. */}
       {data?.social && (
